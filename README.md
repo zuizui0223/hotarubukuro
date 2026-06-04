@@ -10,8 +10,8 @@ This repository contains all code and data associated with a nationwide study of
 
 ```
 hotarubukuro/
-├── Supplementary_Code_S1.py   # GPS georeferencing: match photo timestamps to GPX track logs
-├── Supplementary_Code_S2.py   # Image processing: extract dominant petal RGB via k-means clustering
+├── Code_S1.py                 # GPS georeferencing: match photo timestamps to GPX track logs
+├── Code_S2.py                 # Image processing: extract dominant petal RGB via k-means clustering
 ├── Code_S3.R                  # Main analysis pipeline (R script)
 ├── Code_S3.Rmd                # Main analysis pipeline (R Markdown, same content as Code_S3.R)
 ├── Code_S4.R                  # Species distribution models (SDM) for five Bombus species
@@ -24,10 +24,10 @@ hotarubukuro/
 ```
 [Field data — YAMAP hiking photos + GPX logs]
         ↓
-Supplementary_Code_S1.py
+Code_S1.py
   Match photo timestamps → nearest GPS point → latitude/longitude
         ↓
-Supplementary_Code_S2.py
+Code_S2.py
   Segment petal region → k-means clustering → dominant RGB value per image
         ↓
 Data_S1.csv  (latitude, longitude, R, G, B per record)

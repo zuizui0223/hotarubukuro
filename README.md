@@ -10,13 +10,21 @@ This repository contains all code and data associated with a nationwide study of
 
 ```
 hotarubukuro/
-├── Code_S1.py                 # GPS georeferencing: match photo timestamps to GPX track logs
-├── Code_S2.py                 # Image processing: extract dominant petal RGB via k-means clustering
-├── Code_S3.R                  # Main analysis pipeline (R script)
-├── Code_S3.Rmd                # Main analysis pipeline (R Markdown, same content as Code_S3.R)
-├── Code_S4.R                  # Species distribution models (SDM) for five Bombus species
-├── Data_S1.csv                # Georeferenced flower colour dataset (latitude, longitude, R, G, B)
-└── bee5/                      # SDM output rasters (TIFF files per species)
+├── Code_S1.py       # GPS georeferencing: match photo timestamps to GPX track logs
+├── Code_S2.py       # Image processing: extract dominant petal RGB via k-means clustering
+├── Code_S3.R        # Main analysis pipeline (R script)
+├── Code_S3.Rmd      # Main analysis pipeline (R Markdown, same content as Code_S3.R)
+├── Code_S4.R        # Species distribution models (SDM) for five Bombus species
+├── Data_S1.csv      # Georeferenced flower colour dataset (latitude, longitude, R, G, B)
+├── sdm/             # SDM output rasters (one TIFF per Bombus species)
+│   ├── ardens.tif
+│   ├── beaticola.tif
+│   ├── consobrinus.tif
+│   ├── diversus.tif
+│   └── honshuensis.tif
+└── figures/         # Output figures from Code_S4.R
+    ├── Fig_Bombus_SDMs_and_Richness.pdf
+    └── Fig_Bombus_SDMs_and_SpeciesCount.pdf
 ```
 
 ## Workflow
@@ -42,7 +50,7 @@ Code_S3.R / Code_S3.Rmd  — Main analysis
         ↓
 Code_S4.R  — Pollinator context
   MaxNet SDM for Bombus ardens, beaticola, consobrinus, diversus, honshuensis
-  → Cumulative species richness map (bee5/)
+  → Cumulative species richness map (sdm/, figures/)
 ```
 
 ## Key Results
@@ -92,7 +100,7 @@ install.packages("INLA",
 
 ## Citation
 
-> Zhang [year in prep]. From hiking trails to a trait database: georeferenced phenotyping reveals hidden structure and drivers of floral color variation, illustrated in *Campanula punctata*. *New Phytologist*.
+> Zhang [year in prep]. From hiking trails to a trait database: georeferenced phenotyping reveals hidden structure and drivers of floral color variation, illustrated in *Campanula punctata*.
 
 ## License
 

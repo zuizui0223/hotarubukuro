@@ -1,81 +1,111 @@
-{\rtf1\ansi\ansicpg932\cocoartf2820
-\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
-{\colortbl;\red255\green255\blue255;}
-{\*\expandedcolortbl;;}
-\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+#!/usr/bin/env python3
+"""Match photo timestamps to the nearest point in a GPX track.
 
-\f0\fs24 \cf0 import xml.etree.ElementTree as ET\
-from datetime import datetime\
-import pytz\
-\
-# ==============================\
-# Load the GPX file\
-# ==============================\
-gpx_file_path = "/content/yamap_2023-08-20_12_06.gpx"  # \uc0\u12501 \u12449 \u12452 \u12523 \u12497 \u12473 \
-tree = ET.parse(gpx_file_path)\
-root = tree.getroot()\
-\
-# ==============================\
-# Define GPX namespace\
-# ==============================\
-ns = \{'default': 'http://www.topografix.com/GPX/1/1'\}\
-\
-# ==============================\
-# Extract all track points with time, latitude, longitude, elevation\
-# ==============================\
-track_points = []\
-\
-for trkpt in root.findall('.//default:trkpt', ns):\
-    lat = float(trkpt.get('lat'))\
-    lon = float(trkpt.get('lon'))\
-    \
-    ele_elem = trkpt.find('default:ele', ns)\
-    time_elem = trkpt.find('default:time', ns)\
-    \
-    if ele_elem is not None and time_elem is not None:\
-        ele = float(ele_elem.text)\
-        \
-        # Parse time and convert to datetime object (UTC)\
-        time = datetime.fromisoformat(time_elem.text.replace("Z", "+00:00"))\
-        \
-        track_points.append(\{\
-            'time': time,\
-            'lat': lat,\
-            'lon': lon,\
-            'ele': ele\
-        \})\
-\
-# ==============================\
-# Convert to JST (UTC+9)\
-# ==============================\
-jst = pytz.timezone('Asia/Tokyo')\
-\
-for point in track_points:\
-    point['time_jst'] = point['time'].astimezone(jst)\
-\
-# ==============================\
-# Find the point closest to 2023-08-20 15:27 JST\
-# ==============================\
-\
-# Target time in JST\
-target_time_str = "2023-08-20 15:27"\
-target_time = datetime.strptime(target_time_str, "%Y-%m-%d %H:%M")\
-\
-# Localize target time as JST\
-target_time_jst = jst.localize(target_time)\
-\
-# Find closest point\
-closest_point = min(\
-    track_points,\
-    key=lambda p: abs(p['time_jst'] - target_time_jst)\
-)\
-\
-# ==============================\
-# Output result\
-# ==============================\
-print("Closest point to target time:")\
-print(f"Time (JST): \{closest_point['time_jst']\}")\
-print(f"Latitude: \{closest_point['lat']\}")\
-print(f"Longitude: \{closest_point['lon']\}")\
-print(f"Elevation: \{closest_point['ele']\} m")}
+The script is intentionally dependency-light and uses only the Python standard
+library. GPX timestamps are interpreted from their explicit UTC offsets. Photo
+timestamps are interpreted in the timezone supplied with ``--timezone``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Iterable
+from zoneinfo import ZoneInfo
+
+
+@dataclass(frozen=True)
+class TrackPoint:
+    time: datetime
+    latitude: float
+    longitude: float
+    elevation_m: float | None
+
+
+def parse_gpx(path: Path) -> list[TrackPoint]:
+    root = ET.parse(path).getroot()
+    namespace = {"gpx": "http://www.topografix.com/GPX/1/1"}
+    points: list[TrackPoint] = []
+
+    for trkpt in root.findall(".//gpx:trkpt", namespace):
+        time_node = trkpt.find("gpx:time", namespace)
+        if time_node is None or not time_node.text:
+            continue
+        timestamp = datetime.fromisoformat(time_node.text.replace("Z", "+00:00"))
+        if timestamp.tzinfo is None:
+            raise ValueError(f"GPX timestamp lacks timezone: {time_node.text}")
+        ele_node = trkpt.find("gpx:ele", namespace)
+        elevation = float(ele_node.text) if ele_node is not None and ele_node.text else None
+        points.append(
+            TrackPoint(
+                time=timestamp,
+                latitude=float(trkpt.attrib["lat"]),
+                longitude=float(trkpt.attrib["lon"]),
+                elevation_m=elevation,
+            )
+        )
+
+    if not points:
+        raise ValueError(f"No timestamped track points found in {path}")
+    return sorted(points, key=lambda point: point.time)
+
+
+def parse_local_time(value: str, timezone: ZoneInfo) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    return parsed.replace(tzinfo=timezone) if parsed.tzinfo is None else parsed
+
+
+def nearest_track_point(points: Iterable[TrackPoint], target: datetime) -> tuple[TrackPoint, float]:
+    point = min(points, key=lambda candidate: abs((candidate.time - target).total_seconds()))
+    delta_seconds = abs((point.time - target).total_seconds())
+    return point, delta_seconds
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("gpx", type=Path, help="Input GPX file")
+    parser.add_argument("target_time", help="Photo time, e.g. 2023-08-20T15:27:00")
+    parser.add_argument("--timezone", default="Asia/Tokyo", help="Timezone for naive photo timestamps")
+    parser.add_argument("--max-gap-seconds", type=float, default=300.0)
+    parser.add_argument("--output", type=Path, help="Optional one-row CSV output")
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    timezone = ZoneInfo(args.timezone)
+    target = parse_local_time(args.target_time, timezone)
+    point, gap = nearest_track_point(parse_gpx(args.gpx), target)
+
+    if gap > args.max_gap_seconds:
+        raise SystemExit(
+            f"Nearest GPX point is {gap:.1f} s away, exceeding --max-gap-seconds={args.max_gap_seconds}"
+        )
+
+    row = {
+        "target_time": target.isoformat(),
+        "matched_time": point.time.astimezone(timezone).isoformat(),
+        "time_gap_seconds": gap,
+        "latitude": point.latitude,
+        "longitude": point.longitude,
+        "elevation_m": point.elevation_m,
+    }
+
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=row.keys())
+            writer.writeheader()
+            writer.writerow(row)
+    else:
+        for key, value in row.items():
+            print(f"{key}: {value}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

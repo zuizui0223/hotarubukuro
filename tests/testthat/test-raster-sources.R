@@ -11,6 +11,12 @@ source(file.path(raster_test_root, "R", "raster_sources.R"))
 testthat::test_that("public source registry pins official products and semantics", {
   registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
   testthat::expect_true(all(grepl("^https://", registry$url)))
+  enabled <- registry[registry$enabled, , drop = FALSE]
+  testthat::expect_equal(nrow(enabled), 19L)
+  testthat::expect_true(all(grepl(
+    "^[0-9a-f]{64}$",
+    enabled$expected_sha256
+  )))
 
   chelsa <- registry[registry$provider == "CHELSA", , drop = FALSE]
   testthat::expect_true(nrow(chelsa) >= 10L)
@@ -38,8 +44,13 @@ testthat::test_that("public source registry pins official products and semantics
     sub("soilgrids_([^_]+).*", "\\1", soil$source_id),
     c("bdod", "cfvo", "sand", "silt", "nitrogen", "ocd", "soc", "phh2o")
   )
-  testthat::expect_true(all(soil$access == "vrt"))
-  testthat::expect_true(all(grepl("^https://files\\.isric\\.org/soilgrids/latest/data/", soil$url)))
+  testthat::expect_true(all(soil$access == "wcs"))
+  testthat::expect_true(all(soil$dataset_version == "2.0"))
+  testthat::expect_true(all(grepl("^https://maps\\.isric\\.org/mapserv\\?map=/map/", soil$url)))
+  testthat::expect_true(all(grepl("_0-5cm_mean$", soil$coverage_id)))
+  testthat::expect_true(all(soil$native_crs == "ESRI:54052"))
+  testthat::expect_true(all(soil$wcs_width == 11000L))
+  testthat::expect_true(all(soil$wcs_height == 5400L))
   testthat::expect_true(all(soil$resample_method == "average"))
 
   worldpop <- registry[registry$provider == "WorldPop" & registry$enabled, , drop = FALSE]
@@ -54,6 +65,50 @@ testthat::test_that("public source registry pins official products and semantics
   worldcover <- registry[registry$source_id == "worldcover_2021", , drop = FALSE]
   testthat::expect_false(worldcover$enabled)
   testthat::expect_equal(worldcover$resample_method, "near")
+})
+
+testthat::test_that("shared cache names require identical acquisition identity", {
+  registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
+  altered <- registry
+  altered$url[altered$source_id == "worldpop_2020_density"] <-
+    "https://example.test/different-worldpop.tif"
+  testthat::expect_error(
+    validate_raster_sources(altered),
+    "identical acquisition identity"
+  )
+})
+
+testthat::test_that("offline materialization never falls through to a download", {
+  registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
+  source_row <- registry[registry$source_id == "worldpop_2020_count", , drop = FALSE]
+  source_row$expected_sha256 <- NA_character_
+  source_row$cache_name <- "empty-cache.tif"
+  cache_dir <- tempfile("offline-cache-")
+  dir.create(cache_dir)
+  file.create(file.path(cache_dir, source_row$cache_name))
+  testthat::expect_error(
+    materialize_source(
+      source_row,
+      cache_dir,
+      c(xmin = 0, xmax = 1, ymin = 0, ymax = 1),
+      allow_download = FALSE
+    ),
+    "Offline mode"
+  )
+})
+
+testthat::test_that("SoilGrids WCS requests avoid server-side averaging", {
+  registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
+  source <- registry[registry$source_id == "soilgrids_bdod_0_5cm", , drop = FALSE]
+  request <- soilgrids_wcs_request(
+    source,
+    c(xmin = 128, xmax = 143, ymin = 30, ymax = 42)
+  )
+  testthat::expect_match(request, "COVERAGEID=bdod_0-5cm_mean", fixed = TRUE)
+  testthat::expect_match(request, "SCALESIZE=x(11000),y(5400)", fixed = TRUE)
+  testthat::expect_match(request, "INTERPOLATION=NEAREST", fixed = TRUE)
+  testthat::expect_match(request, "SUBSET=x(", fixed = TRUE)
+  testthat::expect_match(request, "SUBSET=y(", fixed = TRUE)
 })
 
 testthat::test_that("canonical grid is globally anchored at exact 30 arc-seconds", {
@@ -86,6 +141,30 @@ testthat::test_that("continuous and categorical rasters use type-safe methods", 
   testthat::expect_true(all(stats::na.omit(terra::values(nearest)) %in% c(10, 20, 30, 40)))
 })
 
+testthat::test_that("a common native SoilGrids mask prevents ocean-zero dilution", {
+  source <- terra::rast(
+    xmin = 0, xmax = 4, ymin = 0, ymax = 2,
+    ncol = 4, nrow = 2, crs = "EPSG:4326",
+    vals = c(0, 100, 100, 100, 0, 100, 100, 100)
+  )
+  bdod_mask <- source
+  terra::values(bdod_mask) <- c(0, 120, 120, 120, 0, 120, 120, 120)
+  target <- terra::rast(
+    xmin = 0, xmax = 4, ymin = 0, ymax = 2,
+    ncol = 2, nrow = 1, crs = "EPSG:4326"
+  )
+  contaminated <- align_public_raster(source, target, method = "average")
+  protected <- align_public_raster(
+    source,
+    target,
+    method = "average",
+    validity_mask = bdod_mask
+  )
+  testthat::expect_equal(unname(terra::values(contaminated)[1, 1]), 50)
+  testthat::expect_equal(unname(terra::values(protected)[1, 1]), 100)
+  testthat::expect_equal(unname(terra::values(protected)[2, 1]), 100)
+})
+
 testthat::test_that("WorldPop count aggregation preserves totals before density conversion", {
   source <- terra::rast(xmin = 0, xmax = 2, ymin = 0, ymax = 2, ncol = 4, nrow = 4,
                         crs = "EPSG:4326", vals = rep(1, 16))
@@ -114,6 +193,7 @@ testthat::test_that("SoilGrids integer encodings have explicit conversion factor
 testthat::test_that("prepared raster manifest records source and output hashes", {
   registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
   source_row <- registry[registry$source_id == "worldpop_2020_count", , drop = FALSE]
+  source_row$expected_sha256 <- NA_character_
   source_row$cache_name <- "synthetic_worldpop.tif"
   source_row$output_name <- "synthetic_worldpop_30s.tif"
   cache_dir <- tempfile("raster-cache-")
@@ -144,6 +224,7 @@ testthat::test_that("prepared raster manifest records source and output hashes",
 testthat::test_that("processed settings fingerprints detect stale rasters and rebuild safely", {
   registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
   source_row <- registry[registry$source_id == "worldpop_2020_count", , drop = FALSE]
+  source_row$expected_sha256 <- NA_character_
   source_row$cache_name <- "stale-source.tif"
   source_row$output_name <- "stale-output.tif"
   cache_dir <- tempfile("raster-cache-")
@@ -162,6 +243,14 @@ testthat::test_that("processed settings fingerprints detect stale rasters and re
     first$processed_path, first$processing_fingerprint
   )$stale)
   testthat::expect_true(file.exists(processing_fingerprint_path(first$processed_path)))
+  testthat::expect_true(file.exists(processed_checksum_path(first$processed_path)))
+
+  writeLines("0", first$processed_path)
+  testthat::expect_true(processed_raster_status(
+    first$processed_path, first$processing_fingerprint
+  )$stale)
+  first <- prepare_source(source_row, cache_dir, processed_dir, template,
+                          bbox = c(xmin = 0, xmax = 2, ymin = 0, ymax = 2))
 
   changed <- source_row
   changed$scale_factor <- 2

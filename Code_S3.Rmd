@@ -27,8 +27,7 @@ find_root <- function(start = getwd()) {
 }
 
 project_root <- find_root()
-source(file.path(project_root, "R", "analysis_core.R"))
-source(file.path(project_root, "R", "sdm.R"))
+source(file.path(project_root, "scripts", "run_analysis.R"), local = environment())
 
 resolve_report_path <- function(path) {
   path <- path.expand(as.character(path)[1L])
@@ -41,6 +40,9 @@ resolve_report_path <- function(path) {
 This report validates and prepares the repository's standard input. The unit of
 analysis is a photograph by default. Exact duplicate coordinates are reported,
 but never silently collapsed. Site-level analysis requires an explicit site ID.
+It is a lightweight preparation report; the canonical multi-method analysis
+with the complete public raster stack, common cohorts, blocked validation, and
+run manifests is `scripts/run_reanalysis.R`.
 
 The colour response below is an image-colour axis, not a direct measurement of
 pigment concentration. `Bombus_suitability_sum` is the sum of five continuous
@@ -50,40 +52,35 @@ SDM predictions, not observed species richness.
 
 ```{r input}
 input_path <- resolve_report_path(params$input)
-raw_colour_data <- read_colour_data(input_path, allow_missing_rgb = TRUE)
-input_grain_audit <- audit_analysis_grain(raw_colour_data)
-accepted_qc_status <- trimws(strsplit(
-  params$accepted_qc_status,
-  ",",
-  fixed = TRUE
-)[[1L]])
-qc_filter <- filter_analysis_qc(
-  raw_colour_data,
-  accepted_status = accepted_qc_status
+report_output_dir <- tempfile("code-s3-")
+dir.create(report_output_dir)
+analysis_args <- c(
+  "--input", input_path,
+  "--sdm-dir", resolve_report_path(params$sdm_dir),
+  "--accepted-qc-status", params$accepted_qc_status,
+  "--colour-method", params$colour_method,
+  "--grain", params$grain,
+  "--output", file.path(report_output_dir, "prepared.csv"),
+  "--loadings-output", file.path(report_output_dir, "loadings.csv")
 )
-colour_data <- qc_filter$data
-if (!nrow(colour_data)) stop("No records remain after colour QC filtering.")
-if (!qc_filter$status_available) {
-  message("qc_status is unavailable in this legacy input; all records were retained.")
+if (identical(params$grain, "site")) {
+  if (is.null(params$site_id) || !nzchar(params$site_id)) {
+    stop("The site grain requires params$site_id.")
+  }
+  analysis_args <- c(analysis_args, "--site-id", params$site_id)
 }
-identity_filter <- filter_photo_coordinate_conflicts(colour_data)
-colour_data <- identity_filter$data
-if (!nrow(colour_data)) {
-  stop("No records remain after photo-coordinate conflict filtering.")
-}
-colour_selection <- select_analysis_colour_method(
-  colour_data,
-  method = params$colour_method
+analysis_result <- run_analysis_cli(
+  analysis_args,
+  project_root = project_root
 )
-colour_data <- colour_selection$data
-if (!nrow(colour_data)) stop("No records remain after colour-method selection.")
-grain_audit <- audit_analysis_grain(colour_data)
+analysis_data <- analysis_result$data
+colour_pca <- analysis_result$colour_pca
 list(
-  input_grain_audit_before_qc = input_grain_audit,
-  colour_qc_audit = qc_filter$audit,
-  photo_coordinate_identity_audit = identity_filter$audit,
-  colour_method_audit = colour_selection$audit,
-  analysis_grain_audit_after_qc = grain_audit
+  input_grain_audit_before_qc = analysis_result$input_grain_audit,
+  colour_qc_audit = analysis_result$qc_audit,
+  photo_coordinate_identity_audit = analysis_result$photo_coordinate_audit,
+  colour_method_audit = analysis_result$colour_method_audit,
+  analysis_grain_audit_after_qc = analysis_result$grain_audit
 )
 ```
 
@@ -111,32 +108,6 @@ RGB values are required to use the 0--255 sRGB scale. Missing colours remain in
 the table as missing values; partially missing RGB triples are rejected.
 
 ```{r colour}
-colour_data <- add_colour_features(colour_data)
-site_value_columns <- intersect(
-  c(
-    "R", "G", "B", "L", "a", "b", "C", "darkness",
-    "primary_R", "primary_G", "primary_B"
-  ),
-  names(colour_data)
-)
-analysis_data <- prepare_analysis_grain(
-  colour_data,
-  grain = params$grain,
-  site_id_col = params$site_id,
-  value_cols = if (identical(params$grain, "site")) {
-    site_value_columns
-  } else {
-    character()
-  }
-)
-colour_pca <- fit_oriented_pca(
-  analysis_data,
-  variables = c("L", "a", "b"),
-  anchor = "a",
-  anchor_direction = 1
-)
-analysis_data$colour_PC1 <- colour_pca$scores
-
 data.frame(
   variable = names(colour_pca$loadings),
   PC1_loading = unname(colour_pca$loadings),
@@ -154,32 +125,13 @@ that its loading on a* is positive, preventing an arbitrary sign reversal.
 
 ```{r bombus}
 species <- bombus_species_columns()
-sdm_dir <- resolve_report_path(params$sdm_dir)
-sdm_validation <- validate_sdm_collection(sdm_dir)
-if (!isTRUE(sdm_validation$structural_ok)) {
-  stop(
-    "SDM structural validation failed: ",
-    paste(sdm_validation$issues, collapse = "; ")
-  )
-}
+sdm_validation <- analysis_result$sdm_validation
 if (!isTRUE(sdm_validation$model_reproducible)) {
   message(
     "SDM structure is valid, but model-generation provenance is ",
     "legacy_unverifiable."
   )
 }
-
-bombus_values <- extract_sdm_by_record_id(
-  analysis_data,
-  sdm_dir,
-  id_col = "analysis_id"
-)
-analysis_data <- attach_raster_values(
-  analysis_data,
-  bombus_values,
-  id_col = "analysis_id"
-)
-analysis_data <- add_bombus_suitability_sum(analysis_data, require_all = TRUE)
 
 data.frame(
   records = nrow(analysis_data),
@@ -196,12 +148,6 @@ shift values onto another photograph.
 ## Explicit analysis grain
 
 ```{r grain}
-analysis_data$analysis_colour_method <- colour_selection$method
-analysis_data$analysis_colour_source_columns <- paste(
-  colour_selection$source_columns,
-  collapse = ";"
-)
-
 data.frame(grain = params$grain, analysis_rows = nrow(analysis_data))
 ```
 

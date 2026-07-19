@@ -45,6 +45,8 @@ project_root_default <- if (!is.na(analysis_script)) {
 
 source(file.path(project_root_default, "R", "analysis_core.R"), local = TRUE)
 source(file.path(project_root_default, "R", "sdm.R"), local = TRUE)
+source(file.path(project_root_default, "R", "raster_sources.R"), local = TRUE)
+source(file.path(project_root_default, "R", "public_predictors.R"), local = TRUE)
 
 analysis_usage <- function() {
   paste(
@@ -55,10 +57,12 @@ analysis_usage <- function() {
     "  --input PATH              Standard colour CSV (default: Data_S1.csv)",
     "  --sdm-dir PATH            Directory containing the five SDM TIFFs (default: sdm)",
     "  --no-sdm                  Skip SDM extraction",
+    "  --public-raster-manifest PATH  Validate and extract the complete prepared public stack",
+    "  --raster-registry PATH    Expected public sources (default: config/raster_sources.csv)",
     "  --output PATH             Prepared analysis CSV (default: results/analysis_input_photo.csv)",
     "  --loadings-output PATH    Colour PCA loadings CSV (default: results/colour_pca_loadings.csv)",
     "  --accepted-qc-status TEXT Comma-separated statuses (default: ok,manual_review_required)",
-    "  --colour-method METHOD    primary (default), hsv_peak, hsv_exposure_filtered_peak, or alpha_peak",
+    "  --colour-method METHOD    primary (default), mean, legacy, hsv_peak, hsv_exposure_filtered_peak, or alpha_peak",
     "  --grain photo|site        Analysis grain (default: photo)",
     "  --site-id COLUMN          Required explicit site ID when --grain site",
     "  --run-heavy               Refuse with an explanation; heavy models are not approved",
@@ -72,6 +76,8 @@ parse_analysis_args <- function(args, project_root) {
     input = file.path(project_root, "Data_S1.csv"),
     sdm_dir = file.path(project_root, "sdm"),
     use_sdm = TRUE,
+    public_raster_manifest = NULL,
+    raster_registry = file.path(project_root, "config", "raster_sources.csv"),
     output = file.path(project_root, "results", "analysis_input_photo.csv"),
     loadings_output = file.path(project_root, "results", "colour_pca_loadings.csv"),
     accepted_qc_status = "ok,manual_review_required",
@@ -85,6 +91,9 @@ parse_analysis_args <- function(args, project_root) {
   value_options <- c(
     "--input" = "input",
     "--sdm-dir" = "sdm_dir",
+    "--public-raster-manifest" = "public_raster_manifest",
+    "--env-manifest" = "public_raster_manifest",
+    "--raster-registry" = "raster_registry",
     "--output" = "output",
     "--loadings-output" = "loadings_output",
     "--accepted-qc-status" = "accepted_qc_status",
@@ -172,7 +181,10 @@ validate_analysis_output_paths <- function(input, output, loadings_output) {
 }
 
 run_analysis_cli <- function(args = commandArgs(trailingOnly = TRUE),
-                             project_root = project_root_default) {
+                             project_root = project_root_default,
+                             public_raster_cache = NULL,
+                             sdm_raster_cache = NULL,
+                             input_data_cache = NULL) {
   project_root <- normalizePath(project_root, winslash = "/", mustWork = TRUE)
   options <- parse_analysis_args(args, project_root)
   if (options$help) {
@@ -196,7 +208,14 @@ run_analysis_cli <- function(args = commandArgs(trailingOnly = TRUE),
     options$loadings_output
   )
 
-  data <- read_colour_data(options$input, allow_missing_rgb = TRUE)
+  data <- if (is.null(input_data_cache)) {
+    read_colour_data(options$input, allow_missing_rgb = TRUE)
+  } else {
+    if (!is.data.frame(input_data_cache)) {
+      stop("input_data_cache must be a validated data frame.", call. = FALSE)
+    }
+    input_data_cache
+  }
   input_grain_audit <- audit_analysis_grain(data)
   accepted_qc_status <- trimws(strsplit(
     options$accepted_qc_status,
@@ -273,7 +292,11 @@ run_analysis_cli <- function(args = commandArgs(trailingOnly = TRUE),
 
   sdm_validation <- NULL
   if (options$use_sdm) {
-    sdm_validation <- validate_sdm_collection(options$sdm_dir)
+    sdm_validation <- if (is.null(sdm_raster_cache)) {
+      validate_sdm_collection(options$sdm_dir)
+    } else {
+      sdm_raster_cache
+    }
     if (!isTRUE(sdm_validation$structural_ok)) {
       stop(
         "SDM structural validation failed: ",
@@ -287,11 +310,24 @@ run_analysis_cli <- function(args = commandArgs(trailingOnly = TRUE),
         "provenance is legacy_unverifiable."
       )
     }
-    extracted <- extract_sdm_by_record_id(
-      analysis_data,
-      options$sdm_dir,
-      id_col = "analysis_id"
-    )
+    extracted <- if (!is.null(sdm_raster_cache)) {
+      if (is.null(sdm_validation$stack) ||
+          !inherits(sdm_validation$stack, "SpatRaster") ||
+          !identical(names(sdm_validation$stack), expected_bombus_species())) {
+        stop("Invalid prevalidated SDM raster cache.", call. = FALSE)
+      }
+      extract_raster_values(
+        analysis_data,
+        sdm_validation$stack,
+        id_col = "analysis_id"
+      )
+    } else {
+      extract_sdm_by_record_id(
+        analysis_data,
+        options$sdm_dir,
+        id_col = "analysis_id"
+      )
+    }
     analysis_data <- attach_raster_values(
       analysis_data,
       extracted,
@@ -300,6 +336,50 @@ run_analysis_cli <- function(args = commandArgs(trailingOnly = TRUE),
     analysis_data <- add_bombus_suitability_sum(
       analysis_data,
       require_all = TRUE
+    )
+  }
+
+  public_raster_validation <- NULL
+  if (!is.null(options$public_raster_manifest)) {
+    registry <- read_raster_sources(options$raster_registry)
+    expected_source_ids <- registry$source_id[registry$enabled]
+    if (is.null(public_raster_cache)) {
+      public_result <- extract_public_predictors_by_record_id(
+        analysis_data,
+        manifest_path = options$public_raster_manifest,
+        project_root = project_root,
+        expected_source_ids = expected_source_ids,
+        registry = registry,
+        id_col = "analysis_id"
+      )
+    } else {
+      if (!is.list(public_raster_cache) ||
+          is.null(public_raster_cache$manifest) ||
+          is.null(public_raster_cache$stack) ||
+          !identical(
+            as.character(public_raster_cache$manifest$source_id),
+            as.character(expected_source_ids)
+          )) {
+        stop("Invalid or incomplete prevalidated public raster cache.", call. = FALSE)
+      }
+      public_result <- list(
+        values = extract_raster_values(
+          analysis_data,
+          public_raster_cache$stack,
+          id_col = "analysis_id"
+        ),
+        validation = public_raster_cache
+      )
+    }
+    analysis_data <- attach_raster_values(
+      analysis_data,
+      public_result$values,
+      id_col = "analysis_id"
+    )
+    public_raster_validation <- public_result$validation
+    message(
+      "Public predictors attached by analysis_id: ",
+      length(expected_source_ids), " layer(s)."
     )
   }
 
@@ -341,6 +421,12 @@ run_analysis_cli <- function(args = commandArgs(trailingOnly = TRUE),
       "| missing:", sum(!is.finite(analysis_data$Bombus_suitability_sum)), "\n"
     )
   }
+  if (!is.null(public_raster_validation)) {
+    cat(
+      "Public predictor layers:",
+      nrow(public_raster_validation$manifest), "| aligned: true\n"
+    )
+  }
   cat("Prepared data:", normalizePath(options$output, winslash = "/", mustWork = TRUE), "\n")
   cat("PCA loadings:", normalizePath(options$loadings_output, winslash = "/", mustWork = TRUE), "\n")
   message(
@@ -357,7 +443,8 @@ run_analysis_cli <- function(args = commandArgs(trailingOnly = TRUE),
     excluded_photo_coordinate_conflicts = identity_filter$excluded,
     colour_method_audit = colour_selection$audit,
     excluded_colour_method = colour_selection$excluded,
-    sdm_validation = sdm_validation
+    sdm_validation = sdm_validation,
+    public_raster_validation = public_raster_validation
   ))
 }
 

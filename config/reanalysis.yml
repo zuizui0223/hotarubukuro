@@ -1,0 +1,69 @@
+version: 1
+analysis_version: public-reanalysis-v1
+
+colour_methods:
+  - primary
+  - mean
+  - legacy
+  - hsv_peak
+  - hsv_exposure_filtered_peak
+  - alpha_peak
+
+qc_scenarios:
+  inclusive:
+    - ok
+    - manual_review_required
+  strict_ok:
+    - ok
+
+outcomes:
+  - a
+  - L
+  - b
+
+primary_outcome: a
+secondary_composite: primary_reference_PC1
+
+candidate_environment_predictors:
+  - chelsa_bio10
+  - chelsa_bio12
+  - chelsa_cmimean
+  - chelsa_vpdmean
+  - soilgrids_bdod_0_5cm
+  - soilgrids_nitrogen_0_5cm
+  - soilgrids_phh2o_0_5cm
+  - worldclim_elevation_30s
+  - log_worldpop_2020_density
+
+environment_predictors:
+  - chelsa_bio10
+  - chelsa_bio12
+  - soilgrids_bdod_0_5cm
+  - soilgrids_nitrogen_0_5cm
+  - soilgrids_phh2o_0_5cm
+  - log_worldpop_2020_density
+
+excluded_candidate_predictors:
+  chelsa_cmimean: annual precipitation proxy duplicated by chelsa_bio12 in the observed domain
+  chelsa_vpdmean: atmospheric dryness proxy strongly collinear with chelsa_bio10 in the observed domain
+  worldclim_elevation_30s: topographic proxy strongly collinear with chelsa_bio10 in the observed domain
+
+bombus_predictor: Bombus_suitability_sum
+population_density_source: worldpop_2020_density
+
+model_variants:
+  environment_only_full: true
+  environment_only_bombus_common: true
+  environment_plus_bombus: true
+
+spatial_block_cv:
+  method: principal_axis_equal_site_bands
+  folds: 5
+
+interpretation:
+  colour: camera-rendered apparent corolla colour
+  a: display-referred CIELAB red-green coordinate; not pigment concentration
+  L: display-referred lightness and exposure diagnostic
+  b: display-referred yellow-blue coordinate and illumination diagnostic
+  bombus: sum of five continuous legacy SDM suitability predictions; not richness
+  model: descriptive association model; coefficients and blocked prediction do not establish causality

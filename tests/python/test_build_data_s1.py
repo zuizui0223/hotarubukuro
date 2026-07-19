@@ -116,7 +116,14 @@ def test_cli_writes_sanitized_data_manifest_and_comparison(tmp_path: Path):
         "unique": 1,
         "yamap_activity": 1,
     }
-    assert len(list(csv.DictReader(comparison.open(newline="", encoding="utf-8")))) == 5
+    with comparison.open(newline="", encoding="utf-8") as handle:
+        comparison_data = list(csv.DictReader(handle))
+    assert len(comparison_data) == 5
+    assert {row["metric"] for row in comparison_data} == {"DeltaE76"}
+    assert all(
+        key in comparison_data[0]
+        for key in ("delta_L_mean", "delta_a_mean", "delta_b_mean")
+    )
 
     with pytest.raises(FileExistsError, match="Refusing to overwrite"):
         main(

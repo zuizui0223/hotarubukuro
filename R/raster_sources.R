@@ -36,7 +36,10 @@ read_raster_sources <- function(path = "config/raster_sources.csv") {
     na.strings = c("", "NA")
   )
   sources$enabled <- as_flag(sources$enabled, "enabled")
-  numeric_columns <- intersect(c("scale_factor", "native_resolution_arcsec"), names(sources))
+  numeric_columns <- intersect(
+    c("scale_factor", "native_resolution_arcsec", "wcs_width", "wcs_height"),
+    names(sources)
+  )
   sources[numeric_columns] <- lapply(sources[numeric_columns], as.numeric)
   validate_raster_sources(sources)
   sources
@@ -48,7 +51,7 @@ validate_raster_sources <- function(sources) {
     "archive_member", "cache_name", "output_name", "data_class",
     "value_semantics", "resample_method", "postprocess", "scale_factor",
     "unit", "native_resolution_arcsec", "native_crs", "expected_sha256",
-    "license", "source_page"
+    "license", "source_page", "coverage_id", "wcs_width", "wcs_height"
   )
   missing <- setdiff(required, names(sources))
   if (length(missing)) {
@@ -63,7 +66,7 @@ validate_raster_sources <- function(sources) {
     stop("Enabled output_name values must be unique.", call. = FALSE)
   }
 
-  allowed_access <- c("direct", "zip", "cog", "vrt", "catalog")
+  allowed_access <- c("direct", "zip", "cog", "vrt", "wcs", "catalog")
   allowed_classes <- c("continuous", "categorical", "count")
   allowed_methods <- c("bilinear", "near", "average", "mode", "sum")
   allowed_postprocess <- c("none", "count_to_density_km2")
@@ -91,8 +94,40 @@ validate_raster_sources <- function(sources) {
           (is.na(sources$archive_member) | !nzchar(sources$archive_member)))) {
     stop("Enabled zip sources require archive_member.", call. = FALSE)
   }
+  wcs <- active & sources$access == "wcs"
+  if (any(wcs & (
+      is.na(sources$coverage_id) | !nzchar(sources$coverage_id) |
+      !is.finite(sources$wcs_width) | sources$wcs_width < 1 |
+      !is.finite(sources$wcs_height) | sources$wcs_height < 1 |
+      is.na(sources$native_crs) | !nzchar(sources$native_crs)
+  ))) {
+    stop("Enabled WCS sources require coverage_id, dimensions and native_crs.", call. = FALSE)
+  }
   if (any(active & (is.na(sources$cache_name) | !nzchar(sources$cache_name)))) {
     stop("Enabled sources require cache_name.", call. = FALSE)
+  }
+  duplicated_cache_names <- unique(sources$cache_name[
+    active & (duplicated(sources$cache_name) | duplicated(sources$cache_name, fromLast = TRUE))
+  ])
+  acquisition_identity_fields <- c(
+    "access", "url", "archive_member", "coverage_id", "wcs_width",
+    "wcs_height", "native_crs", "expected_sha256"
+  )
+  for (cache_name in duplicated_cache_names) {
+    rows <- sources[active & sources$cache_name == cache_name, , drop = FALSE]
+    identity <- vapply(acquisition_identity_fields, function(field) {
+      value <- as.character(rows[[field]])
+      value[is.na(value)] <- "<NA>"
+      length(unique(value)) == 1L
+    }, logical(1))
+    if (any(!identity)) {
+      stop(
+        "Enabled sources sharing cache_name must have identical acquisition identity: ",
+        cache_name, " differs in ",
+        paste(acquisition_identity_fields[!identity], collapse = ", "),
+        call. = FALSE
+      )
+    }
   }
   if (any(active & (is.na(sources$output_name) | !grepl("\\.tif$", sources$output_name)))) {
     stop("Enabled output_name values must end in .tif.", call. = FALSE)
@@ -191,42 +226,66 @@ verify_expected_hash <- function(path, expected_sha256 = NA_character_) {
 }
 
 gdal_vsicurl <- function(url) {
-  if (grepl("\\.vrt($|[?])", url, ignore.case = TRUE)) {
-    # SoilGrids VRTs reference many sibling tiles; disabling directory scans is
-    # essential and follows the official ISRIC WebDAV/GDAL example.
-    paste0("/vsicurl?max_retry=3&retry_delay=1&list_dir=no&url=", url)
-  } else {
-    paste0("/vsicurl/", url)
-  }
+  # Directory scans are unnecessary for explicit COG/VRT assets and can be
+  # extremely expensive. GDAL-level retries cover transient range-request
+  # failures while the final local cache is still promoted atomically.
+  paste0("/vsicurl?max_retry=3&retry_delay=1&list_dir=no&url=", url)
 }
 
 download_with_retries <- function(url, destination, retries = 3L,
                                   timeout_seconds = 1800, quiet = FALSE) {
   dir.create(dirname(destination), recursive = TRUE, showWarnings = FALSE)
   temporary <- paste0(destination, ".part")
-  on.exit(unlink(temporary), add = TRUE)
-  old_timeout <- getOption("timeout")
-  on.exit(options(timeout = old_timeout), add = TRUE)
-  options(timeout = max(as.numeric(timeout_seconds), old_timeout %||% 60))
-
-  error <- NULL
+  curl <- Sys.which("curl")
+  if (!nzchar(curl)) {
+    stop(
+      "A curl executable is required for resumable public-data downloads.",
+      call. = FALSE
+    )
+  }
+  status <- NA_integer_
   for (attempt in seq_len(as.integer(retries))) {
-    unlink(temporary)
-    error <- tryCatch({
-      utils::download.file(url, temporary, mode = "wb", quiet = quiet, method = "libcurl")
-      NULL
-    }, error = identity)
-    if (is.null(error) && file.exists(temporary) && file.info(temporary)$size > 0) break
+    bytes_before <- if (file.exists(temporary)) unname(file.info(temporary)$size) else 0
+    if (!quiet) {
+      message(
+        "Download attempt ", attempt, "/", as.integer(retries),
+        " (resuming at ", bytes_before, " bytes): ", url
+      )
+    }
+    arguments <- c(
+      "--fail", "--location", "--continue-at", "-",
+      "--connect-timeout", "60",
+      "--max-time", as.character(as.integer(timeout_seconds)),
+      if (quiet) c("--silent", "--show-error") else "--progress-bar",
+      "--output", shQuote(temporary),
+      shQuote(url)
+    )
+    status <- suppressWarnings(system2(curl, arguments))
+    if (identical(status, 0L) && file.exists(temporary) &&
+        file.info(temporary)$size > 0) break
+    bytes_after <- if (file.exists(temporary)) unname(file.info(temporary)$size) else 0
+    if (!quiet) {
+      message(
+        "Download attempt ", attempt, " ended with curl status ", status,
+        " at ", bytes_after, " bytes; the partial file is retained."
+      )
+    }
     if (attempt < retries) Sys.sleep(min(2 ^ (attempt - 1L), 8))
   }
-  if (!is.null(error) || !file.exists(temporary) || file.info(temporary)$size <= 0) {
-    detail <- if (inherits(error, "condition")) conditionMessage(error) else "empty or missing response"
-    stop("Download failed for ", url, ": ", detail, call. = FALSE)
+  if (!identical(status, 0L) || !file.exists(temporary) ||
+      file.info(temporary)$size <= 0) {
+    bytes <- if (file.exists(temporary)) unname(file.info(temporary)$size) else 0
+    stop(
+      "Download failed for ", url, " with curl status ", status,
+      " after retaining ", bytes, " resumable bytes at ", temporary, ".",
+      call. = FALSE
+    )
   }
   if (!file.rename(temporary, destination)) {
     if (!file.copy(temporary, destination, overwrite = TRUE)) {
       stop("Could not move download into cache: ", destination, call. = FALSE)
     }
+    unlink(temporary)
   }
   destination
 }
@@ -278,18 +337,116 @@ cache_remote_subset <- function(url, destination, bbox) {
   destination
 }
 
+soilgrids_wcs_request <- function(source, bbox) {
+  if (nrow(source) != 1L || source$access[[1L]] != "wcs") {
+    stop("soilgrids_wcs_request expects one WCS registry row.", call. = FALSE)
+  }
+  require_namespace("terra")
+  bbox <- stats::setNames(as.numeric(bbox), c("xmin", "xmax", "ymin", "ymax"))
+  roi <- terra::as.polygons(
+    terra::ext(bbox[["xmin"]], bbox[["xmax"]], bbox[["ymin"]], bbox[["ymax"]]),
+    crs = "EPSG:4326"
+  )
+  roi <- terra::project(roi, source$native_crs[[1L]])
+  projected <- as.vector(terra::ext(roi))
+  paste0(
+    source$url[[1L]],
+    "&SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage",
+    "&COVERAGEID=", utils::URLencode(source$coverage_id[[1L]], reserved = TRUE),
+    "&FORMAT=GEOTIFF_INT16",
+    "&SUBSET=x(", format(projected[[1L]], scientific = FALSE, digits = 17L),
+    ",", format(projected[[2L]], scientific = FALSE, digits = 17L), ")",
+    "&SUBSET=y(", format(projected[[3L]], scientific = FALSE, digits = 17L),
+    ",", format(projected[[4L]], scientific = FALSE, digits = 17L), ")",
+    "&SCALESIZE=x(", as.integer(source$wcs_width[[1L]]),
+    "),y(", as.integer(source$wcs_height[[1L]]), ")",
+    "&INTERPOLATION=NEAREST"
+  )
+}
+
+cache_wcs_subset <- function(source, destination, bbox, retries = 3L,
+                             timeout_seconds = 1800, quiet = FALSE) {
+  require_namespace("terra")
+  request <- soilgrids_wcs_request(source, bbox)
+  dir.create(dirname(destination), recursive = TRUE, showWarnings = FALSE)
+  temporary <- paste0(destination, ".part.tif")
+  on.exit(unlink(temporary), add = TRUE)
+  old_environment <- Sys.getenv(
+    c("GDAL_HTTP_TIMEOUT", "GDAL_HTTP_MAX_RETRY"),
+    unset = NA_character_
+  )
+  on.exit({
+    for (name in names(old_environment)) {
+      if (is.na(old_environment[[name]])) {
+        Sys.unsetenv(name)
+      } else {
+        do.call(Sys.setenv, setNames(list(old_environment[[name]]), name))
+      }
+    }
+  }, add = TRUE)
+  Sys.setenv(
+    GDAL_HTTP_TIMEOUT = as.character(as.integer(timeout_seconds)),
+    GDAL_HTTP_MAX_RETRY = as.character(as.integer(retries))
+  )
+  last_error <- NULL
+  for (attempt in seq_len(as.integer(retries))) {
+    unlink(temporary)
+    last_error <- tryCatch({
+      raster <- terra::rast(request)
+      if (terra::nlyr(raster) != 1L) {
+        stop("Expected one WCS raster layer for ", source$source_id[[1L]])
+      }
+      if (!nzchar(terra::crs(raster))) {
+        terra::crs(raster) <- source$native_crs[[1L]]
+      }
+      if (!terra::same.crs(raster, source$native_crs[[1L]])) {
+        stop("WCS response CRS differs from the declared native CRS.")
+      }
+      terra::writeRaster(
+        raster,
+        temporary,
+        overwrite = TRUE,
+        gdal = c("TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2")
+      )
+      NULL
+    }, error = identity)
+    if (is.null(last_error) && file.exists(temporary) &&
+        file.info(temporary)$size > 0) break
+    if (!quiet) message("WCS attempt ", attempt, " failed for ", source$source_id[[1L]])
+    if (attempt < retries) Sys.sleep(min(2 ^ (attempt - 1L), 8))
+  }
+  if (!is.null(last_error) || !file.exists(temporary) ||
+      file.info(temporary)$size <= 0) {
+    detail <- if (inherits(last_error, "condition")) {
+      conditionMessage(last_error)
+    } else {
+      "empty or missing response"
+    }
+    stop("WCS download failed for ", source$source_id[[1L]], ": ", detail, call. = FALSE)
+  }
+  move_file_atomic(temporary, destination, "WCS cache raster")
+  destination
+}
+
 source_cache_path <- function(source, cache_dir) {
   file.path(cache_dir, as.character(source$cache_name[[1]]))
 }
 
 materialize_source <- function(source, cache_dir, bbox, force = FALSE,
                                retries = 3L, timeout_seconds = 1800,
-                               quiet = FALSE) {
+                               quiet = FALSE, allow_download = TRUE) {
   if (nrow(source) != 1L) stop("materialize_source expects one registry row.", call. = FALSE)
   destination <- source_cache_path(source, cache_dir)
   if (file.exists(destination) && file.info(destination)$size > 0 && !force) {
     verify_expected_hash(destination, source$expected_sha256[[1]])
     return(normalizePath(destination, winslash = "/", mustWork = TRUE))
+  }
+  if (!isTRUE(allow_download)) {
+    stop(
+      "Offline mode cannot use missing, empty, or force-invalidated cache: ",
+      destination,
+      call. = FALSE
+    )
   }
   if (!isTRUE(source$enabled[[1]])) stop("Source is disabled: ", source$source_id[[1]], call. = FALSE)
   access <- source$access[[1]]
@@ -303,6 +460,13 @@ materialize_source <- function(source, cache_dir, bbox, force = FALSE,
     extract_zip_member(archive, source$archive_member[[1]], destination)
   } else if (access %in% c("cog", "vrt")) {
     cache_remote_subset(source$url[[1]], destination, bbox)
+  } else if (access == "wcs") {
+    cache_wcs_subset(
+      source, destination, bbox,
+      retries = retries,
+      timeout_seconds = timeout_seconds,
+      quiet = quiet
+    )
   } else {
     stop("Source has no pinned downloadable asset: ", source$source_id[[1]], call. = FALSE)
   }
@@ -321,7 +485,8 @@ select_sources <- function(sources, only = NULL, include_disabled = FALSE) {
 }
 
 align_public_raster <- function(source, template, method, scale_factor = 1,
-                                postprocess = "none", output_name = NULL) {
+                                postprocess = "none", output_name = NULL,
+                                validity_mask = NULL) {
   require_namespace("terra")
   if (is.character(source)) source <- terra::rast(source)
   if (!inherits(source, "SpatRaster") || terra::nlyr(source) != 1L) {
@@ -329,6 +494,23 @@ align_public_raster <- function(source, template, method, scale_factor = 1,
   }
   if (!inherits(template, "SpatRaster") || terra::nlyr(template) != 1L) {
     stop("template must be a one-layer SpatRaster.", call. = FALSE)
+  }
+  if (!is.null(validity_mask)) {
+    if (is.character(validity_mask)) validity_mask <- terra::rast(validity_mask)
+    if (!inherits(validity_mask, "SpatRaster") || terra::nlyr(validity_mask) != 1L) {
+      stop("validity_mask must be a one-layer SpatRaster or raster path.", call. = FALSE)
+    }
+    if (!isTRUE(terra::compareGeom(
+      source, validity_mask, stopOnError = FALSE,
+      crs = TRUE, ext = TRUE, rowcol = TRUE, res = TRUE
+    ))) {
+      stop("validity_mask geometry differs from the source raster.", call. = FALSE)
+    }
+    # SoilGrids WCS encodes ocean/non-soil cells as numeric zero without a
+    # NoData flag. Bulk density cannot be zero in valid soil and therefore
+    # provides one common land/soil mask without deleting valid zeros from
+    # sand or coarse-fragment layers.
+    source <- terra::ifel(validity_mask > 0, source, NA)
   }
   allowed <- c("bilinear", "near", "average", "mode", "sum")
   if (!method %in% allowed) stop("Unsupported raster method: ", method, call. = FALSE)
@@ -348,17 +530,29 @@ raster_metadata <- function(path) {
   require_namespace("terra")
   raster <- terra::rast(path)
   description <- terra::crs(raster, describe = TRUE)
-  crs_code <- if (nrow(description)) paste0(description$authority[[1]], ":", description$code[[1]]) else NA_character_
+  crs_code <- if (
+    nrow(description) && !is.na(description$authority[[1]]) &&
+      !is.na(description$code[[1]])
+  ) {
+    paste0(description$authority[[1]], ":", description$code[[1]])
+  } else {
+    terra::crs(raster, proj = TRUE)
+  }
   extent <- as.vector(terra::ext(raster))
   range_stats <- terra::global(raster, c("min", "max"), na.rm = TRUE)
   valid_cells <- terra::global(!is.na(raster), "sum", na.rm = TRUE)[[1]]
+  zero_cells <- terra::global(raster == 0, "sum", na.rm = TRUE)[[1]]
   data.frame(
     crs = crs_code,
     res_x = terra::res(raster)[[1]], res_y = terra::res(raster)[[2]],
     xmin = extent[[1]], xmax = extent[[2]], ymin = extent[[3]], ymax = extent[[4]],
     ncol = terra::ncol(raster), nrow = terra::nrow(raster),
     datatype = terra::datatype(raster), nodata = as.character(terra::NAflag(raster)),
-    valid_cells = as.numeric(valid_cells), min = as.numeric(range_stats$min[[1]]),
+    valid_cells = as.numeric(valid_cells),
+    missing_cells = terra::ncell(raster) - as.numeric(valid_cells),
+    zero_cells = as.numeric(zero_cells),
+    zero_fraction_valid = as.numeric(zero_cells) / as.numeric(valid_cells),
+    min = as.numeric(range_stats$min[[1]]),
     max = as.numeric(range_stats$max[[1]]),
     stringsAsFactors = FALSE
   )
@@ -384,7 +578,10 @@ format_fingerprint_value <- function(value) {
   as.character(value[[1]])
 }
 
-processing_fingerprint <- function(source, cache_path, template) {
+processing_fingerprint <- function(source, cache_path, template,
+                                   validity_mask_path = NULL,
+                                   processing_code_sha256 = NA_character_,
+                                   preparation_script_sha256 = NA_character_) {
   require_namespace("terra")
   if (nrow(source) != 1L) stop("processing_fingerprint expects one registry row.", call. = FALSE)
   if (!file.exists(cache_path)) stop("Cannot fingerprint missing cache raster: ", cache_path, call. = FALSE)
@@ -402,7 +599,8 @@ processing_fingerprint <- function(source, cache_path, template) {
   source_fields <- c(
     "source_id", "provider", "dataset_version", "url", "archive_member",
     "data_class", "value_semantics", "resample_method", "postprocess",
-    "scale_factor", "unit", "native_resolution_arcsec", "native_crs"
+    "scale_factor", "unit", "native_resolution_arcsec", "native_crs",
+    "coverage_id", "wcs_width", "wcs_height"
   )
   source_settings <- vapply(source_fields, function(field) {
     paste0(field, "=", format_fingerprint_value(source[[field]]))
@@ -410,15 +608,40 @@ processing_fingerprint <- function(source, cache_path, template) {
   grid_settings <- vapply(names(grid_settings), function(field) {
     paste0(field, "=", format_fingerprint_value(grid_settings[[field]]))
   }, character(1))
+  validity_settings <- if (is.null(validity_mask_path)) {
+    c("validity_mask_rule=<none>", "validity_mask_sha256=<none>")
+  } else {
+    if (!file.exists(validity_mask_path)) {
+      stop("Cannot fingerprint missing validity mask: ", validity_mask_path, call. = FALSE)
+    }
+    c(
+      "validity_mask_rule=soilgrids_bdod_positive_before_reprojection",
+      paste0("validity_mask_sha256=", sha256_file(validity_mask_path))
+    )
+  }
+  spatial_libraries <- terra::gdal(lib = "all")
+  implementation_settings <- c(
+    paste0("processing_code_sha256=", format_fingerprint_value(processing_code_sha256)),
+    paste0("preparation_script_sha256=", format_fingerprint_value(preparation_script_sha256)),
+    paste0("terra_version=", as.character(utils::packageVersion("terra"))),
+    paste0("gdal_version=", unname(spatial_libraries[["gdal"]])),
+    paste0("proj_version=", unname(spatial_libraries[["proj"]])),
+    paste0("geos_version=", unname(spatial_libraries[["geos"]]))
+  )
   digest::digest(
-    paste(c("processing_algorithm_version=1", paste0("cache_sha256=", sha256_file(cache_path)),
-            source_settings, grid_settings), collapse = "\n"),
+    paste(c("processing_algorithm_version=3", paste0("cache_sha256=", sha256_file(cache_path)),
+            validity_settings, implementation_settings, source_settings,
+            grid_settings), collapse = "\n"),
     algo = "sha256", serialize = FALSE
   )
 }
 
 processing_fingerprint_path <- function(output_path) {
   paste0(output_path, ".fingerprint")
+}
+
+processed_checksum_path <- function(output_path) {
+  paste0(output_path, ".sha256")
 }
 
 read_processing_fingerprint <- function(output_path) {
@@ -440,6 +663,18 @@ processed_raster_status <- function(output_path, expected_fingerprint) {
   }
   if (!identical(observed, tolower(expected_fingerprint))) {
     return(list(stale = TRUE, reason = "processed raster settings fingerprint differs"))
+  }
+  checksum_path <- processed_checksum_path(output_path)
+  if (!file.exists(checksum_path)) {
+    return(list(stale = TRUE, reason = "processed raster checksum sidecar is missing"))
+  }
+  expected_checksum <- trimws(readLines(
+    checksum_path, warn = FALSE, encoding = "UTF-8"
+  ))
+  if (length(expected_checksum) != 1L ||
+      !grepl("^[0-9a-f]{64}$", expected_checksum, ignore.case = TRUE) ||
+      !identical(tolower(expected_checksum), sha256_file(output_path))) {
+    return(list(stale = TRUE, reason = "processed raster checksum differs"))
   }
   list(stale = FALSE, reason = "settings fingerprint matches")
 }
@@ -477,13 +712,20 @@ write_raster_atomic <- function(raster, destination, ...) {
 prepare_source <- function(source, cache_dir, processed_dir, template, bbox,
                            force_download = FALSE, force_process = FALSE,
                            retries = 3L, timeout_seconds = 1800,
-                           quiet = FALSE) {
+                           quiet = FALSE, validity_mask_path = NULL,
+                           processing_code_sha256 = NA_character_,
+                           preparation_script_sha256 = NA_character_,
+                           allow_download = TRUE) {
   cache_path <- materialize_source(
-    source, cache_dir, bbox, force_download, retries, timeout_seconds, quiet
+    source, cache_dir, bbox, force_download, retries, timeout_seconds, quiet,
+    allow_download
   )
   output_path <- file.path(processed_dir, source$output_name[[1]])
   dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
-  expected_fingerprint <- processing_fingerprint(source, cache_path, template)
+  expected_fingerprint <- processing_fingerprint(
+    source, cache_path, template, validity_mask_path,
+    processing_code_sha256, preparation_script_sha256
+  )
   existing <- processed_raster_status(output_path, expected_fingerprint)
   if (isTRUE(force_process) || existing$stale) {
     if (!isTRUE(force_process) && file.exists(output_path)) {
@@ -494,7 +736,8 @@ prepare_source <- function(source, cache_dir, processed_dir, template, bbox,
       method = source$resample_method[[1]],
       scale_factor = source$scale_factor[[1]],
       postprocess = source$postprocess[[1]],
-      output_name = tools::file_path_sans_ext(source$output_name[[1]])
+      output_name = tools::file_path_sans_ext(source$output_name[[1]]),
+      validity_mask = validity_mask_path
     )
     write_raster_atomic(
       aligned, output_path,
@@ -503,19 +746,46 @@ prepare_source <- function(source, cache_dir, processed_dir, template, bbox,
     # Write this only after the raster is in place.  An interrupted run then
     # leaves an intentionally stale raster, which is rebuilt safely next run.
     write_text_atomic(expected_fingerprint, processing_fingerprint_path(output_path))
+    write_text_atomic(sha256_file(output_path), processed_checksum_path(output_path))
   }
   cache_meta <- raster_metadata(cache_path)
   output_meta <- raster_metadata(output_path)
+  spatial_libraries <- terra::gdal(lib = "all")
   data.frame(
     source_id = source$source_id[[1]], provider = source$provider[[1]],
     dataset_version = source$dataset_version[[1]], source_url = source$url[[1]],
     source_page = source$source_page[[1]], license = source$license[[1]],
-    retrieved_at_utc = format(Sys.time(), tz = "UTC", usetz = TRUE),
+    coverage_id = source$coverage_id[[1]],
+    wcs_width = source$wcs_width[[1]], wcs_height = source$wcs_height[[1]],
+    wcs_request_url = if (source$access[[1]] == "wcs") {
+      soilgrids_wcs_request(source, bbox)
+    } else {
+      NA_character_
+    },
+    retrieved_at_utc = format(file.info(cache_path)$mtime, tz = "UTC", usetz = TRUE),
     cache_path = cache_path, cache_sha256 = sha256_file(cache_path),
     cache_bytes = unname(file.info(cache_path)$size),
+    provider_native_resolution = if (source$access[[1L]] == "wcs") {
+      "250_m"
+    } else if (is.finite(source$native_resolution_arcsec[[1L]])) {
+      paste0(source$native_resolution_arcsec[[1L]], "_arcsec")
+    } else {
+      NA_character_
+    },
     native_crs = cache_meta$crs, native_res_x = cache_meta$res_x,
     native_res_y = cache_meta$res_y,
     native_extent = paste(cache_meta[c("xmin", "xmax", "ymin", "ymax")], collapse = ";"),
+    validity_mask_rule = if (is.null(validity_mask_path)) {
+      NA_character_
+    } else {
+      "soilgrids_bdod_positive_before_reprojection"
+    },
+    validity_mask_path = if (is.null(validity_mask_path)) NA_character_ else validity_mask_path,
+    validity_mask_sha256 = if (is.null(validity_mask_path)) {
+      NA_character_
+    } else {
+      sha256_file(validity_mask_path)
+    },
     target_crs = output_meta$crs, target_res_x = output_meta$res_x,
     target_res_y = output_meta$res_y,
     target_extent = paste(output_meta[c("xmin", "xmax", "ymin", "ymax")], collapse = ";"),
@@ -528,6 +798,14 @@ prepare_source <- function(source, cache_dir, processed_dir, template, bbox,
     processed_bytes = unname(file.info(output_path)$size),
     processed_min = output_meta$min, processed_max = output_meta$max,
     valid_cells = output_meta$valid_cells,
+    missing_cells = output_meta$missing_cells,
+    zero_cells = output_meta$zero_cells,
+    zero_fraction_valid = output_meta$zero_fraction_valid,
+    processing_algorithm_version = 3L,
+    terra_version = as.character(utils::packageVersion("terra")),
+    gdal_version = unname(spatial_libraries[["gdal"]]),
+    proj_version = unname(spatial_libraries[["proj"]]),
+    geos_version = unname(spatial_libraries[["geos"]]),
     stringsAsFactors = FALSE
   )
 }
@@ -541,6 +819,18 @@ write_csv_atomic <- function(data, path) {
     if (!file.copy(temporary, path, overwrite = TRUE)) stop("Could not write manifest: ", path, call. = FALSE)
   }
   invisible(path)
+}
+
+bind_manifest_row <- function(current, row) {
+  if (is.null(current) || !nrow(current)) return(row)
+  columns <- union(names(current), names(row))
+  for (name in setdiff(columns, names(current))) {
+    current[[name]] <- rep(NA, nrow(current))
+  }
+  for (name in setdiff(columns, names(row))) {
+    row[[name]] <- rep(NA, nrow(row))
+  }
+  rbind(current[columns], row[columns])
 }
 
 parse_cli_args <- function(args = commandArgs(trailingOnly = TRUE)) {

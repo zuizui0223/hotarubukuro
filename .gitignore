@@ -19,4 +19,10 @@ results/local/**
 !results/local/.gitkeep
 results/qc/**
 !results/qc/.gitkeep
+
+# Reanalysis intermediates are deterministic but bulky; summaries and
+# manifests outside these paths remain trackable.
+results/reanalysis/**/inputs/
+results/reanalysis/**/model_predictions.csv
+results/reanalysis/**/run.log
 *.part

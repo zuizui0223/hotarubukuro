@@ -34,6 +34,7 @@ jobs:
           files = subprocess.check_output(
               ["git", "ls-files", "*.py"], text=True
           ).splitlines()
+          files = [path for path in files if not path.startswith("legacy/")]
           if not files:
               raise SystemExit("No tracked Python files found")
           for path in files:
@@ -47,15 +48,17 @@ jobs:
 
   r-checks:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: "4.4.3"
+          r-version: "4.5.2"
+      - name: Set up Pandoc
+        uses: r-lib/actions/setup-pandoc@v2
       - name: Parse R scripts and R Markdown chunks
-        shell: Rscript {0}
+        shell: Rscript --vanilla {0}
         run: |
           parse_text <- function(text, label) {
             tryCatch(
@@ -100,12 +103,15 @@ jobs:
             }
           }
 
-          files <- list.files(
-            ".",
-            pattern = "\\.(R|Rmd)$",
-            recursive = TRUE,
-            full.names = TRUE
+          files <- system2(
+            "git",
+            c("ls-files", shQuote("*.R"), shQuote("*.Rmd")),
+            stdout = TRUE
           )
+          files <- files[
+            !grepl("(^|/)legacy/", files) &
+              !grepl("(^|/)renv/", files)
+          ]
           stopifnot(length(files) > 0L)
 
           for (file in files) {
@@ -125,10 +131,45 @@ jobs:
             libgdal-dev \
             libgeos-dev \
             libproj-dev
-      - name: Install lightweight R test dependencies
+      - name: Restore locked R dependencies
+        uses: r-lib/actions/setup-renv@v2
+        with:
+          cache-version: 1
+      - name: Verify the UTF-8 lockfile and dependency snapshot
+        shell: Rscript {0}
+        env:
+          LC_ALL: C.UTF-8
+        run: |
+          lock_text <- paste(readLines("renv.lock", warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+          stopifnot(validUTF8(lock_text), jsonlite::validate(lock_text))
+
+          status <- renv::status()
+          stopifnot(isTRUE(status$synchronized))
+
+          renv::snapshot(type = "implicit", prompt = FALSE)
+          git_status <- system2(
+            "git",
+            c("diff", "--exit-code", "--", "renv.lock")
+          )
+          stopifnot(identical(git_status, 0L))
+      - name: Smoke-test reviewed CLIs
+        run: |
+          Rscript scripts/run_analysis.R --help
+          Rscript scripts/run_reanalysis.R --help
+          Rscript scripts/download_rasters.R --dry-run
+          Rscript scripts/prepare_rasters.R --dry-run
+      - name: Render the lightweight reviewed R Markdown report
         shell: Rscript {0}
         run: |
-          install.packages(c("testthat", "terra", "digest", "yaml"))
+          output <- tempfile(fileext = ".html")
+          rendered <- rmarkdown::render(
+            "Code_S3.Rmd",
+            output_file = basename(output),
+            output_dir = dirname(output),
+            envir = new.env(parent = globalenv()),
+            quiet = TRUE
+          )
+          stopifnot(file.exists(rendered), file.info(rendered)$size > 0)
       - name: Run R unit and data-contract tests
         shell: Rscript {0}
         run: |

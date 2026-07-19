@@ -327,9 +327,9 @@ def _rgb_matrix(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> np
 
 def comparison_rows(rows: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     comparisons = [
-        ("legacy_vs_primary_rgb", ("legacy_R", "legacy_G", "legacy_B"), ("R", "G", "B"), "RGB_Euclidean"),
-        ("mean_vs_median_rgb", ("mean_R", "mean_G", "mean_B"), ("median_R", "median_G", "median_B"), "RGB_Euclidean"),
-        ("median_vs_hsv_joint_peak", ("median_R", "median_G", "median_B"), ("hsv_peak_R", "hsv_peak_G", "hsv_peak_B"), "DeltaE76"),
+        ("legacy_vs_primary", ("legacy_R", "legacy_G", "legacy_B"), ("R", "G", "B")),
+        ("mean_vs_median", ("mean_R", "mean_G", "mean_B"), ("median_R", "median_G", "median_B")),
+        ("median_vs_hsv_joint_peak", ("median_R", "median_G", "median_B"), ("hsv_peak_R", "hsv_peak_G", "hsv_peak_B")),
         (
             "median_vs_exposure_filtered_peak",
             ("median_R", "median_G", "median_B"),
@@ -338,25 +338,27 @@ def comparison_rows(rows: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
                 "hsv_exposure_filtered_peak_G",
                 "hsv_exposure_filtered_peak_B",
             ),
-            "DeltaE76",
         ),
-        ("hsv_vs_alpha_joint_peak", ("hsv_peak_R", "hsv_peak_G", "hsv_peak_B"), ("alpha_peak_R", "alpha_peak_G", "alpha_peak_B"), "DeltaE76"),
+        ("hsv_vs_alpha_joint_peak", ("hsv_peak_R", "hsv_peak_G", "hsv_peak_B"), ("alpha_peak_R", "alpha_peak_G", "alpha_peak_B")),
     ]
     output: List[Dict[str, Any]] = []
-    for name, left_columns, right_columns, metric in comparisons:
+    for name, left_columns, right_columns in comparisons:
         left = _rgb_matrix(rows, left_columns)
         right = _rgb_matrix(rows, right_columns)
         complete = np.all(np.isfinite(left), axis=1) & np.all(np.isfinite(right), axis=1)
-        if metric == "DeltaE76":
-            distance = np.linalg.norm(srgb_to_cielab(left[complete]) - srgb_to_cielab(right[complete]), axis=1)
-        else:
-            distance = np.linalg.norm(left[complete] - right[complete], axis=1)
+        left_lab = srgb_to_cielab(left[complete])
+        right_lab = srgb_to_cielab(right[complete])
+        signed_delta = right_lab - left_lab
+        distance = np.linalg.norm(signed_delta, axis=1)
         quantiles = np.quantile(distance, [0, 0.5, 0.95, 0.99, 1]) if len(distance) else [math.nan] * 5
         output.append(
             {
                 "comparison": name,
-                "metric": metric,
+                "metric": "DeltaE76",
                 "n": int(len(distance)),
+                "delta_L_mean": float(np.mean(signed_delta[:, 0])) if len(distance) else math.nan,
+                "delta_a_mean": float(np.mean(signed_delta[:, 1])) if len(distance) else math.nan,
+                "delta_b_mean": float(np.mean(signed_delta[:, 2])) if len(distance) else math.nan,
                 "mean": float(np.mean(distance)) if len(distance) else math.nan,
                 "min": float(quantiles[0]),
                 "median": float(quantiles[1]),

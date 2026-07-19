@@ -1,6 +1,6 @@
 # Reproducibility and methods review
 
-Review date: 2026-07-19
+Review date: 2026-07-19; workflow documentation updated 2026-07-20
 
 ## Scope and decision rule
 
@@ -22,9 +22,9 @@ were disabled rather than reverse-engineered from reported results.
 | Mean and outliers | Means are affected by shadows, clipping, black spots, semi-transparent edges, and mixed organs. Independent channel trimming can construct a colour that was not observed. | Add deterministic joint CIELAB density peaks. A sensitivity branch heuristically excludes rendered near-white pixels (all channels ≥250) and pixels with L* <25 before finding the peak. These are not proven noise or clipping, and genuine white petals may be removed. Keep candidate peaks experimental. |
 | Automated QC selection | Warm/cool, multimodality, and mask-coverage flags can depend on the colour response. Excluding every flagged photograph before manual review can create selection bias. | Preparation retains both `ok` and `manual_review_required` by default. Treat this as unapproved input, then use completed visual review or report inclusive and explicit `ok`-only sensitivity analyses. |
 | Duplicate photo/coordinate conflict | Colour QC cannot decide which of two incompatible coordinates belongs to one exact photograph. Including both would pseudoreplicate the same image and attach it to two environments. | Keep both source records for traceability, but always remove both before PCA, raster extraction, or site aggregation unless external evidence resolves the identity. |
-| RGB/Lab | RGB must be decoded as sRGB, not treated as linear intensity; OpenCV-style HSV hue is 0–179. | Test reference sRGB→CIELAB values, RGB/Hue channel order, range, missing rows, and the D65 joint-peak conversion. |
-| CFA/Pigment | A latent variable made from photograph-derived L*, a*, and b* is not an independently measured pigment quantity. CFA would not turn lighting-sensitive rendered colour into pigment. | Remove CFA from the reproducible pipeline. Use a sign-oriented PCA only as an `apparent colour PC1`, with loadings saved. |
-| Repeated PCA | Re-estimating PCA at several stages changes the construct and risks double use. | Fit the colour PCA once per selected colour method. Candidate methods require explicit CLI selection. |
+| RGB/Lab | RGB must be decoded as sRGB, not treated as linear intensity; OpenCV-style HSV hue is 0–179. R's prior `grDevices::convertColor` values differed by up to about ΔE76 0.31 from the extraction conversion. | Use one explicit IEC sRGB/D65 conversion in Python and R, with a shared cross-language fixture and a recorded old/new implementation comparison. Test RGB/Hue order, ranges, and missing rows. |
+| CFA/Pigment | A latent variable made from photograph-derived L*, a*, and b* is not an independently measured pigment quantity. CFA would not turn lighting-sensitive rendered colour into pigment. | Remove CFA from the reproducible pipeline. Retain a sign-oriented `apparent colour PC1` only as a documented descriptive summary, not as pigment or a canonical model outcome. |
+| Repeated PCA | Re-estimating PCA at several stages changes the construct and risks double use. A reference PCA fitted on all records would leak outcome information if it were used in cross-validation. | The lightweight single-method preparation fits PCA once for that explicitly selected method. The canonical reanalysis fits one primary-photograph reference PCA only for descriptive cross-method projections; it does not model or cross-validate PC1. |
 | Photograph/site grain | Multiple photographs can share a coordinate; silent coordinate deduplication or aggregation confuses photographs with sites. | Preserve photograph grain by default. Site analysis requires an explicit site ID and reports `n_photos`. |
 | Raster extraction | Row-order assignment can silently shift environmental values after missing coordinates or filtering. | Extract and rejoin by unique record ID; test shuffled and missing-coordinate cases on miniature rasters. |
 | `Bee_Richness` | The five rasters contain continuous 0–1 suitability, not binary occurrence or observed richness. Summing them does not give species richness. | Rename the value `Bombus_suitability_sum`, retain coverage count, and leave incomplete five-species rows as NA. |
@@ -88,6 +88,13 @@ The additive candidates are:
 3. `alpha_peak_*`: the same estimator over the full visible alpha foreground,
    used to expose mask/organ disagreement rather than as petal ground truth.
 
+Together with the primary channel median, arithmetic mask mean, and preserved
+legacy RGB, these form the six named methods used by the reviewed workflow:
+`primary`, `mean`, `legacy`, `hsv_peak`,
+`hsv_exposure_filtered_peak`, and `alpha_peak`. The `legacy` method is missing
+for the 39 photographs that had no old RGB, so fair method comparisons use
+explicit common-ID cohorts rather than silently changing rows.
+
 The representative RGB/Lab pair is the observed pixel nearest the selected
 peak-region Lab centroid, so the reported RGB and Lab identify one internally
 consistent colour. No R/G/B channel is trimmed independently. Exact thresholds
@@ -119,10 +126,13 @@ the image.
 
 ### Estimator comparison
 
-| Comparison | n | Median | 95th percentile | Maximum |
+Every row now uses one comparable CIELAB ΔE76 metric; signed mean
+ΔL*/Δa*/Δb* is retained in the CSV rather than mixing RGB and Lab distances.
+
+| Comparison | n | Median ΔE76 | 95th percentile | Maximum |
 |---|---:|---:|---:|---:|
-| legacy vs v2 primary, RGB Euclidean | 1,926 | 11.80 | 43.79 | 130.51 |
-| mean vs median, RGB Euclidean | 1,965 | 6.21 | 19.46 | 59.00 |
+| legacy vs v2 primary | 1,926 | 3.34 | 10.33 | 27.58 |
+| mean vs median | 1,965 | 2.10 | 6.17 | 17.44 |
 | median vs HSV joint peak, ΔE76 | 1,965 | 2.30 | 12.19 | 33.81 |
 | median vs exposure-filtered peak, ΔE76 | 1,963 | 2.28 | 11.78 | 30.13 |
 | HSV vs alpha peak, ΔE76 | 1,965 | 0.00 | 0.00 | 30.76 |
@@ -131,11 +141,13 @@ The fixed-bin estimator is bin-width dependent by construction. Its parameter
 sensitivity has not yet been physically validated, so all peak outputs remain
 experimental sensitivity estimates.
 
-In an explicit `ok`-only sensitivity filter, all four colour methods retained
-the same 1,180 observations. The apparent-colour PC1 correlation with the primary median was
-0.993726 for the HSV peak, 0.993747 for the exposure-filtered peak, and 0.993729
-for the alpha peak. This high aggregate agreement does not remove the large
-image-level discrepancies shown above.
+In an explicit `ok`-only sensitivity filter, the primary median and all three
+peak branches each retained 1,180 observations. Their descriptive
+apparent-colour PC1 correlation with the primary median was 0.993726 for the
+HSV peak, 0.993747 for the exposure-filtered peak, and 0.993729 for the alpha
+peak. This four-branch diagnostic is not the full six-method canonical
+comparison, and PC1 is not a modeled or cross-validated outcome. High aggregate
+agreement does not remove the large image-level discrepancies shown above.
 
 ## White balance and methodological novelty
 
@@ -186,6 +198,13 @@ The acquisition registry covers:
 - ESA WorldCover 2021, registered but disabled unless an explicit land-cover
   hypothesis needs it.
 
+The enabled public-data contract contains 19 layers: eight CHELSA, eight
+SoilGrids, one WorldClim elevation layer, and WorldPop count plus derived
+density. A successful canonical run must acquire/cache, align, hash, and
+validate all 19 even though only six enter the configured association models.
+The runner fails closed on a partial manifest or an empty/mismatched reviewed
+cache hash; an intermediate manifest is not an analysis-ready result.
+
 The canonical grid is EPSG:4326, 30 arc-seconds, 128–143°E and 30–42°N. A
 configuration/cache/grid fingerprint prevents stale processed rasters from
 being mislabeled as current. Temporary TIFFs are atomically promoted. The
@@ -202,10 +221,122 @@ published scale information also remain inconsistent. Both candidates stay
 registered but disabled; the pipeline does not guess a physical-unit
 conversion pending authoritative asset-level clarification.
 
-SoilGrids is served from the provider's mutable `latest` path. Every retrieved
-cache file and derived raster is hashed in the generated manifest, but a clean
-future download is not guaranteed to return identical bytes unless the user
-also pins the recorded cache hash or archives the permitted source snapshot.
+The SoilGrids WCS response does not expose a usable NoData flag and encodes
+ocean/non-soil as zero. An initial audit found that treating those zeros as data
+materially diluted coastal bulk-density values. The reviewed pipeline now:
+
+1. requests 11,000 × 5,400 cells (approximately the provider's 250 m native
+   grid over the study extent) with server-side nearest-neighbour sampling;
+2. uses `bdod > 0` as one common native-grid soil mask for all eight properties;
+3. applies that mask before local 30-second area averaging;
+4. verifies a common output missing mask, physically positive bulk density and
+   pH, and records mask/cache/output hashes and spatial-library versions.
+
+SoilGrids is still served from a mutable `latest` endpoint. An analysis-ready
+registry must therefore content-pin the reviewed cache bytes in
+`expected_sha256`. A future provider change then causes a hash failure and
+requires an explicit reviewed lock refresh; the code does not silently relabel
+new bytes as the same input version.
+
+Hashes have distinct meanings. `cache_sha256` identifies the local artifact
+actually consumed (for example a study-window COG subset, WCS response,
+extracted archive member, or direct TIFF), not invariably the provider's full
+HTTP asset. `processed_sha256` identifies the derived aligned TIFF. The
+processing fingerprint additionally records pipeline, registry, processing
+code, preparation-script, `terra`, GDAL, PROJ, and GEOS versions so stale
+derived files are rejected. Large cache and raster bytes remain outside Git;
+the small manifests retain source URL/page, dataset version, license, native
+and target geometry, units, resampling/post-processing, checksums, ranges, and
+missingness.
+
+## Reviewed reanalysis design
+
+The new canonical orchestration is `scripts/run_reanalysis.R`. It validates the
+1,926-row legacy crosswalk, hard-excludes the two unresolved image/coordinate
+records, attaches 19 public layers and five retained SDMs by stable ID, and
+writes inclusive/strict-QC and photograph/exact-site row flows.
+
+The primary response is a*. L* and b* are modeled only for the primary colour
+method as lighting/exposure diagnostics. A common-reference PC1 is projected
+from one PCA fitted on the inclusive primary photograph data, but it is retained
+only for descriptive method comparison and is neither modeled nor
+cross-validated. Old/new and six-estimator comparisons use common IDs. Model
+sensitivities include both method-specific and all-method-common cohorts.
+Environment-only and environment-plus-Bombus are compared on the same
+Bombus-complete rows, with a separate full-cohort environment-only model
+retained to expose non-random SDM missingness.
+
+### Configured environmental predictors
+
+The model set is fixed in `config/reanalysis.yml`. It was not selected by
+screening the colour outcome. Nine candidate predictors were assessed only for
+predictor dependence. Their maximum VIF was 95.56; `chelsa_bio12` and
+`chelsa_cmimean` correlated 0.988. Removing the duplicated moisture-balance,
+drying-demand, and elevation proxies reduced the maximum VIF to 4.79 (4.66 in
+the Bombus-added model). Every run reproduces both candidate and retained VIF,
+pairwise-correlation, condition-number, and exclusion records in
+`predictor_screening.csv`. Source values are converted as registered and then
+standardized within each fitted training cohort/fold.
+
+| Predictor | Source unit | Defensible role in this analysis |
+|---|---|---|
+| `chelsa_bio10` | °C | Warmest-quarter temperature; growing-season thermal regime. |
+| `chelsa_bio12` | kg m⁻² year⁻¹ | Annual precipitation/water input. |
+| `soilgrids_bdod_0_5cm` | kg dm⁻³ | Surface bulk density; physical/rooting environment proxy. |
+| `soilgrids_nitrogen_0_5cm` | g kg⁻¹ | Surface total nitrogen; fertility proxy. |
+| `soilgrids_phh2o_0_5cm` | pH | Surface acidity/chemical environment. |
+| `log_worldpop_2020_density` | `log1p` of people km⁻² | Human access/development and citizen-photo sampling-intensity proxy. |
+
+`chelsa_cmimean` is excluded as a duplicate annual-water gradient,
+`chelsa_vpdmean` as a temperature-correlated atmospheric-demand proxy, and
+`worldclim_elevation_30s` as a temperature-correlated topographic proxy. They
+remain in the explicit nine-variable candidate audit. The other enabled layers
+stay in the provenance-checked stack but are not silently added to the model.
+`Bombus_suitability_sum` is a separate sensitivity predictor, not one of the
+six retained environmental/observation-process predictors.
+None of these labels establishes a causal pathway; VIF, condition number, and
+blocked prediction are diagnostics for dependence and transportability, not
+causal identification.
+
+Spatial validation uses deterministic equal-site bands along the principal
+geographic axis. Repeated photographs cannot move a site's fold. Pooled Q2 is
+relative to each fold's training mean; fold-level and macro RMSE/MAE/Q2 are
+also saved. The bands have no spatial buffer, and linear-model standard errors
+remain naive diagnostics, so the results are descriptive rather than spatially
+corrected causal inference.
+
+### Execution and artifact status
+
+Restore the locked R environment and build the raster cache/manifest before the
+canonical run:
+
+```bash
+Rscript -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv"); renv::restore(prompt = FALSE)'
+Rscript scripts/download_rasters.R
+Rscript scripts/prepare_rasters.R --force --no-download
+Rscript scripts/run_reanalysis.R \
+  --input Data_S1.csv \
+  --legacy-input data/legacy/Data_S1_legacy.csv \
+  --config config/reanalysis.yml \
+  --pipeline config/pipeline.yml \
+  --public-raster-manifest data/processed/raster_manifest.csv \
+  --raster-registry config/raster_sources.csv \
+  --sdm-dir sdm \
+  --output-dir results/reanalysis/v2_2_2
+```
+
+The final directory should contain row flow/cohorts, colour and legacy
+comparisons, PCA loadings/scores for descriptive comparison, raster and
+missingness audits, folds, coefficients, fold and aggregate performance,
+session information, `report.md`, `run_manifest.yml`, and
+`output_manifest.csv`. Large joined inputs, record-level predictions, and the
+execution log are reproducible local artifacts ignored by Git; small summary
+tables and manifests are trackable.
+
+At this documentation update, no completed canonical model result is asserted.
+Model coefficients, record counts after raster complete-case filtering, and
+blocked Q2 values must not be reported until the full command exits successfully
+and the final manifests verify every output hash.
 
 ## SDM decision
 

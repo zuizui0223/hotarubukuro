@@ -1,4 +1,4 @@
-version: 1
+version: 3
 
 paths:
   source_registry: config/raster_sources.csv

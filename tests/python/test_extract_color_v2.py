@@ -23,6 +23,17 @@ from scripts.extract_color_v2 import (
 )
 
 
+def test_python_and_r_share_one_srgb_cielab_d65_fixture() -> None:
+    fixture = np.genfromtxt(
+        Path(__file__).parents[1] / "fixtures" / "srgb_cielab_d65.csv",
+        delimiter=",",
+        names=True,
+    )
+    rgb = np.column_stack([fixture[name] for name in ("R", "G", "B")])
+    expected = np.column_stack([fixture[name] for name in ("L", "a", "b")])
+    np.testing.assert_allclose(srgb_to_cielab(rgb), expected, rtol=0, atol=1e-10)
+
+
 def png_bytes(array, mode="RGBA", exif=None):
     stream = io.BytesIO()
     if exif is None:

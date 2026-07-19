@@ -65,12 +65,20 @@ tests/python/              synthetic image, workbook, coordinate, and export tes
 tests/testthat/            R data-contract, colour, grain, raster, SDM, and CLI tests
 config/                    colour and public-raster method registries
 data/legacy/               preserved previous standard input
+legacy/pre_review_ffb2125/ exact pre-review scripts; archival, never executed
 data/cache/                ignored download cache
 data/processed/            small manifests/comparisons; large rasters are ignored
 results/local/             ignored full colour workbooks
 results/qc/                ignored masks, overlays, and source-photo QC panels
 sdm/                       retained five legacy suitability rasters and manifest
 ```
+
+The pre-review scripts are retained under `legacy/` with immutable Git blob
+IDs and hashes. CI deliberately excludes that directory because it contains
+historically mislabelled and non-portable files. All current commands below use
+only the reviewed `R/` and `scripts/` implementations. The archive is evidence,
+not a second supported workflow: do not source or copy functions from it into a
+current run.
 
 ## Python setup and colour extraction
 
@@ -140,6 +148,13 @@ photo-time inputs are unavailable.
 
 ## Lightweight R analysis
 
+R 4.5.2 and the direct/transitive R dependencies are recorded in
+[`renv.lock`](renv.lock). Restore them before running the reviewed R workflow:
+
+```bash
+Rscript -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv"); renv::restore(prompt = FALSE)'
+```
+
 The main entry point validates the input, converts sRGB to CIELAB, calculates a
 sign-oriented colour PCA once, preserves photograph grain, extracts SDM values
 by record ID, and writes prepared data. The preparation default retains both
@@ -177,27 +192,50 @@ not become false zeros.
 
 ## Public 30 arc-second rasters
 
-[`config/raster_sources.csv`](config/raster_sources.csv) registers CHELSA v2.1,
-SoilGrids 2.0, WorldClim v2.1 elevation, WorldPop 2020 count/density, and an
-optional disabled WorldCover source. Downloads are cached outside Git, hashed,
-and aligned to the EPSG:4326 30 arc-second grid in
+[`config/raster_sources.csv`](config/raster_sources.csv) enables 19 layers:
+eight CHELSA v2.1 layers, eight SoilGrids 2.0 topsoil layers, WorldClim v2.1
+elevation, and WorldPop 2020 count and density. CHELSA `swb` and `rsdsmean` and
+ESA WorldCover are registered but disabled. Downloads are cached outside Git,
+hashed, and aligned to the EPSG:4326 30 arc-second grid in
 [`config/pipeline.yml`](config/pipeline.yml). Source-specific aggregation is
 used: SoilGrids uses area-aware averaging, WorldPop counts use summation,
 continuous climate/elevation layers use bilinear interpolation, and categorical
 layers use nearest neighbour.
 
+The SoilGrids WCS has no usable NoData flag and represents ocean/non-soil cells
+as numeric zero. The workflow therefore requests an approximately native
+250 m grid with server-side nearest-neighbour sampling, applies one common
+`bdod > 0` soil mask before reprojection, and only then calculates local
+30-second area averages. This avoids treating ocean zero as soil and preserves
+legitimate zero values in properties such as coarse fragments. The mask rule,
+mask hash, request dimensions, cache hash, software versions, output missing
+fraction, and processing algorithm version are recorded in the manifest.
+
 The CHELSA `swb` and `rsdsmean` candidates are registered but disabled because
 their file metadata, embedded scales, and current provider catalogue do not
 support an unambiguous physical interpretation. The pipeline does not guess a
 unit conversion. `cmimean` uses the provider-documented `kg m-2 month-1` unit.
-SoilGrids uses a mutable `latest` endpoint, so exact retrieved bytes are
-recorded by checksum but cannot be promised for a future clean download without
-archiving or pinning that checksum.
+SoilGrids uses a mutable `latest` endpoint, so an analysis-ready registry must
+content-lock the exact retrieved cache artifact after reviewed acquisition. A
+clean future download then fails closed if the provider changes those bytes;
+refresh the lock only as an explicit reviewed data-version change.
+
+`cache_sha256` identifies the exact local cache artifact consumed by the
+pipeline. Depending on access type, that artifact is a study-window COG subset,
+a WCS response, an extracted archive member, or a direct source TIFF; it should
+not be described generically as the checksum of the provider's complete HTTP
+asset. The registry's non-empty `expected_sha256` must equal the reviewed cache
+artifact. The processed checksum is separate, because reprojection libraries
+and output encoding can change derived TIFF bytes even when scientific values
+and geometry agree.
 
 ```bash
 Rscript scripts/download_rasters.R --dry-run
 Rscript scripts/download_rasters.R
 Rscript scripts/prepare_rasters.R
+
+# Rebuild only from reviewed, already populated cache files.
+Rscript scripts/prepare_rasters.R --force --no-download
 ```
 
 Large downloads and processed rasters belong in ignored `data/cache/rasters/`
@@ -205,6 +243,96 @@ and `data/processed/rasters/`. Their URL, provider version, license, CRS,
 resolution, checksum, processing fingerprint, and output geometry are recorded
 in the small, reviewable `data/processed/raster_download_manifest.csv` and
 `data/processed/raster_manifest.csv` generated by the scripts.
+
+## Reviewed public-data reanalysis
+
+The canonical reanalysis starts from the new photograph-level colour table,
+verifies the preserved legacy-table crosswalk, requires and validates the
+complete set of 19 public raster layers and cache/processed hashes, validates
+(but does not rebuild) the five retained Bombus SDMs, and joins every predictor
+by stable ID. It refuses a partial or misaligned public manifest and refuses to
+overwrite a non-empty output directory.
+
+```bash
+Rscript scripts/prepare_rasters.R
+
+Rscript scripts/run_reanalysis.R \
+  --input Data_S1.csv \
+  --legacy-input data/legacy/Data_S1_legacy.csv \
+  --config config/reanalysis.yml \
+  --pipeline config/pipeline.yml \
+  --public-raster-manifest data/processed/raster_manifest.csv \
+  --raster-registry config/raster_sources.csv \
+  --sdm-dir sdm \
+  --output-dir results/reanalysis/v2_2_2
+```
+
+The six colour methods are `primary` (channel-wise median in the HSV petal
+mask), `mean` (arithmetic channel mean in that mask), `legacy` (the preserved
+old workbook RGB), `hsv_peak` (joint CIELAB peak in the mask),
+`hsv_exposure_filtered_peak` (the experimental near-white/dark-filtered peak),
+and `alpha_peak` (joint peak over visible alpha foreground). They are kept as
+separate measurement sensitivities and compared on common IDs with signed Lab
+differences and DeltaE76; they are never blended into one response.
+
+The primary model outcome is display-referred CIELAB a*. L* and b* are modeled
+only for the primary method as lighting/exposure diagnostics. A PCA fitted to
+the inclusive primary photograph data is used to project a common-reference
+apparent-colour PC1 for **descriptive method comparison only**. PC1 is not a
+model outcome and is not cross-validated, because a reference PCA fitted to the
+full data would leak test-fold outcome information. Inclusive and strict-`ok`
+QC cohorts and photograph/exact-site grains remain separate.
+
+Nine candidate variables were screened without using the colour outcome. The
+candidate set had maximum VIF 95.56: annual precipitation and CMI correlated
+0.988, while temperature, VPD, and elevation represented nearly the same
+geographic gradient. The reviewed model therefore retains six predictors with
+maximum VIF 4.79 (4.66 after adding the Bombus sensitivity index). Both sets
+and all exclusions are fixed in
+[`config/reanalysis.yml`](config/reanalysis.yml), and every run writes
+`predictor_screening.csv`. Retaining all 19 layers in the validated stack does
+not make the other layers implicit covariates.
+
+| Model predictor | Source unit before model standardization | Ecological/observation role |
+|---|---|---|
+| `chelsa_bio10` | °C | Warmest-quarter thermal regime; a growing-season climate proxy. |
+| `chelsa_bio12` | kg m⁻² year⁻¹ | Annual precipitation/water-input regime. |
+| `soilgrids_bdod_0_5cm` | kg dm⁻³ | 0–5 cm bulk density; soil physical/rooting environment proxy. |
+| `soilgrids_nitrogen_0_5cm` | g kg⁻¹ | 0–5 cm total nitrogen; soil fertility proxy. |
+| `soilgrids_phh2o_0_5cm` | pH | 0–5 cm acidity/soil chemical environment. |
+| `log_worldpop_2020_density` | `log1p` of people km⁻² | Human access, development, and citizen-photo sampling-intensity proxy; not assumed to be a direct causal ecological driver. |
+
+`chelsa_cmimean`, `chelsa_vpdmean`, and `worldclim_elevation_30s` remain in the
+candidate audit but are excluded respectively as redundant with precipitation,
+temperature, and the temperature/elevation gradient in these observations.
+
+Predictors and outcomes are standardized from each training cohort (and, in
+blocked validation, from each training fold), so coefficients are standardized
+descriptive associations rather than effects in the source units. The workflow
+records VIF and model-matrix condition numbers; that diagnostic does not make
+correlated climate, soil, elevation, population, or *Bombus* surfaces
+independent causal variables.
+
+Models are standardized descriptive linear associations with deterministic,
+equal-site geographic bands for blocked validation. The full environment-only
+cohort is retained, while environment-only versus environment-plus-Bombus is
+also compared on the identical Bombus-complete cohort. Colour-method model
+comparisons include an all-method common cohort so a method change is not
+confounded with a row change. Fold-level, macro, and pooled Q2/RMSE metrics are
+written; naive standard errors are diagnostics only. No CFA, SPDE/INLA,
+residual qGAM, or SDM refit is run.
+
+The output directory contains row flow, cohorts, reference PCA, colour-method
+and old/new comparisons, raster/missingness audits, model coefficients,
+fold-level performance, a human-readable report, an execution log, a run
+manifest, and SHA-256/shape metadata for every scientific artifact. Large
+joined inputs and per-record predictions remain local and ignored by Git.
+
+No validated canonical reanalysis result is asserted in this README. Treat the
+run as complete only when `scripts/run_reanalysis.R` exits successfully and the
+new output directory contains `run_manifest.yml` and `output_manifest.csv`.
+Do not quote model coefficients or Q2 values from an interrupted or partial
+directory.
 
 ## Retained SDMs
 

@@ -20,6 +20,7 @@ testthat::test_that("published SDM files match their immutable manifest", {
   testthat::expect_true(all(validation$report$hash_ok))
   testthat::expect_true(all(validation$report$metadata_ok))
   testthat::expect_true(all(validation$report$min >= 0 & validation$report$max <= 1))
+  testthat::expect_identical(names(validation$stack), validation$report$species)
 
   printed <- utils::capture.output(print_sdm_validation(validation))
   testthat::expect_true(any(grepl("structural validation passed", printed)))

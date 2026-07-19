@@ -167,32 +167,20 @@ read_colour_data <- function(path = "Data_S1.csv",
     stop("Input CSV does not exist: ", path, call. = FALSE)
   }
 
-  if (requireNamespace("readr", quietly = TRUE)) {
-    imported <- readr::read_csv(
-      path,
-      show_col_types = FALSE,
-      progress = FALSE,
-      name_repair = "minimal"
-    )
-    parse_problems <- readr::problems(imported)
-    if (nrow(parse_problems)) {
-      stop(
-        "CSV parsing failed at row ", parse_problems$row[[1L]],
-        ", column ", parse_problems$col[[1L]], ".",
-        call. = FALSE
-      )
-    }
-    data <- as.data.frame(imported, stringsAsFactors = FALSE)
-  } else {
-    data <- suppressWarnings(utils::read.csv(
-      path,
-      stringsAsFactors = FALSE,
-      check.names = FALSE,
-      fileEncoding = "UTF-8-BOM"
-    ))
-  }
+  # Use one parser in every environment. Optional-package dispatch previously
+  # made column classes and downstream artifact bytes depend on whether readr
+  # happened to be installed on the host.
+  data <- suppressWarnings(utils::read.csv(
+    path,
+    stringsAsFactors = FALSE,
+    check.names = FALSE,
+    fileEncoding = "UTF-8-BOM"
+  ))
 
   names(data) <- strip_utf8_bom(names(data))
+  if (anyDuplicated(names(data))) {
+    stop("Input CSV column names must be unique.", call. = FALSE)
+  }
   missing_columns <- setdiff(required_colour_columns(), names(data))
   if (length(missing_columns)) {
     stop(
@@ -343,7 +331,10 @@ filter_photo_coordinate_conflicts <- function(
 }
 
 analysis_colour_methods <- function() {
-  c("primary", "hsv_peak", "hsv_exposure_filtered_peak", "alpha_peak")
+  c(
+    "primary", "mean", "legacy", "hsv_peak",
+    "hsv_exposure_filtered_peak", "alpha_peak"
+  )
 }
 
 select_analysis_colour_method <- function(data, method = "primary") {
@@ -380,11 +371,13 @@ select_analysis_colour_method <- function(data, method = "primary") {
     }
   }
 
-  source_columns <- if (method == "primary") {
-    primary_columns
-  } else {
+  source_columns <- switch(
+    method,
+    primary = primary_columns,
+    mean = paste0("mean_", rgb_channels),
+    legacy = paste0("legacy_", rgb_channels),
     paste0(method, "_", rgb_channels)
-  }
+  )
   missing_source <- setdiff(source_columns, names(data))
   if (length(missing_source)) {
     stop(
@@ -435,6 +428,47 @@ select_analysis_colour_method <- function(data, method = "primary") {
   )
 }
 
+srgb_to_cielab_d65 <- function(rgb) {
+  rgb <- as.matrix(rgb)
+  if (ncol(rgb) != 3L) {
+    stop("RGB input must have exactly three columns.", call. = FALSE)
+  }
+  if (!is.numeric(rgb) || any(!is.finite(rgb)) || any(rgb < 0 | rgb > 255)) {
+    stop("RGB input must contain finite values on the 0-255 scale.", call. = FALSE)
+  }
+
+  encoded <- rgb / 255
+  linear <- ifelse(
+    encoded <= 0.04045,
+    encoded / 12.92,
+    ((encoded + 0.055) / 1.055)^2.4
+  )
+  srgb_to_xyz <- matrix(
+    c(
+      0.4124564, 0.3575761, 0.1804375,
+      0.2126729, 0.7151522, 0.0721750,
+      0.0193339, 0.1191920, 0.9503041
+    ),
+    nrow = 3L,
+    byrow = TRUE
+  )
+  xyz <- linear %*% t(srgb_to_xyz)
+  xyz <- sweep(xyz, 2L, c(0.95047, 1, 1.08883), "/")
+  delta <- 6 / 29
+  transformed <- ifelse(
+    xyz > delta^3,
+    xyz^(1 / 3),
+    xyz / (3 * delta^2) + 4 / 29
+  )
+  lab <- cbind(
+    L = 116 * transformed[, 2L] - 16,
+    a = 500 * (transformed[, 1L] - transformed[, 2L]),
+    b = 200 * (transformed[, 2L] - transformed[, 3L])
+  )
+  rownames(lab) <- rownames(rgb)
+  lab
+}
+
 add_colour_features <- function(data) {
   missing_columns <- setdiff(c("R", "G", "B"), names(data))
   if (length(missing_columns)) {
@@ -466,11 +500,7 @@ add_colour_features <- function(data) {
 
   if (any(complete)) {
     rgb_complete <- rgb[complete, , drop = FALSE]
-    lab[complete, ] <- grDevices::convertColor(
-      rgb_complete / 255,
-      from = "sRGB",
-      to = "Lab"
-    )
+    lab[complete, ] <- srgb_to_cielab_d65(rgb_complete)
     hsv[complete, ] <- t(grDevices::rgb2hsv(
       rgb_complete[, 1L],
       rgb_complete[, 2L],
@@ -856,35 +886,117 @@ add_bombus_suitability_sum <- function(data,
 
 as_draw_matrix <- function(x, name) {
   if (is.null(dim(x))) {
-    matrix(as.numeric(x), ncol = 1L, dimnames = list(NULL, "draw_1"))
+    matrix(
+      as.numeric(x),
+      ncol = 1L,
+      dimnames = list(names(x), "draw_1")
+    )
   } else {
+    if (length(dim(x)) != 2L) {
+      stop(name, " must be a vector or two-dimensional matrix.", call. = FALSE)
+    }
     value <- as.matrix(x)
     storage.mode(value) <- "double"
-    if (is.null(colnames(value))) {
-      colnames(value) <- paste0("draw_", seq_len(ncol(value)))
-    }
     value
   }
 }
 
+has_complete_unique_names <- function(value) {
+  !is.null(value) && length(value) > 0L && !anyNA(value) &&
+    all(nzchar(value)) && !anyDuplicated(value)
+}
+
 variance_decomposition_with_covariance <- function(fixed,
                                                    spatial,
-                                                   residual_variance) {
+                                                   residual_variance,
+                                                   alignment = c(
+                                                     "names",
+                                                     "position"
+                                                   )) {
+  alignment <- match.arg(alignment)
+  fixed_was_vector <- is.null(dim(fixed))
+  spatial_was_vector <- is.null(dim(spatial))
+  fixed_input_names <- if (fixed_was_vector) {
+    list(rows = names(fixed), draws = NULL)
+  } else {
+    list(rows = rownames(fixed), draws = colnames(fixed))
+  }
+  spatial_input_names <- if (spatial_was_vector) {
+    list(rows = names(spatial), draws = NULL)
+  } else {
+    list(rows = rownames(spatial), draws = colnames(spatial))
+  }
   fixed <- as_draw_matrix(fixed, "fixed")
   spatial <- as_draw_matrix(spatial, "spatial")
   if (!identical(dim(fixed), dim(spatial))) {
     stop("fixed and spatial must have identical observation-by-draw dimensions.", call. = FALSE)
   }
-  if (nrow(fixed) < 2L) {
+  if (nrow(fixed) < 2L || ncol(fixed) < 1L) {
     stop("At least two observations are required for variance decomposition.", call. = FALSE)
+  }
+
+  if (identical(alignment, "names")) {
+    if (!has_complete_unique_names(rownames(fixed)) ||
+        !has_complete_unique_names(colnames(fixed)) ||
+        !has_complete_unique_names(rownames(spatial)) ||
+        !has_complete_unique_names(colnames(spatial))) {
+      stop(
+        paste(
+          "Name alignment requires complete unique observation row names and",
+          "draw column names for fixed and spatial; use alignment = 'position'",
+          "only for genuinely unnamed, already-aligned inputs."
+        ),
+        call. = FALSE
+      )
+    }
+    if (!setequal(rownames(fixed), rownames(spatial)) ||
+        !setequal(colnames(fixed), colnames(spatial))) {
+      stop("fixed and spatial dimname sets must match exactly.", call. = FALSE)
+    }
+    spatial <- spatial[
+      rownames(fixed),
+      colnames(fixed),
+      drop = FALSE
+    ]
+    draw_names <- colnames(fixed)
+  } else {
+    supplied_names <- c(
+      fixed_input_names$rows,
+      fixed_input_names$draws,
+      spatial_input_names$rows,
+      spatial_input_names$draws
+    )
+    if (length(supplied_names)) {
+      stop(
+        "Positional alignment is allowed only when fixed and spatial are unnamed.",
+        call. = FALSE
+      )
+    }
+    draw_names <- paste0("draw_", seq_len(ncol(fixed)))
+    rownames(fixed) <- NULL
+    rownames(spatial) <- NULL
+    colnames(fixed) <- draw_names
+    colnames(spatial) <- draw_names
   }
   if (any(!is.finite(fixed)) || any(!is.finite(spatial))) {
     stop("fixed and spatial values must be finite.", call. = FALSE)
   }
 
+  residual_names <- names(residual_variance)
   residual_variance <- as.numeric(residual_variance)
   if (length(residual_variance) == 1L) {
     residual_variance <- rep(residual_variance, ncol(fixed))
+  } else if (identical(alignment, "names")) {
+    if (!has_complete_unique_names(residual_names) ||
+        !setequal(residual_names, draw_names)) {
+      stop(
+        "Multi-draw residual_variance must have unique names matching fixed draw names.",
+        call. = FALSE
+      )
+    }
+    residual_variance <- residual_variance[match(draw_names, residual_names)]
+  } else if (!is.null(residual_names)) {
+    stop("Positional residual_variance must be unnamed.", call. = FALSE)
   }
   if (length(residual_variance) != ncol(fixed) ||
       any(!is.finite(residual_variance) | residual_variance < 0)) {
@@ -900,7 +1012,7 @@ variance_decomposition_with_covariance <- function(fixed,
 
     reconstructed <- fixed_variance + spatial_variance + covariance_contribution
     if (!isTRUE(all.equal(fitted_variance, reconstructed, tolerance = 1e-10))) {
-      stop("Variance identity failed for draw ", draw, ".", call. = FALSE)
+      stop("Variance identity failed for draw ", draw_names[[draw]], ".", call. = FALSE)
     }
     if (!is.finite(total_variance) || total_variance <= 0) {
       stop("Total variance must be positive for every draw.", call. = FALSE)
@@ -915,6 +1027,7 @@ variance_decomposition_with_covariance <- function(fixed,
     )
     data.frame(
       draw = draw,
+      draw_name = draw_names[[draw]],
       component = names(contribution),
       contribution = unname(contribution),
       proportion = c(contribution[1:4] / total_variance, 1),

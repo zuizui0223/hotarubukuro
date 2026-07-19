@@ -147,6 +147,7 @@ validate_sdm_collection <- function(sdm_dir = "sdm", manifest_path = file.path(s
                               crs = TRUE, ext = TRUE, rowcol = TRUE, res = TRUE))
   }, logical(1)))
   stack <- terra::rast(paths)
+  names(stack) <- manifest$species
   values <- terra::values(stack, mat = TRUE)
   masks <- lapply(seq_len(ncol(values)), function(index) is.na(values[, index]))
   nodata_masks_identical <- all(vapply(masks[-1L], identical, logical(1), y = masks[[1]]))
@@ -172,7 +173,8 @@ validate_sdm_collection <- function(sdm_dir = "sdm", manifest_path = file.path(s
     geometry_aligned = geometry_aligned,
     nodata_masks_identical = nodata_masks_identical,
     hashes_unique = hashes_unique,
-    correlations = correlations
+    correlations = correlations,
+    stack = stack
   )
 }
 

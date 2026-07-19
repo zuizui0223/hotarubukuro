@@ -1,0 +1,7 @@
+legacy/
+data/cache/
+data/processed/rasters/
+results/
+.git/
+.venv/
+renv/

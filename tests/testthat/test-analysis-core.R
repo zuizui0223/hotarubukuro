@@ -113,6 +113,12 @@ testthat::test_that("colour-method selection is explicit and never mixes candida
     R = c(10, 20, 30, 40),
     G = c(11, 21, 31, 41),
     B = c(12, 22, 32, 42),
+    mean_R = c(13, 23, 33, 43),
+    mean_G = c(14, 24, 34, 44),
+    mean_B = c(15, 25, 35, 45),
+    legacy_R = c(9, 19, NA, 39),
+    legacy_G = c(10, 20, NA, 40),
+    legacy_B = c(11, 21, NA, 41),
     hsv_peak_R = c(100, 110, NA, Inf),
     hsv_peak_G = c(101, 111, NA, 131),
     hsv_peak_B = c(102, 112, NA, 132),
@@ -131,6 +137,12 @@ testthat::test_that("colour-method selection is explicit and never mixes candida
   testthat::expect_identical(primary$data$primary_R, data$R)
   testthat::expect_true(all(primary$data$analysis_colour_method == "primary"))
   testthat::expect_equal(nrow(primary$excluded), 0L)
+
+  mean_colour <- select_analysis_colour_method(data, "mean")
+  testthat::expect_identical(mean_colour$data$R, data$mean_R)
+  legacy <- select_analysis_colour_method(data, "legacy")
+  testthat::expect_identical(legacy$data$record_id, c("p1", "p2", "p4"))
+  testthat::expect_equal(legacy$data$R, c(9, 19, 39))
 
   peak <- select_analysis_colour_method(data, "hsv_peak")
   testthat::expect_identical(peak$data$record_id, c("p1", "p2"))
@@ -165,13 +177,23 @@ testthat::test_that("RGB to Lab matches reference sRGB colours and preserves mis
   result <- add_colour_features(data)
 
   testthat::expect_equal(result$L[1], 0, tolerance = 1e-8)
-  testthat::expect_equal(result$L[2], 100, tolerance = 1e-6)
-  testthat::expect_equal(result$L[3], 53.48418, tolerance = 1e-4)
-  testthat::expect_equal(result$a[3], 80.01027, tolerance = 1e-4)
-  testthat::expect_equal(result$b[3], 67.38407, tolerance = 1e-4)
+  testthat::expect_equal(result$L[2], 100.000003866667, tolerance = 1e-10)
+  testthat::expect_equal(result$L[3], 53.240794141307, tolerance = 1e-10)
+  testthat::expect_equal(result$a[3], 80.092459596411, tolerance = 1e-10)
+  testthat::expect_equal(result$b[3], 67.203196515853, tolerance = 1e-10)
   testthat::expect_equal(result$C[3], sqrt(result$a[3]^2 + result$b[3]^2))
   testthat::expect_true(all(is.na(result[6, c("L", "a", "b", "C", "H", "S", "V")])))
   testthat::expect_true(is.na(result$colour_hex[6]))
+})
+
+testthat::test_that("R and Python share one IEC sRGB to CIELAB D65 fixture", {
+  fixture <- utils::read.csv(
+    file.path(test_project_root, "tests", "fixtures", "srgb_cielab_d65.csv"),
+    check.names = FALSE
+  )
+  observed <- srgb_to_cielab_d65(fixture[c("R", "G", "B")])
+  expected <- as.matrix(fixture[c("L", "a", "b")])
+  testthat::expect_equal(unname(observed), unname(expected), tolerance = 1e-10)
 })
 
 testthat::test_that("oriented PCA has a stable, declared PC1 direction", {
@@ -304,7 +326,8 @@ testthat::test_that("variance decomposition includes fixed-spatial covariance", 
   result <- variance_decomposition_with_covariance(
     fixed,
     spatial,
-    residual_variance = 2
+    residual_variance = 2,
+    alignment = "position"
   )
   draw <- result$draws
   contribution <- stats::setNames(draw$contribution, draw$component)
@@ -320,10 +343,96 @@ testthat::test_that("variance decomposition includes fixed-spatial covariance", 
   testthat::expect_equal(sum(proportion[c("fixed", "spatial", "fixed_spatial_covariance", "residual")]), 1)
 
   draws <- variance_decomposition_with_covariance(
-    cbind(fixed, fixed * 2),
-    cbind(spatial, spatial / 2),
-    residual_variance = c(2, 3)
+    unname(cbind(fixed, fixed * 2)),
+    unname(cbind(spatial, spatial / 2)),
+    residual_variance = c(2, 3),
+    alignment = "position"
   )
   testthat::expect_equal(length(unique(draws$draws$draw)), 2L)
   testthat::expect_true(all(c("proportion_lower95", "proportion_upper95") %in% names(draws$summary)))
+})
+
+testthat::test_that("variance decomposition aligns observations, draws, and residuals by name", {
+  fixed <- matrix(
+    c(1, 2, 4, 8, 2, 3, 5, 9),
+    nrow = 4,
+    dimnames = list(c("a", "b", "c", "d"), c("draw_a", "draw_b"))
+  )
+  spatial <- matrix(
+    c(9, 5, 3, 2, 8, 4, 2, 1),
+    nrow = 4,
+    dimnames = list(c("d", "c", "b", "a"), c("draw_b", "draw_a"))
+  )
+  residual <- c(draw_b = 7, draw_a = 3)
+  result <- variance_decomposition_with_covariance(
+    fixed,
+    spatial,
+    residual_variance = residual
+  )
+  testthat::expect_identical(unique(result$draws$draw_name), colnames(fixed))
+  residual_rows <- result$draws[result$draws$component == "residual", ]
+  testthat::expect_equal(residual_rows$contribution, c(3, 7))
+
+  aligned_spatial <- spatial[rownames(fixed), colnames(fixed), drop = FALSE]
+  fitted_expected <- vapply(seq_len(ncol(fixed)), function(draw) {
+    stats::var(fixed[, draw] + aligned_spatial[, draw])
+  }, numeric(1))
+  fitted_observed <- vapply(seq_len(ncol(fixed)), function(draw) {
+    sum(result$draws$contribution[
+      result$draws$draw == draw &
+        result$draws$component %in% c(
+          "fixed", "spatial", "fixed_spatial_covariance"
+        )
+    ])
+  }, numeric(1))
+  testthat::expect_equal(fitted_observed, fitted_expected)
+})
+
+testthat::test_that("variance decomposition rejects ambiguous alignment", {
+  fixed <- matrix(1:8, nrow = 4)
+  spatial <- matrix(8:1, nrow = 4)
+  testthat::expect_error(
+    variance_decomposition_with_covariance(fixed, spatial, c(1, 2)),
+    "Name alignment requires"
+  )
+  positional <- variance_decomposition_with_covariance(
+    fixed,
+    spatial,
+    c(1, 2),
+    alignment = "position"
+  )
+  testthat::expect_identical(
+    unique(positional$draws$draw_name),
+    c("draw_1", "draw_2")
+  )
+
+  dimnames(fixed) <- list(letters[1:4], c("one", "two"))
+  testthat::expect_error(
+    variance_decomposition_with_covariance(
+      fixed,
+      spatial,
+      c(1, 2),
+      alignment = "position"
+    ),
+    "only when fixed and spatial are unnamed"
+  )
+
+  spatial_named <- fixed
+  rownames(spatial_named)[1L] <- "other"
+  testthat::expect_error(
+    variance_decomposition_with_covariance(
+      fixed,
+      spatial_named,
+      c(one = 1, two = 2)
+    ),
+    "dimname sets must match"
+  )
+  testthat::expect_error(
+    variance_decomposition_with_covariance(
+      fixed,
+      fixed,
+      c(1, 2)
+    ),
+    "residual_variance must have unique names"
+  )
 })

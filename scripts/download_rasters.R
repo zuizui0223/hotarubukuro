@@ -15,7 +15,7 @@ usage <- function() {
     "      [--pipeline config/pipeline.yml] [--config config/raster_sources.csv]",
     "      [--cache-dir data/cache/rasters]",
     "",
-    "COG and SoilGrids VRT sources are cached only for the configured study extent.",
+    "COG and SoilGrids WCS sources are cached only for the configured study extent.",
     "WorldClim is a zip archive; its checksum and the extracted TIFF checksum are recorded.",
     sep = "\n"
   ))
@@ -35,7 +35,16 @@ registry_path <- resolve_repo_path(
 )
 cache_dir <- resolve_repo_path(repo_root, args$cache_dir %||% pipeline$paths$cache_dir)
 manifest_path <- resolve_repo_path(repo_root, pipeline$paths$download_manifest)
-sources <- select_sources(read_raster_sources(registry_path), split_source_ids(args$only))
+registry <- read_raster_sources(registry_path)
+sources <- select_sources(registry, split_source_ids(args$only))
+pipeline_config_sha256 <- sha256_file(pipeline_path)
+raster_registry_sha256 <- sha256_file(registry_path)
+raster_processing_code_sha256 <- sha256_file(
+  file.path(repo_root, "R", "raster_sources.R")
+)
+raster_download_script_sha256 <- sha256_file(
+  file.path(repo_root, "scripts", "download_rasters.R")
+)
 bbox <- pipeline_bbox(pipeline)
 force <- if (is.null(args$force)) FALSE else as_flag(args$force, "force")
 dry_run <- if (is.null(args$dry_run)) FALSE else as_flag(args$dry_run, "dry-run")
@@ -46,7 +55,18 @@ cat(paste0("- ", sources$source_id, " [", sources$access, "] -> ",
            file.path(cache_dir, sources$cache_name), collapse = "\n"), "\n")
 if (dry_run) quit(status = 0)
 
-rows <- vector("list", nrow(sources))
+current_manifest <- if (file.exists(manifest_path)) {
+  utils::read.csv(manifest_path, stringsAsFactors = FALSE, check.names = FALSE)
+} else {
+  NULL
+}
+if (!is.null(current_manifest)) {
+  current_manifest <- current_manifest[
+    current_manifest$source_id %in% registry$source_id[registry$enabled],
+    ,
+    drop = FALSE
+  ]
+}
 for (index in seq_len(nrow(sources))) {
   source_row <- sources[index, , drop = FALSE]
   message("Caching ", source_row$source_id[[1]], " ...")
@@ -58,26 +78,47 @@ for (index in seq_len(nrow(sources))) {
   )
   archive_path <- file.path(cache_dir, "archives", paste0(source_row$source_id[[1]], ".zip"))
   has_archive <- source_row$access[[1]] == "zip" && file.exists(archive_path)
-  rows[[index]] <- data.frame(
+  row <- data.frame(
     source_id = source_row$source_id[[1]], provider = source_row$provider[[1]],
     dataset_version = source_row$dataset_version[[1]], access = source_row$access[[1]],
     source_url = source_row$url[[1]], source_page = source_row$source_page[[1]],
+    coverage_id = source_row$coverage_id[[1]],
+    wcs_width = source_row$wcs_width[[1]], wcs_height = source_row$wcs_height[[1]],
+    wcs_request_url = if (source_row$access[[1]] == "wcs") {
+      soilgrids_wcs_request(source_row, bbox)
+    } else {
+      NA_character_
+    },
     cache_path = repo_relative_path(path, repo_root),
     cache_sha256 = sha256_file(path), cache_bytes = unname(file.info(path)$size),
     archive_path = if (has_archive) repo_relative_path(archive_path, repo_root) else NA_character_,
     archive_sha256 = if (has_archive) sha256_file(archive_path) else NA_character_,
     archive_bytes = if (has_archive) unname(file.info(archive_path)$size) else NA_real_,
-    cached_at_utc = format(Sys.time(), tz = "UTC", usetz = TRUE),
+    cached_at_utc = format(file.info(path)$mtime, tz = "UTC", usetz = TRUE),
     expected_sha256 = source_row$expected_sha256[[1]],
+    pipeline_version = as.integer(pipeline$version),
+    pipeline_config_sha256 = pipeline_config_sha256,
+    raster_registry_sha256 = raster_registry_sha256,
+    raster_processing_code_sha256 = raster_processing_code_sha256,
+    raster_download_script_sha256 = raster_download_script_sha256,
     stringsAsFactors = FALSE
   )
+  if (!is.null(current_manifest)) {
+    current_manifest <- current_manifest[
+      current_manifest$source_id != row$source_id[[1L]],
+      ,
+      drop = FALSE
+    ]
+    current_manifest <- bind_manifest_row(current_manifest, row)
+  } else {
+    current_manifest <- row
+  }
+  canonical_columns <- c(
+    names(row),
+    sort(setdiff(names(current_manifest), names(row)))
+  )
+  current_manifest <- current_manifest[canonical_columns]
+  current_manifest <- current_manifest[order(current_manifest$source_id), , drop = FALSE]
+  write_csv_atomic(current_manifest, manifest_path)
 }
-new_manifest <- do.call(rbind, rows)
-if (file.exists(manifest_path)) {
-  old_manifest <- utils::read.csv(manifest_path, stringsAsFactors = FALSE, check.names = FALSE)
-  old_manifest <- old_manifest[!old_manifest$source_id %in% new_manifest$source_id, , drop = FALSE]
-  new_manifest <- rbind(old_manifest, new_manifest)
-}
-new_manifest <- new_manifest[order(new_manifest$source_id), , drop = FALSE]
-write_csv_atomic(new_manifest, manifest_path)
 cat("Download manifest:", repo_relative_path(manifest_path, repo_root), "\n")

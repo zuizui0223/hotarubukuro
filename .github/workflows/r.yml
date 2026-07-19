@@ -1,8 +1,8 @@
-name: R syntax checks
+name: Reproducibility checks
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "review/**"]
   pull_request:
     branches: ["main"]
 
@@ -10,7 +10,23 @@ permissions:
   contents: read
 
 jobs:
-  validate-r-syntax:
+  python:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - name: Compile and smoke-test Python CLIs
+        run: |
+          python -m py_compile Code_S1.py Code_S2.py
+          python Code_S1.py --help
+          python Code_S2.py --help
+
+  r-syntax:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -22,63 +38,60 @@ jobs:
         shell: Rscript {0}
         run: |
           parse_text <- function(text, label) {
-            tryCatch(
-              parse(text = text, keep.source = FALSE),
-              error = function(error) {
-                stop(sprintf("Syntax error in %s: %s", label, conditionMessage(error)), call. = FALSE)
-              }
-            )
+            tryCatch(parse(text = text, keep.source = FALSE), error = function(error) {
+              stop(sprintf("Syntax error in %s: %s", label, conditionMessage(error)), call. = FALSE)
+            })
           }
 
           parse_rmd_chunks <- function(file) {
             lines <- readLines(file, warn = FALSE, encoding = "UTF-8")
             in_chunk <- FALSE
             chunk <- character()
-            chunk_start <- NA_integer_
             found_chunk <- FALSE
-
             for (i in seq_along(lines)) {
               line <- lines[[i]]
               if (!in_chunk && grepl("^\\s*```\\{[rR]([ ,}]|$)", line, perl = TRUE)) {
-                in_chunk <- TRUE
-                chunk <- character()
-                chunk_start <- i + 1L
-                found_chunk <- TRUE
-                next
+                in_chunk <- TRUE; chunk <- character(); found_chunk <- TRUE; next
               }
               if (in_chunk && grepl("^\\s*```\\s*$", line, perl = TRUE)) {
-                if (length(chunk)) {
-                  parse_text(chunk, sprintf("%s (lines %d-%d)", file, chunk_start, i - 1L))
-                }
-                in_chunk <- FALSE
-                next
+                if (length(chunk)) parse_text(chunk, file)
+                in_chunk <- FALSE; next
               }
               if (in_chunk) chunk <- c(chunk, line)
             }
-
-            if (in_chunk) {
-              stop(sprintf("Unclosed R Markdown chunk in %s starting at line %d", file, chunk_start), call. = FALSE)
-            }
-            if (!found_chunk) {
-              stop(sprintf("No R Markdown chunks found in %s", file), call. = FALSE)
-            }
+            if (in_chunk) stop(sprintf("Unclosed R Markdown chunk in %s", file), call. = FALSE)
+            if (!found_chunk) stop(sprintf("No R Markdown chunks found in %s", file), call. = FALSE)
           }
 
-          files <- list.files(
-            ".",
-            pattern = "\\.(R|Rmd)$",
-            recursive = TRUE,
-            full.names = TRUE
-          )
+          files <- list.files(".", pattern = "\\.(R|Rmd)$", recursive = TRUE, full.names = TRUE)
           stopifnot(length(files) > 0L)
-
           for (file in files) {
             lines <- readLines(file, warn = FALSE, encoding = "UTF-8")
-            is_r_markdown <- any(grepl("^\\s*```\\{[rR]([ ,}]|$)", lines, perl = TRUE))
-            message("Checking ", file)
-            if (is_r_markdown) {
-              parse_rmd_chunks(file)
-            } else {
-              parse_text(lines, file)
-            }
+            if (any(grepl("^\\s*```\\{[rR]([ ,}]|$)", lines, perl = TRUE))) parse_rmd_chunks(file) else parse_text(lines, file)
           }
+
+  data-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate published CSV schema and ranges
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+          path = Path("Data_S1.csv")
+          with path.open(encoding="utf-8-sig", newline="") as handle:
+              rows = list(csv.DictReader(handle))
+          required = {"date", "latitude", "longitude", "R", "G", "B"}
+          assert rows and required.issubset(rows[0]), "Data_S1.csv schema mismatch"
+          for i, row in enumerate(rows, start=2):
+              lat, lon = float(row["latitude"]), float(row["longitude"])
+              assert -90 <= lat <= 90 and -180 <= lon <= 180, f"bad coordinate at line {i}"
+              for channel in ("R", "G", "B"):
+                  value = float(row[channel])
+                  assert 0 <= value <= 255, f"bad {channel} at line {i}"
+          print(f"validated {len(rows)} records")
+          PY

@@ -1,0 +1,6 @@
+# Preserve the byte-exact, CRLF/BOM legacy input and avoid noisy line diffs.
+data/legacy/Data_S1_legacy.csv -text -diff
+
+# Existing binary scientific and figure artefacts.
+sdm/*.tif binary
+figures/*.pdf binary

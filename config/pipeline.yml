@@ -1,0 +1,36 @@
+version: 1
+
+paths:
+  source_registry: config/raster_sources.csv
+  cache_dir: data/cache/rasters
+  processed_dir: data/processed/rasters
+  download_manifest: data/processed/raster_download_manifest.csv
+  processed_manifest: data/processed/raster_manifest.csv
+  sdm_dir: sdm
+  sdm_manifest: sdm/manifest.csv
+
+grid:
+  crs: EPSG:4326
+  resolution_arcsec: 30
+  origin_x: -180
+  origin_y: -90
+  area_or_point: Area
+  extent:
+    xmin: 128
+    xmax: 143
+    ymin: 30
+    ymax: 42
+
+download:
+  retries: 3
+  timeout_seconds: 1800
+  quiet: false
+
+processing:
+  continuous_method: bilinear
+  categorical_method: near
+  extensive_count_method: sum
+  worldpop_semantics: aggregate people-per-cell with sum before optional conversion to people-per-km2
+  overwrite: false
+  compression: DEFLATE
+  tiled: true

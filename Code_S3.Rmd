@@ -1,1605 +1,220 @@
 ---
-title: "Flower color pipeline"
+title: "Reproducible flower-colour data preparation"
 output: html_document
+params:
+  input: "Data_S1.csv"
+  sdm_dir: "sdm"
+  accepted_qc_status: "ok,manual_review_required"
+  colour_method: "primary"
+  grain: "photo"
+  site_id: !r NULL
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-```
+knitr::opts_chunk$set(echo = TRUE, warning = TRUE, message = TRUE)
 
-## FINAL PIPELINE
-
-### 0. Packages and reproducibility settings
-
-```{r packages}
-suppressPackageStartupMessages({
-  library(dplyr)
-  library(readr)
-  library(tidyr)
-  library(sf)
-  library(terra)
-  library(lavaan)
-  library(tibble)
-  library(INLA)
-  library(qgam)
-  library(mgcv)
-  library(ggplot2)
-  library(forcats)
-  library(purrr)
-})
-
-set.seed(42)
-INLA::inla.setOption(num.threads = "1:1")
-
-if (requireNamespace("RhpcBLASctl", quietly = TRUE)) {
-  RhpcBLASctl::blas_set_num_threads(1)
-  RhpcBLASctl::omp_set_num_threads(1)
-}
-
-RNGkind(kind = "Mersenne-Twister", normal.kind = "Inversion")
-
-z <- function(x) as.numeric(scale(x))
-
-select <- dplyr::select
-filter <- dplyr::filter
-mutate <- dplyr::mutate
-across <- dplyr::across
-
-out_root <- path.expand("~/zui_results")
-dir.create(out_root, recursive = TRUE, showWarnings = FALSE)
-
-cmp_dir      <- file.path(out_root, "INLA_auto_competing_pair")
-top_dir      <- file.path(out_root, "INLA_top_models_for_supp")
-best_dir     <- file.path(out_root, "INLA_best_model_final")
-best_plotdir <- file.path(best_dir, "plots")
-gam_dir      <- file.path(out_root, "qGAM_best_model_final")
-
-dir.create(cmp_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(top_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(best_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(best_plotdir, recursive = TRUE, showWarnings = FALSE)
-dir.create(gam_dir, recursive = TRUE, showWarnings = FALSE)
-```
-
-###1. Load CSV and compute color variables
-
-```{r load-color}
-in_csv <- "~/Desktop/1006.csv"
-df <- read.csv(in_csv, stringsAsFactors = FALSE)
-
-stopifnot(all(c("R", "G", "B") %in% names(df)))
-stopifnot(all(c("longitude", "latitude") %in% names(df)))
-
-if (!("sample_id" %in% names(df))) {
-  df$sample_id <- seq_len(nrow(df))
-}
-
-## HSV
-hsv_mat <- t(grDevices::rgb2hsv(df$R, df$G, df$B))
-colnames(hsv_mat) <- c("H", "S", "V")
-df <- cbind(df, as.data.frame(hsv_mat))
-
-## Lab
-rgb01 <- pmin(pmax(as.matrix(df[, c("R", "G", "B")]) / 255, 0), 1)
-lab_mat <- grDevices::convertColor(rgb01, from = "sRGB", to = "Lab")
-df$L  <- lab_mat[, 1]
-df$a  <- lab_mat[, 2]
-df$b  <- lab_mat[, 3]
-df$C  <- sqrt(df$a^2 + df$b^2)
-df$Lm <- -df$L
-
-## hex
-rng_rgb <- range(c(df$R, df$G, df$B), na.rm = TRUE)
-is_01 <- (rng_rgb[1] >= 0 && rng_rgb[2] <= 1)
-
-R <- df$R
-G <- df$G
-B <- df$B
-if (is_01) {
-  R <- pmin(pmax(round(R * 255), 0), 255)
-  G <- pmin(pmax(round(G * 255), 0), 255)
-  B <- pmin(pmax(round(B * 255), 0), 255)
-}
-df$col_hex <- rgb(R, G, B, maxColorValue = 255)
-
-cat("✓ Loaded & color features computed. n =", nrow(df), "\n")
-```
-
-###  Extract raster values
-
-```{r raster-extraction}
-chelsa_dir <- "~/Desktop/stress2"
-soil_dir   <- "~/Desktop/soil2"
-bee_dir    <- "~/Desktop/bee5"
-human_dir  <- "~/Desktop/human"
-
-coords <- df %>%
-  select(longitude, latitude) %>%
-  mutate(across(everything(), as.numeric)) %>%
-  filter(complete.cases(.))
-
-extract_folder_terra <- function(path, coords) {
-  files <- list.files(path, pattern = "\\.tif$", full.names = TRUE)
-  if (!length(files)) return(NULL)
-
-  pts <- terra::vect(coords, geom = c("longitude", "latitude"), crs = "EPSG:4326")
-
-  vals_list <- lapply(files, function(f) {
-    r <- terra::rast(f)
-    pts_use <- if (!terra::same.crs(pts, r)) terra::project(pts, terra::crs(r)) else pts
-    terra::extract(r, pts_use, ID = FALSE)[, 1]
-  })
-
-  out <- as.data.frame(vals_list)
-  names(out) <- tools::file_path_sans_ext(basename(files))
-  out
-}
-
-chelsa_vals <- extract_folder_terra(chelsa_dir, coords)
-soil_vals   <- extract_folder_terra(soil_dir, coords)
-bee_vals    <- extract_folder_terra(bee_dir, coords)
-
-n_row <- nrow(coords)
-if (!is.null(chelsa_vals)) stopifnot(nrow(chelsa_vals) == n_row)
-if (!is.null(soil_vals))   stopifnot(nrow(soil_vals)   == n_row)
-if (!is.null(bee_vals))    stopifnot(nrow(bee_vals)    == n_row)
-
-df <- cbind(df[seq_len(n_row), ], chelsa_vals, soil_vals, bee_vals)
-
-df2 <- df %>% distinct(longitude, latitude, .keep_all = TRUE)
-cat("✓ Raster extracted. df2 n =", nrow(df2), "\n")
-```
-
-### 3. Derive DEM-based topographic variables
-
-```{r dem-topography}
-dem_file <- file.path(soil_dir, "elevation.tif")
-
-if (file.exists(dem_file)) {
-  dem_r <- terra::rast(dem_file)
-
-  slope_r  <- terra::terrain(dem_r, v = "slope",  unit = "radians")
-  aspect_r <- terra::terrain(dem_r, v = "aspect", unit = "radians")
-  tri_r    <- terra::terrain(dem_r, v = "TRI")
-  tpi_r    <- terra::terrain(dem_r, v = "TPI")
-
-  names(slope_r)  <- "slope"
-  names(aspect_r) <- "aspect"
-  names(tri_r)    <- "TRI"
-  names(tpi_r)    <- "TPI"
-
-  topo_stack <- c(slope_r, aspect_r, tri_r, tpi_r)
-
-  pts <- terra::vect(
-    df2 %>% dplyr::select(longitude, latitude),
-    geom = c("longitude", "latitude"),
-    crs  = "EPSG:4326"
-  )
-
-  pts_use <- if (!terra::same.crs(pts, topo_stack)) {
-    terra::project(pts, terra::crs(topo_stack))
-  } else {
-    pts
-  }
-
-  topo_vals <- terra::extract(topo_stack, pts_use, ID = FALSE)
-  df2 <- cbind(df2, topo_vals)
-
-  df2$northness <- cos(df2$aspect)
-  df2$eastness  <- sin(df2$aspect)
-
-  cat("✓ DEM-derived topographic variables added from:", dem_file, "\n")
-} else {
-  cat("! DEM file not found:", dem_file, "\n")
-}
-```
-
-### 4. Run PCA for environmental predictor sets
-
-```{r pca}
-set.seed(42)
-
-## Temperature PCA
-temp_vars <- grep(
-  "^(CHELSA_bio5_1981-2010_V\\.2\\.1|CHELSA_bio10_1981-2010_V\\.2\\.1|CHELSA_gdd5_1981-2010_V\\.2\\.1)$",
-  names(df2), value = TRUE
-)
-
-Temperature_PC1 <- rep(NA_real_, nrow(df2))
-temp_pc_obj <- NULL
-
-if (length(temp_vars) >= 1) {
-  Xt <- df2[, temp_vars, drop = FALSE]
-  cc <- complete.cases(Xt)
-  if (sum(cc) >= 3 && ncol(Xt) >= 2) {
-    temp_pc_obj <- prcomp(Xt[cc, ], scale. = TRUE)
-    Temperature_PC1[cc] <- temp_pc_obj$x[, 1]
-  } else if (ncol(Xt) == 1) {
-    Temperature_PC1 <- as.numeric(scale(Xt[[1]]))
-  }
-}
-df2$Temperature_PC1 <- Temperature_PC1
-
-## Precipitation / dryness PCA
-precip_vars <- grep(
-  "^(CHELSA_ai_1981-2010_V\\.2\\.1|CHELSA_vpd_mean_1981-2010_V\\.2\\.1|CHELSA_bio1[245]_1981-2010_V\\.2\\.1|CHELSA_swb_1981-2010_V\\.2\\.1)$",
-  names(df2), value = TRUE
-)
-
-precip_PC1 <- rep(NA_real_, nrow(df2))
-precip_pc_obj <- NULL
-
-if (length(precip_vars) >= 1) {
-  Xp <- df2[, precip_vars, drop = FALSE]
-  cc <- complete.cases(Xp)
-  if (sum(cc) >= 3 && ncol(Xp) >= 2) {
-    precip_pc_obj <- prcomp(Xp[cc, ], scale. = TRUE)
-    precip_PC1[cc] <- precip_pc_obj$x[, 1]
-  } else if (ncol(Xp) == 1) {
-    precip_PC1 <- as.numeric(scale(Xp[[1]]))
-  }
-}
-df2$precip_PC1 <- precip_PC1
-
-## Soil physical PCA
-soil_phys_vars <- grep(
-  "^(bdod_0[.-]5cm_mean|cfvo_0[.-]5cm_mean|sand_0[.-]5cm_mean|silt_0[.-]5cm_mean)$",
-  names(df2), value = TRUE
-)
-
-soil_phys_PC1 <- rep(NA_real_, nrow(df2))
-soil_phys_pc_obj <- NULL
-
-if (length(soil_phys_vars) >= 1) {
-  Xp <- df2[, soil_phys_vars, drop = FALSE]
-  keep <- vapply(Xp, function(v) is.numeric(v) && sd(v, na.rm = TRUE) > 0, logical(1))
-  Xp <- Xp[, keep, drop = FALSE]
-  if (ncol(Xp) >= 2) {
-    cc <- complete.cases(Xp)
-    if (sum(cc) >= 3) {
-      soil_phys_pc_obj <- prcomp(Xp[cc, ], scale. = TRUE)
-      soil_phys_PC1[cc] <- soil_phys_pc_obj$x[, 1]
+find_root <- function(start = getwd()) {
+  path <- normalizePath(start, winslash = "/", mustWork = TRUE)
+  repeat {
+    if (file.exists(file.path(path, "Data_S1.csv")) &&
+        file.exists(file.path(path, "R", "analysis_core.R"))) {
+      return(path)
     }
-  } else if (ncol(Xp) == 1) {
-    soil_phys_PC1 <- as.numeric(scale(Xp[[1]]))
+    parent <- dirname(path)
+    if (identical(parent, path)) stop("Project root was not found.")
+    path <- parent
   }
 }
-df2$soil_phys_PC1 <- soil_phys_PC1
 
-## Soil nutrient PCA
-soil_nutrient_vars <- grep(
-  "^(nitrogen_0[.-]5cm_mean|ocd_0[.-]5cm_mean|soc_0[.-]5cm_mean)$",
-  names(df2), value = TRUE
-)
+project_root <- find_root()
+source(file.path(project_root, "R", "analysis_core.R"))
+source(file.path(project_root, "R", "sdm.R"))
 
-soil_nutrient_PC1 <- rep(NA_real_, nrow(df2))
-soil_nutrient_pc_obj <- NULL
-
-if (length(soil_nutrient_vars) >= 1) {
-  Xn <- df2[, soil_nutrient_vars, drop = FALSE]
-  keep <- vapply(Xn, function(v) is.numeric(v) && sd(v, na.rm = TRUE) > 0, logical(1))
-  Xn <- Xn[, keep, drop = FALSE]
-  if (ncol(Xn) >= 2) {
-    cc <- complete.cases(Xn)
-    if (sum(cc) >= 3) {
-      soil_nutrient_pc_obj <- prcomp(Xn[cc, ], scale. = TRUE)
-      soil_nutrient_PC1[cc] <- soil_nutrient_pc_obj$x[, 1]
-    }
-  } else if (ncol(Xn) == 1) {
-    soil_nutrient_PC1 <- as.numeric(scale(Xn[[1]]))
-  }
-}
-df2$soil_nutrient_PC1 <- soil_nutrient_PC1
-
-## Soil pH
-soil_pH_var <- grep("^phh2o_0[.-]5cm_mean$", names(df2), value = TRUE)
-if (length(soil_pH_var) >= 1) {
-  df2$soil_pH <- df2[[soil_pH_var[1]]]
-} else {
-  df2$soil_pH <- NA_real_
-}
-
-## Topography PCA
-topo_vars <- intersect(c("roughness", "slope", "TRI"), names(df2))
-
-topo_PC1 <- rep(NA_real_, nrow(df2))
-topo_pc_obj <- NULL
-
-if (length(topo_vars) >= 2) {
-  Xt <- df2[, topo_vars, drop = FALSE]
-  keep <- vapply(Xt, function(v) is.numeric(v) && sd(v, na.rm = TRUE) > 0, logical(1))
-  Xt <- Xt[, keep, drop = FALSE]
-  if (ncol(Xt) >= 2) {
-    cc <- complete.cases(Xt)
-    if (sum(cc) >= 3) {
-      topo_pc_obj <- prcomp(Xt[cc, ], scale. = TRUE)
-      topo_PC1[cc] <- topo_pc_obj$x[, 1]
-    }
-  } else if (ncol(Xt) == 1) {
-    topo_PC1 <- as.numeric(scale(Xt[[1]]))
-  }
-}
-df2$topo_PC1 <- topo_PC1
-
-cat("✓ PCA done.\n")
-```
-
-### 6. CFA Pigment latent factor
-
-```{r cfa-pigment}
-stopifnot(all(c("a","Lm","C") %in% names(df2)))
-
-model_pig <- ' Pigment =~ 1*a + Lm + C '
-fit_pig <- lavaan::cfa(
-  model_pig,
-  data      = df2[, c("a","Lm","C")],
-  estimator = "MLR",
-  std.lv    = FALSE,
-  missing   = "fiml"
-)
-
-stopifnot(lavaan::inspect(fit_pig, "converged"))
-df2$Pigment <- as.numeric(lavaan::lavPredict(fit_pig, type = "lv")[, "Pigment"])
-
-cat("✓ Pigment factor computed.\n")
-```
-
-### 5. Export PCA loadings
-
-```{r export-loadings}
-if (!is.null(temp_pc_obj)) {
-  write_csv(
-    as.data.frame(temp_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
-    file.path(cmp_dir, "temperature_pca_loadings.csv")
-  )
-}
-if (!is.null(precip_pc_obj)) {
-  write_csv(
-    as.data.frame(precip_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
-    file.path(cmp_dir, "precip_pca_loadings.csv")
-  )
-}
-if (!is.null(soil_phys_pc_obj)) {
-  write_csv(
-    as.data.frame(soil_phys_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
-    file.path(cmp_dir, "soil_physical_pca_loadings.csv")
-  )
-}
-if (!is.null(soil_nutrient_pc_obj)) {
-  write_csv(
-    as.data.frame(soil_nutrient_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
-    file.path(cmp_dir, "soil_nutrient_pca_loadings.csv")
-  )
-}
-if (!is.null(topo_pc_obj)) {
-  write_csv(
-    as.data.frame(topo_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
-    file.path(cmp_dir, "topography_pca_loadings.csv")
-  )
+resolve_report_path <- function(path) {
+  path <- path.expand(as.character(path)[1L])
+  if (grepl("^(/|[A-Za-z]:[/\\\\])", path)) path else file.path(project_root, path)
 }
 ```
 
-### 6. Build RSDS, pigment factor, and bee richness
+## Scope
 
-```{r rsds-pigment-bee}
-rsds_candidates <- grep("rsds", names(df2), value = TRUE, ignore.case = TRUE)
-stopifnot(length(rsds_candidates) > 0)
-df2$RSDS <- df2[[rsds_candidates[1]]]
+This report validates and prepares the repository's standard input. The unit of
+analysis is a photograph by default. Exact duplicate coordinates are reported,
+but never silently collapsed. Site-level analysis requires an explicit site ID.
 
-stopifnot(all(c("a", "Lm", "C") %in% names(df2)))
-model_pig <- ' Pigment =~ 1*a + Lm + C '
-fit_pig <- lavaan::cfa(
-  model_pig,
-  data      = df2[, c("a", "Lm", "C")],
-  estimator = "MLR",
-  std.lv    = FALSE,
-  missing   = "fiml"
+The colour response below is an image-colour axis, not a direct measurement of
+pigment concentration. `Bombus_suitability_sum` is the sum of five continuous
+SDM predictions, not observed species richness.
+
+## Input contract and grain
+
+```{r input}
+input_path <- resolve_report_path(params$input)
+raw_colour_data <- read_colour_data(input_path, allow_missing_rgb = TRUE)
+input_grain_audit <- audit_analysis_grain(raw_colour_data)
+accepted_qc_status <- trimws(strsplit(
+  params$accepted_qc_status,
+  ",",
+  fixed = TRUE
+)[[1L]])
+qc_filter <- filter_analysis_qc(
+  raw_colour_data,
+  accepted_status = accepted_qc_status
 )
-stopifnot(lavaan::inspect(fit_pig, "converged"))
-df2$Pigment <- as.numeric(lavaan::lavPredict(fit_pig, type = "lv")[, "Pigment"])
-
-bee_cols <- intersect(c("ardens", "beaticola", "consobrinus", "diversus", "honshuensis"), names(df2))
-stopifnot(length(bee_cols) > 0)
-df2$Bee_Richness <- rowSums(df2[, bee_cols], na.rm = TRUE)
-
-cat("✓ RSDS / Pigment / Bee richness ready.\n")
-```
-
-### 7. Build modeling dataset
-
-```{r build-model-data}
-need_vars <- c(
-  "Pigment",
-  "topo_PC1",
-  "Temperature_PC1",
-  "precip_PC1",
-  "soil_nutrient_PC1",
-  "soil_phys_PC1",
-  "soil_pH",
-  "RSDS",
-  "Bee_Richness",
-  "longitude", "latitude"
-)
-
-dat0 <- df2 %>%
-  dplyr::select(all_of(need_vars), any_of("date"), any_of("elevation")) %>%
-  dplyr::filter(complete.cases(across(all_of(need_vars)))) %>%
-  dplyr::mutate(
-    y         = Pigment,
-    z_RSDS    = z(RSDS),
-    z_soil_pH = z(soil_pH),
-    z_Bee     = z(Bee_Richness)
-  )
-
-stopifnot(nrow(dat0) >= 50)
-cat("✓ dat0 ready. n =", nrow(dat0), "\n")
-```
-
-### 8. Check predictor correlations and choose the competing pair automatically
-
-```{r select-competing-pair}
-main_effect_pool <- c(
-  "topo_PC1",
-  "Temperature_PC1",
-  "precip_PC1",
-  "soil_nutrient_PC1",
-  "soil_phys_PC1",
-  "z_soil_pH",
-  "z_RSDS"
-)
-
-replaceable_pool <- setdiff(
-  main_effect_pool,
-  c("topo_PC1", "Temperature_PC1", "z_RSDS")
-)
-
-cor_mat <- cor(dat0[, main_effect_pool], use = "pairwise.complete.obs")
-write.csv(cor_mat, file.path(cmp_dir, "predictor_correlation_matrix.csv"), row.names = TRUE)
-
-cor_df <- as.data.frame(as.table(cor_mat), stringsAsFactors = FALSE)
-names(cor_df) <- c("var1", "var2", "r")
-
-high_cor <- cor_df %>%
-  dplyr::filter(var1 != var2) %>%
-  dplyr::mutate(abs_r = abs(r)) %>%
-  dplyr::rowwise() %>%
-  dplyr::mutate(pair = paste(sort(c(var1, var2)), collapse = "___")) %>%
-  dplyr::ungroup() %>%
-  dplyr::distinct(pair, .keep_all = TRUE) %>%
-  dplyr::filter(var1 %in% replaceable_pool, var2 %in% replaceable_pool) %>%
-  dplyr::arrange(desc(abs_r))
-
-write_csv(high_cor, file.path(cmp_dir, "high_correlation_pairs_replaceable_pool.csv"))
-print(high_cor)
-
-corr_threshold <- 0.7
-candidate_pairs <- high_cor %>%
-  dplyr::filter(abs_r >= corr_threshold)
-
-if (nrow(candidate_pairs) == 0) {
-  stop("No high-correlation competing pair found in replaceable_pool at threshold = ", corr_threshold)
+colour_data <- qc_filter$data
+if (!nrow(colour_data)) stop("No records remain after colour QC filtering.")
+if (!qc_filter$status_available) {
+  message("qc_status is unavailable in this legacy input; all records were retained.")
 }
-
-best_pair <- candidate_pairs[1, ]
-varA <- best_pair$var1
-varB <- best_pair$var2
-
-cat("\n==============================\n")
-cat("Selected competing pair automatically:\n")
-cat("varA =", varA, "\n")
-cat("varB =", varB, "\n")
-cat("r    =", round(best_pair$r, 3), "\n")
-cat("==============================\n\n")
-
-write_csv(best_pair, file.path(cmp_dir, "selected_competing_pair.csv"))
-```
-
-### 9. Add interaction terms
-
-```{r add-interactions}
-nm_int_A_topo    <- paste0("int_", varA, "_topo")
-nm_int_A_rsds    <- paste0("int_", varA, "_rsds")
-nm_int_B_topo    <- paste0("int_", varB, "_topo")
-nm_int_B_rsds    <- paste0("int_", varB, "_rsds")
-nm_int_topo_rsds <- "int_topo_rsds"
-
-dat_cmp <- dat0
-dat_cmp[[nm_int_A_topo]]    <- dat_cmp[[varA]] * dat_cmp[["topo_PC1"]]
-dat_cmp[[nm_int_A_rsds]]    <- dat_cmp[[varA]] * dat_cmp[["z_RSDS"]]
-dat_cmp[[nm_int_B_topo]]    <- dat_cmp[[varB]] * dat_cmp[["topo_PC1"]]
-dat_cmp[[nm_int_B_rsds]]    <- dat_cmp[[varB]] * dat_cmp[["z_RSDS"]]
-dat_cmp[[nm_int_topo_rsds]] <- dat_cmp[["topo_PC1"]] * dat_cmp[["z_RSDS"]]
-```
-
-### 10. Define candidate model sets
-
-```{r define-model-sets}
-bee_var <- "z_Bee"
-
-make_full_terms <- function(chosen_var, include_bee = FALSE) {
-  other_terms <- setdiff(main_effect_pool, c(varA, varB))
-  terms <- c("topo_PC1", "Temperature_PC1", chosen_var,
-             setdiff(other_terms, c("topo_PC1", "Temperature_PC1")))
-  terms <- unique(terms)
-  if (include_bee) terms <- c(terms, bee_var)
-  terms
+identity_filter <- filter_photo_coordinate_conflicts(colour_data)
+colour_data <- identity_filter$data
+if (!nrow(colour_data)) {
+  stop("No records remain after photo-coordinate conflict filtering.")
 }
-
-full_A_nobee <- make_full_terms(varA, include_bee = FALSE)
-full_A_bee   <- make_full_terms(varA, include_bee = TRUE)
-full_B_nobee <- make_full_terms(varB, include_bee = FALSE)
-full_B_bee   <- make_full_terms(varB, include_bee = TRUE)
-
-candidate_terms <- list(
-  A_full_nobee = full_A_nobee,
-  A_full_bee   = full_A_bee,
-  B_full_nobee = full_B_nobee,
-  B_full_bee   = full_B_bee,
-  A_int_topo      = c(full_A_bee, nm_int_A_topo),
-  A_int_rsds      = c(full_A_bee, nm_int_A_rsds),
-  A_int_topo_rsds = c(full_A_bee, nm_int_topo_rsds),
-  B_int_topo      = c(full_B_bee, nm_int_B_topo),
-  B_int_rsds      = c(full_B_bee, nm_int_B_rsds),
-  B_int_topo_rsds = c(full_B_bee, nm_int_topo_rsds)
+colour_selection <- select_analysis_colour_method(
+  colour_data,
+  method = params$colour_method
 )
-
-candidate_family <- c(
-  A_full_nobee = "main_effect_models",
-  A_full_bee   = "main_effect_models",
-  B_full_nobee = "main_effect_models",
-  B_full_bee   = "main_effect_models",
-  A_int_topo      = "interaction_models",
-  A_int_rsds      = "interaction_models",
-  A_int_topo_rsds = "interaction_models",
-  B_int_topo      = "interaction_models",
-  B_int_rsds      = "interaction_models",
-  B_int_topo_rsds = "interaction_models"
-)
-
-model_definition_tbl <- tibble(
-  model = names(candidate_terms),
-  family = candidate_family[names(candidate_terms)],
-  terms = vapply(candidate_terms, function(x) paste(x, collapse = " + "), character(1))
-)
-write_csv(model_definition_tbl, file.path(cmp_dir, "model_definitions.csv"))
-print(model_definition_tbl)
-```
-### 11. Build the mesh and SPDE object
-
-```{r mesh-spde}
-sf_cmp <- sf::st_as_sf(dat_cmp, coords = c("longitude", "latitude"), crs = 4326)
-sf_cmp_m <- sf::st_transform(sf_cmp, 3857)
-coords_cmp <- sf::st_coordinates(sf_cmp_m)
-
-mesh_cmp <- INLA::inla.mesh.2d(
-  loc      = coords_cmp,
-  max.edge = c(20000, 100000),
-  cutoff   = 5000
-)
-
-spde_cmp <- INLA::inla.spde2.matern(mesh_cmp, alpha = 2)
-A_cmp    <- INLA::inla.spde.make.A(mesh_cmp, loc = coords_cmp)
-
-cat("✓ comparison mesh built.\n")
-```
-
-### 12. Define model-fitting helper functions
-
-```{r fit-functions}
-fit_spde_model <- function(dat, spde, A, terms, model_name, family_name) {
-  stopifnot(all(terms %in% names(dat)))
-
-  X <- dat[, terms, drop = FALSE]
-  X$Intercept <- 1
-  X <- X[, c("Intercept", terms), drop = FALSE]
-
-  stk <- INLA::inla.stack(
-    data = list(y = dat$y),
-    A = list(A, 1),
-    effects = list(
-      s = 1:spde$n.spde,
-      X = X
-    ),
-    tag = "est"
-  )
-
-  rhs <- paste(c("0 + Intercept", terms, "f(s, model = spde)"), collapse = " + ")
-  form <- as.formula(paste("y ~", rhs))
-
-  fit <- INLA::inla(
-    formula = form,
-    data    = INLA::inla.stack.data(stk),
-    family  = "gaussian",
-    control.predictor = list(
-      A = INLA::inla.stack.A(stk),
-      compute = TRUE
-    ),
-    control.compute = list(
-      config = TRUE,
-      dic  = TRUE,
-      waic = TRUE,
-      cpo  = TRUE
-    )
-  )
-
-  list(
-    fit = fit,
-    stk = stk,
-    formula = form,
-    model_name = model_name,
-    family_name = family_name,
-    terms = terms
-  )
-}
-
-get_model_metrics <- function(obj) {
-  fit <- obj$fit
-  cpo_vals <- fit$cpo$cpo
-
-  tibble(
-    model = obj$model_name,
-    family = obj$family_name,
-    n_terms = length(obj$terms),
-    terms = paste(obj$terms, collapse = " + "),
-    DIC = fit$dic$dic,
-    WAIC = fit$waic$waic,
-    pWAIC = fit$waic$p.eff,
-    mean_neglogCPO = mean(-log(cpo_vals), na.rm = TRUE),
-    n_CPO_NA = sum(is.na(cpo_vals))
-  )
-}
-```
-### 13. Fit all candidate SPDE-INLA models
-
-```{r fit-all-models}
-fit_list <- lapply(names(candidate_terms), function(nm) {
-  cat("Fitting:", nm, "\n")
-  fit_spde_model(
-    dat = dat_cmp,
-    spde = spde_cmp,
-    A = A_cmp,
-    terms = candidate_terms[[nm]],
-    model_name = nm,
-    family_name = candidate_family[[nm]]
-  )
-})
-names(fit_list) <- names(candidate_terms)
-```
-
-### 14. Compare candidate models
-
-```{r compare-models}
-cmp_tbl <- bind_rows(lapply(fit_list, get_model_metrics)) %>%
-  arrange(WAIC) %>%
-  mutate(
-    delta_WAIC = WAIC - min(WAIC, na.rm = TRUE),
-    delta_DIC  = DIC  - min(DIC,  na.rm = TRUE),
-    rank_WAIC  = row_number()
-  )
-
-print(cmp_tbl, n = nrow(cmp_tbl))
-write_csv(cmp_tbl, file.path(cmp_dir, "auto_competing_pair_model_comparison.csv"))
-
-family_best <- cmp_tbl %>%
-  group_by(family) %>%
-  slice_min(order_by = WAIC, n = 1, with_ties = FALSE) %>%
-  ungroup() %>%
-  arrange(WAIC) %>%
-  mutate(delta_WAIC_global = WAIC - min(WAIC))
-
-print(family_best)
-write_csv(family_best, file.path(cmp_dir, "auto_competing_pair_family_best.csv"))
-
-top_models <- cmp_tbl %>%
-  dplyr::filter(delta_WAIC < 2) %>%
-  dplyr::arrange(WAIC, n_terms)
-
-print(top_models)
-write_csv(top_models, file.path(cmp_dir, "auto_competing_pair_top_models_deltaWAIC_lt2.csv"))
-
-best_model_name <- cmp_tbl$model[1]
-best_obj <- fit_list[[best_model_name]]
-
-cat("\n==============================\n")
-cat("Best model by WAIC:", best_model_name, "\n")
-cat("Selected pair:", varA, "vs", varB, "\n")
-cat("Formula:\n")
-print(best_obj$formula)
-cat("==============================\n")
-```
-
-### 15. Save model comparison plots
-
-```{r comparison-plots}
-waic_range <- range(cmp_tbl$WAIC, na.rm = TRUE)
-waic_span  <- diff(waic_range)
-if (!is.finite(waic_span) || waic_span == 0) waic_span <- 1
-
-p_cmp <- cmp_tbl %>%
-  mutate(model = forcats::fct_reorder(model, WAIC)) %>%
-  ggplot(aes(x = WAIC, y = model, shape = family)) +
-  geom_point(size = 3) +
-  geom_text(
-    aes(label = paste0("Δ=", round(delta_WAIC, 2))),
-    nudge_x = 0.03 * waic_span,
-    size = 3
-  ) +
-  labs(
-    x = "WAIC",
-    y = NULL,
-    title = "Candidate model comparison",
-    subtitle = paste0("Selected competing pair: ", varA, " vs ", varB)
-  ) +
-  theme_bw(base_size = 12)
-
-print(p_cmp)
-
-ggsave(
-  filename = file.path(cmp_dir, "candidate_model_comparison_WAIC.png"),
-  plot = p_cmp,
-  width = 9,
-  height = 6.5,
-  dpi = 300
-)
-
-p_delta <- cmp_tbl %>%
-  mutate(model = forcats::fct_reorder(model, delta_WAIC)) %>%
-  ggplot(aes(x = delta_WAIC, y = model, fill = family)) +
-  geom_col() +
-  geom_vline(xintercept = c(2, 7, 10), linetype = 2, color = "grey60") +
-  labs(
-    x = "ΔWAIC",
-    y = NULL,
-    title = "Relative model support",
-    subtitle = "Rough guide: ΔWAIC < 2 similar; > 10 much worse"
-  ) +
-  theme_bw(base_size = 12)
-
-print(p_delta)
-
-ggsave(
-  filename = file.path(cmp_dir, "candidate_model_comparison_deltaWAIC.png"),
-  plot = p_delta,
-  width = 9,
-  height = 6.5,
-  dpi = 300
+colour_data <- colour_selection$data
+if (!nrow(colour_data)) stop("No records remain after colour-method selection.")
+grain_audit <- audit_analysis_grain(colour_data)
+list(
+  input_grain_audit_before_qc = input_grain_audit,
+  colour_qc_audit = qc_filter$audit,
+  photo_coordinate_identity_audit = identity_filter$audit,
+  colour_method_audit = colour_selection$audit,
+  analysis_grain_audit_after_qc = grain_audit
 )
 ```
 
-### 16. Save formulas and fixed-effect tables
+When `qc_status` is present, only the configured statuses enter colour PCA or
+raster extraction. The preparation default retains both `ok` and
+`manual_review_required`: several automated flags depend on colour itself, so
+silently dropping all flagged photographs could create response-dependent
+selection. This default is not manual approval. Inference should use completed
+visual review or report both inclusive and strict `accepted_qc_status: "ok"`
+sensitivity analyses. Excluded statuses and counts are displayed above.
 
-```{r save-formulas-fixef}
-formula_tbl <- tibble(
-  model = names(fit_list),
-  family = vapply(fit_list, function(x) x$family_name, character(1)),
-  formula = vapply(fit_list, function(x) paste(deparse(x$formula), collapse = " "), character(1))
-)
-write_csv(formula_tbl, file.path(cmp_dir, "auto_competing_pair_model_formulas.csv"))
+An unresolved exact-photo duplicate assigned to multiple coordinates is a
+different problem from colour-dependent QC. Both conflicting records are
+always excluded from analysis preparation until the source identity is
+resolved; they remain in `Data_S1.csv` for auditability.
 
-fixef_all <- bind_rows(lapply(fit_list, function(obj) {
-  obj$fit$summary.fixed %>%
-    as.data.frame() %>%
-    tibble::rownames_to_column("term") %>%
-    mutate(model = obj$model_name, family = obj$family_name, .before = 1)
-}))
-write_csv(fixef_all, file.path(cmp_dir, "auto_competing_pair_all_fixed_effects.csv"))
-```
+The `primary` colour method uses the published median `R/G/B` columns. Optional
+sensitivity methods copy one explicitly named candidate triplet into `R/G/B`;
+the original values remain in `primary_R/G/B`. Records missing any selected
+candidate channel are excluded and counted, never filled from another method.
 
-### 17. Refit all top-supported models for supplementary outputs
+## sRGB to CIELAB and sign-fixed colour PCA
 
-```{r refit-top-models}
-refit_one_model <- function(obj, dat, coords, mesh, spde, A, outdir) {
-  terms <- obj$terms
+RGB values are required to use the 0--255 sRGB scale. Missing colours remain in
+the table as missing values; partially missing RGB triples are rejected.
 
-  X <- dat[, terms, drop = FALSE]
-  X$Intercept <- 1
-  X <- X[, c("Intercept", terms), drop = FALSE]
-
-  stk <- INLA::inla.stack(
-    data = list(y = dat$y),
-    A = list(A, 1),
-    effects = list(
-      s = 1:spde$n.spde,
-      X = X
-    ),
-    tag = "est"
-  )
-
-  fit <- INLA::inla(
-    formula = obj$formula,
-    data    = INLA::inla.stack.data(stk),
-    family  = "gaussian",
-    control.predictor = list(
-      A = INLA::inla.stack.A(stk),
-      compute = TRUE
-    ),
-    control.compute = list(
-      config = TRUE,
-      dic  = TRUE,
-      waic = TRUE,
-      cpo  = TRUE
-    )
-  )
-
-  model_dir <- file.path(outdir, obj$model_name)
-  dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
-
-  fixef <- fit$summary.fixed %>%
-    as.data.frame() %>%
-    tibble::rownames_to_column("term")
-
-  write_csv(fixef, file.path(model_dir, "fixed_effects.csv"))
-
-  fit_stats <- tibble(
-    model = obj$model_name,
-    family = obj$family_name,
-    DIC = fit$dic$dic,
-    WAIC = fit$waic$waic,
-    pWAIC = fit$waic$p.eff,
-    mean_neglogCPO = mean(-log(fit$cpo$cpo), na.rm = TRUE),
-    n_CPO_NA = sum(is.na(fit$cpo$cpo))
-  )
-  write_csv(fit_stats, file.path(model_dir, "fit_stats.csv"))
-
-  IDX <- INLA::inla.stack.index(stk, "est")$data
-  y_obs   <- INLA::inla.stack.data(stk)$y[IDX]
-  yhat    <- fit$summary.fitted.values$mean[IDX]
-  yhat_sd <- fit$summary.fitted.values$sd[IDX]
-
-  resid_raw  <- y_obs - yhat
-  resid_zfit <- resid_raw / pmax(as.numeric(yhat_sd), 1e-6)
-
-  dat_res <- dat
-  dat_res$yhat       <- yhat
-  dat_res$yhat_sd    <- yhat_sd
-  dat_res$resid_raw  <- resid_raw
-  dat_res$resid_zfit <- resid_zfit
-
-  write_csv(dat_res, file.path(model_dir, "residuals.csv"))
-
-  coef_plot_tbl <- fixef %>%
-    dplyr::filter(term != "Intercept") %>%
-    dplyr::mutate(
-      signif95 = (`0.025quant` > 0) | (`0.975quant` < 0),
-      sig_label = ifelse(signif95, "95% CI excludes 0", "95% CI overlaps 0"),
-      term_pretty = forcats::fct_reorder(term, mean)
-    )
-
-  p_fixef <- ggplot(coef_plot_tbl,
-                    aes(x = mean, y = term_pretty, shape = sig_label)) +
-    geom_vline(xintercept = 0, linetype = 2, color = "grey50") +
-    geom_errorbarh(aes(xmin = `0.025quant`, xmax = `0.975quant`), height = 0.18) +
-    geom_point(size = 3) +
-    labs(
-      x = "Posterior mean coefficient",
-      y = NULL,
-      shape = NULL,
-      title = paste0("Fixed effects: ", obj$model_name),
-      subtitle = paste0("family = ", obj$family_name)
-    ) +
-    theme_bw(base_size = 12)
-
-  print(p_fixef)
-
-  ggsave(
-    filename = file.path(model_dir, "fixed_effects_plot.png"),
-    plot = p_fixef,
-    width = 8,
-    height = 5.5,
-    dpi = 300
-  )
-
-  write_csv(coef_plot_tbl, file.path(model_dir, "fixed_effects_for_plot.csv"))
-
-  invisible(list(
-    fit = fit,
-    stk = stk,
-    fixef = fixef,
-    fit_stats = fit_stats,
-    residuals = dat_res,
-    coef_plot_tbl = coef_plot_tbl
-  ))
-}
-
-top_model_names <- top_models$model
-top_model_objects <- fit_list[top_model_names]
-
-top_refits <- lapply(top_model_objects, refit_one_model,
-                     dat = dat_cmp,
-                     coords = coords_cmp,
-                     mesh = mesh_cmp,
-                     spde = spde_cmp,
-                     A = A_cmp,
-                     outdir = top_dir)
-
-names(top_refits) <- top_model_names
-
-write_csv(
-  tibble(model = top_model_names),
-  file.path(top_dir, "top_model_names.csv")
-)
-```
-
-### 18. Plot only the top-supported models
-
-```{r top-model-plots}
-top_cmp_tbl <- cmp_tbl %>%
-  dplyr::filter(model %in% top_model_names) %>%
-  dplyr::arrange(WAIC)
-
-top_waic_range <- range(top_cmp_tbl$WAIC, na.rm = TRUE)
-top_waic_span  <- diff(top_waic_range)
-if (!is.finite(top_waic_span) || top_waic_span == 0) top_waic_span <- 1
-
-p_top <- top_cmp_tbl %>%
-  mutate(model = forcats::fct_reorder(model, WAIC)) %>%
-  ggplot(aes(x = WAIC, y = model, shape = family)) +
-  geom_point(size = 3) +
-  geom_text(
-    aes(label = paste0("Δ=", round(delta_WAIC, 2))),
-    nudge_x = 0.03 * top_waic_span,
-    size = 3
-  ) +
-  labs(
-    x = "WAIC",
-    y = NULL,
-    title = "Top-supported models",
-    subtitle = "Models with ΔWAIC < 2"
-  ) +
-  theme_bw(base_size = 12)
-
-print(p_top)
-
-ggsave(
-  filename = file.path(top_dir, "top_models_WAIC.png"),
-  plot = p_top,
-  width = 8,
-  height = 4.8,
-  dpi = 300
-)
-```
-
-### 19. Refit the best model cleanly
-
-```{r refit-best-model}
-best_terms <- best_obj$terms
-
-dat_final <- dat_cmp
-coords_final <- coords_cmp
-mesh_final <- mesh_cmp
-spde_final <- spde_cmp
-A_final <- A_cmp
-
-X_final <- dat_final[, best_terms, drop = FALSE]
-X_final$Intercept <- 1
-X_final <- X_final[, c("Intercept", best_terms), drop = FALSE]
-
-stk_final <- INLA::inla.stack(
-  data = list(y = dat_final$y),
-  A = list(A_final, 1),
-  effects = list(
-    s = 1:spde_final$n.spde,
-    X = X_final
+```{r colour}
+colour_data <- add_colour_features(colour_data)
+site_value_columns <- intersect(
+  c(
+    "R", "G", "B", "L", "a", "b", "C", "darkness",
+    "primary_R", "primary_G", "primary_B"
   ),
-  tag = "est"
+  names(colour_data)
 )
-
-formula_final <- best_obj$formula
-
-fit_final <- INLA::inla(
-  formula = formula_final,
-  data    = INLA::inla.stack.data(stk_final),
-  family  = "gaussian",
-  control.predictor = list(
-    A = INLA::inla.stack.A(stk_final),
-    compute = TRUE
-  ),
-  control.compute = list(
-    config = TRUE,
-    dic  = TRUE,
-    waic = TRUE,
-    cpo  = TRUE
-  )
-)
-
-cat("✓ best model refitted.\n")
-```
-
-### 20. Save fixed effects, variance decomposition, and residuals for the best model
-
-```{r best-model-results}
-fixef_final <- fit_final$summary.fixed %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("term")
-
-write_csv(fixef_final, file.path(best_dir, "best_model_fixed_effects.csv"))
-print(fixef_final)
-
-IDX <- INLA::inla.stack.index(stk_final, "est")$data
-
-proj_obs <- INLA::inla.mesh.projector(mesh_final, loc = coords_final)
-s_obs <- as.numeric(INLA::inla.mesh.project(proj_obs, fit_final$summary.random$s$mean))
-
-eta <- fit_final$summary.linear.predictor$mean[IDX]
-fixed_part <- eta - s_obs
-
-prec_med <- fit_final$summary.hyperpar["Precision for the Gaussian observations", "0.5quant"]
-resid_var <- 1 / prec_med
-
-v_fixed   <- var(fixed_part, na.rm = TRUE)
-v_spatial <- var(s_obs, na.rm = TRUE)
-v_resid   <- resid_var
-v_total   <- v_fixed + v_spatial + v_resid
-
-var_decomp <- data.frame(
-  component  = c("fixed", "spatial", "residual"),
-  variance   = c(v_fixed, v_spatial, v_resid),
-  proportion = c(v_fixed, v_spatial, v_resid) / v_total
-)
-write_csv(var_decomp, file.path(best_dir, "best_model_variance_decomposition.csv"))
-print(var_decomp)
-
-sh <- fit_final$summary.hyperpar
-tau   <- exp(sh[grep("Theta1", rownames(sh)), "0.5quant"])
-kappa <- exp(sh[grep("Theta2", rownames(sh)), "0.5quant"])
-range_km <- sqrt(8) / kappa / 1000
-sigma    <- 1 / (sqrt(4*pi) * tau * kappa)
-
-spatial_pars <- data.frame(range_km = range_km, sigma = sigma)
-write_csv(spatial_pars, file.path(best_dir, "best_model_spatial_parameters.csv"))
-print(spatial_pars)
-
-y_obs    <- INLA::inla.stack.data(stk_final)$y[IDX]
-yhat     <- fit_final$summary.fitted.values$mean[IDX]
-yhat_sd  <- fit_final$summary.fitted.values$sd[IDX]
-
-resid_raw  <- y_obs - yhat
-resid_zfit <- resid_raw / pmax(as.numeric(yhat_sd), 1e-6)
-
-dat_used <- dat_final
-dat_used$yhat       <- yhat
-dat_used$yhat_sd    <- yhat_sd
-dat_used$resid_raw  <- resid_raw
-dat_used$resid_zfit <- resid_zfit
-
-write_csv(dat_used, file.path(best_dir, "best_model_residuals.csv"))
-```
-
-### 21. Plot fixed effects for the best model
-
-```{r best-model-fixef-plot}
-coef_plot_tbl <- fixef_final %>%
-  dplyr::filter(term != "Intercept") %>%
-  dplyr::mutate(
-    signif95 = (`0.025quant` > 0) | (`0.975quant` < 0),
-    sig_label = ifelse(signif95, "95% CI excludes 0", "95% CI overlaps 0")
-  )
-
-p_fixef <- ggplot(coef_plot_tbl,
-                  aes(x = mean, y = forcats::fct_reorder(term, mean), shape = sig_label)) +
-  geom_vline(xintercept = 0, linetype = 2, color = "grey50") +
-  geom_errorbarh(aes(xmin = `0.025quant`, xmax = `0.975quant`), height = 0.18) +
-  geom_point(size = 3) +
-  labs(
-    x = "Posterior mean coefficient",
-    y = NULL,
-    shape = NULL,
-    title = "Fixed effects in the best auto-selected SPDE-INLA model",
-    subtitle = paste0("Best model: ", best_model_name, " | pair: ", varA, " vs ", varB)
-  ) +
-  theme_bw(base_size = 12)
-
-print(p_fixef)
-
-ggsave(
-  filename = file.path(best_plotdir, "best_model_fixed_effects.png"),
-  plot = p_fixef,
-  width = 8.2,
-  height = 5.8,
-  dpi = 300
-)
-
-write_csv(coef_plot_tbl, file.path(best_dir, "best_model_fixed_effects_for_plot.csv"))
-```
-
-### 22. Save best-model formula and fit statistics
-
-```{r best-model-formula-fitstats}
-formula_best_tbl <- tibble(
-  selected_varA = varA,
-  selected_varB = varB,
-  model = best_model_name,
-  family = best_obj$family_name,
-  formula = paste(deparse(formula_final), collapse = " ")
-)
-
-fit_stats <- tibble(
-  selected_varA = varA,
-  selected_varB = varB,
-  model = best_model_name,
-  family = best_obj$family_name,
-  DIC = fit_final$dic$dic,
-  WAIC = fit_final$waic$waic,
-  pWAIC = fit_final$waic$p.eff,
-  mean_neglogCPO = mean(-log(fit_final$cpo$cpo), na.rm = TRUE),
-  n_CPO_NA = sum(is.na(fit_final$cpo$cpo))
-)
-
-write_csv(formula_best_tbl, file.path(best_dir, "best_model_formula.csv"))
-write_csv(fit_stats,        file.path(best_dir, "best_model_fit_stats.csv"))
-print(fit_stats)
-```
-
-### 23. Fit qGAM models using the residuals from the best model
-
-```{r qgam-main}
-set.seed(42)
-
-MODE <- "fit"
-POSITIVE_THRESH <- 1.5
-
-K_SPACE <- 60
-K_ELEV  <- 10
-K_PD    <- 10
-K_DOY   <- 12
-K_INT2  <- c(8, 8)
-
-ADD_DOYxPD <- FALSE
-taus <- c(0.75, 0.85, 0.90, 0.95)
-
-q_lo <- 0.10
-q_hi <- 0.90
-SPACE_AVERAGE <- "marginal"
-FIXED_LONLAT  <- c(longitude = NA_real_, latitude = NA_real_)
-
-if ("date" %in% names(dat_used)) {
-  date_parsed <- suppressWarnings(as.Date(
-    dat_used$date,
-    tryFormats = c(
-      "%Y-%m-%d","%Y/%m/%d","%Y.%m.%d","%Y%m%d",
-      "%m/%d/%Y","%m-%d-%Y",
-      "%Y-%m-%d %H:%M","%Y/%m/%d %H:%M",
-      "%Y-%m-%d %H:%M:%S","%Y/%m/%d %H:%M:%S"
-    )
-  ))
-  dat_used$DOY <- as.integer(strftime(date_parsed, "%j"))
-} else {
-  dat_used$DOY <- NA_integer_
-}
-
-human_tifs <- list.files(human_dir, pattern = "\\.tif$", full.names = TRUE)
-stopifnot(length(human_tifs) > 0)
-
-r_human <- terra::rast(human_tifs[1])
-
-pts_ll <- terra::vect(
-  data.frame(lon = dat_used$longitude, lat = dat_used$latitude),
-  geom = c("lon", "lat"),
-  crs  = "EPSG:4326"
-)
-
-if (!terra::same.crs(pts_ll, r_human)) {
-  pts_ll <- terra::project(pts_ll, terra::crs(r_human))
-}
-
-vals <- terra::extract(r_human, pts_ll, ID = FALSE)[, 1]
-dat_used$pop_density_raw <- vals
-dat_used$pop_density_log <- log1p(vals)
-
-if (!("elevation" %in% names(dat_used))) {
-  dat_used <- dat_used %>%
-    left_join(
-      df2 %>%
-        dplyr::select(longitude, latitude, elevation) %>%
-        distinct(),
-      by = c("longitude", "latitude")
-    )
-}
-
-stopifnot("elevation" %in% names(dat_used))
-elev0 <- median(dat_used$elevation, na.rm = TRUE)
-
-dat_used <- dat_used %>%
-  dplyr::filter(
-    is.finite(resid_zfit),
-    is.finite(pop_density_log),
-    is.finite(longitude),
-    is.finite(latitude),
-    is.finite(elevation)
-  )
-
-df_fit  <- dat_used
-df_dark <- dat_used %>% dplyr::filter(resid_zfit > POSITIVE_THRESH)
-
-df_fit_used <- if (MODE == "dark") df_dark else df_fit
-df_pred     <- df_fit_used
-
-use_DOY <- all(is.finite(df_fit_used$DOY)) && length(unique(df_fit_used$DOY)) >= 8
-
-write_csv(df_fit_used, file.path(gam_dir, paste0("df_used_MODE_", MODE, ".csv")))
-
-base_terms <- paste0(
-  "s(longitude, latitude, k=", K_SPACE, ") + ",
-  "s(elevation, k=", K_ELEV, ") + ",
-  "s(pop_density_log, k=", K_PD, ")"
-)
-
-doy_terms <- if (use_DOY) {
-  if (ADD_DOYxPD) {
-    paste0(
-      " + s(DOY, bs='tp', k=", K_DOY, ")",
-      " + ti(DOY, pop_density_log, k=c(", K_INT2[1], ",", K_INT2[2], "))"
-    )
+analysis_data <- prepare_analysis_grain(
+  colour_data,
+  grain = params$grain,
+  site_id_col = params$site_id,
+  value_cols = if (identical(params$grain, "site")) {
+    site_value_columns
   } else {
-    paste0(" + s(DOY, bs='tp', k=", K_DOY, ")")
+    character()
   }
-} else ""
+)
+colour_pca <- fit_oriented_pca(
+  analysis_data,
+  variables = c("L", "a", "b"),
+  anchor = "a",
+  anchor_direction = 1
+)
+analysis_data$colour_PC1 <- colour_pca$scores
 
-form_q <- as.formula(paste0("resid_zfit ~ ", base_terms, doy_terms))
-print(form_q)
-
-mods <- lapply(taus, function(tau) qgam::qgam(form_q, data = df_fit_used, qu = tau))
-names(mods) <- paste0("q", taus)
-
-sink(file.path(gam_dir, paste0("qGAM_summary_MODE_", MODE, ".txt")))
-cat("Selected competing pair =", varA, "vs", varB, "\n")
-cat("Best SPDE model =", best_model_name, "\n")
-cat("Best SPDE family =", best_obj$family_name, "\n\n")
-cat("===== FORMULA =====\n")
-print(form_q)
-cat("\n")
-for (nm in names(mods)) {
-  cat("-----", nm, "-----\n")
-  print(summary(mods[[nm]]))
-  cat("\n")
-}
-sink()
-
-smooth_tbl <- bind_rows(lapply(names(mods), function(nm) {
-  sm <- summary(mods[[nm]])
-  st <- as.data.frame(sm$s.table)
-  st$term <- rownames(st)
-  rownames(st) <- NULL
-  names(st)[1:4] <- c("edf", "Ref.df", "Chi.sq", "p_value")
-  tibble::as_tibble(st) %>%
-    mutate(
-      tau = nm,
-      formula = paste(deparse(form_q), collapse = " ")
-    )
-}))
-write_csv(smooth_tbl, file.path(gam_dir, paste0("qGAM_smooth_table_MODE_", MODE, ".csv")))
+data.frame(
+  variable = names(colour_pca$loadings),
+  PC1_loading = unname(colour_pca$loadings),
+  explained_variance_PC1 = colour_pca$explained_variance,
+  anchor = colour_pca$anchor,
+  row.names = NULL
+)
 ```
 
-### 24. Define qGAM effect-size helper functions
+The requested grain is established before fitting PCA. Repeated photographs
+therefore cannot silently reweight a site-grain PCA. The PC1 sign is fixed so
+that its loading on a* is positive, preventing an arbitrary sign reversal.
 
-```{r qgam-helpers}
-make_newdata_pair <- function(df_space,
-                              elev0, DOY0,
-                              pd_lo, pd_hi,
-                              doy_lo, doy_hi,
-                              space_average = c("marginal", "fixed"),
-                              fixed_lonlat = c(longitude = NA_real_, latitude = NA_real_)) {
-  space_average <- match.arg(space_average)
+## Five-species Bombus suitability
 
-  nd_pd_lo <- df_space
-  nd_pd_hi <- df_space
-  nd_pd_lo$elevation <- elev0
-  nd_pd_hi$elevation <- elev0
-  nd_pd_lo$pop_density_log <- pd_lo
-  nd_pd_hi$pop_density_log <- pd_hi
-  if ("DOY" %in% names(df_space)) {
-    nd_pd_lo$DOY <- DOY0
-    nd_pd_hi$DOY <- DOY0
-  }
-
-  pd_mid <- mean(c(pd_lo, pd_hi))
-  nd_doy_lo <- df_space
-  nd_doy_hi <- df_space
-  nd_doy_lo$elevation <- elev0
-  nd_doy_hi$elevation <- elev0
-  nd_doy_lo$pop_density_log <- pd_mid
-  nd_doy_hi$pop_density_log <- pd_mid
-  if ("DOY" %in% names(df_space)) {
-    nd_doy_lo$DOY <- doy_lo
-    nd_doy_hi$DOY <- doy_hi
-  }
-
-  if (space_average == "fixed") {
-    lon0 <- fixed_lonlat[["longitude"]]
-    lat0 <- fixed_lonlat[["latitude"]]
-    if (!is.finite(lon0)) lon0 <- median(df_space$longitude, na.rm = TRUE)
-    if (!is.finite(lat0)) lat0 <- median(df_space$latitude,  na.rm = TRUE)
-
-    nd_pd_lo$longitude  <- lon0
-    nd_pd_lo$latitude   <- lat0
-    nd_pd_hi$longitude  <- lon0
-    nd_pd_hi$latitude   <- lat0
-    nd_doy_lo$longitude <- lon0
-    nd_doy_lo$latitude  <- lat0
-    nd_doy_hi$longitude <- lon0
-    nd_doy_hi$latitude  <- lat0
-  }
-
-  list(
-    nd_pd_lo  = nd_pd_lo,
-    nd_pd_hi  = nd_pd_hi,
-    nd_doy_lo = nd_doy_lo,
-    nd_doy_hi = nd_doy_hi
+```{r bombus}
+species <- bombus_species_columns()
+sdm_dir <- resolve_report_path(params$sdm_dir)
+sdm_validation <- validate_sdm_collection(sdm_dir)
+if (!isTRUE(sdm_validation$structural_ok)) {
+  stop(
+    "SDM structural validation failed: ",
+    paste(sdm_validation$issues, collapse = "; ")
+  )
+}
+if (!isTRUE(sdm_validation$model_reproducible)) {
+  message(
+    "SDM structure is valid, but model-generation provenance is ",
+    "legacy_unverifiable."
   )
 }
 
-deltaQ_PD <- function(mod, df_space, elev0, DOY0, pd_lo, pd_hi,
-                      space_average = SPACE_AVERAGE,
-                      fixed_lonlat = FIXED_LONLAT) {
-  nd <- make_newdata_pair(
-    df_space,
-    elev0 = elev0, DOY0 = DOY0,
-    pd_lo = pd_lo, pd_hi = pd_hi,
-    doy_lo = NA_real_, doy_hi = NA_real_,
-    space_average = space_average,
-    fixed_lonlat = fixed_lonlat
-  )
-  q_lo_hat <- mean(predict(mod, newdata = nd$nd_pd_lo, type = "response"), na.rm = TRUE)
-  q_hi_hat <- mean(predict(mod, newdata = nd$nd_pd_hi, type = "response"), na.rm = TRUE)
-  c(deltaQ_PD = q_hi_hat - q_lo_hat, Q_lo = q_lo_hat, Q_hi = q_hi_hat)
-}
+bombus_values <- extract_sdm_by_record_id(
+  analysis_data,
+  sdm_dir,
+  id_col = "analysis_id"
+)
+analysis_data <- attach_raster_values(
+  analysis_data,
+  bombus_values,
+  id_col = "analysis_id"
+)
+analysis_data <- add_bombus_suitability_sum(analysis_data, require_all = TRUE)
 
-deltaQ_DOY <- function(mod, df_space, elev0, pd0, doy_lo, doy_hi,
-                       space_average = SPACE_AVERAGE,
-                       fixed_lonlat = FIXED_LONLAT) {
-  nd_lo <- df_space
-  nd_hi <- df_space
-  nd_lo$elevation <- elev0
-  nd_hi$elevation <- elev0
-  nd_lo$pop_density_log <- pd0
-  nd_hi$pop_density_log <- pd0
-  nd_lo$DOY <- doy_lo
-  nd_hi$DOY <- doy_hi
-
-  if (space_average == "fixed") {
-    lon0 <- fixed_lonlat[["longitude"]]
-    lat0 <- fixed_lonlat[["latitude"]]
-    if (!is.finite(lon0)) lon0 <- median(df_space$longitude, na.rm = TRUE)
-    if (!is.finite(lat0)) lat0 <- median(df_space$latitude,  na.rm = TRUE)
-    nd_lo$longitude <- lon0
-    nd_lo$latitude  <- lat0
-    nd_hi$longitude <- lon0
-    nd_hi$latitude  <- lat0
-  }
-
-  q_lo_hat <- mean(predict(mod, newdata = nd_lo, type = "response"), na.rm = TRUE)
-  q_hi_hat <- mean(predict(mod, newdata = nd_hi, type = "response"), na.rm = TRUE)
-  c(deltaQ_DOY = q_hi_hat - q_lo_hat, Q_lo = q_lo_hat, Q_hi = q_hi_hat)
-}
-
-pd_lo0  <- as.numeric(quantile(df_fit_used$pop_density_log, q_lo, na.rm = TRUE))
-pd_hi0  <- as.numeric(quantile(df_fit_used$pop_density_log, q_hi, na.rm = TRUE))
-pd_mid0 <- mean(c(pd_lo0, pd_hi0))
-
-DOY0    <- if (use_DOY) median(df_fit_used$DOY, na.rm = TRUE) else NA_real_
-doy_lo0 <- if (use_DOY) as.numeric(quantile(df_fit_used$DOY, q_lo, na.rm = TRUE)) else NA_real_
-doy_hi0 <- if (use_DOY) as.numeric(quantile(df_fit_used$DOY, q_hi, na.rm = TRUE)) else NA_real_
-
-point_PD <- lapply(taus, function(tau) {
-  mod <- mods[[paste0("q", tau)]]
-  out <- deltaQ_PD(
-    mod,
-    df_space = df_pred,
-    elev0 = elev0,
-    DOY0 = DOY0,
-    pd_lo = pd_lo0,
-    pd_hi = pd_hi0
-  )
-  data.frame(
-    tau = tau,
-    deltaQ_PD = as.numeric(out["deltaQ_PD"]),
-    Q_lo_PD   = as.numeric(out["Q_lo"]),
-    Q_hi_PD   = as.numeric(out["Q_hi"])
-  )
-}) %>% bind_rows()
-
-point_DOY <- if (use_DOY) {
-  lapply(taus, function(tau) {
-    mod <- mods[[paste0("q", tau)]]
-    out <- deltaQ_DOY(
-      mod,
-      df_space = df_pred,
-      elev0 = elev0,
-      pd0 = pd_mid0,
-      doy_lo = doy_lo0,
-      doy_hi = doy_hi0
-    )
-    data.frame(
-      tau = tau,
-      deltaQ_DOY = as.numeric(out["deltaQ_DOY"]),
-      Q_lo_DOY   = as.numeric(out["Q_lo"]),
-      Q_hi_DOY   = as.numeric(out["Q_hi"])
-    )
-  }) %>% bind_rows()
-} else {
-  data.frame(
-    tau = taus,
-    deltaQ_DOY = NA_real_,
-    Q_lo_DOY = NA_real_,
-    Q_hi_DOY = NA_real_
-  )
-}
-
-point_DOY_by_PD <- if (use_DOY) {
-  lapply(taus, function(tau) {
-    mod <- mods[[paste0("q", tau)]]
-    lo <- deltaQ_DOY(
-      mod,
-      df_space = df_pred,
-      elev0 = elev0,
-      pd0 = pd_lo0,
-      doy_lo = doy_lo0,
-      doy_hi = doy_hi0
-    )
-    hi <- deltaQ_DOY(
-      mod,
-      df_space = df_pred,
-      elev0 = elev0,
-      pd0 = pd_hi0,
-      doy_lo = doy_lo0,
-      doy_hi = doy_hi0
-    )
-    data.frame(
-      tau = tau,
-      deltaQ_DOY_lowPD  = as.numeric(lo["deltaQ_DOY"]),
-      deltaQ_DOY_highPD = as.numeric(hi["deltaQ_DOY"]),
-      diff              = as.numeric(hi["deltaQ_DOY"]) - as.numeric(lo["deltaQ_DOY"])
-    )
-  }) %>% bind_rows()
-} else {
-  data.frame(
-    tau = taus,
-    deltaQ_DOY_lowPD = NA_real_,
-    deltaQ_DOY_highPD = NA_real_,
-    diff = NA_real_
-  )
-}
-
-res_point <- point_PD %>%
-  left_join(point_DOY, by = "tau") %>%
-  left_join(point_DOY_by_PD, by = "tau") %>%
-  mutate(
-    pd_lo = pd_lo0,
-    pd_hi = pd_hi0,
-    DOY0 = DOY0,
-    elev0 = elev0,
-    space_average = SPACE_AVERAGE,
-    MODE = MODE
-  )
-
-write_csv(res_point, file.path(gam_dir, paste0("point_effect_sizes_MODE_", MODE, ".csv")))
-print(res_point)
+data.frame(
+  records = nrow(analysis_data),
+  complete_five_species = sum(analysis_data$Bombus_predictions_n == 5L),
+  incomplete_predictions = sum(analysis_data$Bombus_predictions_n < 5L),
+  finite_suitability_sum = sum(is.finite(analysis_data$Bombus_suitability_sum))
+)
 ```
 
-### 25. Plot qGAM smooths
+An all-missing SDM row remains `NA`; it is never converted to a false zero.
+Raster results are reattached by `record_id`, so filtering coordinates cannot
+shift values onto another photograph.
 
-```{r qgam-effect-plots}
-plot_smooth_1d <- function(mod, data, varname, file_stub, n = 200) {
-  xseq <- seq(
-    min(data[[varname]], na.rm = TRUE),
-    max(data[[varname]], na.rm = TRUE),
-    length.out = n
-  )
+## Explicit analysis grain
 
-  nd <- data[rep(1, n), , drop = FALSE]
-  nd[[varname]] <- xseq
+```{r grain}
+analysis_data$analysis_colour_method <- colour_selection$method
+analysis_data$analysis_colour_source_columns <- paste(
+  colour_selection$source_columns,
+  collapse = ";"
+)
 
-  if ("longitude" %in% names(nd)) nd$longitude <- median(data$longitude, na.rm = TRUE)
-  if ("latitude"  %in% names(nd)) nd$latitude  <- median(data$latitude,  na.rm = TRUE)
-  if ("elevation" %in% names(nd) && varname != "elevation") nd$elevation <- median(data$elevation, na.rm = TRUE)
-  if ("pop_density_log" %in% names(nd) && varname != "pop_density_log") nd$pop_density_log <- median(data$pop_density_log, na.rm = TRUE)
-  if ("DOY" %in% names(nd) && varname != "DOY" && all(is.finite(data$DOY))) nd$DOY <- median(data$DOY, na.rm = TRUE)
-
-  pr <- predict(mod, newdata = nd, se.fit = TRUE, type = "response")
-  plot_df <- data.frame(
-    x = xseq,
-    fit = as.numeric(pr$fit),
-    se  = as.numeric(pr$se.fit)
-  ) %>%
-    mutate(
-      lo = fit - 1.96 * se,
-      hi = fit + 1.96 * se
-    )
-
-  p <- ggplot(plot_df, aes(x = x, y = fit)) +
-    geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.2) +
-    geom_line() +
-    theme_bw(base_size = 12) +
-    labs(x = varname, y = "Predicted upper-tail residual")
-
-  print(p)
-
-  ggsave(
-    filename = file.path(gam_dir, paste0(file_stub, ".png")),
-    plot = p,
-    width = 5.8,
-    height = 4.2,
-    dpi = 300
-  )
-
-  write_csv(plot_df, file.path(gam_dir, paste0(file_stub, ".csv")))
-}
-
-mod_plot <- mods[["q0.95"]]
-
-plot_smooth_1d(mod_plot, df_fit_used, "pop_density_log", "qGAM_q095_pop_density_log")
-if (use_DOY) plot_smooth_1d(mod_plot, df_fit_used, "DOY", "qGAM_q095_DOY")
-plot_smooth_1d(mod_plot, df_fit_used, "elevation", "qGAM_q095_elevation")
+data.frame(grain = params$grain, analysis_rows = nrow(analysis_data))
 ```
 
-### 26. Plot multi-tau qGAM curves
+## Heavy spatial models
 
-```{r qgam-multi-tau}
-get_curve_df <- function(mod, data, varname, n = 200) {
-  xseq <- seq(
-    min(data[[varname]], na.rm = TRUE),
-    max(data[[varname]], na.rm = TRUE),
-    length.out = n
-  )
+INLA and qGAM are deliberately not run by this report. A replacement model must
+first specify a Japan-appropriate metric projection, justified mesh sensitivity,
+PC priors, consistent standardization, spatially blocked validation, and a joint
+treatment of population density and spatial effects. If a variance partition is
+reported, it must use posterior draws and include the
+`2 * Cov(fixed, spatial)` contribution via
+`variance_decomposition_with_covariance()`.
 
-  nd <- data[rep(1, n), , drop = FALSE]
-  nd[[varname]] <- xseq
-
-  if ("longitude" %in% names(nd)) nd$longitude <- median(data$longitude, na.rm = TRUE)
-  if ("latitude"  %in% names(nd)) nd$latitude  <- median(data$latitude,  na.rm = TRUE)
-  if ("elevation" %in% names(nd) && varname != "elevation") nd$elevation <- median(data$elevation, na.rm = TRUE)
-  if ("pop_density_log" %in% names(nd) && varname != "pop_density_log") nd$pop_density_log <- median(data$pop_density_log, na.rm = TRUE)
-  if ("DOY" %in% names(nd) && varname != "DOY" && all(is.finite(data$DOY))) nd$DOY <- median(data$DOY, na.rm = TRUE)
-
-  pr <- predict(mod, newdata = nd, se.fit = TRUE, type = "response")
-
-  data.frame(
-    x = xseq,
-    fit = as.numeric(pr$fit),
-    se  = as.numeric(pr$se.fit)
-  ) %>%
-    mutate(
-      lo = fit - 1.96 * se,
-      hi = fit + 1.96 * se
-    )
-}
-
-plot_multi_tau <- function(mods, data, varname, file_stub) {
-  curve_df <- bind_rows(lapply(names(mods), function(nm) {
-    get_curve_df(mods[[nm]], data, varname) %>%
-      mutate(tau = nm)
-  }))
-
-  p <- ggplot(curve_df, aes(x = x, y = fit, colour = tau, fill = tau)) +
-    geom_line(linewidth = 1) +
-    theme_bw(base_size = 12) +
-    labs(x = varname, y = "Predicted upper-tail residual", colour = "tau", fill = "tau")
-
-  print(p)
-
-  ggsave(
-    filename = file.path(gam_dir, paste0(file_stub, ".png")),
-    plot = p,
-    width = 6.4,
-    height = 4.6,
-    dpi = 300
-  )
-
-  write_csv(curve_df, file.path(gam_dir, paste0(file_stub, ".csv")))
-}
-
-plot_multi_tau(mods, df_fit_used, "pop_density_log", "qGAM_multitau_pop_density_log")
-if (use_DOY) plot_multi_tau(mods, df_fit_used, "DOY", "qGAM_multitau_DOY")
-plot_multi_tau(mods, df_fit_used, "elevation", "qGAM_multitau_elevation")
-```
-
-### 27. Completion message
-
-```{r completion}
-cat("\n✅ COMPLETE PIPELINE DONE\n")
-cat("Selected pair:", varA, "vs", varB, "\n")
-cat("Comparison dir:", cmp_dir, "\n")
-cat("Top-model supp dir:", top_dir, "\n")
-cat("Best-model dir:", best_dir, "\n")
-cat("qGAM dir:", gam_dir, "\n")
+```{r heavy-model-status}
+message("INLA/qGAM status: intentionally disabled pending a reviewed joint model specification.")
 ```

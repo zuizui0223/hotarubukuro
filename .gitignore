@@ -1,0 +1,22 @@
+.DS_Store
+.Rhistory
+.RData
+.Rproj.user/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+*.egg-info/
+
+# Downloaded/public rasters and other rebuildable large artifacts.
+data/cache/**
+!data/cache/.gitkeep
+data/processed/rasters/**
+!data/processed/rasters/.gitkeep
+
+# Local full-resolution colour outputs and QC panels contain source photos.
+results/local/**
+!results/local/.gitkeep
+results/qc/**
+!results/qc/.gitkeep
+*.part

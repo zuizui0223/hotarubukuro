@@ -22,7 +22,7 @@ were disabled rather than reverse-engineered from reported results.
 | Mean and outliers | Means are affected by shadows, clipping, black spots, semi-transparent edges, and mixed organs. Independent channel trimming can construct a colour that was not observed. | Add deterministic joint CIELAB density peaks. A sensitivity branch heuristically excludes rendered near-white pixels (all channels ≥250) and pixels with L* <25 before finding the peak. These are not proven noise or clipping, and genuine white petals may be removed. Keep candidate peaks experimental. |
 | Automated QC selection | Warm/cool, multimodality, and mask-coverage flags can depend on the colour response. Excluding every flagged photograph before manual review can create selection bias. | Preparation retains both `ok` and `manual_review_required` by default. Treat this as unapproved input, then use completed visual review or report inclusive and explicit `ok`-only sensitivity analyses. |
 | Duplicate photo/coordinate conflict | Colour QC cannot decide which of two incompatible coordinates belongs to one exact photograph. Including both would pseudoreplicate the same image and attach it to two environments. | Keep both source records for traceability, but always remove both before PCA, raster extraction, or site aggregation unless external evidence resolves the identity. |
-| RGB/Lab | RGB must be decoded as sRGB, not treated as linear intensity; OpenCV-style HSV hue is 0–179. R's prior `grDevices::convertColor` values differed by up to about ΔE76 0.31 from the extraction conversion. | Use one explicit IEC sRGB/D65 conversion in Python and R, with a shared cross-language fixture and a recorded old/new implementation comparison. Test RGB/Hue order, ranges, and missing rows. |
+| RGB/Lab | RGB must be decoded as sRGB, not treated as linear intensity; OpenCV-style HSV hue is 0–179. In the reviewed analysis cohort, R's prior `grDevices::convertColor` values differed by up to ΔE76 0.376 from the extraction conversion. | Use one explicit IEC sRGB/D65 conversion in Python and R, with a shared cross-language fixture and a recorded old/new implementation comparison. Test RGB/Hue order, ranges, and missing rows. |
 | CFA/Pigment | A latent variable made from photograph-derived L*, a*, and b* is not an independently measured pigment quantity. CFA would not turn lighting-sensitive rendered colour into pigment. | Remove CFA from the reproducible pipeline. Retain a sign-oriented `apparent colour PC1` only as a documented descriptive summary, not as pigment or a canonical model outcome. |
 | Repeated PCA | Re-estimating PCA at several stages changes the construct and risks double use. A reference PCA fitted on all records would leak outcome information if it were used in cross-validation. | The lightweight single-method preparation fits PCA once for that explicitly selected method. The canonical reanalysis fits one primary-photograph reference PCA only for descriptive cross-method projections; it does not model or cross-validate PC1. |
 | Photograph/site grain | Multiple photographs can share a coordinate; silent coordinate deduplication or aggregation confuses photographs with sites. | Preserve photograph grain by default. Site analysis requires an explicit site ID and reports `n_photos`. |
@@ -333,10 +333,23 @@ session information, `report.md`, `run_manifest.yml`, and
 execution log are reproducible local artifacts ignored by Git; small summary
 tables and manifests are trackable.
 
-At this documentation update, no completed canonical model result is asserted.
-Model coefficients, record counts after raster complete-case filtering, and
-blocked Q2 values must not be reported until the full command exits successfully
-and the final manifests verify every output hash.
+The canonical command completed from clean commit `c712262`. The output
+manifest verifies 49 artifacts: 21 trackable summaries and 28 local ignored
+inputs, predictions, or logs. Primary photograph row flow was 1,965 source
+rows, two hard-excluded duplicate-photo/coordinate conflicts, 1,963 analysis
+photographs, and 1,955 complete rows for the six-predictor environment model.
+The corresponding Bombus-complete cohort had 1,887 rows. The exact-site
+sensitivity had 1,925 sites before predictor missingness and 1,917 complete
+sites.
+
+For apparent a*, blocked Q2 was 0.2156 in the full environment-only cohort,
+0.2337 for environment-only on the identical Bombus-complete cohort, and
+0.2521 after adding the Bombus suitability sum. Exact-site environment-only Q2
+was 0.2324. Inclusive environment-only Q2 ranged from 0.2156 to 0.2234 across
+the six colour methods; strict-`ok` values ranged from 0.2138 to 0.2231. This
+method stability is useful sensitivity evidence, but it does not establish
+physical colour accuracy or causation. Exact values and hashes are in
+`results/reanalysis/v2_2_2/`.
 
 ## SDM decision
 

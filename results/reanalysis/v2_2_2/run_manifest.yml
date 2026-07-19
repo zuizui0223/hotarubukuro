@@ -1,0 +1,128 @@
+analysis_version: public-reanalysis-v1
+execution:
+  started_at_utc: 2026-07-19 15:54:26 UTC
+  completed_at_utc: 2026-07-19 15:54:36 UTC
+  command: Rscript scripts/run_reanalysis.R --input 'Data_S1.csv' --legacy-input 'data/legacy/Data_S1_legacy.csv'
+    --config 'config/reanalysis.yml' --sdm-dir 'sdm' --public-raster-manifest 'data/processed/raster_manifest.csv'
+    --raster-registry 'config/raster_sources.csv' --pipeline 'config/pipeline.yml'
+    --output-dir 'results/reanalysis/v2_2_2'
+  r_version: R version 4.5.2 (2025-10-31)
+  platform: aarch64-apple-darwin20
+git:
+  head: c7122623104f7310bad991f68a81645cb84357a1
+  dirty_before_output: no
+inputs:
+  data_s1:
+    path: Data_S1.csv
+    sha256: 2568b090126b73c031402775eb7f726d11db1ffc52ab8a6260e1992f2159c5b5
+    contract:
+      records: 1965
+      extraction_version: 2.2.2
+      extraction_timestamp: '2026-07-18T16:00:00Z'
+      duplicate_image_records: 2
+      coordinate_recomputed: no
+      white_balance_applied: no
+  legacy_input:
+    path: data/legacy/Data_S1_legacy.csv
+    sha256: b6b63f4bb46e64f7d10c9847d2240a9fcec7297e7e61eee9953b0b06d8917f60
+    rows_crosswalked: 1926
+    maximum_absolute_rounding_difference: 5.0000003e-07
+  reanalysis_config:
+    path: config/reanalysis.yml
+    sha256: ad30c1f7f0d1943216143f4af6f67852ca21d7a6b4a6374da0a05bbd63850bd2
+  raster_registry:
+    path: config/raster_sources.csv
+    sha256: f715a78149cd7c05e49e9676e7e6520d312018e09291d06d32a606696aab89fa
+  raster_pipeline:
+    path: config/pipeline.yml
+    sha256: c201dfe3d88a2659bc54f2e226bab0b12f486a5cfc3d3e0f079b4d6df7dfb0ae
+  public_raster_manifest:
+    path: data/processed/raster_manifest.csv
+    sha256: 2970768453c8fa04d0a0cdbebd443967a86abc7ed3d68e89a040abd2c4e2afe2
+    layers: 19
+  sdm_manifest:
+    path: sdm/manifest.csv
+    sha256: 681244e176a46d0ed824f02410d841b7ee5c548af3279399746640ab4f077e6e
+    structural_ok: yes
+    model_reproducible: no
+  code:
+  - path: scripts/run_reanalysis.R
+    sha256: 9ee626a617425585d8eacdb82155aa30d78133e10a7d00b855df041166d72499
+  - path: scripts/run_analysis.R
+    sha256: a436fa460a1e62dedbb84b10118305b6146f40157f5f13b25371705385796e34
+  - path: scripts/prepare_rasters.R
+    sha256: a850c3dd953d831924846db8ef95fe1fba75f9ead6e324778982b1ba644e9c4a
+  - path: R/reanalysis.R
+    sha256: 79d39340c98e63d962283f3bbf48c8920d8013b98e414242119f73991a3159ca
+  - path: R/analysis_core.R
+    sha256: 2621ed970a41e6c242a8f19158477650ec06d1797cf6f524f40b476cb013d545
+  - path: R/public_predictors.R
+    sha256: a7e8ab6cdf8bfbf88ae53c3369241e15c826503c4c65b75a24083e7d51c5c49a
+  - path: R/raster_sources.R
+    sha256: f3f7cbe05c71651ea27ea41c2bad93bc53713184b3796156bd88d19d8a63f682
+  - path: R/sdm.R
+    sha256: c3dc19ccb8bd586c7b1b284dc8221ac62b89dd4e084ce243d8c8ff63efab0413
+  dependencies:
+    path: renv.lock
+    sha256: 30f912083f37d2381170493588817ce2e0ef2a12cd3581d38bf06a2ac1f2405c
+method:
+  primary_outcome: a
+  secondary_composite: primary_reference_PC1
+  secondary_composite_use: descriptive_method_comparison_only_not_cross_validated
+  colour_methods:
+  - primary
+  - mean
+  - legacy
+  - hsv_peak
+  - hsv_exposure_filtered_peak
+  - alpha_peak
+  qc_scenarios:
+    inclusive:
+    - ok
+    - manual_review_required
+    strict_ok: ok
+  candidate_environment_predictors:
+  - chelsa_bio10
+  - chelsa_bio12
+  - chelsa_cmimean
+  - chelsa_vpdmean
+  - soilgrids_bdod_0_5cm
+  - soilgrids_nitrogen_0_5cm
+  - soilgrids_phh2o_0_5cm
+  - worldclim_elevation_30s
+  - log_worldpop_2020_density
+  environment_predictors:
+  - chelsa_bio10
+  - chelsa_bio12
+  - soilgrids_bdod_0_5cm
+  - soilgrids_nitrogen_0_5cm
+  - soilgrids_phh2o_0_5cm
+  - log_worldpop_2020_density
+  excluded_candidate_predictors:
+    chelsa_cmimean: annual precipitation proxy duplicated by chelsa_bio12 in the observed
+      domain
+    chelsa_vpdmean: atmospheric dryness proxy strongly collinear with chelsa_bio10
+      in the observed domain
+    worldclim_elevation_30s: topographic proxy strongly collinear with chelsa_bio10
+      in the observed domain
+  bombus_predictor: Bombus_suitability_sum
+  model_variants:
+    environment_only_full: yes
+    environment_only_bombus_common: yes
+    environment_plus_bombus: yes
+  model_cohorts:
+  - method_specific
+  - all_methods_common
+  spatial_block_cv:
+    method: principal_axis_equal_site_bands
+    folds: 5
+  public_grid: EPSG:4326, 30 arc-seconds
+  white_balance_applied: no
+  coordinates_independently_recomputed: no
+  manual_qc_complete: no
+  heavy_models_run: no
+outputs:
+  manifest: results/reanalysis/v2_2_2/output_manifest.csv
+  reference_pca: results/reanalysis/v2_2_2/reference_colour_pca.csv
+  row_flow: results/reanalysis/v2_2_2/row_flow.csv
+

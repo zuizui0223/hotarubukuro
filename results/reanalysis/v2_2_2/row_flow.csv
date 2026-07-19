@@ -1,0 +1,14 @@
+"run","qc_scenario","colour_method","grain","input_records","after_qc","after_photo_coordinate_identity","after_colour_method","analysis_units_after_grain","public_predictors_complete","bombus_complete","bombus_missing"
+"inclusive__primary","inclusive","primary","photo",1965,1965,1963,1963,1963,1948,1887,76
+"inclusive__mean","inclusive","mean","photo",1965,1965,1963,1963,1963,1948,1887,76
+"inclusive__legacy","inclusive","legacy","photo",1965,1965,1963,1924,1924,1909,1848,76
+"inclusive__hsv_peak","inclusive","hsv_peak","photo",1965,1965,1963,1963,1963,1948,1887,76
+"inclusive__hsv_exposure_filtered_peak","inclusive","hsv_exposure_filtered_peak","photo",1965,1965,1963,1961,1961,1946,1885,76
+"inclusive__alpha_peak","inclusive","alpha_peak","photo",1965,1965,1963,1963,1963,1948,1887,76
+"strict_ok__primary","strict_ok","primary","photo",1965,1180,1180,1180,1180,1173,1142,38
+"strict_ok__mean","strict_ok","mean","photo",1965,1180,1180,1180,1180,1173,1142,38
+"strict_ok__legacy","strict_ok","legacy","photo",1965,1180,1180,1167,1167,1160,1129,38
+"strict_ok__hsv_peak","strict_ok","hsv_peak","photo",1965,1180,1180,1180,1180,1173,1142,38
+"strict_ok__hsv_exposure_filtered_peak","strict_ok","hsv_exposure_filtered_peak","photo",1965,1180,1180,1180,1180,1173,1142,38
+"strict_ok__alpha_peak","strict_ok","alpha_peak","photo",1965,1180,1180,1180,1180,1173,1142,38
+"inclusive__primary__site","inclusive","primary","site",1965,1965,1963,1963,1925,1910,1851,74

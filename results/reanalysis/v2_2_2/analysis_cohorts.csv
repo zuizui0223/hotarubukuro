@@ -1,0 +1,13 @@
+"qc_scenario","colour_method","method_specific_records","all_methods_common_records"
+"inclusive","primary",1963,1922
+"inclusive","mean",1963,1922
+"inclusive","legacy",1924,1922
+"inclusive","hsv_peak",1963,1922
+"inclusive","hsv_exposure_filtered_peak",1961,1922
+"inclusive","alpha_peak",1963,1922
+"strict_ok","primary",1180,1167
+"strict_ok","mean",1180,1167
+"strict_ok","legacy",1167,1167
+"strict_ok","hsv_peak",1180,1167
+"strict_ok","hsv_exposure_filtered_peak",1180,1167
+"strict_ok","alpha_peak",1180,1167

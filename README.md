@@ -328,11 +328,23 @@ fold-level performance, a human-readable report, an execution log, a run
 manifest, and SHA-256/shape metadata for every scientific artifact. Large
 joined inputs and per-record predictions remain local and ignored by Git.
 
-No validated canonical reanalysis result is asserted in this README. Treat the
-run as complete only when `scripts/run_reanalysis.R` exits successfully and the
-new output directory contains `run_manifest.yml` and `output_manifest.csv`.
-Do not quote model coefficients or Q2 values from an interrupted or partial
-directory.
+The reviewed run completed from clean commit `c712262` and is preserved under
+[`results/reanalysis/v2_2_2`](results/reanalysis/v2_2_2). It retained 1,955
+complete primary photograph records for the six-predictor environment model
+and 1,887 records for the identical Bombus-complete comparison. Blocked Q2 for
+apparent a* was 0.216 for the full environment-only cohort, 0.234 for
+environment-only on the Bombus-complete cohort, and 0.252 after adding the
+legacy Bombus suitability sum. The exact-site environment-only sensitivity
+used 1,917 complete sites and had Q2 0.232. Environment-only Q2 across the six
+colour methods was 0.216–0.223; this stability does not validate any estimator
+as physically calibrated colour.
+
+These are predictive/descriptive diagnostics, not causal effects. The modest
+Bombus increment can reflect environmental information reused by the legacy
+SDMs. Use [`report.md`](results/reanalysis/v2_2_2/report.md),
+[`run_manifest.yml`](results/reanalysis/v2_2_2/run_manifest.yml), and
+[`output_manifest.csv`](results/reanalysis/v2_2_2/output_manifest.csv) together;
+do not quote values from an interrupted or partial replacement directory.
 
 ## Retained SDMs
 

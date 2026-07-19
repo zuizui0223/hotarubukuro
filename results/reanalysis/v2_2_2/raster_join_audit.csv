@@ -1,0 +1,20 @@
+"source_id","provider","dataset_version","unit","output_value_semantics","processed_sha256","processed_min","processed_max","extracted_observed_n","extracted_missing_n","extracted_missing_fraction"
+"chelsa_bio05","CHELSA","2.1","degree_C","mean_daily_max_temperature_warmest_month","4a53e1ce38275a3ec4a7cb0154b5f526b25d39d7301e543bac7d71d540d4c9d6",9.08352851867676,32.1500015258789,1963,0,0
+"chelsa_bio10","CHELSA","2.1","degree_C","mean_temperature_warmest_quarter","7a078777aae19ce789c8c42deddb3d82a2742891105dbf710af91d2924b0656c",4.78518152236938,27.4500007629395,1963,0,0
+"chelsa_gdd5","CHELSA","2.1","degree_day","growing_degree_days_above_5C","9014491c878bf88f06cc966848974b494e4b7c96ba68462e11cf1722219066a3",52.0535545349121,5991.24365234375,1963,0,0
+"chelsa_bio12","CHELSA","2.1","kg_m-2_year-1","annual_precipitation","4bd88abc4503553e1642b2eafaf272f3f67e60d333911913f47910d12c89b5ed",482.434631347656,10366.736328125,1963,0,0
+"chelsa_bio14","CHELSA","2.1","kg_m-2_month-1","precipitation_driest_month","03e715f3ca542473dd6cc3ba6ec0b73e8596ed796e36663f880254c873de0706",6.3000283241272,512.645263671875,1963,0,0
+"chelsa_bio15","CHELSA","2.1","coefficient_of_variation","precipitation_seasonality","d9daaf0487719dd979ee67852590fc6a24ba9c4453257431138914b793d3e189",15.3000001907349,98.8966369628906,1963,0,0
+"chelsa_cmimean","CHELSA","2.1","kg_m-2_month-1","mean_climate_moisture_index","d112d8fb672b6ca5b7c1f1e0740f76e2689f99238581e2eb201020cfa29b21e1",-45.4883003234863,728.8486328125,1963,0,0
+"chelsa_vpdmean","CHELSA","2.1","Pa","mean_vapour_pressure_deficit","f4f0aec92c0546a0b17d3751a597745875f14ab7d9758b6fbcea7086fa7b42f0",202.445297241211,1058.28833007812,1963,0,0
+"soilgrids_bdod_0_5cm","ISRIC SoilGrids","2.0","kg_dm-3","mean_bulk_density_0_5cm","9c4b6ae6c6866206234314cf0537c508ab47f3e1b810f77e35ee63d72be4674a",0.736867845058441,1.36806166172028,1955,8,0.00407539480387163
+"soilgrids_cfvo_0_5cm","ISRIC SoilGrids","2.0","percent_volume","mean_coarse_fragments_0_5cm","bc980ecc875ba4811d05f471ff8483565eb888a652891158c09b1c2870690970",1.24332761764526,31.0888404846191,1955,8,0.00407539480387163
+"soilgrids_sand_0_5cm","ISRIC SoilGrids","2.0","percent_mass","mean_sand_fraction_0_5cm","8cea288f7867d8025f294cb82689a3b758d420585f33baa7cdb2510c67d9a825",10.0065927505493,68.9620513916016,1955,8,0.00407539480387163
+"soilgrids_silt_0_5cm","ISRIC SoilGrids","2.0","percent_mass","mean_silt_fraction_0_5cm","850e76d491137327e2c5411baa498b4d990a11727a0b7c3b2ddcb4306168ce1c",10.4775791168213,53.7624626159668,1955,8,0.00407539480387163
+"soilgrids_nitrogen_0_5cm","ISRIC SoilGrids","2.0","g_kg-1","mean_total_nitrogen_0_5cm","7c26997df11d5c956e4e778628939622bb7ed529dced5ef1b94eae03774d43ca",2.00102186203003,11.5280532836914,1955,8,0.00407539480387163
+"soilgrids_ocd_0_5cm","ISRIC SoilGrids","2.0","kg_m-3","mean_organic_carbon_density_0_5cm","08a04b21707ed9d096c51a98dd0138307a1b946d98801e99df0c2c2fd096851c",30.9403629302979,79.1739883422852,1955,8,0.00407539480387163
+"soilgrids_soc_0_5cm","ISRIC SoilGrids","2.0","g_kg-1","mean_soil_organic_carbon_0_5cm","cf06c2189aa0c11b79da3330f68167c0e7844bceb9fd9f1c617cb13940bf417d",24.7999992370605,180.120620727539,1955,8,0.00407539480387163
+"soilgrids_phh2o_0_5cm","ISRIC SoilGrids","2.0","pH","mean_pH_water_0_5cm","4f89080b50021ce6b1629277750176a55f9287172e60b9c7bb90ddda2bcade5b",4.54516792297363,6.84254693984985,1955,8,0.00407539480387163
+"worldclim_elevation_30s","WorldClim","2.1","m","elevation","0144befccb7e48973a45de37d0f5eb4dc4aebdf04a71ab52568a07db2658d36f",-20,3664,1952,11,0.00560366785532348
+"worldpop_2020_count","WorldPop","Global_2000_2020_1km_UNadj-2020","people_per_cell","population_count_people_per_cell","dc2fcfd67ef421622b77d4d9bb253133c38a99a7aac7e2a765754b80feb79ad5",0,20314.02734375,1963,0,0
+"worldpop_2020_density","WorldPop","Global_2000_2020_1km_UNadj-2020","people_km-2","population_density_people_per_km2","0c046d596dc16a4bfe3988c5b8d9239e4460520e123e37739695324749c0713b",0,29144.125,1963,0,0

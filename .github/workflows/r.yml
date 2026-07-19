@@ -146,12 +146,29 @@ jobs:
           status <- renv::status()
           stopifnot(isTRUE(status$synchronized))
 
-          renv::snapshot(type = "implicit", prompt = FALSE)
-          git_status <- system2(
-            "git",
-            c("diff", "--exit-code", "--", "renv.lock")
+          # Repository metadata differs legitimately when setup-renv restores
+          # CRAN packages through Posit Package Manager. Compare the semantic
+          # package/version closure in a temporary snapshot instead of
+          # requiring byte-identical Repository fields.
+          snapshot_path <- tempfile(fileext = ".lock")
+          renv::snapshot(
+            lockfile = snapshot_path,
+            type = "implicit",
+            prompt = FALSE
           )
-          stopifnot(identical(git_status, 0L))
+          reviewed <- jsonlite::read_json("renv.lock")$Packages
+          observed <- jsonlite::read_json(snapshot_path)$Packages
+          reviewed_versions <- vapply(
+            reviewed,
+            function(package) package$Version,
+            character(1)
+          )
+          observed_versions <- vapply(
+            observed,
+            function(package) package$Version,
+            character(1)
+          )
+          stopifnot(identical(reviewed_versions, observed_versions))
       - name: Smoke-test reviewed CLIs
         run: |
           Rscript scripts/run_analysis.R --help

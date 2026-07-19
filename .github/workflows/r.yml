@@ -26,7 +26,7 @@ jobs:
           python Code_S1.py --help
           python Code_S2.py --help
 
-  r-syntax:
+  r-checks:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -69,6 +69,8 @@ jobs:
             lines <- readLines(file, warn = FALSE, encoding = "UTF-8")
             if (any(grepl("^\\s*```\\{[rR]([ ,}]|$)", lines, perl = TRUE))) parse_rmd_chunks(file) else parse_text(lines, file)
           }
+      - name: Run deterministic analysis-logic tests
+        run: Rscript tests/test_analysis_core.R
 
   data-contract:
     runs-on: ubuntu-24.04

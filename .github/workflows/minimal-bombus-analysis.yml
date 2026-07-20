@@ -1,10 +1,12 @@
-name: Minimal end-to-end SPDE-INLA analysis
+name: Legacy-environment SPDE-INLA analysis
 
 on:
   push:
     branches: ["analysis/minimal-bombus-availability"]
     paths-ignore:
       - "results/bombus_availability/**"
+      - "data/processed/raster_download_manifest.csv"
+      - "data/processed/raster_manifest.csv"
   workflow_dispatch:
 
 permissions:
@@ -13,7 +15,7 @@ permissions:
 jobs:
   analyse:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,12 +29,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+            libcurl4-openssl-dev libssl-dev unzip
 
       - name: Install R packages
         shell: Rscript {0}
         run: |
-          install.packages(c("terra", "sf"), repos = "https://cloud.r-project.org")
+          install.packages(
+            c("terra", "sf", "yaml", "digest", "jsonlite"),
+            repos = "https://cloud.r-project.org"
+          )
           install.packages(
             "INLA",
             repos = c(
@@ -44,15 +50,28 @@ jobs:
           stopifnot(
             requireNamespace("terra", quietly = TRUE),
             requireNamespace("sf", quietly = TRUE),
+            requireNamespace("yaml", quietly = TRUE),
+            requireNamespace("digest", quietly = TRUE),
             requireNamespace("INLA", quietly = TRUE)
           )
 
-      - name: Parse analysis script
+      - name: Parse executed scripts
         shell: Rscript {0}
-        run: parse(file = "analysis/run_bombus_availability.R")
+        run: |
+          parse(file = "scripts/download_rasters.R")
+          parse(file = "scripts/prepare_rasters.R")
+          parse(file = "analysis/run_bombus_availability.R")
 
-      - name: Run complete analysis
-        run: Rscript analysis/run_bombus_availability.R
+      - name: Download legacy environmental rasters
+        run: Rscript scripts/download_rasters.R --force
+
+      - name: Prepare aligned raster stack
+        run: Rscript scripts/prepare_rasters.R --force --no-download
+
+      - name: Run environment-adjusted SPDE-INLA analysis
+        run: |
+          Rscript analysis/run_bombus_availability.R \
+            Data_S1.csv data/processed/rasters sdm results/bombus_availability
 
       - name: Validate outputs
         shell: Rscript {0}
@@ -64,22 +83,34 @@ jobs:
               "spde_fixed_effects.csv",
               "spde_hyperparameters.csv",
               "blocked_cv_summary.csv",
+              "environment_pca_loadings.csv",
+              "row_flow.csv",
               "spatial_group_diagnostic.csv",
               "analysis_data.csv"
             )
           )
           stopifnot(all(file.exists(required)))
           comparison <- read.csv(required[[1]])
-          stopifnot(nrow(comparison) == 4L, all(is.finite(comparison$WAIC)))
+          stopifnot(
+            nrow(comparison) == 4L,
+            all(is.finite(comparison$WAIC)),
+            "environment_only" %in% comparison$model,
+            "environment_plus_bombus_sum" %in% comparison$model
+          )
+          flow <- read.csv(file.path("results/bombus_availability", "row_flow.csv"))
+          stopifnot(flow$n[flow$stage == "common_model_cohort"] >= 50)
 
-      - name: Commit result tables
+      - name: Commit provenance and result tables
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add results/bombus_availability
+          git add \
+            data/processed/raster_download_manifest.csv \
+            data/processed/raster_manifest.csv \
+            results/bombus_availability
           if git diff --cached --quiet; then
             echo "No result changes"
           else
-            git commit -m "Record reviewed SPDE-INLA analysis results [skip ci]"
+            git commit -m "Record legacy-environment SPDE-INLA results [skip ci]"
             git push
           fi

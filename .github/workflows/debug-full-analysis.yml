@@ -1,0 +1,143 @@
+name: One-shot full-analysis diagnostic
+
+on:
+  push:
+    branches: ["analysis/minimal-bombus-availability"]
+    paths:
+      - ".github/workflows/debug-full-analysis.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-shot-full-analysis-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[debug-full-analysis]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.3"
+
+      - name: Install system libraries quietly
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! {
+            sudo apt-get update -qq
+            sudo apt-get install --yes --no-install-recommends \
+              libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+              libcurl4-openssl-dev libssl-dev unzip
+          } >setup-system.log 2>&1; then
+            echo "=== system setup failure ==="
+            tail -n 160 setup-system.log
+            exit 1
+          fi
+          echo "System libraries installed."
+
+      - name: Install R packages quietly
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! Rscript -e '
+            install.packages(
+              c("terra", "sf", "yaml", "digest", "jsonlite"),
+              repos = "https://cloud.r-project.org"
+            )
+            install.packages(
+              "INLA",
+              repos = c(
+                getOption("repos"),
+                INLA = "https://inla.r-inla-download.org/R/stable"
+              ),
+              dependencies = TRUE
+            )
+            stopifnot(
+              requireNamespace("terra", quietly = TRUE),
+              requireNamespace("sf", quietly = TRUE),
+              requireNamespace("yaml", quietly = TRUE),
+              requireNamespace("digest", quietly = TRUE),
+              requireNamespace("INLA", quietly = TRUE)
+            )
+          ' >setup-r.log 2>&1; then
+            echo "=== R package setup failure ==="
+            tail -n 200 setup-r.log
+            exit 1
+          fi
+          echo "R packages installed."
+
+      - name: Restore public-raster cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/cache/rasters
+            data/processed/rasters
+            data/processed/raster_download_manifest.csv
+            data/processed/raster_manifest.csv
+          key: legacy-rasters-v3-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/download_rasters.R', 'scripts/prepare_rasters.R') }}
+          restore-keys: |
+            legacy-rasters-v3-${{ runner.os }}-
+
+      - name: Parse executed scripts
+        shell: Rscript {0}
+        run: |
+          parse(file = "scripts/download_rasters.R")
+          parse(file = "scripts/prepare_rasters.R")
+          parse(file = "analysis/run_bombus_availability.R")
+
+      - name: Acquire and prepare rasters quietly
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! Rscript scripts/download_rasters.R >download.log 2>&1; then
+            echo "=== raster download failure ==="
+            tail -n 240 download.log
+            exit 1
+          fi
+          if ! Rscript scripts/prepare_rasters.R --no-download >prepare.log 2>&1; then
+            echo "=== raster preparation failure ==="
+            tail -n 240 prepare.log
+            exit 1
+          fi
+          echo "Public raster stack is ready."
+
+      - name: Run full analysis and expose only its failure tail
+        shell: bash
+        run: |
+          set +e
+          Rscript analysis/run_bombus_availability.R \
+            Data_S1.csv data/processed/rasters sdm results/bombus_availability \
+            >analysis.log 2>&1
+          status=$?
+          set -e
+          if [[ $status -ne 0 ]]; then
+            echo "=== analysis failure tail ==="
+            tail -n 300 analysis.log
+            exit "$status"
+          fi
+          echo "=== analysis completion tail ==="
+          tail -n 100 analysis.log
+
+      - name: Upload diagnostic logs and partial outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-shot-full-analysis-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            setup-system.log
+            setup-r.log
+            download.log
+            prepare.log
+            analysis.log
+            data/processed/raster_download_manifest.csv
+            data/processed/raster_manifest.csv
+            results/bombus_availability
+          if-no-files-found: warn
+          retention-days: 7

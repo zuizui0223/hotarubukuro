@@ -42,11 +42,16 @@ jobs:
           sudo apt-get install --yes --no-install-recommends \
             libgdal-dev libgeos-dev libproj-dev libudunits2-dev
 
-      - name: Install terra only when missing
+      - name: Install R packages when missing
         shell: bash
         run: |
           set -euo pipefail
-          if ! Rscript -e 'if (!requireNamespace("terra", quietly = TRUE)) install.packages("terra", repos = "https://cloud.r-project.org"); stopifnot(requireNamespace("terra", quietly = TRUE))' >setup-r.log 2>&1; then
+          if ! Rscript -e '
+            pkgs <- c("terra", "yaml", "digest")
+            missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+            if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+            stopifnot(all(vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)))
+          ' >setup-r.log 2>&1; then
             tail -n 160 setup-r.log
             exit 1
           fi
@@ -61,7 +66,7 @@ jobs:
           restore-keys: |
             legacy-rasters-v3-${{ runner.os }}-
 
-      - name: Require the already prepared temperature rasters
+      - name: Ensure the temperature rasters are prepared
         shell: bash
         run: |
           set -euo pipefail
@@ -70,9 +75,22 @@ jobs:
             data/processed/rasters/chelsa_bio10.tif
             data/processed/rasters/chelsa_gdd5.tif
           )
+          need_provision=0
           for path in "${required[@]}"; do
             if [[ ! -s "$path" ]]; then
-              echo "Missing prepared raster: $path"
+              need_provision=1
+              break
+            fi
+          done
+          if [[ "$need_provision" -eq 1 ]]; then
+            echo "Prepared temperature rasters are not cached; provisioning the three CHELSA layers."
+            only="chelsa_bio05,chelsa_bio10,chelsa_gdd5"
+            Rscript scripts/download_rasters.R --only "$only"
+            Rscript scripts/prepare_rasters.R --only "$only" --no-download
+          fi
+          for path in "${required[@]}"; do
+            if [[ ! -s "$path" ]]; then
+              echo "Missing prepared raster after provisioning: $path"
               exit 1
             fi
           done

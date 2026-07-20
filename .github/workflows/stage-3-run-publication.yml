@@ -1,0 +1,142 @@
+name: "Stage 3 - Run publication models"
+
+on:
+  workflow_dispatch:
+    inputs:
+      raster_commit:
+        description: Commit SHA whose Stage 1 processed-raster cache should be restored
+        required: true
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publication-stage-3-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  R_VERSION: "4.4.3"
+  RASTER_CACHE_VERSION: "v4"
+
+jobs:
+  run-models:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: publication-r-${{ runner.os }}-${{ env.R_VERSION }}-models-v2
+          restore-keys: |
+            publication-r-${{ runner.os }}-${{ env.R_VERSION }}-
+
+      - name: Install system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+            libcurl4-openssl-dev libssl-dev
+
+      - name: Install Python package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Install model dependencies when missing
+        shell: Rscript {0}
+        run: |
+          cran <- c("terra", "sf", "lavaan", "qgam", "yaml", "geodata", "digest", "jsonlite")
+          missing <- cran[!vapply(cran, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+          if (!requireNamespace("INLA", quietly = TRUE)) {
+            install.packages(
+              "INLA",
+              repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/stable"),
+              dependencies = TRUE
+            )
+          }
+          stopifnot(vapply(c(cran, "INLA"), requireNamespace, logical(1), quietly = TRUE))
+
+      - name: Restore processed rasters from Stage 1
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/processed/rasters
+            data/processed/raster_manifest.csv
+            data/processed/raster_download_manifest.csv
+          key: publication-processed-${{ env.RASTER_CACHE_VERSION }}-${{ inputs.raster_commit }}
+          fail-on-cache-miss: true
+
+      - name: Restore human predictor cache
+        uses: actions/cache@v4
+        with:
+          path: data/cache/human
+          key: publication-human-v2-${{ hashFiles('config/anthropogenic.yml', 'scripts/download_human_predictors.R') }}
+          restore-keys: |
+            publication-human-v2-
+
+      - name: Download missing human predictors
+        run: Rscript scripts/download_human_predictors.R data/cache/human
+
+      - name: Parse publication analysis
+        shell: Rscript {0}
+        run: parse(file = "analysis/run_publication_workflow.R")
+
+      - name: Run integrated SPDE and qGAM analysis
+        shell: bash
+        run: |
+          set +e
+          Rscript analysis/run_publication_workflow.R \
+            Data_S1.csv data/processed/rasters sdm data/cache/human results/publication \
+            >publication-analysis.log 2>&1
+          status=$?
+          set -e
+          if [[ $status -ne 0 ]]; then
+            echo "=== publication analysis failure tail ==="
+            tail -n 300 publication-analysis.log
+            exit "$status"
+          fi
+          tail -n 100 publication-analysis.log
+
+      - name: Validate manuscript outputs
+        shell: Rscript {0}
+        run: |
+          required <- file.path("results/publication", c(
+            "cfa_standardized_loadings.csv",
+            "environment_pca_loadings.csv",
+            "bombus_environment_correlations.csv",
+            "integrated_spde_model_diagnostics.csv",
+            "integrated_spde_fixed_effects.csv",
+            "qgam_model_summary.csv",
+            "anthropogenic_outlier_review.csv",
+            "sessionInfo.txt"
+          ))
+          missing <- required[!file.exists(required)]
+          if (length(missing)) stop("Missing publication outputs: ", paste(missing, collapse = ", "))
+          stopifnot(setequal(read.csv(required[[1]])$rhs, c("a", "Lm", "C")))
+
+      - name: Upload logs and publication outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-models-${{ github.sha }}
+          path: |
+            publication-analysis.log
+            results/publication
+          if-no-files-found: warn
+          retention-days: 30

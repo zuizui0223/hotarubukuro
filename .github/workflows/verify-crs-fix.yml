@@ -1,14 +1,14 @@
 name: One-shot CRS-fix full-analysis verification
 
 on:
-  push:
-    branches: ["analysis/minimal-bombus-availability"]
+  pull_request:
+    branches: [main]
     paths:
       - ".github/workflows/verify-crs-fix.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: verify-crs-fix-${{ github.ref }}
@@ -16,7 +16,6 @@ concurrency:
 
 jobs:
   verify:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[verify-crs-fix]')
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -93,10 +92,12 @@ jobs:
         run: |
           set -euo pipefail
           if ! Rscript scripts/download_rasters.R >download.log 2>&1; then
+            echo "=== raster download failure ==="
             tail -n 240 download.log
             exit 1
           fi
           if ! Rscript scripts/prepare_rasters.R --no-download >prepare.log 2>&1; then
+            echo "=== raster preparation failure ==="
             tail -n 240 prepare.log
             exit 1
           fi
@@ -154,42 +155,3 @@ jobs:
             results/bombus_availability
           if-no-files-found: warn
           retention-days: 7
-
-      - name: Persist verification result on the PR branch
-        if: always()
-        shell: bash
-        env:
-          VERIFY_JOB_STATUS: ${{ job.status }}
-        run: |
-          set -euo pipefail
-          mkdir -p diagnostics
-          {
-            echo "workflow=verify-crs-fix"
-            echo "source_head=${GITHUB_SHA}"
-            echo "run_id=${GITHUB_RUN_ID}"
-            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
-            echo "job_status=${VERIFY_JOB_STATUS}"
-            echo
-            echo "=== analysis.log tail ==="
-            if [[ -f analysis.log ]]; then
-              tail -n 240 analysis.log
-            else
-              echo "analysis.log was not created; failure occurred before the analysis step."
-              for log in setup-system.log setup-r.log download.log prepare.log; do
-                if [[ -f "$log" ]]; then
-                  echo
-                  echo "=== ${log} tail ==="
-                  tail -n 120 "$log"
-                fi
-              done
-            fi
-          } > diagnostics/verify-crs-fix-status.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add diagnostics/verify-crs-fix-status.txt
-          if git diff --cached --quiet; then
-            echo "Verification status is unchanged."
-          else
-            git commit -m "Record CRS full-analysis verification [skip ci]"
-            git push
-          fi

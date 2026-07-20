@@ -72,11 +72,14 @@ for (i in seq_along(paths)) {
   vector_n <- if (is.null(vector_values)) 0L else nrow(vector_values)
   vector_finite <- if (is.null(vector_values)) 0L else sum(is.finite(vector_values[[1]]))
 
-  # terra accessors (notably crs()/nrow()) can return a zero-length value on some
-  # GDAL builds, which makes data.frame() abort with "differing number of rows".
-  # Coerce every field to exactly one element so the summary row is always valid.
-  scalar1 <- function(x) if (length(x) == 1L) x else if (length(x) == 0L) NA else x[[1L]]
-  summary_fields <- lapply(
+  # terra accessors can return a zero-length value, and %||% fields can carry a
+  # length-1 list, either of which makes data.frame() abort. Flatten every field
+  # to a single character scalar so the summary row is always well-formed.
+  as1 <- function(x) {
+    x <- suppressWarnings(as.character(unlist(x, use.names = FALSE)))
+    if (length(x) < 1L) NA_character_ else x[[1L]]
+  }
+  summary_fields <- vapply(
     list(
       layer = nm,
       path = path,
@@ -94,9 +97,9 @@ for (i in seq_along(paths)) {
       vector_finite = vector_finite,
       vector_error = attr(vector_values, "error") %||% ""
     ),
-    scalar1
+    as1, character(1)
   )
-  summaries[[nm]] <- data.frame(summary_fields, stringsAsFactors = FALSE)
+  summaries[[nm]] <- as.data.frame(as.list(summary_fields), stringsAsFactors = FALSE)
 
   if (!is.null(vector_values) && vector_finite > 0) {
     extracted[[nm]] <- as.numeric(vector_values[[1]])

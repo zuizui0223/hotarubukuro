@@ -52,16 +52,13 @@ ensure_raster_crs <- function(r, path) {
   r
 }
 
-project_points_checked <- function(points, raster, path) {
-  if (same_crs_safe(points, raster)) return(points)
-  target <- crs_text(raster)
-  if (!nzchar(target)) stop("Raster CRS is empty after validation: ", path, call. = FALSE)
-  tryCatch(
-    terra::project(points, target),
-    error = function(e) {
-      stop("Failed to project occurrence points for raster ", path, ": ", conditionMessage(e), call. = FALSE)
-    }
-  )
+coordinate_matrix <- function(dat) {
+  xy <- as.matrix(dat[c("longitude", "latitude")])
+  storage.mode(xy) <- "double"
+  if (ncol(xy) != 2L || any(!is.finite(xy))) {
+    stop("Occurrence coordinates must be a finite longitude-latitude matrix", call. = FALSE)
+  }
+  xy
 }
 
 read_raster_checked <- function(path) {
@@ -83,11 +80,17 @@ extract_values <- function(paths, layer_names, dat) {
          paste(paths[incompatible], collapse = ", "), call. = FALSE)
   }
   r <- do.call(c, layers); names(r) <- layer_names
-  pts <- vect(dat[c("longitude", "latitude")], geom = c("longitude", "latitude"), crs = "EPSG:4326")
-  pts <- project_points_checked(pts, r, paths[[1L]])
-  out <- as.data.frame(extract(r, pts, ID = FALSE), check.names = FALSE)
+  # All prepared environmental layers and reviewed SDMs use the canonical
+  # longitude-latitude grid.  Extracting by an x-y matrix avoids a redundant
+  # vector reprojection that can fail when GDAL serializes equivalent WKT
+  # definitions differently on GitHub-hosted runners.
+  out <- as.data.frame(
+    terra::extract(r, coordinate_matrix(dat), ID = FALSE),
+    check.names = FALSE
+  )
   stopifnot(nrow(out) == nrow(dat)); out
 }
+
 pca1 <- function(dat, vars, label) {
   X <- dat[vars]
   good <- vapply(X, function(x) is.numeric(x) && is.finite(sd(x, na.rm = TRUE)) && sd(x, na.rm = TRUE) > 0, logical(1))
@@ -140,9 +143,11 @@ elev_path <- file.path(env_dir, "elevation_30s.tif")
 elev <- read_raster_checked(elev_path)
 topo <- c(terrain(elev, "roughness"), terrain(elev, "slope", unit = "radians"), terrain(elev, "TRI")); names(topo) <- c("roughness","slope","TRI")
 topo <- ensure_raster_crs(topo, paste0(elev_path, " (derived terrain)"))
-pts <- vect(d[c("longitude","latitude")], geom = c("longitude","latitude"), crs = "EPSG:4326")
-pts <- project_points_checked(pts, topo, paste0(elev_path, " (derived terrain)"))
-tv <- as.data.frame(extract(topo, pts, ID = FALSE)); stopifnot(nrow(tv) == nrow(d)); d <- cbind(d, tv)
+tv <- as.data.frame(
+  terra::extract(topo, coordinate_matrix(d), ID = FALSE),
+  check.names = FALSE
+)
+stopifnot(nrow(tv) == nrow(d)); d <- cbind(d, tv)
 
 pc_temp <- pca1(d, c("chelsa_bio05","chelsa_bio10","chelsa_gdd5"), "Temperature_PC1")
 pc_moist <- pca1(d, c("chelsa_cmimean","chelsa_vpdmean","chelsa_bio12","chelsa_bio14","chelsa_bio15","chelsa_swb"), "precip_PC1")

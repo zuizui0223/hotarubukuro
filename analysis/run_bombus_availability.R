@@ -81,11 +81,11 @@ extract_values <- function(paths, layer_names, dat) {
   }
   r <- do.call(c, layers); names(r) <- layer_names
   # All prepared environmental layers and reviewed SDMs use the canonical
-  # longitude-latitude grid.  Extracting by an x-y matrix avoids a redundant
+  # longitude-latitude grid. Extracting by an x-y matrix avoids a redundant
   # vector reprojection that can fail when GDAL serializes equivalent WKT
   # definitions differently on GitHub-hosted runners.
   out <- as.data.frame(
-    terra::extract(r, coordinate_matrix(dat), ID = FALSE),
+    terra::extract(r, coordinate_matrix(dat)),
     check.names = FALSE
   )
   stopifnot(nrow(out) == nrow(dat)); out
@@ -144,7 +144,7 @@ elev <- read_raster_checked(elev_path)
 topo <- c(terrain(elev, "roughness"), terrain(elev, "slope", unit = "radians"), terrain(elev, "TRI")); names(topo) <- c("roughness","slope","TRI")
 topo <- ensure_raster_crs(topo, paste0(elev_path, " (derived terrain)"))
 tv <- as.data.frame(
-  terra::extract(topo, coordinate_matrix(d), ID = FALSE),
+  terra::extract(topo, coordinate_matrix(d)),
   check.names = FALSE
 )
 stopifnot(nrow(tv) == nrow(d)); d <- cbind(d, tv)

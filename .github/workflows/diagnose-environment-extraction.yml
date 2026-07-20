@@ -1,0 +1,99 @@
+name: Diagnose environment extraction only
+
+on:
+  push:
+    branches: ["analysis/minimal-bombus-availability"]
+    paths:
+      - ".github/workflows/diagnose-environment-extraction.yml"
+      - "analysis/diagnose_environment_extraction.R"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnose-environment-extraction-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.3"
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: verify-r-v1-${{ runner.os }}-4.4.3-
+          restore-keys: |
+            verify-r-v1-${{ runner.os }}-4.4.3-
+
+      - name: Install terra only when missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! Rscript -e 'if (!requireNamespace("terra", quietly = TRUE)) install.packages("terra", repos = "https://cloud.r-project.org"); stopifnot(requireNamespace("terra", quietly = TRUE))' >setup-r.log 2>&1; then
+            tail -n 160 setup-r.log
+            exit 1
+          fi
+
+      - name: Restore prepared raster cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/processed/rasters
+            data/processed/raster_manifest.csv
+          key: legacy-rasters-v3-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/prepare_rasters.R') }}
+          restore-keys: |
+            legacy-rasters-v3-${{ runner.os }}-
+
+      - name: Require the already prepared temperature rasters
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            data/processed/rasters/chelsa_bio05.tif
+            data/processed/rasters/chelsa_bio10.tif
+            data/processed/rasters/chelsa_gdd5.tif
+          )
+          for path in "${required[@]}"; do
+            if [[ ! -s "$path" ]]; then
+              echo "Missing prepared raster: $path"
+              exit 1
+            fi
+          done
+          ls -lh "${required[@]}"
+
+      - name: Parse focused diagnostic
+        shell: Rscript {0}
+        run: parse(file = "analysis/diagnose_environment_extraction.R")
+
+      - name: Run extraction and Temperature PCA only
+        shell: bash
+        run: |
+          set +e
+          Rscript analysis/diagnose_environment_extraction.R \
+            Data_S1.csv data/processed/rasters results/environment_extraction_diagnostic \
+            >environment-extraction.log 2>&1
+          status=$?
+          set -e
+          cat environment-extraction.log
+          exit "$status"
+
+      - name: Upload focused diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: environment-extraction-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            setup-r.log
+            environment-extraction.log
+            results/environment_extraction_diagnostic
+          if-no-files-found: warn
+          retention-days: 7

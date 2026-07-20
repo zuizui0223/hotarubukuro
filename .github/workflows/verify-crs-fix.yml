@@ -55,16 +55,11 @@ jobs:
           if ! Rscript -e '
             cran <- c("terra", "sf", "yaml", "digest", "jsonlite")
             missing <- cran[!vapply(cran, requireNamespace, logical(1), quietly = TRUE)]
-            if (length(missing)) {
-              install.packages(missing, repos = "https://cloud.r-project.org")
-            }
+            if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
             if (!requireNamespace("INLA", quietly = TRUE)) {
               install.packages(
                 "INLA",
-                repos = c(
-                  getOption("repos"),
-                  INLA = "https://inla.r-inla-download.org/R/stable"
-                ),
+                repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/stable"),
                 dependencies = TRUE
               )
             }
@@ -80,17 +75,15 @@ jobs:
             exit 1
           fi
 
-      - name: Restore public-raster cache
+      - name: Restore public-raster source cache
         uses: actions/cache@v4
         with:
           path: |
             data/cache/rasters
-            data/processed/rasters
             data/processed/raster_download_manifest.csv
-            data/processed/raster_manifest.csv
-          key: legacy-rasters-v3-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/download_rasters.R', 'scripts/prepare_rasters.R') }}
+          key: legacy-raster-sources-v4-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/download_rasters.R') }}
           restore-keys: |
-            legacy-rasters-v3-${{ runner.os }}-
+            legacy-raster-sources-v4-${{ runner.os }}-
 
       - name: Parse executed scripts
         shell: Rscript {0}
@@ -99,54 +92,47 @@ jobs:
           parse(file = "scripts/prepare_rasters.R")
           parse(file = "analysis/run_bombus_availability.R")
 
-      - name: Acquire and prepare rasters only when cache is incomplete
+      - name: Acquire source rasters
         shell: bash
         run: |
           set -euo pipefail
-          required=(
-            data/processed/rasters/chelsa_bio05.tif
-            data/processed/rasters/chelsa_bio10.tif
-            data/processed/rasters/chelsa_gdd5.tif
-            data/processed/rasters/chelsa_cmimean.tif
-            data/processed/rasters/chelsa_vpdmean.tif
-            data/processed/rasters/chelsa_bio12.tif
-            data/processed/rasters/chelsa_bio14.tif
-            data/processed/rasters/chelsa_bio15.tif
-            data/processed/rasters/chelsa_swb.tif
-            data/processed/rasters/chelsa_rsdsmean.tif
-            data/processed/rasters/soilgrids_bdod_0_5cm_mean.tif
-            data/processed/rasters/soilgrids_cfvo_0_5cm_mean.tif
-            data/processed/rasters/soilgrids_sand_0_5cm_mean.tif
-            data/processed/rasters/soilgrids_silt_0_5cm_mean.tif
-            data/processed/rasters/soilgrids_nitrogen_0_5cm_mean.tif
-            data/processed/rasters/soilgrids_ocd_0_5cm_mean.tif
-            data/processed/rasters/soilgrids_soc_0_5cm_mean.tif
-            data/processed/rasters/soilgrids_phh2o_0_5cm_mean.tif
-            data/processed/rasters/elevation_30s.tif
-            data/processed/raster_download_manifest.csv
-            data/processed/raster_manifest.csv
-          )
-          complete=true
-          for path in "${required[@]}"; do
-            if [[ ! -s "$path" ]]; then
-              complete=false
-              break
-            fi
-          done
-          if [[ "$complete" == "true" ]]; then
-            echo "Using complete fingerprint-keyed raster cache." | tee download.log prepare.log
-          else
-            if ! Rscript scripts/download_rasters.R >download.log 2>&1; then
-              echo "=== raster download failure ==="
-              tail -n 240 download.log
-              exit 1
-            fi
-            if ! Rscript scripts/prepare_rasters.R --no-download >prepare.log 2>&1; then
-              echo "=== raster preparation failure ==="
-              tail -n 240 prepare.log
-              exit 1
-            fi
+          if ! Rscript scripts/download_rasters.R >download.log 2>&1; then
+            echo "=== raster download failure ==="
+            tail -n 240 download.log
+            exit 1
           fi
+
+      - name: Rebuild and validate processed rasters
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf data/processed/rasters
+          rm -f data/processed/raster_manifest.csv
+          if ! Rscript scripts/prepare_rasters.R --force --no-download >prepare.log 2>&1; then
+            echo "=== raster preparation failure ==="
+            tail -n 240 prepare.log
+            exit 1
+          fi
+          Rscript - <<'RS'
+          library(terra)
+          files <- list.files("data/processed/rasters", pattern = "\\.tif$", full.names = TRUE)
+          stopifnot(length(files) >= 19L)
+          expected_extent <- c(128, 143, 30, 42)
+          for (path in files) {
+            r <- rast(path)
+            ex <- as.vector(ext(r))
+            if (nlyr(r) != 1L || ncell(r) == 0L || !all(is.finite(ex))) {
+              stop("Invalid processed raster structure: ", path)
+            }
+            if (max(abs(ex - expected_extent)) > 1e-8) {
+              stop("Unexpected processed raster extent: ", path, " [", paste(ex, collapse = ", "), "]")
+            }
+            sample_values <- values(r, mat = FALSE, dataframe = FALSE, na.rm = TRUE)
+            if (!length(sample_values) || !any(is.finite(sample_values))) {
+              stop("Processed raster has no finite values: ", path)
+            }
+          }
+          RS
 
       - name: Run full analysis and expose failure tail
         shell: bash

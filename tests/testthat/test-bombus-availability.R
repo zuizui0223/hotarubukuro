@@ -1,8 +1,8 @@
 source(file.path(test_project_root, "R", "sdm.R"))
 source(file.path(test_project_root, "R", "bombus_availability.R"))
 
-testthat::test_that("Bombus groups partition widespread and montane species", {
-  groups <- bombus_ecological_groups()
+testthat::test_that("Bombus spatial groups partition widespread and montane species", {
+  groups <- bombus_spatial_distribution_groups()
   testthat::expect_equal(groups$widespread, c("ardens", "diversus"))
   testthat::expect_equal(
     groups$montane,
@@ -26,7 +26,7 @@ testthat::test_that("any-species and maximum availability are calculated correct
   testthat::expect_equal(maximum_species_availability(x)[1:2], c(0.6, 0))
 })
 
-testthat::test_that("availability indices retain ecological grouping", {
+testthat::test_that("availability and spatial diagnostic indices remain distinct", {
   x <- data.frame(
     ardens = 0.2,
     beaticola = 0.3,
@@ -37,13 +37,17 @@ testthat::test_that("availability indices retain ecological grouping", {
   result <- add_bombus_availability_indices(x)
   testthat::expect_equal(result$Bombus_suitability_sum, 2)
   testthat::expect_equal(
-    result$Bombus_widespread_any_availability,
+    result$Bombus_spatial_widespread_any,
     1 - (1 - 0.2) * (1 - 0.5)
   )
   testthat::expect_equal(
-    result$Bombus_montane_any_availability,
+    result$Bombus_spatial_montane_any,
     1 - (1 - 0.3) * (1 - 0.4) * (1 - 0.6)
   )
-  testthat::expect_equal(result$Bombus_widespread_max_availability, 0.5)
-  testthat::expect_equal(result$Bombus_montane_max_availability, 0.6)
+  testthat::expect_equal(result$Bombus_spatial_widespread_max, 0.5)
+  testthat::expect_equal(result$Bombus_spatial_montane_max, 0.6)
+  testthat::expect_equal(
+    bombus_availability_predictors(),
+    c("Bombus_suitability_sum", "Bombus_any_availability", "Bombus_max_availability")
+  )
 })

@@ -12,92 +12,61 @@ dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 z <- function(x) as.numeric(scale(x))
 nonempty <- function(x) !is.na(x) & nzchar(trimws(as.character(x)))
 
-crs_text <- function(x) {
-  value <- tryCatch(terra::crs(x), error = function(e) "")
-  if (length(value) != 1L || is.na(value)) "" else trimws(value)
-}
-
-crs_is_usable <- function(x) {
-  current <- crs_text(x)
-  if (!nzchar(current)) return(FALSE)
-  probe <- terra::vect(
-    data.frame(longitude = 138, latitude = 36),
-    geom = c("longitude", "latitude"),
-    crs = "EPSG:4326"
-  )
-  !inherits(try(terra::project(probe, current), silent = TRUE), "try-error")
-}
-
-same_crs_safe <- function(x, y) {
-  tryCatch(isTRUE(terra::same.crs(x, y)), error = function(e) FALSE)
-}
-
-ensure_raster_crs <- function(r, path) {
-  if (crs_is_usable(r)) return(r)
+geographic_extent <- function(r) {
   ex <- as.vector(terra::ext(r))
-  looks_geographic <- length(ex) == 4L && all(is.finite(ex)) &&
+  length(ex) == 4L && all(is.finite(ex)) &&
     ex[[1]] >= -180 && ex[[2]] <= 180 && ex[[3]] >= -90 && ex[[4]] <= 90
-  if (!looks_geographic) {
-    stop("Raster has missing or unusable CRS and its extent is not geographic: ", path,
-         " [", paste(ex, collapse = ", "), "]", call. = FALSE)
-  }
-  warning(
-    "Raster CRS metadata was missing or unusable; assigning EPSG:4326 after geographic-extent validation: ",
-    path, call. = FALSE
-  )
-  terra::crs(r) <- "EPSG:4326"
-  if (!crs_is_usable(r)) {
-    stop("Could not assign a usable EPSG:4326 CRS to raster: ", path, call. = FALSE)
-  }
-  r
-}
-
-coordinate_matrix <- function(dat) {
-  xy <- as.matrix(dat[c("longitude", "latitude")])
-  storage.mode(xy) <- "double"
-  if (ncol(xy) != 2L || any(!is.finite(xy))) {
-    stop("Occurrence coordinates must be a finite longitude-latitude matrix", call. = FALSE)
-  }
-  xy
 }
 
 read_raster_checked <- function(path) {
   if (!file.exists(path)) stop("Missing raster: ", path, call. = FALSE)
   r <- terra::rast(path)
   if (terra::nlyr(r) != 1L) stop("Expected one raster layer: ", path, call. = FALSE)
-  ensure_raster_crs(r, path)
+  if (!geographic_extent(r)) {
+    stop("Raster extent is not geographic: ", path, " [", paste(as.vector(terra::ext(r)), collapse = ", "), "]", call. = FALSE)
+  }
+  # The processed environmental rasters and reviewed SDMs are all on the
+  # canonical longitude-latitude grid. Their embedded WKT can be malformed on
+  # GitHub runners, so normalize metadata after validating the extent.
+  terra::crs(r) <- "EPSG:4326"
+  r
+}
+
+make_points_ll <- function(dat) {
+  if (any(!is.finite(dat$longitude)) || any(!is.finite(dat$latitude))) {
+    stop("Occurrence coordinates must be finite", call. = FALSE)
+  }
+  terra::vect(dat, geom = c("longitude", "latitude"), crs = "EPSG:4326")
 }
 
 extract_values <- function(paths, layer_names, dat) {
-  if (any(!file.exists(paths))) stop("Missing raster(s): ", paste(paths[!file.exists(paths)], collapse = ", "))
-  layers <- lapply(paths, read_raster_checked)
-  reference <- layers[[1L]]
-  incompatible <- vapply(layers, function(x) {
-    !same_crs_safe(reference, x)
-  }, logical(1))
-  if (any(incompatible)) {
-    stop("Raster CRS differs within extraction stack: ",
-         paste(paths[incompatible], collapse = ", "), call. = FALSE)
+  if (any(!file.exists(paths))) {
+    stop("Missing raster(s): ", paste(paths[!file.exists(paths)], collapse = ", "), call. = FALSE)
   }
-  r <- do.call(c, layers); names(r) <- layer_names
-  # All prepared environmental layers and reviewed SDMs use the canonical
-  # longitude-latitude grid. Extracting by an x-y matrix avoids a redundant
-  # vector reprojection that can fail when GDAL serializes equivalent WKT
-  # definitions differently on GitHub-hosted runners.
-  out <- as.data.frame(
-    terra::extract(r, coordinate_matrix(dat)),
-    check.names = FALSE
-  )
-  stopifnot(nrow(out) == nrow(dat)); out
+  points_ll <- make_points_ll(dat)
+  values <- lapply(seq_along(paths), function(i) {
+    r <- read_raster_checked(paths[[i]])
+    x <- terra::extract(r, points_ll, ID = FALSE)
+    if (nrow(x) != nrow(dat)) {
+      stop("Extraction row mismatch for ", paths[[i]], ": ", nrow(x), " vs ", nrow(dat), call. = FALSE)
+    }
+    v <- as.numeric(x[[1L]])
+    message(layer_names[[i]], ": finite values ", sum(is.finite(v)), "/", length(v))
+    v
+  })
+  out <- as.data.frame(values, check.names = FALSE)
+  names(out) <- layer_names
+  out
 }
 
 pca1 <- function(dat, vars, label) {
   X <- dat[vars]
   good <- vapply(X, function(x) is.numeric(x) && is.finite(sd(x, na.rm = TRUE)) && sd(x, na.rm = TRUE) > 0, logical(1))
   X <- X[good]; cc <- complete.cases(X)
-  if (ncol(X) < 2 || sum(cc) < 50) stop("Invalid PCA group: ", label)
+  if (ncol(X) < 2 || sum(cc) < 50) stop("Invalid PCA group: ", label, " complete rows=", sum(cc))
   fit <- prcomp(X[cc, , drop = FALSE], center = TRUE, scale. = TRUE)
   score <- rep(NA_real_, nrow(dat)); score[cc] <- fit$x[, 1]
+  message(label, ": complete rows ", sum(cc))
   list(score = score, loadings = data.frame(group = label, variable = rownames(fit$rotation), PC1_loading = fit$rotation[, 1]))
 }
 
@@ -142,12 +111,11 @@ d <- cbind(d, extract_values(file.path(env_dir, env_files), names(env_files), d)
 elev_path <- file.path(env_dir, "elevation_30s.tif")
 elev <- read_raster_checked(elev_path)
 topo <- c(terrain(elev, "roughness"), terrain(elev, "slope", unit = "radians"), terrain(elev, "TRI")); names(topo) <- c("roughness","slope","TRI")
-topo <- ensure_raster_crs(topo, paste0(elev_path, " (derived terrain)"))
-tv <- as.data.frame(
-  terra::extract(topo, coordinate_matrix(d)),
-  check.names = FALSE
-)
-stopifnot(nrow(tv) == nrow(d)); d <- cbind(d, tv)
+terra::crs(topo) <- "EPSG:4326"
+tv <- as.data.frame(terra::extract(topo, make_points_ll(d), ID = FALSE), check.names = FALSE)
+if (nrow(tv) != nrow(d)) stop("Topography extraction row mismatch")
+for (nm in names(tv)) message(nm, ": finite values ", sum(is.finite(tv[[nm]])), "/", nrow(tv))
+d <- cbind(d, tv)
 
 pc_temp <- pca1(d, c("chelsa_bio05","chelsa_bio10","chelsa_gdd5"), "Temperature_PC1")
 pc_moist <- pca1(d, c("chelsa_cmimean","chelsa_vpdmean","chelsa_bio12","chelsa_bio14","chelsa_bio15","chelsa_swb"), "precip_PC1")
@@ -158,7 +126,7 @@ d$Temperature_PC1 <- pc_temp$score; d$precip_PC1 <- pc_moist$score; d$soil_phys_
 d$soil_nutrient_PC1 <- pc_nutr$score; d$topo_PC1 <- pc_topo$score; d$soil_pH <- d$soilgrids_phh2o_0_5cm; d$RSDS <- d$chelsa_rsdsmean
 pca_loadings <- do.call(rbind, lapply(list(pc_temp,pc_moist,pc_phys,pc_nutr,pc_topo), `[[`, "loadings"))
 
-# Bombus suitability indices.
+# Bombus availability indices.
 species <- c("ardens","beaticola","consobrinus","diversus","honshuensis")
 d <- cbind(d, extract_values(file.path(sdm_dir, paste0(species, ".tif")), species, d))
 P <- as.matrix(d[species]); sdm_ok <- complete.cases(P) & apply(P, 1, function(x) all(is.finite(x) & x >= 0 & x <= 1))
@@ -209,7 +177,7 @@ cv_fold <- do.call(rbind,cv); cv_summary <- do.call(rbind,lapply(split(cv_fold,c
 write.csv(comparison,file.path(out_dir,"spde_model_comparison.csv"),row.names=FALSE); write.csv(fixed,file.path(out_dir,"spde_fixed_effects.csv"),row.names=FALSE); write.csv(hyper,file.path(out_dir,"spde_hyperparameters.csv"),row.names=FALSE)
 write.csv(cv_fold,file.path(out_dir,"blocked_cv_folds.csv"),row.names=FALSE); write.csv(cv_summary,file.path(out_dir,"blocked_cv_summary.csv"),row.names=FALSE); write.csv(pca_loadings,file.path(out_dir,"environment_pca_loadings.csv"),row.names=FALSE)
 write.csv(rbind(data.frame(stage="input",n=n_input),data.frame(stage="excluded_identity",n=nrow(excluded_identity)),data.frame(stage="excluded_missing_input",n=nrow(excluded_input)),data.frame(stage="excluded_invalid_sdm",n=nrow(excluded_sdm)),data.frame(stage="excluded_incomplete_model",n=nrow(excluded_model)),data.frame(stage="common_model_cohort",n=nrow(d))),file.path(out_dir,"row_flow.csv"),row.names=FALSE)
-write.csv(data.frame(index=c("Bombus_suitability_sum","Bombus_any_availability","Bombus_max_availability","spatial_widespread","spatial_montane"),definition=c("sum of five species suitability values","probability-like union 1-product(1-p_i)","maximum suitability among five species","widespread-species union: ardens + diversus","montane-species union: beaticola + consobrinus + honshuensis")),file.path(out_dir,"bombus_index_definitions.csv"),row.names=FALSE)
+write.csv(data.frame(index=c("Bombus_suitability_sum","Bombus_any_availability","Bombus_max_availability","spatial_widespread","spatial_montane"),definition=c("sum of five species suitability values","combined availability union 1-product(1-p_i)","maximum suitability among five species","widespread-species union: ardens + diversus","montane-species union: beaticola + consobrinus + honshuensis")),file.path(out_dir,"bombus_index_definitions.csv"),row.names=FALSE)
 write.csv(data.frame(group=c("widespread","montane"),species=c("ardens;diversus","beaticola;consobrinus;honshuensis"),correlation_with_temperature=c(cor(d$spatial_widespread,d$Temperature_PC1),cor(d$spatial_montane,d$Temperature_PC1)),correlation_with_topography=c(cor(d$spatial_widespread,d$topo_PC1),cor(d$spatial_montane,d$topo_PC1))),file.path(out_dir,"spatial_group_diagnostic.csv"),row.names=FALSE)
 write.csv(d,file.path(out_dir,"analysis_data.csv"),row.names=FALSE)
 write.csv(excluded_identity,file.path(out_dir,"excluded_identity.csv"),row.names=FALSE); write.csv(excluded_input,file.path(out_dir,"excluded_missing_input.csv"),row.names=FALSE); write.csv(excluded_sdm,file.path(out_dir,"excluded_invalid_sdm.csv"),row.names=FALSE); write.csv(excluded_model,file.path(out_dir,"excluded_incomplete_model.csv"),row.names=FALSE)

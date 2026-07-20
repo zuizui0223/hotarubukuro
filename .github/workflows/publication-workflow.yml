@@ -1,0 +1,124 @@
+name: Publication workflow review
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [analysis/minimal-bombus-availability]
+  workflow_dispatch:
+    inputs:
+      run_full:
+        description: Download public predictors and run the complete analysis
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.3'
+      - name: Install Python workflow dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]'
+      - name: Test image extraction contract
+        run: python -m pytest tests/python/test_extract_color_v2.py -q
+      - name: Install R contract dependencies
+        shell: Rscript {0}
+        run: |
+          install.packages(c('testthat', 'lavaan', 'yaml'), repos='https://cloud.r-project.org')
+      - name: Parse all publication scripts
+        shell: Rscript {0}
+        run: |
+          files <- c(
+            'R/pigmentation_workflow.R',
+            'analysis/run_publication_workflow.R',
+            'scripts/download_human_predictors.R',
+            'scripts/download_rasters.R',
+            'scripts/prepare_rasters.R'
+          )
+          invisible(lapply(files, parse))
+      - name: Run reviewer contract tests
+        shell: Rscript {0}
+        run: testthat::test_file('tests/testthat/test-pigmentation-workflow.R', stop_on_failure=TRUE)
+      - name: Check repository for local absolute paths
+        run: |
+          ! grep -RInE '(/Users/|C:\\Users\\|~/Desktop|~/zui_results)' \
+            R analysis scripts config tests .github/workflows/publication-workflow.yml
+
+  full-analysis:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.3'
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+      - name: Install R dependencies
+        shell: Rscript {0}
+        run: |
+          install.packages(c('terra','sf','lavaan','qgam','yaml','geodata'), repos='https://cloud.r-project.org')
+          install.packages('INLA', repos=c(getOption('repos'), INLA='https://inla.r-inla-download.org/R/stable'), dependencies=TRUE)
+      - uses: actions/cache@v4
+        with:
+          path: |
+            data/cache/rasters
+            data/cache/human
+            data/processed/rasters
+          key: publication-rasters-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'config/anthropogenic.yml') }}
+      - name: Download natural environmental predictors
+        run: Rscript scripts/download_rasters.R --force
+      - name: Prepare aligned environmental rasters
+        run: Rscript scripts/prepare_rasters.R --force --no-download
+      - name: Download human and landscape predictors
+        run: Rscript scripts/download_human_predictors.R data/cache/human
+      - name: Run integrated natural model and qGAM anomaly analysis
+        run: |
+          Rscript analysis/run_publication_workflow.R \
+            Data_S1.csv data/processed/rasters sdm data/cache/human results/publication
+      - name: Validate expected manuscript outputs
+        shell: Rscript {0}
+        run: |
+          required <- file.path('results/publication', c(
+            'cfa_standardized_loadings.csv',
+            'environment_pca_loadings.csv',
+            'bombus_environment_correlations.csv',
+            'integrated_spde_model_diagnostics.csv',
+            'integrated_spde_fixed_effects.csv',
+            'qgam_model_summary.csv',
+            'anthropogenic_outlier_review.csv',
+            'sessionInfo.txt'
+          ))
+          stopifnot(all(file.exists(required)))
+          cfa <- read.csv(required[[1]])
+          stopifnot(setequal(cfa$rhs, c('a','Lm','C')))
+      - uses: actions/upload-artifact@v4
+        with:
+          name: publication-analysis-${{ github.sha }}
+          path: results/publication
+          if-no-files-found: error
+          retention-days: 30

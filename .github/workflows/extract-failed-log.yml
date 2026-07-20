@@ -39,8 +39,10 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import os
           import re
 
+          job_id = os.environ["FAILED_JOB_ID"]
           source = Path("failed-job.log")
           text = source.read_text(encoding="utf-8-sig", errors="replace")
           lines = text.splitlines()
@@ -68,7 +70,7 @@ jobs:
 
           body = (
               "### Automated CI failure extraction\n\n"
-              f"Source: failed Actions job `{FAILED_JOB_ID}`. "
+              f"Source: failed Actions job `{job_id}`. "
               "The excerpt begins at the full-analysis step and is clipped to the actionable tail.\n\n"
               "```text\n"
               + rendered.replace("```", "` ` `")

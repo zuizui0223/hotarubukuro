@@ -1,0 +1,55 @@
+{
+  "extraction_version": "2.2.2",
+  "colour_space": {
+    "decoded_input": "sRGB_0_255",
+    "hsv_scale": "OpenCV_H_0_179_SV_0_255",
+    "peak_space": "CIELAB_D65_2degree",
+    "peak_distance": "DeltaE76"
+  },
+  "mask": {
+    "alpha_threshold": 128,
+    "morph_kernel_px": 3,
+    "pink_hue_low": 90,
+    "pink_hue_high": 179,
+    "red_hue_high": 10,
+    "colour_saturation_min": 40,
+    "colour_value_min": 40,
+    "white_saturation_max": 70,
+    "white_value_min": 150
+  },
+  "joint_lab_peak": {
+    "lab_bin_width": 5.0,
+    "delta_e_radius": 12.0,
+    "second_peak_min_delta_e": 24.0,
+    "multimodal_ratio_threshold": 0.5,
+    "low_peak_fraction_threshold": 0.2,
+    "representative": "centroid_nearest_observed_pixel"
+  },
+  "exposure_filtered_peak": {
+    "exclude_all_channels_gte": 250,
+    "exclude_lab_L_below": 25.0,
+    "minimum_pixels": 50,
+    "minimum_retained_fraction": 0.25,
+    "interpretation": "near_white_and_dark_sensitivity_ablation_not_denoised_ground_truth"
+  },
+  "qc": {
+    "low_mask_coverage_threshold": 0.8,
+    "large_component_min_fraction": 0.1,
+    "all_channels_clipped_threshold": 0.01,
+    "near_white_fraction_threshold": 0.1,
+    "dark_shadow_threshold": 0.25,
+    "excluded_warm_fraction_threshold": 0.05,
+    "cool_blue_fraction_threshold": 0.05,
+    "alpha_hsv_peak_disagreement_delta_e": 10.0,
+    "minimum_additional_stratified_qc": 20
+  },
+  "primary_output": {
+    "statistic": "channelwise_median",
+    "mask": "alpha_bounded_hsv",
+    "candidate_methods_are_primary": false
+  },
+  "white_balance": {
+    "applied": false,
+    "reason": "postprocessed_srgb_cutout_no_camera_wb_metadata_or_neutral_reference"
+  }
+}

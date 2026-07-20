@@ -41,8 +41,7 @@ for (i in seq_along(paths)) {
   r <- terra::rast(path)
   ex <- as.vector(terra::ext(r))
   rs <- terra::res(r)
-  raster_crs <- paste(terra::crs(r), collapse = "\n")
-  if (!nzchar(raster_crs)) raster_crs <- NA_character_
+  raster_crs <- terra::crs(r)
   projected_points <- tryCatch(
     if (terra::same.crs(points_ll, r)) points_ll else terra::project(points_ll, terra::crs(r)),
     error = function(e) structure(NULL, error = conditionMessage(e))
@@ -73,24 +72,31 @@ for (i in seq_along(paths)) {
   vector_n <- if (is.null(vector_values)) 0L else nrow(vector_values)
   vector_finite <- if (is.null(vector_values)) 0L else sum(is.finite(vector_values[[1]]))
 
-  summaries[[nm]] <- data.frame(
-    layer = nm,
-    path = path,
-    nrow = terra::nrow(r),
-    ncol = terra::ncol(r),
-    xmin = ex[[1]], xmax = ex[[2]], ymin = ex[[3]], ymax = ex[[4]],
-    xres = rs[[1]], yres = rs[[2]],
-    crs = raster_crs,
-    occurrence_count = nrow(d),
-    occurrence_inside_extent = sum(overlap),
-    matrix_rows = matrix_n,
-    matrix_finite = matrix_finite,
-    matrix_error = attr(matrix_values, "error") %||% "",
-    vector_rows = vector_n,
-    vector_finite = vector_finite,
-    vector_error = attr(vector_values, "error") %||% "",
-    stringsAsFactors = FALSE
+  # terra accessors (notably crs()/nrow()) can return a zero-length value on some
+  # GDAL builds, which makes data.frame() abort with "differing number of rows".
+  # Coerce every field to exactly one element so the summary row is always valid.
+  scalar1 <- function(x) if (length(x) == 1L) x else if (length(x) == 0L) NA else x[[1L]]
+  summary_fields <- lapply(
+    list(
+      layer = nm,
+      path = path,
+      nrow = terra::nrow(r),
+      ncol = terra::ncol(r),
+      xmin = ex[[1]], xmax = ex[[2]], ymin = ex[[3]], ymax = ex[[4]],
+      xres = rs[[1]], yres = rs[[2]],
+      crs = raster_crs,
+      occurrence_count = nrow(d),
+      occurrence_inside_extent = sum(overlap),
+      matrix_rows = matrix_n,
+      matrix_finite = matrix_finite,
+      matrix_error = attr(matrix_values, "error") %||% "",
+      vector_rows = vector_n,
+      vector_finite = vector_finite,
+      vector_error = attr(vector_values, "error") %||% ""
+    ),
+    scalar1
   )
+  summaries[[nm]] <- data.frame(summary_fields, stringsAsFactors = FALSE)
 
   if (!is.null(vector_values) && vector_finite > 0) {
     extracted[[nm]] <- as.numeric(vector_values[[1]])

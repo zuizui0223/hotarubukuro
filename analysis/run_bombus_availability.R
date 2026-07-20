@@ -12,20 +12,56 @@ dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 z <- function(x) as.numeric(scale(x))
 nonempty <- function(x) !is.na(x) & nzchar(trimws(as.character(x)))
 
+crs_text <- function(x) {
+  value <- tryCatch(terra::crs(x), error = function(e) "")
+  if (length(value) != 1L || is.na(value)) "" else trimws(value)
+}
+
+crs_is_usable <- function(x) {
+  current <- crs_text(x)
+  if (!nzchar(current)) return(FALSE)
+  probe <- terra::vect(
+    data.frame(longitude = 138, latitude = 36),
+    geom = c("longitude", "latitude"),
+    crs = "EPSG:4326"
+  )
+  !inherits(try(terra::project(probe, current), silent = TRUE), "try-error")
+}
+
+same_crs_safe <- function(x, y) {
+  tryCatch(isTRUE(terra::same.crs(x, y)), error = function(e) FALSE)
+}
+
 ensure_raster_crs <- function(r, path) {
-  current <- terra::crs(r, proj = TRUE)
-  if (!is.na(current) && nzchar(trimws(current))) return(r)
+  if (crs_is_usable(r)) return(r)
   ex <- as.vector(terra::ext(r))
   looks_geographic <- length(ex) == 4L && all(is.finite(ex)) &&
     ex[[1]] >= -180 && ex[[2]] <= 180 && ex[[3]] >= -90 && ex[[4]] <= 90
   if (!looks_geographic) {
-    stop("Raster has no valid CRS and its extent is not geographic: ", path,
+    stop("Raster has missing or unusable CRS and its extent is not geographic: ", path,
          " [", paste(ex, collapse = ", "), "]", call. = FALSE)
   }
-  warning("Raster CRS metadata was missing; assigning EPSG:4326 after geographic-extent validation: ", path,
-          call. = FALSE)
+  warning(
+    "Raster CRS metadata was missing or unusable; assigning EPSG:4326 after geographic-extent validation: ",
+    path, call. = FALSE
+  )
   terra::crs(r) <- "EPSG:4326"
+  if (!crs_is_usable(r)) {
+    stop("Could not assign a usable EPSG:4326 CRS to raster: ", path, call. = FALSE)
+  }
   r
+}
+
+project_points_checked <- function(points, raster, path) {
+  if (same_crs_safe(points, raster)) return(points)
+  target <- crs_text(raster)
+  if (!nzchar(target)) stop("Raster CRS is empty after validation: ", path, call. = FALSE)
+  tryCatch(
+    terra::project(points, target),
+    error = function(e) {
+      stop("Failed to project occurrence points for raster ", path, ": ", conditionMessage(e), call. = FALSE)
+    }
+  )
 }
 
 read_raster_checked <- function(path) {
@@ -40,7 +76,7 @@ extract_values <- function(paths, layer_names, dat) {
   layers <- lapply(paths, read_raster_checked)
   reference <- layers[[1L]]
   incompatible <- vapply(layers, function(x) {
-    !isTRUE(terra::same.crs(reference, x))
+    !same_crs_safe(reference, x)
   }, logical(1))
   if (any(incompatible)) {
     stop("Raster CRS differs within extraction stack: ",
@@ -48,7 +84,7 @@ extract_values <- function(paths, layer_names, dat) {
   }
   r <- do.call(c, layers); names(r) <- layer_names
   pts <- vect(dat[c("longitude", "latitude")], geom = c("longitude", "latitude"), crs = "EPSG:4326")
-  if (!terra::same.crs(pts, r)) pts <- terra::project(pts, terra::crs(r))
+  pts <- project_points_checked(pts, r, paths[[1L]])
   out <- as.data.frame(extract(r, pts, ID = FALSE), check.names = FALSE)
   stopifnot(nrow(out) == nrow(dat)); out
 }
@@ -103,11 +139,9 @@ d <- cbind(d, extract_values(file.path(env_dir, env_files), names(env_files), d)
 elev_path <- file.path(env_dir, "elevation_30s.tif")
 elev <- read_raster_checked(elev_path)
 topo <- c(terrain(elev, "roughness"), terrain(elev, "slope", unit = "radians"), terrain(elev, "TRI")); names(topo) <- c("roughness","slope","TRI")
-if (is.na(terra::crs(topo, proj = TRUE)) || !nzchar(trimws(terra::crs(topo, proj = TRUE)))) {
-  terra::crs(topo) <- terra::crs(elev)
-}
+topo <- ensure_raster_crs(topo, paste0(elev_path, " (derived terrain)"))
 pts <- vect(d[c("longitude","latitude")], geom = c("longitude","latitude"), crs = "EPSG:4326")
-if (!same.crs(pts, topo)) pts <- project(pts, crs(topo))
+pts <- project_points_checked(pts, topo, paste0(elev_path, " (derived terrain)"))
 tv <- as.data.frame(extract(topo, pts, ID = FALSE)); stopifnot(nrow(tv) == nrow(d)); d <- cbind(d, tv)
 
 pc_temp <- pca1(d, c("chelsa_bio05","chelsa_bio10","chelsa_gdd5"), "Temperature_PC1")

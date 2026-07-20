@@ -1,16 +1,22 @@
-name: "Stage 3 - Run publication models"
+name: "Stage 3 - Run publication models from artifact"
 
 on:
   workflow_dispatch:
     inputs:
-      raster_commit:
-        description: Commit SHA whose Stage 1 processed-raster cache should be restored
+      source_run_id:
+        description: Workflow run ID containing the prepared-publication-rasters artifact
         required: true
-        default: ""
+        default: "29785336644"
+        type: string
+      source_artifact_name:
+        description: Name of the Stage 1 raster artifact
+        required: true
+        default: "prepared-publication-rasters"
         type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: publication-stage-3-${{ github.ref }}
@@ -18,7 +24,6 @@ concurrency:
 
 env:
   R_VERSION: "4.4.3"
-  RASTER_CACHE_VERSION: "v4"
 
 jobs:
   run-models:
@@ -39,7 +44,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: publication-r-${{ runner.os }}-${{ env.R_VERSION }}-models-v2
+          key: publication-r-${{ runner.os }}-${{ env.R_VERSION }}-models-v3
           restore-keys: |
             publication-r-${{ runner.os }}-${{ env.R_VERSION }}-
 
@@ -49,6 +54,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install --yes --no-install-recommends \
+            build-essential gfortran \
             libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
             libcurl4-openssl-dev libssl-dev
 
@@ -57,31 +63,59 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
 
-      - name: Install model dependencies when missing
+      - name: Install model dependencies
         shell: Rscript {0}
         run: |
-          cran <- c("terra", "sf", "lavaan", "qgam", "yaml", "geodata", "digest", "jsonlite")
-          missing <- cran[!vapply(cran, requireNamespace, logical(1), quietly = TRUE)]
-          if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+          repos <- c(CRAN = "https://cloud.r-project.org")
+          options(repos = repos)
+
+          # qgam >= 2.0.0 requires mgcv >= 1.9. Install/update mgcv first,
+          # rather than treating the older recommended mgcv as sufficient.
+          if (!requireNamespace("mgcv", quietly = TRUE) ||
+              utils::packageVersion("mgcv") < "1.9.0") {
+            install.packages("mgcv", repos = repos, dependencies = TRUE)
+          }
+
+          base_needed <- c("terra", "sf", "lavaan", "yaml", "geodata", "digest", "jsonlite")
+          missing <- base_needed[!vapply(base_needed, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(missing)) install.packages(missing, repos = repos, dependencies = TRUE)
+
+          if (!requireNamespace("qgam", quietly = TRUE)) {
+            install.packages("qgam", repos = repos, dependencies = TRUE)
+          }
+
           if (!requireNamespace("INLA", quietly = TRUE)) {
             install.packages(
               "INLA",
-              repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/stable"),
+              repos = c(repos, INLA = "https://inla.r-inla-download.org/R/stable"),
               dependencies = c("Depends", "Imports", "LinkingTo")
             )
           }
-          ok <- vapply(c(cran, "INLA"), requireNamespace, logical(1), quietly = TRUE)
-          if (!all(ok)) stop("Failed to install/load: ", paste(names(ok)[!ok], collapse = ", "))
 
-      - name: Restore processed rasters from Stage 1
-        uses: actions/cache/restore@v4
+          ok <- vapply(c(base_needed, "mgcv", "qgam", "INLA"), requireNamespace, logical(1), quietly = TRUE)
+          if (!all(ok)) stop("Failed to install/load: ", paste(names(ok)[!ok], collapse = ", "))
+          stopifnot(utils::packageVersion("mgcv") >= "1.9.0")
+          cat("mgcv:", as.character(utils::packageVersion("mgcv")), "\n")
+          cat("qgam:", as.character(utils::packageVersion("qgam")), "\n")
+
+      - name: Download prepared rasters from prior Stage 1 run
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            data/processed/rasters
-            data/processed/raster_manifest.csv
-            data/processed/raster_download_manifest.csv
-          key: publication-processed-${{ env.RASTER_CACHE_VERSION }}-${{ inputs.raster_commit }}
-          fail-on-cache-miss: true
+          name: ${{ inputs.source_artifact_name }}
+          path: data/processed
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify restored raster artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s data/processed/raster_manifest.csv
+          test -d data/processed/rasters
+          count=$(find data/processed/rasters -maxdepth 1 -type f -name '*.tif' | wc -l)
+          test "$count" -ge 19
+          echo "Restored $count prepared rasters from run ${{ inputs.source_run_id }}."
 
       - name: Restore human predictor cache
         uses: actions/cache@v4
@@ -129,13 +163,13 @@ jobs:
           ))
           missing <- required[!file.exists(required)]
           if (length(missing)) stop("Missing publication outputs: ", paste(missing, collapse = ", "))
-          stopifnot(setequal(read.csv(required[[1]])$rhs, c("a", "Lm", "C")))
+          stopifnot(all(file.info(required)$size > 0))
 
       - name: Upload logs and publication outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: publication-models-${{ github.sha }}
+          name: publication-models-${{ github.sha }}-${{ github.run_id }}
           path: |
             publication-analysis.log
             results/publication

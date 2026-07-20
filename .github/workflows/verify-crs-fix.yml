@@ -53,15 +53,31 @@ jobs:
         run: |
           set -euo pipefail
           if ! Rscript -e '
+            options(timeout = 1200)
             cran <- c("terra", "sf", "yaml", "digest", "jsonlite")
             missing <- cran[!vapply(cran, requireNamespace, logical(1), quietly = TRUE)]
             if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
             if (!requireNamespace("INLA", quietly = TRUE)) {
-              install.packages(
-                "INLA",
-                repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/stable"),
-                dependencies = TRUE
+              inla_repos <- c(
+                "https://inla.r-inla-download.org/R/stable",
+                "https://inla.r-inla-download.org/R/testing"
               )
+              for (repo in inla_repos) {
+                if (requireNamespace("INLA", quietly = TRUE)) break
+                for (attempt in seq_len(3L)) {
+                  message("Installing INLA from ", repo, " (attempt ", attempt, ")")
+                  try(
+                    install.packages(
+                      "INLA",
+                      repos = c(CRAN = "https://cloud.r-project.org", INLA = repo),
+                      dependencies = TRUE
+                    ),
+                    silent = FALSE
+                  )
+                  if (requireNamespace("INLA", quietly = TRUE)) break
+                  Sys.sleep(10 * attempt)
+                }
+              }
             }
             stopifnot(
               requireNamespace("terra", quietly = TRUE),
@@ -71,7 +87,7 @@ jobs:
               requireNamespace("INLA", quietly = TRUE)
             )
           ' >setup-r.log 2>&1; then
-            tail -n 200 setup-r.log
+            tail -n 260 setup-r.log
             exit 1
           fi
 

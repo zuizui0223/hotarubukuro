@@ -105,7 +105,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install --yes --no-install-recommends \
             libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
-            libcurl4-openssl-dev libssl-dev
+            libcurl4-openssl-dev libssl-dev gfortran
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -113,13 +113,31 @@ jobs:
       - name: Install model dependencies
         shell: Rscript {0}
         run: |
-          needed <- c("terra", "sf", "lavaan", "qgam", "yaml", "geodata", "digest", "jsonlite")
-          missing <- needed[!vapply(needed, requireNamespace, logical(1), quietly = TRUE)]
-          if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+          repos <- "https://cloud.r-project.org"
+
+          # qgam 2.0.0 requires mgcv >= 1.9. Recommended packages may already
+          # exist in the runner library, so an existence-only check is not enough.
+          if (!requireNamespace("mgcv", quietly = TRUE) || packageVersion("mgcv") < "1.9") {
+            install.packages("mgcv", repos = repos, dependencies = c("Depends", "Imports", "LinkingTo"))
+          }
+          stopifnot(requireNamespace("mgcv", quietly = TRUE), packageVersion("mgcv") >= "1.9")
+
+          core <- c("terra", "sf", "lavaan", "yaml", "geodata", "digest", "jsonlite")
+          missing <- core[!vapply(core, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(missing)) {
+            install.packages(missing, repos = repos, dependencies = c("Depends", "Imports", "LinkingTo"))
+          }
+
+          # Install qgam separately so dependency or compilation failures are visible.
+          install.packages("qgam", repos = repos, dependencies = c("Depends", "Imports", "LinkingTo"))
+          stopifnot(requireNamespace("qgam", quietly = TRUE))
+          cat("Loaded qgam", as.character(packageVersion("qgam")),
+              "with mgcv", as.character(packageVersion("mgcv")), "\n")
+
           if (!requireNamespace("INLA", quietly = TRUE)) {
             install.packages("INLA", repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/stable"), dependencies = c("Depends", "Imports", "LinkingTo"))
           }
-          ok <- vapply(c(needed, "INLA"), requireNamespace, logical(1), quietly = TRUE)
+          ok <- vapply(c(core, "qgam", "INLA"), requireNamespace, logical(1), quietly = TRUE)
           if (!all(ok)) stop("Failed to install/load: ", paste(names(ok)[!ok], collapse = ", "))
       - uses: actions/download-artifact@v4
         with:

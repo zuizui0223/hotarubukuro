@@ -98,9 +98,35 @@ jobs:
           txt <- paste(deparse(f), collapse=' ')
           stopifnot(grepl('DOY', txt), grepl('pop_density_log', txt))
       - name: Check repository for local absolute paths
+        shell: python
         run: |
-          ! grep -RInE '(/Users/|C:\\Users\\|~/Desktop|~/zui_results)' \
-            R analysis scripts config tests .github/workflows/publication-workflow.yml
+          from pathlib import Path
+          import subprocess
+
+          roots = ('R/', 'analysis/', 'scripts/', 'config/', 'tests/', '.github/workflows/publication-workflow.yml')
+          forbidden = (
+              '/' + 'Users' + '/',
+              'C:' + chr(92) + 'Users' + chr(92),
+              '~/' + 'Desktop',
+              '~/' + 'zui_results',
+          )
+          tracked = subprocess.check_output(['git', 'ls-files'], text=True).splitlines()
+          findings = []
+          for name in tracked:
+              if not any(name == root or name.startswith(root) for root in roots):
+                  continue
+              path = Path(name)
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              for line_no, line in enumerate(text.splitlines(), 1):
+                  for token in forbidden:
+                      if token in line:
+                          findings.append(f'{name}:{line_no}: {token}')
+          if findings:
+              raise SystemExit('Local absolute paths found:\n' + '\n'.join(findings))
+          print('No investigator-specific absolute paths found in publication files.')
 
   full-analysis:
     if: github.event_name == 'workflow_dispatch' && inputs.run_full

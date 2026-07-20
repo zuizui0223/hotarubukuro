@@ -1,4 +1,4 @@
-name: Minimal Bombus availability analysis
+name: Minimal end-to-end SPDE-INLA analysis
 
 on:
   push:
@@ -13,23 +13,65 @@ permissions:
 jobs:
   analyse:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
           ref: analysis/minimal-bombus-availability
+
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: "4.4.3"
-      - name: Install spatial libraries
+
+      - name: Install system libraries
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends libgdal-dev libgeos-dev libproj-dev
-      - name: Install R dependency
+          sudo apt-get install --yes --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+
+      - name: Install R packages
         shell: Rscript {0}
-        run: install.packages("terra", repos = "https://cloud.r-project.org")
-      - name: Run analysis
+        run: |
+          install.packages(c("terra", "sf"), repos = "https://cloud.r-project.org")
+          install.packages(
+            "INLA",
+            repos = c(
+              getOption("repos"),
+              INLA = "https://inla.r-inla-download.org/R/stable"
+            ),
+            dependencies = TRUE
+          )
+          stopifnot(
+            requireNamespace("terra", quietly = TRUE),
+            requireNamespace("sf", quietly = TRUE),
+            requireNamespace("INLA", quietly = TRUE)
+          )
+
+      - name: Parse analysis script
+        shell: Rscript {0}
+        run: parse(file = "analysis/run_bombus_availability.R")
+
+      - name: Run complete analysis
         run: Rscript analysis/run_bombus_availability.R
+
+      - name: Validate outputs
+        shell: Rscript {0}
+        run: |
+          required <- file.path(
+            "results/bombus_availability",
+            c(
+              "spde_model_comparison.csv",
+              "spde_fixed_effects.csv",
+              "spde_hyperparameters.csv",
+              "blocked_cv_summary.csv",
+              "spatial_group_diagnostic.csv",
+              "analysis_data.csv"
+            )
+          )
+          stopifnot(all(file.exists(required)))
+          comparison <- read.csv(required[[1]])
+          stopifnot(nrow(comparison) == 4L, all(is.finite(comparison$WAIC)))
+
       - name: Commit result tables
         run: |
           git config user.name "github-actions[bot]"
@@ -38,6 +80,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No result changes"
           else
-            git commit -m "Record minimal Bombus sensitivity results [skip ci]"
+            git commit -m "Record reviewed SPDE-INLA analysis results [skip ci]"
             git push
           fi

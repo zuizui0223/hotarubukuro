@@ -188,7 +188,17 @@ jobs:
           )
           stopifnot(file.exists(rendered), file.info(rendered)$size > 0)
       - name: Run R unit and data-contract tests
-        shell: Rscript {0}
+        shell: bash
         run: |
-          testthat::test_dir("tests/testthat", reporter = "summary", stop_on_failure = TRUE)
-          sessionInfo()
+          set +e
+          Rscript -e 'testthat::test_dir("tests/testthat", reporter = "summary", stop_on_failure = TRUE); sessionInfo()' 2>&1 | tee testthat.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+      - name: Upload R test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r-test-log-${{ github.run_number }}-${{ github.run_attempt }}
+          path: testthat.log
+          if-no-files-found: error
+          retention-days: 7

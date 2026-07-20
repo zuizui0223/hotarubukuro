@@ -1,3 +1,6 @@
+source(file.path(test_project_root, "R", "sdm.R"))
+source(file.path(test_project_root, "R", "bombus_availability.R"))
+
 testthat::test_that("Bombus groups partition widespread and montane species", {
   groups <- bombus_ecological_groups()
   testthat::expect_equal(groups$widespread, c("ardens", "diversus"))

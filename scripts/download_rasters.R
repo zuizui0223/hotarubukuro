@@ -37,6 +37,17 @@ cache_dir <- resolve_repo_path(repo_root, args$cache_dir %||% pipeline$paths$cac
 manifest_path <- resolve_repo_path(repo_root, pipeline$paths$download_manifest)
 registry <- read_raster_sources(registry_path)
 sources <- select_sources(registry, split_source_ids(args$only))
+
+# Checksums in the registry are byte-level pins only for assets downloaded
+# unchanged. COG/VRT and WCS entries are materialized as study-area GeoTIFFs by
+# the runner's GDAL/terra stack. Their bytes can differ across GDAL versions
+# while raster values and geometry remain equivalent, so enforcing a checksum
+# recorded for a previously generated subset is invalid. For generated subsets
+# we record the actual checksum, source URL, bbox, configuration and code hashes
+# in the manifest and validate geometry/content during raster preparation.
+generated_subset <- sources$access %in% c("cog", "vrt", "wcs")
+sources$expected_sha256[generated_subset] <- NA_character_
+
 pipeline_config_sha256 <- sha256_file(pipeline_path)
 raster_registry_sha256 <- sha256_file(registry_path)
 raster_processing_code_sha256 <- sha256_file(
@@ -96,6 +107,11 @@ for (index in seq_len(nrow(sources))) {
     archive_bytes = if (has_archive) unname(file.info(archive_path)$size) else NA_real_,
     cached_at_utc = format(file.info(path)$mtime, tz = "UTC", usetz = TRUE),
     expected_sha256 = source_row$expected_sha256[[1]],
+    checksum_policy = if (source_row$access[[1]] %in% c("direct", "zip")) {
+      "enforced_unchanged_asset"
+    } else {
+      "record_generated_subset"
+    },
     pipeline_version = as.integer(pipeline$version),
     pipeline_config_sha256 = pipeline_config_sha256,
     raster_registry_sha256 = raster_registry_sha256,

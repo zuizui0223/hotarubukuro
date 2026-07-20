@@ -6,6 +6,16 @@ on:
     paths:
       - ".github/workflows/diagnose-environment-extraction.yml"
       - "analysis/diagnose_environment_extraction.R"
+  pull_request:
+    branches: ["analysis/minimal-bombus-availability"]
+    paths:
+      - ".github/workflows/diagnose-environment-extraction.yml"
+      - "analysis/diagnose_environment_extraction.R"
+      - "scripts/download_rasters.R"
+      - "scripts/prepare_rasters.R"
+      - "config/raster_sources.csv"
+      - "config/pipeline.yml"
+      - "R/raster_sources.R"
   workflow_dispatch:
 
 permissions:

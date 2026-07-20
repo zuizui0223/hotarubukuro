@@ -64,7 +64,7 @@ jobs:
               )
               for (repo in repos) {
                 for (attempt in 1:3) {
-                  try(install.packages("INLA", repos = c(CRAN = "https://cloud.r-project.org", INLA = repo), dependencies = TRUE), silent = TRUE)
+                  try(install.packages("INLA", repos = c(CRAN = "https://cloud.r-project.org", INLA = repo), dependencies = c("Depends", "Imports", "LinkingTo")), silent = TRUE)
                   if (requireNamespace("INLA", quietly = TRUE)) break
                   Sys.sleep(10 * attempt)
                 }
@@ -142,51 +142,11 @@ jobs:
           }
           RS
 
-      - name: Build analysis script with proven per-layer extraction
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-          path = Path("analysis/run_bombus_availability.R")
-          text = path.read_text()
-          start = text.index("extract_values <- function(paths, layer_names, dat) {")
-          end = text.index("\npca1 <- function", start)
-          replacement = r'''extract_values <- function(paths, layer_names, dat) {
-            if (any(!file.exists(paths))) {
-              stop("Missing raster(s): ", paste(paths[!file.exists(paths)], collapse = ", "))
-            }
-            points_ll <- terra::vect(
-              dat,
-              geom = c("longitude", "latitude"),
-              crs = "EPSG:4326"
-            )
-            values <- lapply(seq_along(paths), function(i) {
-              r <- read_raster_checked(paths[[i]])
-              points_r <- if (same_crs_safe(points_ll, r)) points_ll else terra::project(points_ll, terra::crs(r))
-              x <- terra::extract(r, points_r, ID = FALSE)
-              if (nrow(x) != nrow(dat)) {
-                stop("Extraction row mismatch for ", paths[[i]], ": ", nrow(x), " vs ", nrow(dat))
-              }
-              v <- as.numeric(x[[1L]])
-              message(layer_names[[i]], ": finite values ", sum(is.finite(v)), "/", length(v))
-              v
-            })
-            out <- as.data.frame(values, check.names = FALSE)
-            names(out) <- layer_names
-            out
-          }
-          '''
-          patched = text[:start] + replacement + text[end:]
-          Path("analysis/run_bombus_availability_ci.R").write_text(patched)
-          PY
-          Rscript -e 'parse(file = "analysis/run_bombus_availability_ci.R")'
-
       - name: Run full analysis and expose failure tail
         shell: bash
         run: |
           set +e
-          Rscript analysis/run_bombus_availability_ci.R \
+          Rscript analysis/run_bombus_availability.R \
             Data_S1.csv data/processed/rasters sdm results/bombus_availability \
             >analysis.log 2>&1
           status=$?
@@ -230,7 +190,6 @@ jobs:
             download.log
             prepare.log
             analysis.log
-            analysis/run_bombus_availability_ci.R
             data/processed/raster_download_manifest.csv
             data/processed/raster_manifest.csv
             results/bombus_availability

@@ -1,4 +1,4 @@
-name: PR4 Bombus availability sensitivity
+name: PR4 expanded Bombus availability analysis
 
 on:
   workflow_dispatch:
@@ -6,20 +6,21 @@ on:
     branches: ["review/reproducibility-audit"]
     paths:
       - ".github/workflows/bombus-availability-sensitivity.yml"
+      - "config/raster_sources.csv"
       - "R/bombus_availability.R"
-      - "scripts/run_bombus_availability_sensitivity.R"
+      - "scripts/run_expanded_bombus_analysis.R"
 
 permissions:
   contents: read
 
 concurrency:
-  group: pr4-bombus-availability-${{ github.ref }}
+  group: pr4-expanded-bombus-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  sensitivity:
+  expanded-analysis:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +37,7 @@ jobs:
       - name: Restore PR4 locked R environment
         uses: r-lib/actions/setup-renv@v2
         with:
-          cache-version: 2
+          cache-version: 3
 
       - name: Restore public raster caches
         uses: actions/cache@v4
@@ -46,24 +47,46 @@ jobs:
             data/processed/rasters
             data/processed/raster_download_manifest.csv
             data/processed/raster_manifest.csv
-          key: pr4-public-rasters-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/download_rasters.R', 'scripts/prepare_rasters.R') }}
+          key: pr4-expanded-rasters-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/download_rasters.R', 'scripts/prepare_rasters.R') }}
           restore-keys: |
+            pr4-expanded-rasters-${{ runner.os }}-
             pr4-public-rasters-${{ runner.os }}-
 
-      - name: Ensure PR4 public rasters
+      - name: Ensure expanded public rasters
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! -s data/processed/raster_manifest.csv ]] || [[ $(find data/processed/rasters -name '*.tif' -size +0c 2>/dev/null | wc -l) -lt 19 ]]; then
-            Rscript scripts/download_rasters.R
-            Rscript scripts/prepare_rasters.R --force --no-download
+          required=(
+            chelsa_bio05 chelsa_bio10 chelsa_gdd5 chelsa_cmimean chelsa_vpdmean
+            chelsa_bio12 chelsa_bio14 chelsa_bio15 chelsa_swb chelsa_rsdsmean
+            elevation_30s soilgrids_bdod_0_5cm_mean soilgrids_cfvo_0_5cm_mean
+            soilgrids_sand_0_5cm_mean soilgrids_silt_0_5cm_mean
+            soilgrids_nitrogen_0_5cm_mean soilgrids_ocd_0_5cm_mean
+            soilgrids_soc_0_5cm_mean soilgrids_phh2o_0_5cm_mean
+            worldpop_2020_count_30s worldpop_2020_density_per_km2_30s
+          )
+          missing=0
+          for stem in "${required[@]}"; do
+            [[ -s "data/processed/rasters/${stem}.tif" ]] || missing=1
+          done
+          if [[ "$missing" -eq 1 ]]; then
+            if ! Rscript scripts/download_rasters.R >download.log 2>&1; then
+              echo "=== raster download failure ==="
+              tail -n 240 download.log
+              exit 1
+            fi
+            if ! Rscript scripts/prepare_rasters.R --force --no-download >prepare.log 2>&1; then
+              echo "=== raster preparation failure ==="
+              tail -n 240 prepare.log
+              exit 1
+            fi
           fi
 
-      - name: Run the successful PR4 reanalysis path
+      - name: Run the validated PR4 reanalysis path
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf results/ci/pr4_reanalysis results/ci/bombus_availability
+          rm -rf results/ci/pr4_reanalysis results/ci/expanded_bombus
           Rscript scripts/run_reanalysis.R \
             --input Data_S1.csv \
             --legacy-input data/legacy/Data_S1_legacy.csv \
@@ -74,20 +97,21 @@ jobs:
             --sdm-dir sdm \
             --output-dir results/ci/pr4_reanalysis
 
-      - name: Add only the Bombus availability sensitivity
+      - name: Run PR5-equivalent expanded analysis
         shell: bash
         run: |
           set -euo pipefail
-          Rscript scripts/run_bombus_availability_sensitivity.R \
+          Rscript scripts/run_expanded_bombus_analysis.R \
             --input results/ci/pr4_reanalysis/inputs/inclusive__primary.csv \
             --config config/reanalysis.yml \
-            --output-dir results/ci/bombus_availability
-          cat results/ci/bombus_availability/performance.csv
+            --raster-dir data/processed/rasters \
+            --output-dir results/ci/expanded_bombus
+          cat results/ci/expanded_bombus/performance.csv
 
-      - name: Validate sensitivity outputs
+      - name: Validate expanded outputs
         shell: Rscript {0}
         run: |
-          path <- "results/ci/bombus_availability/performance.csv"
+          path <- "results/ci/expanded_bombus/performance.csv"
           stopifnot(file.exists(path))
           x <- read.csv(path, check.names = FALSE)
           expected <- c(
@@ -99,16 +123,24 @@ jobs:
           stopifnot(setequal(x$model_variant, expected))
           stopifnot(length(unique(x$records_common)) == 1L)
           stopifnot(all(is.finite(x$q_squared_cv)))
+          loadings <- read.csv("results/ci/expanded_bombus/environment_pca_loadings.csv")
+          stopifnot(setequal(unique(loadings$group), c(
+            "Temperature_PC1", "precip_PC1", "soil_phys_PC1",
+            "soil_nutrient_PC1", "topo_PC1"
+          )))
 
-      - name: Upload PR4-based results
+      - name: Upload expanded results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pr4-bombus-availability-${{ github.run_number }}-${{ github.run_attempt }}
+          name: pr4-expanded-bombus-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
+            download.log
+            prepare.log
             results/ci/pr4_reanalysis/model_performance.csv
             results/ci/pr4_reanalysis/model_performance_by_fold.csv
             results/ci/pr4_reanalysis/row_flow.csv
             results/ci/pr4_reanalysis/raster_join_audit.csv
-            results/ci/bombus_availability
-          if-no-files-found: error
+            results/ci/expanded_bombus
+          if-no-files-found: warn
           retention-days: 14

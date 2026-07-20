@@ -49,9 +49,54 @@ jobs:
             'scripts/prepare_rasters.R'
           )
           invisible(lapply(files, parse))
-      - name: Run reviewer contract tests
+      - name: Contract - load workflow functions
         shell: Rscript {0}
-        run: testthat::test_file('tests/testthat/test-pigmentation-workflow.R', stop_on_failure=TRUE)
+        run: |
+          source('R/pigmentation_workflow.R')
+          stopifnot(exists('srgb_to_lab'), exists('fit_legacy_pigment_cfa'), exists('bombus_indices'))
+      - name: Contract - sRGB to CIELAB
+        shell: Rscript {0}
+        run: |
+          source('R/pigmentation_workflow.R')
+          x <- srgb_to_lab(c(255, 200, 120), c(255, 80, 100), c(255, 120, 180))
+          stopifnot(identical(names(x), c('L', 'a', 'b')), all(is.finite(as.matrix(x))))
+      - name: Contract - legacy CFA
+        shell: Rscript {0}
+        run: |
+          source('R/pigmentation_workflow.R')
+          set.seed(1)
+          latent <- rnorm(300)
+          d <- data.frame(
+            L = 70 - 7 * latent + rnorm(300),
+            a = 18 + 5 * latent + rnorm(300),
+            b = 5 + 2 * latent + rnorm(300)
+          )
+          fit <- fit_legacy_pigment_cfa(d)
+          stopifnot(
+            length(fit$scores) == 300L,
+            setequal(fit$loadings$rhs, c('a', 'Lm', 'C')),
+            abs(cor(fit$scores, latent)) > 0.8
+          )
+      - name: Contract - Bombus distribution groups
+        shell: Rscript {0}
+        run: |
+          source('R/pigmentation_workflow.R')
+          d <- data.frame(ardens=.2, beaticola=.1, consobrinus=.3, diversus=.4, honshuensis=.2)
+          x <- bombus_indices(d)
+          stopifnot(
+            isTRUE(all.equal(x$Bombus_availability, 1.2)),
+            isTRUE(all.equal(x$Bombus_widespread, 0.6)),
+            isTRUE(all.equal(x$Bombus_montane, 0.6))
+          )
+      - name: Contract - DOY only in anomaly model
+        shell: Rscript {0}
+        run: |
+          source('R/pigmentation_workflow.R')
+          natural <- integrated_model_terms()
+          stopifnot(!('DOY' %in% natural))
+          f <- anthropogenic_qgam_formula(c('pop_density_log', 'built_fraction_1000m'), TRUE)
+          txt <- paste(deparse(f), collapse=' ')
+          stopifnot(grepl('DOY', txt), grepl('pop_density_log', txt))
       - name: Check repository for local absolute paths
         run: |
           ! grep -RInE '(/Users/|C:\\Users\\|~/Desktop|~/zui_results)' \

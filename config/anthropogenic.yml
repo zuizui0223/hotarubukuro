@@ -32,11 +32,12 @@ predictors:
     buffer_m: 1000
     interpretation: satoyama_edge_and_establishment_opportunity
 
-landcover_classes:
-  # Provider codes are validated against the downloaded raster manifest before use.
-  built: [50]
-  cropland: [40]
-  forest: [10, 20, 30]
+landcover_fractions:
+  # geodata delivers per-class fractional cover (0-100 percent) rather than an
+  # integer class-code raster. Each metric is the buffer-mean of these fractions.
+  built: [built]
+  cropland: [cropland]
+  forest: [trees, shrubs, grassland]
 
 qgam:
   quantiles: [0.75, 0.85, 0.90, 0.95]

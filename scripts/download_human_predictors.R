@@ -55,17 +55,33 @@ records[["footprint"]] <- write_source_record(
   "Sensitivity predictor; temporal mismatch is reported explicitly."
 )
 
-# Land cover is converted later to buffer-scale built, cropland and forest-edge metrics.
-lc <- call_supported(
-  geodata::landcover,
-  list(path = out_dir)
+# geodata::landcover requires an explicit class and returns per-class fractional
+# cover (0-100 percent), not an integer class-code raster. The analysis needs
+# built, cropland and a tree+shrub+grassland "forest" grouping, so each fractional
+# layer is downloaded on its own and buffer-averaged later.
+landcover_vars <- c(
+  built = "built",
+  cropland = "cropland",
+  trees = "trees",
+  shrubs = "shrubs",
+  grassland = "grassland"
 )
-names(lc) <- "landcover"
-writeRaster(lc, file.path(out_dir, "landcover.tif"), overwrite = TRUE, datatype = "INT2U")
-records[["landcover"]] <- write_source_record(
-  "landcover", lc, "ESA land cover via geodata", "provider-current-pinned-by-manifest",
-  "Class codes are retained; derived classes are declared in config/anthropogenic.yml."
-)
+for (nm in names(landcover_vars)) {
+  layer <- call_supported(
+    geodata::landcover,
+    list(var = landcover_vars[[nm]], path = out_dir)
+  )
+  names(layer) <- nm
+  writeRaster(
+    layer, file.path(out_dir, sprintf("landcover_%s_fraction.tif", nm)),
+    overwrite = TRUE
+  )
+  records[[paste0("landcover_", nm)]] <- write_source_record(
+    sprintf("landcover_%s_fraction", nm), layer,
+    "ESA/Copernicus fractional land cover via geodata", "provider-current-pinned-by-manifest",
+    "Fractional cover 0-100 percent; buffer-averaged in the anthropogenic residual model."
+  )
+}
 
 manifest <- do.call(rbind, records)
 write.csv(manifest, file.path(out_dir, "source_manifest.csv"), row.names = FALSE)

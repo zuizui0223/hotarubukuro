@@ -41,7 +41,8 @@ for (i in seq_along(paths)) {
   r <- terra::rast(path)
   ex <- as.vector(terra::ext(r))
   rs <- terra::res(r)
-  raster_crs <- terra::crs(r)
+  raster_crs <- paste(terra::crs(r), collapse = "\n")
+  if (!nzchar(raster_crs)) raster_crs <- NA_character_
   projected_points <- tryCatch(
     if (terra::same.crs(points_ll, r)) points_ll else terra::project(points_ll, terra::crs(r)),
     error = function(e) structure(NULL, error = conditionMessage(e))

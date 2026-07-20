@@ -17,22 +17,80 @@ z <- function(x) as.numeric(scale(x))
 nonempty <- function(x) !is.na(x) & nzchar(trimws(as.character(x)))
 write_table <- function(x, name) write.csv(x, file.path(out_dir, name), row.names = FALSE)
 
+# CRS-safe raster access shared with analysis/run_bombus_availability.R: prepared
+# layers use the canonical longitude-latitude grid, so points are extracted by an
+# x-y matrix. This avoids the redundant vector reprojection that can fail when
+# GDAL serializes equivalent WKT definitions differently on GitHub-hosted runners.
+crs_is_usable <- function(x) {
+  current <- tryCatch(terra::crs(x), error = function(e) "")
+  if (length(current) != 1L || is.na(current) || !nzchar(trimws(current))) return(FALSE)
+  probe <- terra::vect(data.frame(longitude = 138, latitude = 36),
+                       geom = c("longitude", "latitude"), crs = "EPSG:4326")
+  !inherits(try(terra::project(probe, current), silent = TRUE), "try-error")
+}
+
+ensure_raster_crs <- function(r, path) {
+  if (crs_is_usable(r)) return(r)
+  ex <- as.vector(terra::ext(r))
+  looks_geographic <- length(ex) == 4L && all(is.finite(ex)) &&
+    ex[[1]] >= -180 && ex[[2]] <= 180 && ex[[3]] >= -90 && ex[[4]] <= 90
+  if (!looks_geographic) {
+    stop("Raster has missing or unusable CRS and its extent is not geographic: ", path,
+         " [", paste(ex, collapse = ", "), "]", call. = FALSE)
+  }
+  warning("Raster CRS metadata was missing or unusable; assigning EPSG:4326 after ",
+          "geographic-extent validation: ", path, call. = FALSE)
+  terra::crs(r) <- "EPSG:4326"
+  if (!crs_is_usable(r)) stop("Could not assign a usable EPSG:4326 CRS to raster: ", path, call. = FALSE)
+  r
+}
+
+coordinate_matrix <- function(data) {
+  xy <- as.matrix(data[c("longitude", "latitude")]); storage.mode(xy) <- "double"
+  if (ncol(xy) != 2L || any(!is.finite(xy))) {
+    stop("Occurrence coordinates must be a finite longitude-latitude matrix", call. = FALSE)
+  }
+  xy
+}
+
+read_raster_checked <- function(path) {
+  if (!file.exists(path)) stop("Missing raster: ", path, call. = FALSE)
+  r <- rast(path)
+  if (nlyr(r) != 1L) stop("Expected one raster layer: ", path, call. = FALSE)
+  ensure_raster_crs(r, path)
+}
+
 extract_rasters <- function(paths, layer_names, data) {
   missing <- paths[!file.exists(paths)]
   if (length(missing)) stop("Missing raster(s): ", paste(missing, collapse = ", "), call. = FALSE)
-  r <- rast(paths); names(r) <- layer_names
-  pts <- vect(data[c("longitude", "latitude")], geom = c("longitude", "latitude"), crs = "EPSG:4326")
-  if (!same.crs(pts, r)) pts <- project(pts, crs(r))
-  out <- as.data.frame(extract(r, pts, ID = FALSE), check.names = FALSE)
+  layers <- lapply(paths, read_raster_checked)
+  reference <- layers[[1L]]
+  incompatible <- vapply(layers, function(x) {
+    !isTRUE(tryCatch(same.crs(reference, x), error = function(e) FALSE))
+  }, logical(1))
+  if (any(incompatible)) {
+    stop("Raster CRS differs within extraction stack: ",
+         paste(paths[incompatible], collapse = ", "), call. = FALSE)
+  }
+  r <- do.call(c, layers); names(r) <- layer_names
+  out <- as.data.frame(extract(r, coordinate_matrix(data)), check.names = FALSE)
   if (nrow(out) != nrow(data)) stop("Raster extraction changed record count.", call. = FALSE)
   out
 }
 
-buffer_fraction <- function(r, points, class_codes, radius_m, out_name) {
-  binary <- r %in% class_codes; names(binary) <- out_name
-  pts <- if (!same.crs(points, binary)) project(points, crs(binary)) else points
-  out <- extract(binary, pts, buffer = radius_m, fun = mean, na.rm = TRUE, ID = FALSE)
-  as.numeric(out[[1]])
+# geodata land cover is delivered as per-class fractional cover (0-100 percent),
+# so the buffer metric is the mean fraction inside the radius. Buffered extraction
+# needs a point vector, so the CRS is validated/repaired and reprojected only when
+# it genuinely differs.
+buffer_mean_fraction <- function(path, points, radius_m, out_name, scale = 1 / 100) {
+  r <- read_raster_checked(path); names(r) <- out_name
+  pts <- if (!isTRUE(tryCatch(same.crs(points, r), error = function(e) FALSE))) {
+    project(points, crs(r))
+  } else {
+    points
+  }
+  out <- extract(r, pts, buffer = radius_m, fun = mean, na.rm = TRUE, ID = FALSE)
+  as.numeric(out[[1]]) * scale
 }
 
 # 1. Canonical image-derived colour table and legacy measurement model.
@@ -69,11 +127,10 @@ env_files <- c(
   soil_pH="soilgrids_phh2o_0_5cm_mean.tif", elevation="elevation_30s.tif"
 )
 d <- cbind(d, extract_rasters(file.path(env_dir, env_files), names(env_files), d))
-elev <- rast(file.path(env_dir, env_files[["elevation"]]))
+elev <- read_raster_checked(file.path(env_dir, env_files[["elevation"]]))
 topo <- c(terrain(elev, "roughness"), terrain(elev, "slope", unit = "radians"), terrain(elev, "TRI")); names(topo) <- c("roughness", "slope", "TRI")
-pts <- vect(d[c("longitude", "latitude")], geom = c("longitude", "latitude"), crs = "EPSG:4326")
-pts_topo <- if (!same.crs(pts, topo)) project(pts, crs(topo)) else pts
-d <- cbind(d, as.data.frame(extract(topo, pts_topo, ID = FALSE)))
+topo <- ensure_raster_crs(topo, "derived terrain (roughness/slope/TRI)")
+d <- cbind(d, as.data.frame(extract(topo, coordinate_matrix(d)), check.names = FALSE))
 axes <- list(
   Temperature_PC1=pca_axis(d,c("bio05","bio10","gdd5"),"Temperature_PC1"),
   precip_PC1=pca_axis(d,c("cmi","vpd","bio12","bio14","bio15","swb"),"precip_PC1"),
@@ -126,11 +183,18 @@ dm$predicted_pigment_z <- yhat; dm$predicted_sd <- yhat_sd; dm$resid_raw <- dm$y
 # 5. Human introduction pressure and satoyama establishment context enter only the residual qGAM.
 human_paths <- c(population_density=file.path(human_dir,"population_density.tif"),human_footprint=file.path(human_dir,"human_footprint.tif"))
 dm <- cbind(dm,extract_rasters(human_paths,names(human_paths),dm)); dm$pop_density_log <- log1p(pmax(dm$population_density,0)); dm$human_footprint_z <- z(dm$human_footprint)
-landcover_path <- file.path(human_dir,"landcover.tif"); if(!file.exists(landcover_path))stop("Missing landcover.tif; run scripts/download_human_predictors.R")
-lc <- rast(landcover_path); pts_h <- vect(dm[c("longitude","latitude")],geom=c("longitude","latitude"),crs="EPSG:4326")
-dm$built_fraction_1000m <- buffer_fraction(lc,pts_h,50,1000,"built")
-dm$cropland_fraction_1000m <- buffer_fraction(lc,pts_h,40,1000,"cropland")
-dm$forest_fraction_1000m <- buffer_fraction(lc,pts_h,c(10,20,30),1000,"forest")
+lc_layers <- c(built="landcover_built_fraction.tif", cropland="landcover_cropland_fraction.tif",
+               trees="landcover_trees_fraction.tif", shrubs="landcover_shrubs_fraction.tif",
+               grassland="landcover_grassland_fraction.tif")
+lc_paths <- setNames(file.path(human_dir, lc_layers), names(lc_layers)); missing_lc <- lc_paths[!file.exists(lc_paths)]
+if(length(missing_lc)) stop("Missing land-cover fraction raster(s); run scripts/download_human_predictors.R: ", paste(missing_lc, collapse=", "))
+pts_h <- vect(dm[c("longitude","latitude")],geom=c("longitude","latitude"),crs="EPSG:4326")
+dm$built_fraction_1000m <- buffer_mean_fraction(lc_paths[["built"]],pts_h,1000,"built")
+dm$cropland_fraction_1000m <- buffer_mean_fraction(lc_paths[["cropland"]],pts_h,1000,"cropland")
+# Forest matches the legacy natural-vegetation grouping (tree + shrub + grassland cover).
+dm$forest_fraction_1000m <- pmin(buffer_mean_fraction(lc_paths[["trees"]],pts_h,1000,"trees") +
+  buffer_mean_fraction(lc_paths[["shrubs"]],pts_h,1000,"shrubs") +
+  buffer_mean_fraction(lc_paths[["grassland"]],pts_h,1000,"grassland"), 1)
 dm$forest_edge_density_1000m <- 4*dm$forest_fraction_1000m*(1-dm$forest_fraction_1000m)
 dm$landscape_setting <- classify_landscape_setting(dm$elevation,dm$built_fraction_1000m,dm$cropland_fraction_1000m,dm$forest_edge_density_1000m)
 human_terms <- c("pop_density_log","human_footprint_z","built_fraction_1000m","cropland_fraction_1000m","forest_edge_density_1000m")

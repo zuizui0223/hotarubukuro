@@ -1,16 +1,25 @@
 name: Legacy-environment SPDE-INLA analysis
 
 on:
-  push:
-    branches: ["analysis/minimal-bombus-availability"]
-    paths-ignore:
-      - "results/bombus_availability/**"
-      - "data/processed/raster_download_manifest.csv"
-      - "data/processed/raster_manifest.csv"
   workflow_dispatch:
+    inputs:
+      force_download:
+        description: Redownload public raster subsets instead of reusing the cache
+        required: true
+        default: false
+        type: boolean
+      force_process:
+        description: Rebuild aligned rasters even when fingerprints still match
+        required: true
+        default: false
+        type: boolean
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: legacy-environment-spde-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyse:
@@ -18,8 +27,6 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: analysis/minimal-bombus-availability
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -55,6 +62,18 @@ jobs:
             requireNamespace("INLA", quietly = TRUE)
           )
 
+      - name: Restore public-raster cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/cache/rasters
+            data/processed/rasters
+            data/processed/raster_download_manifest.csv
+            data/processed/raster_manifest.csv
+          key: legacy-rasters-v3-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/download_rasters.R', 'scripts/prepare_rasters.R') }}
+          restore-keys: |
+            legacy-rasters-v3-${{ runner.os }}-
+
       - name: Parse executed scripts
         shell: Rscript {0}
         run: |
@@ -63,15 +82,32 @@ jobs:
           parse(file = "analysis/run_bombus_availability.R")
 
       - name: Download legacy environmental rasters
-        run: Rscript scripts/download_rasters.R --force
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ "${{ inputs.force_download }}" == "true" ]]; then
+            args+=(--force)
+          fi
+          Rscript scripts/download_rasters.R "${args[@]}"
 
       - name: Prepare aligned raster stack
-        run: Rscript scripts/prepare_rasters.R --force --no-download
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--no-download)
+          if [[ "${{ inputs.force_process }}" == "true" ]]; then
+            args+=(--force)
+          fi
+          Rscript scripts/prepare_rasters.R "${args[@]}"
 
       - name: Run environment-adjusted SPDE-INLA analysis
+        shell: bash
         run: |
+          set -o pipefail
           Rscript analysis/run_bombus_availability.R \
-            Data_S1.csv data/processed/rasters sdm results/bombus_availability
+            Data_S1.csv data/processed/rasters sdm results/bombus_availability \
+            2>&1 | tee analysis.log
 
       - name: Validate outputs
         shell: Rscript {0}
@@ -100,17 +136,15 @@ jobs:
           flow <- read.csv(file.path("results/bombus_availability", "row_flow.csv"))
           stopifnot(flow$n[flow$stage == "common_model_cohort"] >= 50)
 
-      - name: Commit provenance and result tables
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            data/processed/raster_download_manifest.csv \
-            data/processed/raster_manifest.csv \
+      - name: Upload diagnostics and reviewer-facing results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-environment-spde-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            analysis.log
+            data/processed/raster_download_manifest.csv
+            data/processed/raster_manifest.csv
             results/bombus_availability
-          if git diff --cached --quiet; then
-            echo "No result changes"
-          else
-            git commit -m "Record legacy-environment SPDE-INLA results [skip ci]"
-            git push
-          fi
+          if-no-files-found: warn
+          retention-days: 14

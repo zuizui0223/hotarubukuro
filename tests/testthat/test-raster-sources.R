@@ -14,8 +14,8 @@ testthat::test_that("expanded public registry is internally consistent", {
 
   testthat::expect_true(all(grepl("^https://", enabled$url)))
   testthat::expect_equal(nrow(enabled), 21L)
-  testthat::expect_false(anyDuplicated(enabled$source_id))
-  testthat::expect_false(anyDuplicated(enabled$output_name))
+  testthat::expect_equal(anyDuplicated(enabled$source_id), 0L)
+  testthat::expect_equal(anyDuplicated(enabled$output_name), 0L)
 
   pinned <- !is.na(enabled$expected_sha256) & nzchar(enabled$expected_sha256)
   testthat::expect_true(all(grepl("^[0-9a-f]{64}$", enabled$expected_sha256[pinned])))

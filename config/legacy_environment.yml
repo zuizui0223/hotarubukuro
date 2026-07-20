@@ -1,0 +1,67 @@
+version: 1
+analysis_version: legacy-environment-cmi-spde-v1
+
+response:
+  primary: apparent_CIELAB_a
+
+fixed_effect_groups:
+  temperature:
+    output: Temperature_PC1
+    layers:
+      - chelsa_bio05
+      - chelsa_bio10
+      - chelsa_gdd5
+  moisture:
+    output: precip_PC1
+    note: CHELSA AI is replaced by CHELSA CMI because the legacy AI layer may no longer be retrievable.
+    layers:
+      - chelsa_cmimean
+      - chelsa_vpdmean
+      - chelsa_bio12
+      - chelsa_bio14
+      - chelsa_bio15
+      - chelsa_swb
+  soil_physical:
+    output: soil_phys_PC1
+    layers:
+      - soilgrids_bdod_0_5cm
+      - soilgrids_cfvo_0_5cm
+      - soilgrids_sand_0_5cm
+      - soilgrids_silt_0_5cm
+  soil_nutrient:
+    output: soil_nutrient_PC1
+    layers:
+      - soilgrids_nitrogen_0_5cm
+      - soilgrids_ocd_0_5cm
+      - soilgrids_soc_0_5cm
+  topography:
+    output: topo_PC1
+    source: worldclim_elevation_30s
+    derived_layers:
+      - roughness
+      - slope
+      - TRI
+  direct:
+    - soil_pH
+    - RSDS
+    - DOY
+
+primary_models:
+  - environment_only
+  - environment_plus_bombus_sum
+
+bombus_sensitivity_models:
+  - environment_plus_bombus_any
+  - environment_plus_bombus_max
+
+spde:
+  projection: "+proj=laea +lat_0=36 +lon_0=138 +datum=WGS84 +units=m +no_defs"
+  prior_range_m: 100000
+  prior_range_probability: 0.05
+  prior_sigma: 1
+  prior_sigma_probability: 0.05
+
+interpretation:
+  cmi: climate moisture index replacing unavailable legacy aridity index
+  bombus: continuous legacy SDM suitability index, not observed richness or visitation
+  model: descriptive spatial association, not causal inference

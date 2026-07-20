@@ -1,359 +1,141 @@
 #!/usr/bin/env Rscript
-
-suppressPackageStartupMessages({
-  library(terra)
-  library(sf)
-  library(INLA)
-})
-
-options(stringsAsFactors = FALSE)
-set.seed(42)
-INLA::inla.setOption(num.threads = "1:1")
+suppressPackageStartupMessages({library(terra); library(sf); library(INLA)})
+options(stringsAsFactors = FALSE); set.seed(42); INLA::inla.setOption(num.threads = "1:1")
 
 args <- commandArgs(trailingOnly = TRUE)
-input <- if (length(args) >= 1L) args[[1L]] else "Data_S1.csv"
-env_dir <- if (length(args) >= 2L) args[[2L]] else "data/processed/rasters"
-sdm_dir <- if (length(args) >= 3L) args[[3L]] else "sdm"
-out_dir <- if (length(args) >= 4L) args[[4L]] else "results/bombus_availability"
+input <- if (length(args) > 0) args[1] else "Data_S1.csv"
+env_dir <- if (length(args) > 1) args[2] else "data/processed/rasters"
+sdm_dir <- if (length(args) > 2) args[3] else "sdm"
+out_dir <- if (length(args) > 3) args[4] else "results/bombus_availability"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 z <- function(x) as.numeric(scale(x))
 nonempty <- function(x) !is.na(x) & nzchar(trimws(as.character(x)))
-
-pca_score <- function(dat, variables, output_name) {
-  X <- dat[, variables, drop = FALSE]
-  keep_variable <- vapply(X, function(x) is.numeric(x) && is.finite(sd(x, na.rm = TRUE)) && sd(x, na.rm = TRUE) > 0, logical(1))
-  X <- X[, keep_variable, drop = FALSE]
-  if (ncol(X) < 2L) stop(output_name, " requires at least two nonconstant layers.", call. = FALSE)
-  complete <- complete.cases(X)
-  if (sum(complete) < 50L) stop(output_name, " has too few complete rows.", call. = FALSE)
-  fit <- prcomp(X[complete, , drop = FALSE], center = TRUE, scale. = TRUE)
-  score <- rep(NA_real_, nrow(dat))
-  score[complete] <- fit$x[, 1]
-  loading <- data.frame(
-    group = output_name,
-    variable = rownames(fit$rotation),
-    PC1_loading = fit$rotation[, 1],
-    stringsAsFactors = FALSE
-  )
-  list(score = score, loading = loading, fit = fit)
+extract_values <- function(paths, layer_names, dat) {
+  if (any(!file.exists(paths))) stop("Missing raster(s): ", paste(paths[!file.exists(paths)], collapse = ", "))
+  r <- rast(paths); names(r) <- layer_names
+  pts <- vect(dat[c("longitude", "latitude")], geom = c("longitude", "latitude"), crs = "EPSG:4326")
+  out <- as.data.frame(extract(r, pts, ID = FALSE), check.names = FALSE)
+  stopifnot(nrow(out) == nrow(dat)); out
+}
+pca1 <- function(dat, vars, label) {
+  X <- dat[vars]
+  good <- vapply(X, function(x) is.numeric(x) && is.finite(sd(x, na.rm = TRUE)) && sd(x, na.rm = TRUE) > 0, logical(1))
+  X <- X[good]; cc <- complete.cases(X)
+  if (ncol(X) < 2 || sum(cc) < 50) stop("Invalid PCA group: ", label)
+  fit <- prcomp(X[cc, , drop = FALSE], center = TRUE, scale. = TRUE)
+  score <- rep(NA_real_, nrow(dat)); score[cc] <- fit$x[, 1]
+  list(score = score, loadings = data.frame(group = label, variable = rownames(fit$rotation), PC1_loading = fit$rotation[, 1]))
 }
 
-extract_stack <- function(paths, names_out, data) {
-  missing <- paths[!file.exists(paths)]
-  if (length(missing)) stop("Missing raster(s): ", paste(missing, collapse = ", "), call. = FALSE)
-  r <- rast(paths)
-  names(r) <- names_out
-  pts <- vect(data[c("longitude", "latitude")], geom = c("longitude", "latitude"), crs = "EPSG:4326")
-  vals <- as.data.frame(extract(r, pts, ID = FALSE), check.names = FALSE)
-  if (nrow(vals) != nrow(data)) stop("Raster extraction changed row count.", call. = FALSE)
-  vals
-}
-
-# -----------------------------------------------------------------------------
-# 1. Canonical PR #4 data contract and apparent colour response.
-# -----------------------------------------------------------------------------
-if (!file.exists(input)) stop("Input not found: ", input, call. = FALSE)
+# Canonical data and PR #4 identity/QC contract.
 d <- read.csv(input, check.names = FALSE, fileEncoding = "UTF-8-BOM")
 required <- c("observation_id", "date", "latitude", "longitude", "R", "G", "B")
-missing <- setdiff(required, names(d))
-if (length(missing)) stop("Canonical input is missing: ", paste(missing, collapse = ", "), call. = FALSE)
-if (anyDuplicated(d$observation_id)) stop("observation_id is not unique.", call. = FALSE)
-
+if (length(setdiff(required, names(d)))) stop("Canonical Data_S1.csv schema is incomplete")
+if (anyDuplicated(d$observation_id)) stop("observation_id must be unique")
 n_input <- nrow(d)
 d$date <- as.Date(gsub("/", "-", trimws(as.character(d$date))))
 for (nm in c("latitude", "longitude", "R", "G", "B")) d[[nm]] <- as.numeric(d[[nm]])
 d$DOY <- as.integer(format(d$date, "%j"))
+identity_bad <- rep(FALSE, nrow(d))
+if ("duplicate_image_sha256" %in% names(d)) identity_bad <- identity_bad | nonempty(d$duplicate_image_sha256)
+if ("photo_coordinate_qc_status" %in% names(d)) identity_bad <- identity_bad | grepl("duplicate", d$photo_coordinate_qc_status, ignore.case = TRUE)
+input_ok <- complete.cases(d[c("date", "latitude", "longitude", "R", "G", "B")]) &
+  is.finite(d$latitude) & is.finite(d$longitude) & d$latitude >= 20 & d$latitude <= 50 & d$longitude >= 120 & d$longitude <= 150
+excluded_identity <- d[identity_bad, intersect(c("observation_id", "photo_id", "image_sha256", "duplicate_image_sha256", "latitude", "longitude"), names(d)), drop = FALSE]
+excluded_input <- d[!input_ok, intersect(c("observation_id", "date", "latitude", "longitude", "R", "G", "B"), names(d)), drop = FALSE]
+d <- d[!identity_bad & input_ok, , drop = FALSE]
 
-identity_excluded <- rep(FALSE, nrow(d))
-if ("duplicate_image_sha256" %in% names(d)) identity_excluded <- identity_excluded | nonempty(d$duplicate_image_sha256)
-if ("photo_coordinate_qc_status" %in% names(d)) identity_excluded <- identity_excluded | grepl("duplicate", d$photo_coordinate_qc_status, ignore.case = TRUE)
-
-complete_input <- complete.cases(d[c("date", "latitude", "longitude", "R", "G", "B")]) &
-  is.finite(d$latitude) & is.finite(d$longitude) &
-  d$latitude >= 20 & d$latitude <= 50 & d$longitude >= 120 & d$longitude <= 150
-
-excluded_identity <- d[identity_excluded, intersect(c("observation_id", "photo_id", "image_sha256", "duplicate_image_sha256", "latitude", "longitude"), names(d)), drop = FALSE]
-excluded_input <- d[!complete_input, intersect(c("observation_id", "date", "latitude", "longitude", "R", "G", "B"), names(d)), drop = FALSE]
-d <- d[!identity_excluded & complete_input, , drop = FALSE]
-if (nrow(d) < 50L) stop("Too few usable canonical records.", call. = FALSE)
-
+# Display-referred IEC sRGB -> CIELAB D65.
 rgb <- pmin(pmax(as.matrix(d[c("R", "G", "B")]) / 255, 0), 1)
-linear <- ifelse(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055)^2.4)
-xyz <- linear %*% t(matrix(c(
-  0.4124564, 0.3575761, 0.1804375,
-  0.2126729, 0.7151522, 0.0721750,
-  0.0193339, 0.1191920, 0.9503041
-), nrow = 3, byrow = TRUE))
+lin <- ifelse(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055)^2.4)
+xyz <- lin %*% t(matrix(c(0.4124564,0.3575761,0.1804375,0.2126729,0.7151522,0.0721750,0.0193339,0.1191920,0.9503041), 3, byrow = TRUE))
 xyz <- sweep(xyz, 2, c(0.95047, 1, 1.08883), "/")
-epsilon <- (6 / 29)^3
-f <- ifelse(xyz > epsilon, xyz^(1 / 3), xyz / (3 * (6 / 29)^2) + 4 / 29)
-d$L <- 116 * f[, 2] - 16
-d$a <- 500 * (f[, 1] - f[, 2])
-d$b <- 200 * (f[, 2] - f[, 3])
+f <- ifelse(xyz > (6/29)^3, xyz^(1/3), xyz/(3*(6/29)^2) + 4/29)
+d$L <- 116*f[,2]-16; d$a <- 500*(f[,1]-f[,2]); d$b <- 200*(f[,2]-f[,3])
 
-# -----------------------------------------------------------------------------
-# 2. Legacy environmental structure. AI is replaced only by CHELSA CMI.
-# -----------------------------------------------------------------------------
+# Legacy environmental layers; only CHELSA AI is replaced by CHELSA CMI.
 env_files <- c(
-  chelsa_bio05 = "chelsa_bio05.tif",
-  chelsa_bio10 = "chelsa_bio10.tif",
-  chelsa_gdd5 = "chelsa_gdd5.tif",
-  chelsa_cmimean = "chelsa_cmimean.tif",
-  chelsa_vpdmean = "chelsa_vpdmean.tif",
-  chelsa_bio12 = "chelsa_bio12.tif",
-  chelsa_bio14 = "chelsa_bio14.tif",
-  chelsa_bio15 = "chelsa_bio15.tif",
-  chelsa_swb = "chelsa_swb.tif",
-  chelsa_rsdsmean = "chelsa_rsdsmean.tif",
-  soilgrids_bdod_0_5cm = "soilgrids_bdod_0_5cm_mean.tif",
-  soilgrids_cfvo_0_5cm = "soilgrids_cfvo_0_5cm_mean.tif",
-  soilgrids_sand_0_5cm = "soilgrids_sand_0_5cm_mean.tif",
-  soilgrids_silt_0_5cm = "soilgrids_silt_0_5cm_mean.tif",
-  soilgrids_nitrogen_0_5cm = "soilgrids_nitrogen_0_5cm_mean.tif",
-  soilgrids_ocd_0_5cm = "soilgrids_ocd_0_5cm_mean.tif",
-  soilgrids_soc_0_5cm = "soilgrids_soc_0_5cm_mean.tif",
-  soilgrids_phh2o_0_5cm = "soilgrids_phh2o_0_5cm_mean.tif"
-)
-env_paths <- file.path(env_dir, unname(env_files))
-env_values <- extract_stack(env_paths, names(env_files), d)
-d <- cbind(d, env_values)
+  chelsa_bio05="chelsa_bio05.tif", chelsa_bio10="chelsa_bio10.tif", chelsa_gdd5="chelsa_gdd5.tif",
+  chelsa_cmimean="chelsa_cmimean.tif", chelsa_vpdmean="chelsa_vpdmean.tif", chelsa_bio12="chelsa_bio12.tif",
+  chelsa_bio14="chelsa_bio14.tif", chelsa_bio15="chelsa_bio15.tif", chelsa_swb="chelsa_swb.tif",
+  chelsa_rsdsmean="chelsa_rsdsmean.tif", soilgrids_bdod_0_5cm="soilgrids_bdod_0_5cm_mean.tif",
+  soilgrids_cfvo_0_5cm="soilgrids_cfvo_0_5cm_mean.tif", soilgrids_sand_0_5cm="soilgrids_sand_0_5cm_mean.tif",
+  soilgrids_silt_0_5cm="soilgrids_silt_0_5cm_mean.tif", soilgrids_nitrogen_0_5cm="soilgrids_nitrogen_0_5cm_mean.tif",
+  soilgrids_ocd_0_5cm="soilgrids_ocd_0_5cm_mean.tif", soilgrids_soc_0_5cm="soilgrids_soc_0_5cm_mean.tif",
+  soilgrids_phh2o_0_5cm="soilgrids_phh2o_0_5cm_mean.tif")
+d <- cbind(d, extract_values(file.path(env_dir, env_files), names(env_files), d))
 
-# Derive the same topographic family used by the legacy workflow.
-elevation_path <- file.path(env_dir, "elevation_30s.tif")
-if (!file.exists(elevation_path)) stop("Missing elevation raster: ", elevation_path, call. = FALSE)
-elevation <- rast(elevation_path)
-topography <- c(
-  terrain(elevation, v = "roughness"),
-  terrain(elevation, v = "slope", unit = "radians"),
-  terrain(elevation, v = "TRI")
-)
-names(topography) <- c("roughness", "slope", "TRI")
-topography_values <- extract_stack(rep(elevation_path, 1), "elevation_unused", d)
-pts_topo <- vect(d[c("longitude", "latitude")], geom = c("longitude", "latitude"), crs = "EPSG:4326")
-if (!same.crs(pts_topo, topography)) pts_topo <- project(pts_topo, crs(topography))
-topo_values <- as.data.frame(extract(topography, pts_topo, ID = FALSE))
-if (nrow(topo_values) != nrow(d)) stop("Topography extraction changed row count.", call. = FALSE)
-d <- cbind(d, topo_values)
+elev_path <- file.path(env_dir, "elevation_30s.tif")
+if (!file.exists(elev_path)) stop("Missing elevation_30s.tif")
+elev <- rast(elev_path)
+topo <- c(terrain(elev, "roughness"), terrain(elev, "slope", unit = "radians"), terrain(elev, "TRI")); names(topo) <- c("roughness","slope","TRI")
+pts <- vect(d[c("longitude","latitude")], geom = c("longitude","latitude"), crs = "EPSG:4326")
+if (!same.crs(pts, topo)) pts <- project(pts, crs(topo))
+tv <- as.data.frame(extract(topo, pts, ID = FALSE)); stopifnot(nrow(tv) == nrow(d)); d <- cbind(d, tv)
 
-pca_temperature <- pca_score(d, c("chelsa_bio05", "chelsa_bio10", "chelsa_gdd5"), "Temperature_PC1")
-pca_moisture <- pca_score(d, c("chelsa_cmimean", "chelsa_vpdmean", "chelsa_bio12", "chelsa_bio14", "chelsa_bio15", "chelsa_swb"), "precip_PC1")
-pca_soil_phys <- pca_score(d, c("soilgrids_bdod_0_5cm", "soilgrids_cfvo_0_5cm", "soilgrids_sand_0_5cm", "soilgrids_silt_0_5cm"), "soil_phys_PC1")
-pca_soil_nutrient <- pca_score(d, c("soilgrids_nitrogen_0_5cm", "soilgrids_ocd_0_5cm", "soilgrids_soc_0_5cm"), "soil_nutrient_PC1")
-pca_topography <- pca_score(d, c("roughness", "slope", "TRI"), "topo_PC1")
+pc_temp <- pca1(d, c("chelsa_bio05","chelsa_bio10","chelsa_gdd5"), "Temperature_PC1")
+pc_moist <- pca1(d, c("chelsa_cmimean","chelsa_vpdmean","chelsa_bio12","chelsa_bio14","chelsa_bio15","chelsa_swb"), "precip_PC1")
+pc_phys <- pca1(d, c("soilgrids_bdod_0_5cm","soilgrids_cfvo_0_5cm","soilgrids_sand_0_5cm","soilgrids_silt_0_5cm"), "soil_phys_PC1")
+pc_nutr <- pca1(d, c("soilgrids_nitrogen_0_5cm","soilgrids_ocd_0_5cm","soilgrids_soc_0_5cm"), "soil_nutrient_PC1")
+pc_topo <- pca1(d, c("roughness","slope","TRI"), "topo_PC1")
+d$Temperature_PC1 <- pc_temp$score; d$precip_PC1 <- pc_moist$score; d$soil_phys_PC1 <- pc_phys$score
+d$soil_nutrient_PC1 <- pc_nutr$score; d$topo_PC1 <- pc_topo$score; d$soil_pH <- d$soilgrids_phh2o_0_5cm; d$RSDS <- d$chelsa_rsdsmean
+pca_loadings <- do.call(rbind, lapply(list(pc_temp,pc_moist,pc_phys,pc_nutr,pc_topo), `[[`, "loadings"))
 
-d$Temperature_PC1 <- pca_temperature$score
-d$precip_PC1 <- pca_moisture$score
-d$soil_phys_PC1 <- pca_soil_phys$score
-d$soil_nutrient_PC1 <- pca_soil_nutrient$score
-d$topo_PC1 <- pca_topography$score
-d$soil_pH <- d$soilgrids_phh2o_0_5cm
-d$RSDS <- d$chelsa_rsdsmean
+# Bombus suitability indices.
+species <- c("ardens","beaticola","consobrinus","diversus","honshuensis")
+d <- cbind(d, extract_values(file.path(sdm_dir, paste0(species, ".tif")), species, d))
+P <- as.matrix(d[species]); sdm_ok <- complete.cases(P) & apply(P, 1, function(x) all(is.finite(x) & x >= 0 & x <= 1))
+excluded_sdm <- d[!sdm_ok, c("observation_id","latitude","longitude")]; d <- d[sdm_ok, , drop = FALSE]; P <- as.matrix(d[species])
+d$Bombus_suitability_sum <- rowSums(P); d$Bombus_any_availability <- 1-apply(1-P,1,prod); d$Bombus_max_availability <- apply(P,1,max)
+d$spatial_widespread <- 1-apply(1-as.matrix(d[c("ardens","diversus")]),1,prod)
+d$spatial_montane <- 1-apply(1-as.matrix(d[c("beaticola","consobrinus","honshuensis")]),1,prod)
 
-pca_loadings <- do.call(rbind, list(
-  pca_temperature$loading,
-  pca_moisture$loading,
-  pca_soil_phys$loading,
-  pca_soil_nutrient$loading,
-  pca_topography$loading
-))
+# One common cohort for every comparison.
+env_raw <- c("DOY","topo_PC1","Temperature_PC1","precip_PC1","soil_nutrient_PC1","soil_phys_PC1","soil_pH","RSDS")
+common <- c("a","latitude","longitude",env_raw,"Bombus_suitability_sum","Bombus_any_availability","Bombus_max_availability")
+M <- as.matrix(d[common]); storage.mode(M) <- "double"
+model_ok <- complete.cases(M) & apply(M, 1, function(x) all(is.finite(x)))
+excluded_model <- d[!model_ok, c("observation_id","latitude","longitude")]; d <- d[model_ok, , drop = FALSE]
+if (nrow(d) < 50) stop("Too few common complete cases")
+for (nm in c(env_raw,"Bombus_suitability_sum","Bombus_any_availability","Bombus_max_availability")) d[[paste0("z_",nm)]] <- z(d[[nm]])
+d$y <- z(d$a); env_terms <- paste0("z_", env_raw)
+models <- list(environment_only=env_terms,
+  environment_plus_bombus_sum=c(env_terms,"z_Bombus_suitability_sum"),
+  environment_plus_bombus_any=c(env_terms,"z_Bombus_any_availability"),
+  environment_plus_bombus_max=c(env_terms,"z_Bombus_max_availability"))
 
-# -----------------------------------------------------------------------------
-# 3. Five legacy Bombus SDMs and alternative availability summaries.
-# -----------------------------------------------------------------------------
-species <- c("ardens", "beaticola", "consobrinus", "diversus", "honshuensis")
-sdm_paths <- file.path(sdm_dir, paste0(species, ".tif"))
-sdm_values <- extract_stack(sdm_paths, species, d)
-d <- cbind(d, sdm_values)
-P <- as.matrix(d[species])
-valid_sdm <- complete.cases(P) & apply(P, 1, function(x) all(is.finite(x) & x >= 0 & x <= 1))
-excluded_sdm <- d[!valid_sdm, c("observation_id", "latitude", "longitude"), drop = FALSE]
-d <- d[valid_sdm, , drop = FALSE]
-P <- as.matrix(d[species])
-
-d$Bombus_suitability_sum <- rowSums(P)
-d$Bombus_any_availability <- 1 - apply(1 - P, 1, prod)
-d$Bombus_max_availability <- apply(P, 1, max)
-d$spatial_widespread <- 1 - apply(1 - as.matrix(d[c("ardens", "diversus")]), 1, prod)
-d$spatial_montane <- 1 - apply(1 - as.matrix(d[c("beaticola", "consobrinus", "honshuensis")]), 1, prod)
-
-# -----------------------------------------------------------------------------
-# 4. One common complete-case cohort and fixed legacy environment specification.
-# -----------------------------------------------------------------------------
-environment_terms_raw <- c(
-  "DOY", "topo_PC1", "Temperature_PC1", "precip_PC1",
-  "soil_nutrient_PC1", "soil_phys_PC1", "soil_pH", "RSDS"
-)
-common_vars <- c("a", "latitude", "longitude", environment_terms_raw,
-                 "Bombus_suitability_sum", "Bombus_any_availability", "Bombus_max_availability")
-complete_model <- complete.cases(d[common_vars]) & vapply(seq_len(nrow(d)), function(i) all(is.finite(as.numeric(d[i, common_vars]))), logical(1))
-excluded_model <- d[!complete_model, c("observation_id", "latitude", "longitude"), drop = FALSE]
-d <- d[complete_model, , drop = FALSE]
-if (nrow(d) < 50L) stop("Too few common complete cases.", call. = FALSE)
-
-standardize <- c(environment_terms_raw, "Bombus_suitability_sum", "Bombus_any_availability", "Bombus_max_availability")
-for (nm in standardize) d[[paste0("z_", nm)]] <- z(d[[nm]])
-d$y <- z(d$a)
-
-environment_terms <- paste0("z_", environment_terms_raw)
-model_terms <- list(
-  environment_only = environment_terms,
-  environment_plus_bombus_sum = c(environment_terms, "z_Bombus_suitability_sum"),
-  environment_plus_bombus_any = c(environment_terms, "z_Bombus_any_availability"),
-  environment_plus_bombus_max = c(environment_terms, "z_Bombus_max_availability")
-)
-
-# -----------------------------------------------------------------------------
-# 5. Reviewed national SPDE-INLA model.
-# -----------------------------------------------------------------------------
-laea_japan <- "+proj=laea +lat_0=36 +lon_0=138 +datum=WGS84 +units=m +no_defs"
-pts_sf <- st_as_sf(d, coords = c("longitude", "latitude"), crs = 4326, remove = FALSE)
-pts_m <- st_transform(pts_sf, crs = laea_japan)
-loc_m <- st_coordinates(pts_m)
-
-boundary <- inla.nonconvex.hull(loc_m, convex = -0.05, resolution = 100000)
-mesh <- inla.mesh.2d(
-  loc = loc_m,
-  boundary = boundary,
-  max.edge = c(30000, 150000),
-  cutoff = 5000,
-  offset = c(30000, 150000)
-)
-spde <- inla.spde2.pcmatern(
-  mesh = mesh,
-  alpha = 2,
-  prior.range = c(100000, 0.05),
-  prior.sigma = c(1, 0.05)
-)
-A <- inla.spde.make.A(mesh, loc = loc_m)
-
-fit_one <- function(model_name, terms) {
-  X <- data.frame(Intercept = 1, d[terms], check.names = FALSE)
-  stack <- inla.stack(
-    data = list(y = d$y),
-    A = list(A, 1),
-    effects = list(spatial = seq_len(spde$n.spde), fixed = X),
-    tag = "est"
-  )
-  formula <- as.formula(paste("y ~", paste(c("0 + Intercept", terms, "f(spatial, model = spde)"), collapse = " + ")))
-  fit <- inla(
-    formula,
-    family = "gaussian",
-    data = inla.stack.data(stack),
-    control.predictor = list(A = inla.stack.A(stack), compute = TRUE),
-    control.compute = list(waic = TRUE, dic = TRUE, cpo = TRUE, config = TRUE),
-    control.inla = list(strategy = "adaptive"),
-    verbose = FALSE
-  )
-  if (is.null(fit$waic$waic) || !is.finite(fit$waic$waic)) stop("INLA failed for ", model_name, call. = FALSE)
-  list(name = model_name, terms = terms, formula = formula, fit = fit)
+# Reviewed SPDE-INLA.
+proj_jp <- "+proj=laea +lat_0=36 +lon_0=138 +datum=WGS84 +units=m +no_defs"
+loc <- st_coordinates(st_transform(st_as_sf(d, coords=c("longitude","latitude"), crs=4326, remove=FALSE), proj_jp))
+mesh <- inla.mesh.2d(loc=loc, boundary=inla.nonconvex.hull(loc, convex=-0.05, resolution=100000), max.edge=c(30000,150000), cutoff=5000, offset=c(30000,150000))
+spde <- inla.spde2.pcmatern(mesh, alpha=2, prior.range=c(100000,0.05), prior.sigma=c(1,0.05)); A <- inla.spde.make.A(mesh, loc=loc)
+fit_model <- function(name, terms) {
+  X <- data.frame(Intercept=1,d[terms],check.names=FALSE)
+  stk <- inla.stack(data=list(y=d$y),A=list(A,1),effects=list(spatial=seq_len(spde$n.spde),fixed=X),tag="est")
+  form <- as.formula(paste("y ~",paste(c("0 + Intercept",terms,"f(spatial, model=spde)"),collapse=" + ")))
+  fit <- inla(form,family="gaussian",data=inla.stack.data(stk),control.predictor=list(A=inla.stack.A(stk),compute=TRUE),control.compute=list(waic=TRUE,dic=TRUE,cpo=TRUE,config=TRUE),control.inla=list(strategy="adaptive"),verbose=FALSE)
+  if (!is.finite(fit$waic$waic)) stop("INLA failed: ",name); list(name=name,terms=terms,fit=fit)
 }
+fits <- Map(fit_model,names(models),models); names(fits) <- names(models)
+comparison <- do.call(rbind,lapply(fits,function(o){cpo<-o$fit$cpo$cpo;data.frame(model=o$name,n=nrow(d),mesh_vertices=mesh$n,WAIC=o$fit$waic$waic,pWAIC=o$fit$waic$p.eff,DIC=o$fit$dic$dic,mean_neglogCPO=mean(-log(cpo[is.finite(cpo)&cpo>0])),failed_CPO=sum(!is.finite(cpo)|cpo<=0))}))
+comparison$delta_WAIC <- comparison$WAIC-min(comparison$WAIC); comparison <- comparison[order(comparison$WAIC),]
+fixed <- do.call(rbind,lapply(fits,function(o){x<-as.data.frame(o$fit$summary.fixed);x$term<-rownames(x);x$model<-o$name;rownames(x)<-NULL;x[c("model","term",setdiff(names(x),c("model","term")))]}))
+hyper <- do.call(rbind,lapply(fits,function(o){x<-as.data.frame(o$fit$summary.hyperpar);x$parameter<-rownames(x);x$model<-o$name;rownames(x)<-NULL;x[c("model","parameter",setdiff(names(x),c("model","parameter")))]}))
 
-fits <- Map(fit_one, names(model_terms), model_terms)
-names(fits) <- names(model_terms)
+# Same-cohort spatial block prediction sensitivity.
+axis1 <- prcomp(scale(loc),center=FALSE,scale.=FALSE)$x[,1]; br <- unique(quantile(axis1,seq(0,1,length.out=6),type=1)); if(length(br)!=6)stop("Cannot form folds")
+d$fold <- cut(axis1,br,include.lowest=TRUE,labels=FALSE); cv <- list()
+for(nm in names(models)) for(k in 1:5){tr<-d$fold!=k;te<-d$fold==k;f0<-lm(as.formula(paste("y ~",paste(models[[nm]],collapse=" + "))),d[tr,]);p<-predict(f0,d[te,]);den<-sum((d$y[te]-mean(d$y[tr]))^2);cv[[paste(nm,k)]]<-data.frame(model=nm,fold=k,n_test=sum(te),RMSE=sqrt(mean((d$y[te]-p)^2)),MAE=mean(abs(d$y[te]-p)),Q2=if(den>0)1-sum((d$y[te]-p)^2)/den else NA)}
+cv <- do.call(rbind,cv); cv_summary <- aggregate(cbind(RMSE,MAE,Q2)~model,cv,mean)
+spatial_diag <- data.frame(index=c("spatial_widespread","spatial_montane"),cor_longitude=c(cor(d$spatial_widespread,d$longitude),cor(d$spatial_montane,d$longitude)),cor_latitude=c(cor(d$spatial_widespread,d$latitude),cor(d$spatial_montane,d$latitude)),cor_axis1=c(cor(d$spatial_widespread,axis1),cor(d$spatial_montane,axis1)),cor_DOY=c(cor(d$spatial_widespread,d$DOY),cor(d$spatial_montane,d$DOY)))
+flow <- data.frame(stage=c("canonical_input","identity_excluded","incomplete_input_excluded","missing_sdm_excluded","model_incomplete_excluded","common_model_cohort"),n=c(n_input,nrow(excluded_identity),nrow(excluded_input),nrow(excluded_sdm),nrow(excluded_model),nrow(d)))
 
-model_comparison <- do.call(rbind, lapply(fits, function(obj) {
-  cpo <- obj$fit$cpo$cpo
-  data.frame(
-    model = obj$name,
-    fixed_terms = paste(obj$terms, collapse = " + "),
-    n = nrow(d),
-    mesh_vertices = mesh$n,
-    WAIC = obj$fit$waic$waic,
-    pWAIC = obj$fit$waic$p.eff,
-    DIC = obj$fit$dic$dic,
-    mean_neglogCPO = mean(-log(cpo[is.finite(cpo) & cpo > 0])),
-    failed_CPO = sum(!is.finite(cpo) | cpo <= 0),
-    stringsAsFactors = FALSE
-  )
-}))
-model_comparison$delta_WAIC <- model_comparison$WAIC - min(model_comparison$WAIC)
-model_comparison <- model_comparison[order(model_comparison$WAIC), , drop = FALSE]
-
-fixed_effects <- do.call(rbind, lapply(fits, function(obj) {
-  out <- as.data.frame(obj$fit$summary.fixed)
-  out$term <- rownames(out)
-  out$model <- obj$name
-  rownames(out) <- NULL
-  out[c("model", "term", setdiff(names(out), c("model", "term")))]
-}))
-
-hyperparameters <- do.call(rbind, lapply(fits, function(obj) {
-  out <- as.data.frame(obj$fit$summary.hyperpar)
-  out$parameter <- rownames(out)
-  out$model <- obj$name
-  rownames(out) <- NULL
-  out[c("model", "parameter", setdiff(names(out), c("model", "parameter")))]
-}))
-
-# -----------------------------------------------------------------------------
-# 6. Same-cohort spatially blocked predictive sensitivity.
-# -----------------------------------------------------------------------------
-axis1 <- prcomp(scale(loc_m), center = FALSE, scale. = FALSE)$x[, 1]
-breaks <- unique(quantile(axis1, probs = seq(0, 1, length.out = 6), type = 1))
-if (length(breaks) != 6L) stop("Could not construct five spatial folds.", call. = FALSE)
-d$fold <- cut(axis1, breaks = breaks, include.lowest = TRUE, labels = FALSE)
-
-cv_rows <- list()
-for (model_name in names(model_terms)) {
-  terms <- model_terms[[model_name]]
-  formula <- as.formula(paste("y ~", paste(terms, collapse = " + ")))
-  for (fold in 1:5) {
-    train <- d$fold != fold
-    test <- d$fold == fold
-    fit <- lm(formula, data = d[train, , drop = FALSE])
-    prediction <- predict(fit, newdata = d[test, , drop = FALSE])
-    denom <- sum((d$y[test] - mean(d$y[train]))^2)
-    cv_rows[[paste(model_name, fold)]] <- data.frame(
-      model = model_name,
-      fold = fold,
-      n_test = sum(test),
-      RMSE = sqrt(mean((d$y[test] - prediction)^2)),
-      MAE = mean(abs(d$y[test] - prediction)),
-      Q2 = if (denom > 0) 1 - sum((d$y[test] - prediction)^2) / denom else NA_real_,
-      stringsAsFactors = FALSE
-    )
-  }
-}
-blocked_cv <- do.call(rbind, cv_rows)
-blocked_cv_summary <- aggregate(cbind(RMSE, MAE, Q2) ~ model, blocked_cv, mean)
-
-spatial_group_diagnostic <- data.frame(
-  index = c("spatial_widespread", "spatial_montane"),
-  cor_longitude = c(cor(d$spatial_widespread, d$longitude), cor(d$spatial_montane, d$longitude)),
-  cor_latitude = c(cor(d$spatial_widespread, d$latitude), cor(d$spatial_montane, d$latitude)),
-  cor_projected_axis1 = c(cor(d$spatial_widespread, axis1), cor(d$spatial_montane, axis1)),
-  cor_DOY = c(cor(d$spatial_widespread, d$DOY), cor(d$spatial_montane, d$DOY)),
-  stringsAsFactors = FALSE
-)
-
-row_flow <- data.frame(
-  stage = c("canonical_input", "identity_excluded", "incomplete_input_excluded", "after_input_qc", "missing_sdm_excluded", "model_incomplete_excluded", "common_model_cohort"),
-  n = c(n_input, nrow(excluded_identity), nrow(excluded_input), n_input - nrow(excluded_identity) - nrow(excluded_input), nrow(excluded_sdm), nrow(excluded_model), nrow(d)),
-  stringsAsFactors = FALSE
-)
-
-write.csv(model_comparison, file.path(out_dir, "spde_model_comparison.csv"), row.names = FALSE)
-write.csv(fixed_effects, file.path(out_dir, "spde_fixed_effects.csv"), row.names = FALSE)
-write.csv(hyperparameters, file.path(out_dir, "spde_hyperparameters.csv"), row.names = FALSE)
-write.csv(blocked_cv, file.path(out_dir, "blocked_cv_by_fold.csv"), row.names = FALSE)
-write.csv(blocked_cv_summary, file.path(out_dir, "blocked_cv_summary.csv"), row.names = FALSE)
-write.csv(spatial_group_diagnostic, file.path(out_dir, "spatial_group_diagnostic.csv"), row.names = FALSE)
-write.csv(pca_loadings, file.path(out_dir, "environment_pca_loadings.csv"), row.names = FALSE)
-write.csv(row_flow, file.path(out_dir, "row_flow.csv"), row.names = FALSE)
-write.csv(excluded_identity, file.path(out_dir, "excluded_identity.csv"), row.names = FALSE)
-write.csv(excluded_input, file.path(out_dir, "excluded_incomplete_input.csv"), row.names = FALSE)
-write.csv(excluded_sdm, file.path(out_dir, "excluded_missing_sdm.csv"), row.names = FALSE)
-write.csv(excluded_model, file.path(out_dir, "excluded_model_incomplete.csv"), row.names = FALSE)
-write.csv(
-  d[c("observation_id", "date", "latitude", "longitude", "DOY", "L", "a", "b", "fold",
-      "Temperature_PC1", "precip_PC1", "topo_PC1", "soil_phys_PC1", "soil_nutrient_PC1", "soil_pH", "RSDS",
-      species, "Bombus_suitability_sum", "Bombus_any_availability", "Bombus_max_availability",
-      "spatial_widespread", "spatial_montane")],
-  file.path(out_dir, "analysis_data.csv"), row.names = FALSE
-)
-writeLines(capture.output(sessionInfo()), file.path(out_dir, "sessionInfo.txt"))
-
-print(row_flow)
-print(model_comparison)
-print(blocked_cv_summary)
+write.csv(comparison,file.path(out_dir,"spde_model_comparison.csv"),row.names=FALSE);write.csv(fixed,file.path(out_dir,"spde_fixed_effects.csv"),row.names=FALSE);write.csv(hyper,file.path(out_dir,"spde_hyperparameters.csv"),row.names=FALSE)
+write.csv(cv,file.path(out_dir,"blocked_cv_by_fold.csv"),row.names=FALSE);write.csv(cv_summary,file.path(out_dir,"blocked_cv_summary.csv"),row.names=FALSE);write.csv(spatial_diag,file.path(out_dir,"spatial_group_diagnostic.csv"),row.names=FALSE)
+write.csv(pca_loadings,file.path(out_dir,"environment_pca_loadings.csv"),row.names=FALSE);write.csv(flow,file.path(out_dir,"row_flow.csv"),row.names=FALSE)
+write.csv(excluded_identity,file.path(out_dir,"excluded_identity.csv"),row.names=FALSE);write.csv(excluded_input,file.path(out_dir,"excluded_incomplete_input.csv"),row.names=FALSE);write.csv(excluded_sdm,file.path(out_dir,"excluded_missing_sdm.csv"),row.names=FALSE);write.csv(excluded_model,file.path(out_dir,"excluded_model_incomplete.csv"),row.names=FALSE)
+keep <- c("observation_id","date","latitude","longitude","DOY","L","a","b","fold","Temperature_PC1","precip_PC1","topo_PC1","soil_phys_PC1","soil_nutrient_PC1","soil_pH","RSDS",species,"Bombus_suitability_sum","Bombus_any_availability","Bombus_max_availability","spatial_widespread","spatial_montane")
+write.csv(d[keep],file.path(out_dir,"analysis_data.csv"),row.names=FALSE);writeLines(capture.output(sessionInfo()),file.path(out_dir,"sessionInfo.txt"))
+print(flow);print(comparison);print(cv_summary)

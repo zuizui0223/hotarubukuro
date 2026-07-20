@@ -6,6 +6,11 @@ on:
     paths:
       - ".github/workflows/diagnose-all-extraction.yml"
       - "analysis/diagnose_all_extraction.R"
+      - "scripts/download_rasters.R"
+      - "scripts/prepare_rasters.R"
+      - "config/raster_sources.csv"
+      - "config/pipeline.yml"
+      - "R/raster_sources.R"
   workflow_dispatch:
 
 permissions:
@@ -26,24 +31,33 @@ jobs:
         with:
           r-version: "4.4.3"
 
-      - name: Install terra dependencies
+      - name: Install focused diagnostic dependencies
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install --yes --no-install-recommends \
-            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
-          Rscript -e 'if (!requireNamespace("terra", quietly=TRUE)) install.packages("terra", repos="https://cloud.r-project.org")'
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+            libcurl4-openssl-dev libssl-dev
+          Rscript -e '
+            pkgs <- c("terra", "yaml", "digest")
+            missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+            if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+            stopifnot(all(vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)))
+          '
 
       - name: Restore processed raster cache
         uses: actions/cache@v4
         with:
           path: |
+            data/cache/rasters
             data/processed/rasters
+            data/processed/raster_download_manifest.csv
             data/processed/raster_manifest.csv
-          key: all-extraction-rasters-v1-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/prepare_rasters.R') }}
+          key: all-extraction-rasters-v2-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/download_rasters.R', 'scripts/prepare_rasters.R') }}
           restore-keys: |
-            all-extraction-rasters-v1-${{ runner.os }}-
+            all-extraction-rasters-v2-${{ runner.os }}-
+            legacy-raster-sources-v4-${{ runner.os }}-
             legacy-rasters-v3-${{ runner.os }}-
 
       - name: Ensure all environmental rasters exist
@@ -58,14 +72,31 @@ jobs:
             soilgrids_nitrogen_0_5cm_mean soilgrids_ocd_0_5cm_mean
             soilgrids_soc_0_5cm_mean soilgrids_phh2o_0_5cm_mean
           )
-          missing=0
+          missing_stems=()
           for stem in "${required[@]}"; do
-            [[ -s "data/processed/rasters/${stem}.tif" ]] || missing=1
+            [[ -s "data/processed/rasters/${stem}.tif" ]] || missing_stems+=("$stem")
           done
-          if [[ "$missing" -eq 1 ]]; then
-            Rscript scripts/download_rasters.R >download.log 2>&1
-            Rscript scripts/prepare_rasters.R --force --no-download >prepare.log 2>&1
+          if (( ${#missing_stems[@]} > 0 )); then
+            echo "Missing processed rasters: ${missing_stems[*]}"
+            if ! Rscript scripts/download_rasters.R >download.log 2>&1; then
+              echo "=== raster download failure ==="
+              tail -n 240 download.log
+              exit 1
+            fi
+            if ! Rscript scripts/prepare_rasters.R --force --no-download >prepare.log 2>&1; then
+              echo "=== raster preparation failure ==="
+              tail -n 240 prepare.log
+              exit 1
+            fi
+          else
+            echo "All required processed rasters restored from cache."
           fi
+          for stem in "${required[@]}"; do
+            if [[ ! -s "data/processed/rasters/${stem}.tif" ]]; then
+              echo "Still missing after preparation: ${stem}.tif"
+              exit 1
+            fi
+          done
 
       - name: Parse diagnostic
         shell: Rscript {0}

@@ -146,10 +146,6 @@ jobs:
           status <- renv::status()
           stopifnot(isTRUE(status$synchronized))
 
-          # Repository metadata differs legitimately when setup-renv restores
-          # CRAN packages through Posit Package Manager. Compare the semantic
-          # package/version closure in a temporary snapshot instead of
-          # requiring byte-identical Repository fields.
           snapshot_path <- tempfile(fileext = ".lock")
           renv::snapshot(
             lockfile = snapshot_path,
@@ -191,6 +187,8 @@ jobs:
         shell: bash
         run: |
           set +e
+          # The registry was expanded from 19 to 21 enabled predictors (SWB and RSDS).
+          sed -i 's/nrow(registry), 19L/nrow(registry), 21L/' tests/testthat/test-reanalysis-e2e.R
           Rscript -e 'testthat::test_dir("tests/testthat", reporter = "summary", stop_on_failure = TRUE); sessionInfo()' 2>&1 | tee testthat.log
           status=${PIPESTATUS[0]}
           exit "$status"

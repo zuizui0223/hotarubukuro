@@ -9,6 +9,7 @@ out_dir <- if (length(args) > 2) args[[3]] else "results/environment_extraction_
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 fail <- function(...) stop(..., call. = FALSE)
+`%||%` <- function(x, y) if (is.null(x)) y else x
 
 required_cols <- c("observation_id", "latitude", "longitude")
 d <- read.csv(input, check.names = FALSE, fileEncoding = "UTF-8-BOM")
@@ -41,15 +42,20 @@ for (i in seq_along(paths)) {
   ex <- as.vector(terra::ext(r))
   rs <- terra::res(r)
   raster_crs <- terra::crs(r)
-  overlap <- terra::relate(points_ll, terra::as.polygons(terra::ext(r), crs = terra::crs(r)), "intersects")
+  projected_points <- tryCatch(
+    if (terra::same.crs(points_ll, r)) points_ll else terra::project(points_ll, terra::crs(r)),
+    error = function(e) structure(NULL, error = conditionMessage(e))
+  )
+  overlap <- if (is.null(projected_points)) {
+    rep(FALSE, nrow(d))
+  } else {
+    projected_xy <- terra::crds(projected_points)
+    projected_xy[, 1] >= ex[[1]] & projected_xy[, 1] <= ex[[2]] &
+      projected_xy[, 2] >= ex[[3]] & projected_xy[, 2] <= ex[[4]]
+  }
 
   matrix_values <- tryCatch(
     terra::extract(r, xy),
-    error = function(e) structure(NULL, error = conditionMessage(e))
-  )
-
-  projected_points <- tryCatch(
-    if (terra::same.crs(points_ll, r)) points_ll else terra::project(points_ll, terra::crs(r)),
     error = function(e) structure(NULL, error = conditionMessage(e))
   )
   vector_values <- if (is.null(projected_points)) {
@@ -115,5 +121,3 @@ fit <- prcomp(X[cc, , drop = FALSE], center = TRUE, scale. = TRUE)
 write.csv(data.frame(variable = rownames(fit$rotation), PC1_loading = fit$rotation[, 1]),
           file.path(out_dir, "temperature_pc1_loadings.csv"), row.names = FALSE)
 cat("Temperature PCA succeeded with", sum(cc), "rows.\n")
-
-`%||%` <- function(x, y) if (is.null(x)) y else x

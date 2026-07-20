@@ -48,23 +48,26 @@ jobs:
             exit 1
           fi
 
-      - name: Install R packages quietly
+      - name: Install missing R packages quietly
         shell: bash
         run: |
           set -euo pipefail
           if ! Rscript -e '
-            install.packages(
-              c("terra", "sf", "yaml", "digest", "jsonlite"),
-              repos = "https://cloud.r-project.org"
-            )
-            install.packages(
-              "INLA",
-              repos = c(
-                getOption("repos"),
-                INLA = "https://inla.r-inla-download.org/R/stable"
-              ),
-              dependencies = TRUE
-            )
+            cran <- c("terra", "sf", "yaml", "digest", "jsonlite")
+            missing <- cran[!vapply(cran, requireNamespace, logical(1), quietly = TRUE)]
+            if (length(missing)) {
+              install.packages(missing, repos = "https://cloud.r-project.org")
+            }
+            if (!requireNamespace("INLA", quietly = TRUE)) {
+              install.packages(
+                "INLA",
+                repos = c(
+                  getOption("repos"),
+                  INLA = "https://inla.r-inla-download.org/R/stable"
+                ),
+                dependencies = TRUE
+              )
+            }
             stopifnot(
               requireNamespace("terra", quietly = TRUE),
               requireNamespace("sf", quietly = TRUE),
@@ -96,19 +99,53 @@ jobs:
           parse(file = "scripts/prepare_rasters.R")
           parse(file = "analysis/run_bombus_availability.R")
 
-      - name: Acquire and prepare rasters quietly
+      - name: Acquire and prepare rasters only when cache is incomplete
         shell: bash
         run: |
           set -euo pipefail
-          if ! Rscript scripts/download_rasters.R >download.log 2>&1; then
-            echo "=== raster download failure ==="
-            tail -n 240 download.log
-            exit 1
-          fi
-          if ! Rscript scripts/prepare_rasters.R --no-download >prepare.log 2>&1; then
-            echo "=== raster preparation failure ==="
-            tail -n 240 prepare.log
-            exit 1
+          required=(
+            data/processed/rasters/chelsa_bio05.tif
+            data/processed/rasters/chelsa_bio10.tif
+            data/processed/rasters/chelsa_gdd5.tif
+            data/processed/rasters/chelsa_cmimean.tif
+            data/processed/rasters/chelsa_vpdmean.tif
+            data/processed/rasters/chelsa_bio12.tif
+            data/processed/rasters/chelsa_bio14.tif
+            data/processed/rasters/chelsa_bio15.tif
+            data/processed/rasters/chelsa_swb.tif
+            data/processed/rasters/chelsa_rsdsmean.tif
+            data/processed/rasters/soilgrids_bdod_0_5cm_mean.tif
+            data/processed/rasters/soilgrids_cfvo_0_5cm_mean.tif
+            data/processed/rasters/soilgrids_sand_0_5cm_mean.tif
+            data/processed/rasters/soilgrids_silt_0_5cm_mean.tif
+            data/processed/rasters/soilgrids_nitrogen_0_5cm_mean.tif
+            data/processed/rasters/soilgrids_ocd_0_5cm_mean.tif
+            data/processed/rasters/soilgrids_soc_0_5cm_mean.tif
+            data/processed/rasters/soilgrids_phh2o_0_5cm_mean.tif
+            data/processed/rasters/elevation_30s.tif
+            data/processed/raster_download_manifest.csv
+            data/processed/raster_manifest.csv
+          )
+          complete=true
+          for path in "${required[@]}"; do
+            if [[ ! -s "$path" ]]; then
+              complete=false
+              break
+            fi
+          done
+          if [[ "$complete" == "true" ]]; then
+            echo "Using complete fingerprint-keyed raster cache." | tee download.log prepare.log
+          else
+            if ! Rscript scripts/download_rasters.R >download.log 2>&1; then
+              echo "=== raster download failure ==="
+              tail -n 240 download.log
+              exit 1
+            fi
+            if ! Rscript scripts/prepare_rasters.R --no-download >prepare.log 2>&1; then
+              echo "=== raster preparation failure ==="
+              tail -n 240 prepare.log
+              exit 1
+            fi
           fi
 
       - name: Run full analysis and expose failure tail

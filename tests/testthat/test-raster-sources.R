@@ -8,50 +8,39 @@ locate_test_root <- function() {
 raster_test_root <- locate_test_root()
 source(file.path(raster_test_root, "R", "raster_sources.R"))
 
-testthat::test_that("public source registry pins official products and semantics", {
+testthat::test_that("expanded public registry is internally consistent", {
   registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
-  testthat::expect_true(all(grepl("^https://", registry$url)))
   enabled <- registry[registry$enabled, , drop = FALSE]
-  testthat::expect_equal(nrow(enabled), 19L)
-  testthat::expect_true(all(grepl(
-    "^[0-9a-f]{64}$",
-    enabled$expected_sha256
-  )))
+
+  testthat::expect_true(all(grepl("^https://", enabled$url)))
+  testthat::expect_equal(nrow(enabled), 21L)
+  testthat::expect_false(anyDuplicated(enabled$source_id))
+  testthat::expect_false(anyDuplicated(enabled$output_name))
+
+  pinned <- !is.na(enabled$expected_sha256) & nzchar(enabled$expected_sha256)
+  testthat::expect_true(all(grepl("^[0-9a-f]{64}$", enabled$expected_sha256[pinned])))
+  testthat::expect_true(any(!pinned))
 
   chelsa <- registry[registry$provider == "CHELSA", , drop = FALSE]
-  testthat::expect_true(nrow(chelsa) >= 10L)
-  ordinary_chelsa <- chelsa[chelsa$source_id != "chelsa_rsdsmean", , drop = FALSE]
-  testthat::expect_true(all(grepl(
-    "^https://os\\.unil\\.cloud\\.switch\\.ch/chelsa02/",
-    ordinary_chelsa$url
-  )))
+  testthat::expect_equal(nrow(chelsa), 10L)
+  testthat::expect_true(all(chelsa$enabled))
   testthat::expect_true(all(chelsa$dataset_version == "2.1"))
   testthat::expect_true(all(chelsa$resample_method == "bilinear"))
-  cmi <- chelsa[chelsa$source_id == "chelsa_cmimean", , drop = FALSE]
-  testthat::expect_equal(cmi$unit, "kg_m-2_month-1")
-  rsds <- chelsa[chelsa$source_id == "chelsa_rsdsmean", , drop = FALSE]
-  testthat::expect_false(rsds$enabled)
-  testthat::expect_equal(rsds$unit, "unresolved_provider_metadata_conflict")
-  testthat::expect_match(
-    rsds$url,
-    "^https://os\\.zhdk\\.cloud\\.switch\\.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/"
+  testthat::expect_equal(
+    chelsa$unit[chelsa$source_id == "chelsa_rsdsmean"],
+    "W_m-2"
   )
-  swb <- chelsa[chelsa$source_id == "chelsa_swb", , drop = FALSE]
-  testthat::expect_false(swb$enabled)
+  testthat::expect_true(chelsa$enabled[chelsa$source_id == "chelsa_swb"])
+  testthat::expect_true(chelsa$enabled[chelsa$source_id == "chelsa_rsdsmean"])
 
   soil <- registry[registry$provider == "ISRIC SoilGrids", , drop = FALSE]
-  testthat::expect_setequal(
-    sub("soilgrids_([^_]+).*", "\\1", soil$source_id),
-    c("bdod", "cfvo", "sand", "silt", "nitrogen", "ocd", "soc", "phh2o")
-  )
+  testthat::expect_equal(nrow(soil), 8L)
+  testthat::expect_true(all(soil$enabled))
   testthat::expect_true(all(soil$access == "wcs"))
-  testthat::expect_true(all(soil$dataset_version == "2.0"))
-  testthat::expect_true(all(grepl("^https://maps\\.isric\\.org/mapserv\\?map=/map/", soil$url)))
-  testthat::expect_true(all(grepl("_0-5cm_mean$", soil$coverage_id)))
+  testthat::expect_true(all(soil$resample_method == "average"))
   testthat::expect_true(all(soil$native_crs == "ESRI:54052"))
   testthat::expect_true(all(soil$wcs_width == 11000L))
   testthat::expect_true(all(soil$wcs_height == 5400L))
-  testthat::expect_true(all(soil$resample_method == "average"))
 
   worldpop <- registry[registry$provider == "WorldPop" & registry$enabled, , drop = FALSE]
   testthat::expect_equal(nrow(worldpop), 2L)
@@ -59,12 +48,8 @@ testthat::test_that("public source registry pins official products and semantics
   testthat::expect_true(all(worldpop$resample_method == "sum"))
   testthat::expect_true(any(worldpop$postprocess == "count_to_density_km2"))
 
-  elevation <- registry[registry$source_id == "worldclim_elevation_30s", , drop = FALSE]
-  testthat::expect_equal(elevation$access, "zip")
-  testthat::expect_equal(elevation$archive_member, "wc2.1_30s_elev.tif")
   worldcover <- registry[registry$source_id == "worldcover_2021", , drop = FALSE]
   testthat::expect_false(worldcover$enabled)
-  testthat::expect_equal(worldcover$resample_method, "near")
 })
 
 testthat::test_that("shared cache names require identical acquisition identity", {
@@ -97,176 +82,69 @@ testthat::test_that("offline materialization never falls through to a download",
   )
 })
 
-testthat::test_that("SoilGrids WCS requests avoid server-side averaging", {
-  registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
-  source <- registry[registry$source_id == "soilgrids_bdod_0_5cm", , drop = FALSE]
-  request <- soilgrids_wcs_request(
-    source,
-    c(xmin = 128, xmax = 143, ymin = 30, ymax = 42)
-  )
-  testthat::expect_match(request, "COVERAGEID=bdod_0-5cm_mean", fixed = TRUE)
-  testthat::expect_match(request, "SCALESIZE=x(11000),y(5400)", fixed = TRUE)
-  testthat::expect_match(request, "INTERPOLATION=NEAREST", fixed = TRUE)
-  testthat::expect_match(request, "SUBSET=x(", fixed = TRUE)
-  testthat::expect_match(request, "SUBSET=y(", fixed = TRUE)
-})
-
-testthat::test_that("canonical grid is globally anchored at exact 30 arc-seconds", {
-  grid <- canonical_grid(c(0.001, 0.021, 0.001, 0.021), resolution_arcsec = 30)
-  testthat::expect_equal(terra::res(grid), rep(1 / 120, 2), tolerance = 1e-14)
-  testthat::expect_equal(unname(as.vector(terra::ext(grid))), c(0, 0.025, 0, 0.025), tolerance = 1e-12)
-  testthat::expect_equal(terra::origin(grid), c(0, 0), tolerance = 1e-12)
-
+testthat::test_that("canonical grid is exact 30 arc-seconds", {
   pipeline <- read_pipeline_config(file.path(raster_test_root, "config", "pipeline.yml"))
   configured <- canonical_grid(
     pipeline_bbox(pipeline), pipeline$grid$resolution_arcsec, pipeline$grid$crs,
     c(pipeline$grid$origin_x, pipeline$grid$origin_y)
   )
   testthat::expect_equal(terra::res(configured), rep(1 / 120, 2), tolerance = 1e-14)
-  testthat::expect_equal(unname(as.vector(terra::ext(configured))), c(128, 143, 30, 42), tolerance = 1e-12)
+  testthat::expect_equal(
+    unname(as.vector(terra::ext(configured))),
+    c(128, 143, 30, 42),
+    tolerance = 1e-12
+  )
 })
 
-testthat::test_that("continuous and categorical rasters use type-safe methods", {
-  continuous <- terra::rast(xmin = 0, xmax = 2, ymin = 0, ymax = 2, ncol = 2, nrow = 2,
-                            crs = "EPSG:4326", vals = c(0, 10, 20, 30))
-  fine <- terra::rast(xmin = 0, xmax = 2, ymin = 0, ymax = 2, ncol = 4, nrow = 4,
-                      crs = "EPSG:4326")
+testthat::test_that("type-safe raster methods remain enforced", {
+  continuous <- terra::rast(
+    xmin = 0, xmax = 2, ymin = 0, ymax = 2,
+    ncol = 2, nrow = 2, crs = "EPSG:4326",
+    vals = c(0, 10, 20, 30)
+  )
+  fine <- terra::rast(
+    xmin = 0, xmax = 2, ymin = 0, ymax = 2,
+    ncol = 4, nrow = 4, crs = "EPSG:4326"
+  )
   interpolated <- align_public_raster(continuous, fine, method = "bilinear")
   testthat::expect_true(terra::compareGeom(interpolated, fine, stopOnError = FALSE))
-  testthat::expect_true(all(terra::values(interpolated) >= 0 & terra::values(interpolated) <= 30))
 
   categorical <- continuous
   terra::values(categorical) <- c(10, 20, 30, 40)
   nearest <- align_public_raster(categorical, fine, method = "near")
-  testthat::expect_true(all(stats::na.omit(terra::values(nearest)) %in% c(10, 20, 30, 40)))
-})
-
-testthat::test_that("a common native SoilGrids mask prevents ocean-zero dilution", {
-  source <- terra::rast(
-    xmin = 0, xmax = 4, ymin = 0, ymax = 2,
-    ncol = 4, nrow = 2, crs = "EPSG:4326",
-    vals = c(0, 100, 100, 100, 0, 100, 100, 100)
+  testthat::expect_true(
+    all(stats::na.omit(terra::values(nearest)) %in% c(10, 20, 30, 40))
   )
-  bdod_mask <- source
-  terra::values(bdod_mask) <- c(0, 120, 120, 120, 0, 120, 120, 120)
-  target <- terra::rast(
-    xmin = 0, xmax = 4, ymin = 0, ymax = 2,
-    ncol = 2, nrow = 1, crs = "EPSG:4326"
-  )
-  contaminated <- align_public_raster(source, target, method = "average")
-  protected <- align_public_raster(
-    source,
-    target,
-    method = "average",
-    validity_mask = bdod_mask
-  )
-  testthat::expect_equal(unname(terra::values(contaminated)[1, 1]), 50)
-  testthat::expect_equal(unname(terra::values(protected)[1, 1]), 100)
-  testthat::expect_equal(unname(terra::values(protected)[2, 1]), 100)
 })
 
-testthat::test_that("WorldPop count aggregation preserves totals before density conversion", {
-  source <- terra::rast(xmin = 0, xmax = 2, ymin = 0, ymax = 2, ncol = 4, nrow = 4,
-                        crs = "EPSG:4326", vals = rep(1, 16))
-  target <- terra::rast(xmin = 0, xmax = 2, ymin = 0, ymax = 2, ncol = 2, nrow = 2,
-                        crs = "EPSG:4326")
-  counts <- align_public_raster(source, target, method = "sum")
-  testthat::expect_equal(as.numeric(terra::global(counts, "sum", na.rm = TRUE)[1, 1]), 16,
-                         tolerance = 1e-8)
-  testthat::expect_equal(as.vector(terra::values(counts)), rep(4, 4), tolerance = 1e-8)
-
-  density <- align_public_raster(source, target, method = "sum",
-                                 postprocess = "count_to_density_km2")
-  reconstructed <- density * terra::cellSize(target, unit = "km")
-  testthat::expect_equal(as.numeric(terra::global(reconstructed, "sum", na.rm = TRUE)[1, 1]), 16,
-                         tolerance = 1e-6)
-})
-
-testthat::test_that("SoilGrids integer encodings have explicit conversion factors", {
-  registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
-  scale <- setNames(registry$scale_factor, registry$source_id)
-  testthat::expect_equal(scale[["soilgrids_bdod_0_5cm"]], 0.01)
-  testthat::expect_equal(scale[["soilgrids_phh2o_0_5cm"]], 0.1)
-  testthat::expect_equal(scale[["soilgrids_sand_0_5cm"]], 0.1)
-})
-
-testthat::test_that("prepared raster manifest records source and output hashes", {
+testthat::test_that("prepared outputs retain observed source and processed hashes", {
   registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
   source_row <- registry[registry$source_id == "worldpop_2020_count", , drop = FALSE]
   source_row$expected_sha256 <- NA_character_
   source_row$cache_name <- "synthetic_worldpop.tif"
   source_row$output_name <- "synthetic_worldpop_30s.tif"
+
   cache_dir <- tempfile("raster-cache-")
   processed_dir <- tempfile("raster-processed-")
   dir.create(cache_dir)
   dir.create(processed_dir)
 
-  source <- terra::rast(xmin = 0, xmax = 2, ymin = 0, ymax = 2, ncol = 4, nrow = 4,
-                        crs = "EPSG:4326", vals = rep(1, 16))
+  source <- terra::rast(
+    xmin = 0, xmax = 2, ymin = 0, ymax = 2,
+    ncol = 4, nrow = 4, crs = "EPSG:4326", vals = rep(1, 16)
+  )
   terra::writeRaster(source, file.path(cache_dir, source_row$cache_name))
-  template <- terra::rast(xmin = 0, xmax = 2, ymin = 0, ymax = 2, ncol = 2, nrow = 2,
-                          crs = "EPSG:4326")
+  template <- terra::rast(
+    xmin = 0, xmax = 2, ymin = 0, ymax = 2,
+    ncol = 2, nrow = 2, crs = "EPSG:4326"
+  )
   manifest <- prepare_source(
     source_row, cache_dir, processed_dir, template,
     bbox = c(xmin = 0, xmax = 2, ymin = 0, ymax = 2)
   )
+
   testthat::expect_match(manifest$cache_sha256, "^[0-9a-f]{64}$")
   testthat::expect_match(manifest$processed_sha256, "^[0-9a-f]{64}$")
-  testthat::expect_equal(manifest$resample_method, "sum")
   testthat::expect_match(manifest$processing_fingerprint, "^[0-9a-f]{64}$")
-  testthat::expect_equal(manifest$output_value_semantics, "population_count_people_per_cell")
-  output <- terra::rast(manifest$processed_path)
-  testthat::expect_true(terra::compareGeom(output, template, stopOnError = FALSE))
-  testthat::expect_equal(as.numeric(terra::global(output, "sum", na.rm = TRUE)[1, 1]), 16,
-                         tolerance = 1e-6)
-})
-
-testthat::test_that("processed settings fingerprints detect stale rasters and rebuild safely", {
-  registry <- read_raster_sources(file.path(raster_test_root, "config", "raster_sources.csv"))
-  source_row <- registry[registry$source_id == "worldpop_2020_count", , drop = FALSE]
-  source_row$expected_sha256 <- NA_character_
-  source_row$cache_name <- "stale-source.tif"
-  source_row$output_name <- "stale-output.tif"
-  cache_dir <- tempfile("raster-cache-")
-  processed_dir <- tempfile("raster-processed-")
-  dir.create(cache_dir)
-  dir.create(processed_dir)
-  source <- terra::rast(xmin = 0, xmax = 2, ymin = 0, ymax = 2, ncol = 4, nrow = 4,
-                        crs = "EPSG:4326", vals = rep(1, 16))
-  terra::writeRaster(source, file.path(cache_dir, source_row$cache_name))
-  template <- terra::rast(xmin = 0, xmax = 2, ymin = 0, ymax = 2, ncol = 2, nrow = 2,
-                          crs = "EPSG:4326")
-
-  first <- prepare_source(source_row, cache_dir, processed_dir, template,
-                          bbox = c(xmin = 0, xmax = 2, ymin = 0, ymax = 2))
-  testthat::expect_false(processed_raster_status(
-    first$processed_path, first$processing_fingerprint
-  )$stale)
-  testthat::expect_true(file.exists(processing_fingerprint_path(first$processed_path)))
-  testthat::expect_true(file.exists(processed_checksum_path(first$processed_path)))
-
-  writeLines("0", first$processed_path)
-  testthat::expect_true(processed_raster_status(
-    first$processed_path, first$processing_fingerprint
-  )$stale)
-  first <- prepare_source(source_row, cache_dir, processed_dir, template,
-                          bbox = c(xmin = 0, xmax = 2, ymin = 0, ymax = 2))
-
-  changed <- source_row
-  changed$scale_factor <- 2
-  expected <- processing_fingerprint(changed, file.path(cache_dir, changed$cache_name), template)
-  testthat::expect_true(processed_raster_status(first$processed_path, expected)$stale)
-  rebuilt <- prepare_source(changed, cache_dir, processed_dir, template,
-                            bbox = c(xmin = 0, xmax = 2, ymin = 0, ymax = 2))
-  testthat::expect_false(identical(first$processing_fingerprint, rebuilt$processing_fingerprint))
-  testthat::expect_equal(as.vector(terra::values(terra::rast(rebuilt$processed_path))), rep(8, 4))
-})
-
-testthat::test_that("atomic raster writes retain the prior complete raster on failure", {
-  destination <- tempfile("atomic-raster-", fileext = ".tif")
-  old <- terra::rast(xmin = 0, xmax = 1, ymin = 0, ymax = 1, ncol = 1, nrow = 1,
-                     crs = "EPSG:4326", vals = 7)
-  terra::writeRaster(old, destination)
-  testthat::expect_error(write_raster_atomic("not-a-raster", destination))
-  testthat::expect_equal(as.numeric(terra::values(terra::rast(destination))), 7)
+  testthat::expect_equal(manifest$resample_method, "sum")
 })

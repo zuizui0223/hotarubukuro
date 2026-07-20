@@ -1,0 +1,103 @@
+name: "Stage 1 - Prepare publication rasters"
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_download:
+        description: Ignore existing source cache and download again
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publication-stage-1-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  R_VERSION: "4.4.3"
+  RASTER_CACHE_VERSION: "v4"
+
+jobs:
+  prepare-rasters:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: publication-r-${{ runner.os }}-${{ env.R_VERSION }}-spatial-v2
+          restore-keys: |
+            publication-r-${{ runner.os }}-${{ env.R_VERSION }}-
+
+      - name: Install spatial system libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+
+      - name: Install raster dependencies when missing
+        shell: Rscript {0}
+        run: |
+          needed <- c("terra", "sf", "yaml", "geodata", "digest", "jsonlite")
+          missing <- needed[!vapply(needed, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+          stopifnot(vapply(needed, requireNamespace, logical(1), quietly = TRUE))
+
+      - name: Restore raster source cache
+        uses: actions/cache@v4
+        with:
+          path: data/cache/rasters
+          key: publication-source-${{ env.RASTER_CACHE_VERSION }}-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R', 'scripts/download_rasters.R') }}
+          restore-keys: |
+            publication-source-${{ env.RASTER_CACHE_VERSION }}-
+
+      - name: Download source rasters
+        shell: bash
+        run: |
+          set -euo pipefail
+          force=""
+          if [[ "${{ inputs.force_download }}" == "true" ]]; then force="--force"; fi
+          Rscript scripts/download_rasters.R $force
+
+      - name: Prepare and align rasters
+        run: Rscript scripts/prepare_rasters.R --force --no-download
+
+      - name: Validate prepared raster manifest
+        shell: Rscript {0}
+        run: |
+          stopifnot(file.exists("data/processed/raster_manifest.csv"))
+          x <- read.csv("data/processed/raster_manifest.csv", check.names = FALSE)
+          stopifnot(nrow(x) > 0)
+          tif <- list.files("data/processed/rasters", pattern = "[.]tif$", full.names = TRUE)
+          stopifnot(length(tif) >= 19L, all(file.info(tif)$size > 0))
+          cat("Prepared", length(tif), "raster layers.\n")
+
+      - name: Save processed raster cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/processed/rasters
+            data/processed/raster_manifest.csv
+            data/processed/raster_download_manifest.csv
+          key: publication-processed-${{ env.RASTER_CACHE_VERSION }}-${{ github.sha }}
+
+      - name: Upload manifests and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-raster-manifests-${{ github.sha }}
+          path: |
+            data/processed/raster_manifest.csv
+            data/processed/raster_download_manifest.csv
+          if-no-files-found: warn
+          retention-days: 14

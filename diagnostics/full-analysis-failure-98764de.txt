@@ -1,0 +1,429 @@
+
+        is.finite(d$longitude) & d$latitude >= 20 & d$latitude <= 
+        50 & d$longitude >= 120 & d$longitude <= 150, excluded_identity <- d[identity_bad, 
+        intersect(c("observation_id", "photo_id", "image_sha256", 
+            "duplicate_image_sha256", "latitude", "longitude"), 
+            names(d)), drop = FALSE], excluded_input <- d[!input_ok, 
+        intersect(c("observation_id", "date", "latitude", "longitude", 
+            "R", "G", "B"), names(d)), drop = FALSE], d <- d[!identity_bad & 
+        input_ok, , drop = FALSE], rgb <- pmin(pmax(as.matrix(d[c("R", 
+        "G", "B")])/255, 0), 1), lin <- ifelse(rgb <= 0.04045, 
+        rgb/12.92, ((rgb + 0.055)/1.055)^2.4), xyz <- lin %*% 
+        t(matrix(c(0.4124564, 0.3575761, 0.1804375, 0.2126729, 
+            0.7151522, 0.072175, 0.0193339, 0.119192, 0.9503041), 
+            3, byrow = TRUE)), xyz <- sweep(xyz, 2, c(0.95047, 
+        1, 1.08883), "/"), f <- ifelse(xyz > (6/29)^3, xyz^(1/3), 
+        xyz/(3 * (6/29)^2) + 4/29), d$L <- 116 * f[, 2] - 16, 
+    d$a <- 500 * (f[, 1] - f[, 2]), d$b <- 200 * (f[, 2] - f[, 
+        3]), env_files <- c(chelsa_bio05 = "chelsa_bio05.tif", 
+        chelsa_bio10 = "chelsa_bio10.tif", chelsa_gdd5 = "chelsa_gdd5.tif", 
+        chelsa_cmimean = "chelsa_cmimean.tif", chelsa_vpdmean = "chelsa_vpdmean.tif", 
+        chelsa_bio12 = "chelsa_bio12.tif", chelsa_bio14 = "chelsa_bio14.tif", 
+        chelsa_bio15 = "chelsa_bio15.tif", chelsa_swb = "chelsa_swb.tif", 
+        chelsa_rsdsmean = "chelsa_rsdsmean.tif", soilgrids_bdod_0_5cm = "soilgrids_bdod_0_5cm_mean.tif", 
+        soilgrids_cfvo_0_5cm = "soilgrids_cfvo_0_5cm_mean.tif", 
+        soilgrids_sand_0_5cm = "soilgrids_sand_0_5cm_mean.tif", 
+        soilgrids_silt_0_5cm = "soilgrids_silt_0_5cm_mean.tif", 
+        soilgrids_nitrogen_0_5cm = "soilgrids_nitrogen_0_5cm_mean.tif", 
+        soilgrids_ocd_0_5cm = "soilgrids_ocd_0_5cm_mean.tif", 
+        soilgrids_soc_0_5cm = "soilgrids_soc_0_5cm_mean.tif", 
+        soilgrids_phh2o_0_5cm = "soilgrids_phh2o_0_5cm_mean.tif"), 
+    d <- cbind(d, extract_values(file.path(env_dir, env_files), 
+        names(env_files), d)), elev_path <- file.path(env_dir, 
+        "elevation_30s.tif"), elev <- read_raster_checked(elev_path), 
+    topo <- c(terrain(elev, "roughness"), terrain(elev, "slope", 
+        unit = "radians"), terrain(elev, "TRI")), names(topo) <- c("roughness", 
+        "slope", "TRI"), if (is.na(terra::crs(topo, proj = TRUE)) || 
+        !nzchar(trimws(terra::crs(topo, proj = TRUE)))) {
+        terra::crs(topo) <- terra::crs(elev)
+    }, pts <- vect(d[c("longitude", "latitude")], geom = c("longitude", 
+        "latitude"), crs = "EPSG:4326"), if (!same.crs(pts, topo)) pts <- project(pts, 
+        crs(topo)), tv <- as.data.frame(extract(topo, pts, ID = FALSE)), 
+    stopifnot(nrow(tv) == nrow(d)), d <- cbind(d, tv), pc_temp <- pca1(d, 
+        c("chelsa_bio05", "chelsa_bio10", "chelsa_gdd5"), "Temperature_PC1"), 
+    pc_moist <- pca1(d, c("chelsa_cmimean", "chelsa_vpdmean", 
+        "chelsa_bio12", "chelsa_bio14", "chelsa_bio15", "chelsa_swb"), 
+        "precip_PC1"), pc_phys <- pca1(d, c("soilgrids_bdod_0_5cm", 
+        "soilgrids_cfvo_0_5cm", "soilgrids_sand_0_5cm", "soilgrids_silt_0_5cm"), 
+        "soil_phys_PC1"), pc_nutr <- pca1(d, c("soilgrids_nitrogen_0_5cm", 
+        "soilgrids_ocd_0_5cm", "soilgrids_soc_0_5cm"), "soil_nutrient_PC1"), 
+    pc_topo <- pca1(d, c("roughness", "slope", "TRI"), "topo_PC1"), 
+    d$Temperature_PC1 <- pc_temp$score, d$precip_PC1 <- pc_moist$score, 
+    d$soil_phys_PC1 <- pc_phys$score, d$soil_nutrient_PC1 <- pc_nutr$score, 
+    d$topo_PC1 <- pc_topo$score, d$soil_pH <- d$soilgrids_phh2o_0_5cm, 
+    d$RSDS <- d$chelsa_rsdsmean, pca_loadings <- do.call(rbind, 
+        lapply(list(pc_temp, pc_moist, pc_phys, pc_nutr, pc_topo), 
+            `[[`, "loadings")), species <- c("ardens", "beaticola", 
+        "consobrinus", "diversus", "honshuensis"), d <- cbind(d, 
+        extract_values(file.path(sdm_dir, paste0(species, ".tif")), 
+            species, d)), P <- as.matrix(d[species]), sdm_ok <- complete.cases(P) & 
+        apply(P, 1, function(x) all(is.finite(x) & x >= 0 & x <= 
+            1)), excluded_sdm <- d[!sdm_ok, c("observation_id", 
+        "latitude", "longitude")], d <- d[sdm_ok, , drop = FALSE], 
+    P <- as.matrix(d[species]), d$Bombus_suitability_sum <- rowSums(P), 
+    d$Bombus_any_availability <- 1 - apply(1 - P, 1, prod), d$Bombus_max_availability <- apply(P, 
+        1, max), d$spatial_widespread <- 1 - apply(1 - as.matrix(d[c("ardens", 
+        "diversus")]), 1, prod), d$spatial_montane <- 1 - apply(1 - 
+        as.matrix(d[c("beaticola", "consobrinus", "honshuensis")]), 
+        1, prod), env_raw <- c("DOY", "topo_PC1", "Temperature_PC1", 
+        "precip_PC1", "soil_nutrient_PC1", "soil_phys_PC1", "soil_pH", 
+        "RSDS"), common <- c("a", "latitude", "longitude", env_raw, 
+        "Bombus_suitability_sum", "Bombus_any_availability", 
+        "Bombus_max_availability"), M <- as.matrix(d[common]), 
+    storage.mode(M) <- "double", model_ok <- complete.cases(M) & 
+        apply(M, 1, function(x) all(is.finite(x))), excluded_model <- d[!model_ok, 
+        c("observation_id", "latitude", "longitude")], d <- d[model_ok, 
+        , drop = FALSE], if (nrow(d) < 50) stop("Too few common complete cases"), 
+    for (nm in c(env_raw, "Bombus_suitability_sum", "Bombus_any_availability", 
+        "Bombus_max_availability")) d[[paste0("z_", nm)]] <- z(d[[nm]]), 
+    d$y <- z(d$a), env_terms <- paste0("z_", env_raw), models <- list(environment_only = env_terms, 
+        environment_plus_bombus_sum = c(env_terms, "z_Bombus_suitability_sum"), 
+        environment_plus_bombus_any = c(env_terms, "z_Bombus_any_availability"), 
+        environment_plus_bombus_max = c(env_terms, "z_Bombus_max_availability")), 
+    proj_jp <- "+proj=laea +lat_0=36 +lon_0=138 +datum=WGS84 +units=m +no_defs", 
+    loc <- st_coordinates(st_transform(st_as_sf(d, coords = c("longitude", 
+        "latitude"), crs = 4326, remove = FALSE), proj_jp)), 
+    mesh <- inla.mesh.2d(loc = loc, boundary = inla.nonconvex.hull(loc, 
+        convex = -0.05, resolution = 1e+05), max.edge = c(30000, 
+        150000), cutoff = 5000, offset = c(30000, 150000)), spde <- inla.spde2.pcmatern(mesh, 
+        alpha = 2, prior.range = c(1e+05, 0.05), prior.sigma = c(1, 
+            0.05)), A <- inla.spde.make.A(mesh, loc = loc), fit_model <- function(name, 
+        terms) {
+        X <- data.frame(Intercept = 1, d[terms], check.names = FALSE)
+        stk <- inla.stack(data = list(y = d$y), A = list(A, 1), 
+            effects = list(spatial = seq_len(spde$n.spde), fixed = X), 
+            tag = "est")
+        form <- as.formula(paste("y ~", paste(c("0 + Intercept", 
+            terms, "f(spatial, model=spde)"), collapse = " + ")))
+        fit <- inla(form, family = "gaussian", data = inla.stack.data(stk), 
+            control.predictor = list(A = inla.stack.A(stk), compute = TRUE), 
+            control.compute = list(waic = TRUE, dic = TRUE, cpo = TRUE, 
+                config = TRUE), control.inla = list(strategy = "adaptive"), 
+            verbose = FALSE)
+        if (!is.finite(fit$waic$waic)) 
+            stop("INLA failed: ", name)
+        list(name = name, terms = terms, fit = fit)
+    }, fits <- Map(fit_model, names(models), models), names(fits) <- names(models), 
+    comparison <- do.call(rbind, lapply(fits, function(o) {
+        cpo <- o$fit$cpo$cpo
+        data.frame(model = o$name, n = nrow(d), mesh_vertices = mesh$n, 
+            WAIC = o$fit$waic$waic, pWAIC = o$fit$waic$p.eff, 
+            DIC = o$fit$dic$dic, mean_neglogCPO = mean(-log(cpo[is.finite(cpo) & 
+                cpo > 0])), failed_CPO = sum(!is.finite(cpo) | 
+                cpo <= 0))
+    })), comparison$delta_WAIC <- comparison$WAIC - min(comparison$WAIC), 
+    comparison <- comparison[order(comparison$WAIC), ], fixed <- do.call(rbind, 
+        lapply(fits, function(o) {
+            x <- as.data.frame(o$fit$summary.fixed)
+            x$term <- rownames(x)
+            x$model <- o$name
+            rownames(x) <- NULL
+            x[c("model", "term", setdiff(names(x), c("model", 
+                "term")))]
+        })), hyper <- do.call(rbind, lapply(fits, function(o) {
+        x <- as.data.frame(o$fit$summary.hyperpar)
+        x$parameter <- rownames(x)
+        x$model <- o$name
+        rownames(x) <- NULL
+        x[c("model", "parameter", setdiff(names(x), c("model", 
+            "parameter")))]
+    })), axis1 <- prcomp(scale(loc), center = FALSE, scale. = FALSE)$x[, 
+        1], br <- unique(quantile(axis1, seq(0, 1, length.out = 6), 
+        type = 1)), if (length(br) != 6) stop("Cannot form folds"), 
+    d$fold <- cut(axis1, br, include.lowest = TRUE, labels = FALSE), 
+    cv <- list(), for (nm in names(models)) for (k in 1:5) {
+        tr <- d$fold != k
+        te <- d$fold == k
+        f0 <- lm(as.formula(paste("y ~", paste(models[[nm]], 
+            collapse = " + "))), d[tr, ])
+        p <- predict(f0, d[te, ])
+        den <- sum((d$y[te] - mean(d$y[tr]))^2)
+        cv[[paste(nm, k)]] <- data.frame(model = nm, fold = k, 
+            n_test = sum(te), RMSE = sqrt(mean((d$y[te] - p)^2)), 
+            MAE = mean(abs(d$y[te] - p)), R2_pred = if (den > 
+                0) 
+                1 - sum((d$y[te] - p)^2)/den
+            else NA)
+    }, cv_fold <- do.call(rbind, cv), cv_summary <- do.call(rbind, 
+        lapply(split(cv_fold, cv_fold$model), function(x) data.frame(model = x$model[1], 
+            RMSE_mean = mean(x$RMSE), RMSE_sd = sd(x$RMSE), MAE_mean = mean(x$MAE), 
+            R2_pred_mean = mean(x$R2_pred, na.rm = TRUE)))), 
+    write.csv(comparison, file.path(out_dir, "spde_model_comparison.csv"), 
+        row.names = FALSE), write.csv(fixed, file.path(out_dir, 
+        "spde_fixed_effects.csv"), row.names = FALSE), write.csv(hyper, 
+        file.path(out_dir, "spde_hyperparameters.csv"), row.names = FALSE), 
+    write.csv(cv_fold, file.path(out_dir, "blocked_cv_folds.csv"), 
+        row.names = FALSE), write.csv(cv_summary, file.path(out_dir, 
+        "blocked_cv_summary.csv"), row.names = FALSE), write.csv(pca_loadings, 
+        file.path(out_dir, "environment_pca_loadings.csv"), row.names = FALSE), 
+    write.csv(rbind(data.frame(stage = "input", n = n_input), 
+        data.frame(stage = "excluded_identity", n = nrow(excluded_identity)), 
+        data.frame(stage = "excluded_missing_input", n = nrow(excluded_input)), 
+        data.frame(stage = "excluded_invalid_sdm", n = nrow(excluded_sdm)), 
+        data.frame(stage = "excluded_incomplete_model", n = nrow(excluded_model)), 
+        data.frame(stage = "common_model_cohort", n = nrow(d))), 
+        file.path(out_dir, "row_flow.csv"), row.names = FALSE), 
+    write.csv(data.frame(index = c("Bombus_suitability_sum", 
+        "Bombus_any_availability", "Bombus_max_availability", 
+        "spatial_widespread", "spatial_montane"), definition = c("sum of five species suitability values", 
+        "probability-like union 1-product(1-p_i)", "maximum suitability among five species", 
+        "widespread-species union: ardens + diversus", "montane-species union: beaticola + consobrinus + honshuensis")), 
+        file.path(out_dir, "bombus_index_definitions.csv"), row.names = FALSE), 
+    write.csv(data.frame(group = c("widespread", "montane"), 
+        species = c("ardens;diversus", "beaticola;consobrinus;honshuensis"), 
+        correlation_with_temperature = c(cor(d$spatial_widespread, 
+            d$Temperature_PC1), cor(d$spatial_montane, d$Temperature_PC1)), 
+        correlation_with_topography = c(cor(d$spatial_widespread, 
+            d$topo_PC1), cor(d$spatial_montane, d$topo_PC1))), 
+        file.path(out_dir, "spatial_group_diagnostic.csv"), row.names = FALSE), 
+    write.csv(d, file.path(out_dir, "analysis_data.csv"), row.names = FALSE), 
+    write.csv(excluded_identity, file.path(out_dir, "excluded_identity.csv"), 
+        row.names = FALSE), write.csv(excluded_input, file.path(out_dir, 
+        "excluded_missing_input.csv"), row.names = FALSE), write.csv(excluded_sdm, 
+        file.path(out_dir, "excluded_invalid_sdm.csv"), row.names = FALSE), 
+    write.csv(excluded_model, file.path(out_dir, "excluded_incomplete_model.csv"), 
+        row.names = FALSE), writeLines(capture.output(sessionInfo()), 
+        file.path(out_dir, "sessionInfo.txt")), cat("Completed common cohort:", 
+        nrow(d), "rows; outputs:", out_dir, "\n"))
+##[group]Run Rscript scripts/download_rasters.R --force
+Rscript scripts/download_rasters.R --force
+shell: /usr/bin/bash -e {0}
+env:
+  R_LIBS_USER: /home/runner/work/_temp/Library
+  TZ: UTC
+  _R_CHECK_SYSTEM_CLOCK_: FALSE
+  NOT_CRAN: true
+  RSPM: https://packagemanager.posit.co/cran/__linux__/noble/latest
+  RENV_CONFIG_REPOS_OVERRIDE: https://packagemanager.posit.co/cran/__linux__/noble/latest
+##[endgroup]
+Selected sources:
+- chelsa_bio05 [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_bio05_1981-2010_V.2.1.tif
+- chelsa_bio10 [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_bio10_1981-2010_V.2.1.tif
+- chelsa_gdd5 [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_gdd5_1981-2010_V.2.1.tif
+- chelsa_bio12 [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_bio12_1981-2010_V.2.1.tif
+- chelsa_bio14 [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_bio14_1981-2010_V.2.1.tif
+- chelsa_bio15 [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_bio15_1981-2010_V.2.1.tif
+- chelsa_cmimean [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_cmimean_1981-2010_V.2.1.tif
+- chelsa_vpdmean [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_vpdmean_1981-2010_V.2.1.tif
+- chelsa_swb [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_swb_1981-2010_V.2.1.tif
+- chelsa_rsdsmean [cog] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/CHELSA_rsds_1981-2010_mean_V.2.1.tif
+- soilgrids_bdod_0_5cm [wcs] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/soilgrids_bdod_0-5cm_mean_wcs250m.tif
+- soilgrids_cfvo_0_5cm [wcs] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/soilgrids_cfvo_0-5cm_mean_wcs250m.tif
+- soilgrids_sand_0_5cm [wcs] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/soilgrids_sand_0-5cm_mean_wcs250m.tif
+- soilgrids_silt_0_5cm [wcs] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/soilgrids_silt_0-5cm_mean_wcs250m.tif
+- soilgrids_nitrogen_0_5cm [wcs] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/soilgrids_nitrogen_0-5cm_mean_wcs250m.tif
+- soilgrids_ocd_0_5cm [wcs] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/soilgrids_ocd_0-5cm_mean_wcs250m.tif
+- soilgrids_soc_0_5cm [wcs] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/soilgrids_soc_0-5cm_mean_wcs250m.tif
+- soilgrids_phh2o_0_5cm [wcs] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/soilgrids_phh2o_0-5cm_mean_wcs250m.tif
+- worldclim_elevation_30s [zip] -> /home/runner/work/hotarubukuro/hotarubukuro/data/cache/rasters/worldclim_wc2.1_30s_elev.tif 
+Caching chelsa_bio05 ...
+Caching chelsa_bio10 ...
+Caching chelsa_gdd5 ...
+Caching chelsa_bio12 ...
+Caching chelsa_bio14 ...
+Caching chelsa_bio15 ...
+Caching chelsa_cmimean ...
+Caching chelsa_vpdmean ...
+Caching chelsa_swb ...
+Caching chelsa_rsdsmean ...
+Caching soilgrids_bdod_0_5cm ...
+Caching soilgrids_cfvo_0_5cm ...
+Caching soilgrids_sand_0_5cm ...
+Caching soilgrids_silt_0_5cm ...
+Caching soilgrids_nitrogen_0_5cm ...
+Caching soilgrids_ocd_0_5cm ...
+Caching soilgrids_soc_0_5cm ...
+Caching soilgrids_phh2o_0_5cm ...
+Caching worldclim_elevation_30s ...
+Download attempt 1/3 (resuming at 0 bytes): https://geodata.ucdavis.edu/climate/worldclim/2_1/base/wc2.1_30s_elev.zip
+#=#=#                                                                          
+##O#-#                                                                         
+
+                                                                           0.0%
+                                                                           0.1%
+                                                                           0.1%
+                                                                           0.2%
+                                                                           0.3%
+                                                                           0.6%
+                                                                           0.9%
+#                                                                          1.7%
+#                                                                          2.5%
+##                                                                         3.8%
+###                                                                        4.8%
+####                                                                       5.9%
+#####                                                                      7.0%
+#####                                                                      7.9%
+######                                                                     8.7%
+#######                                                                   10.9%
+########                                                                  12.2%
+#########                                                                 13.8%
+##########                                                                15.1%
+###########                                                               16.0%
+############                                                              17.0%
+#############                                                             18.1%
+#############                                                             19.1%
+##############                                                            20.3%
+###############                                                           21.3%
+################                                                          22.6%
+#################                                                         23.6%
+#################                                                         24.8%
+##################                                                        25.9%
+###################                                                       27.1%
+####################                                                      28.2%
+#####################                                                     29.4%
+#####################                                                     30.4%
+######################                                                    31.5%
+#######################                                                   32.8%
+########################                                                  34.1%
+#########################                                                 35.3%
+##########################                                                36.4%
+###########################                                               37.6%
+###########################                                               38.8%
+############################                                              40.0%
+#############################                                             41.2%
+##############################                                            42.4%
+###############################                                           43.6%
+################################                                          44.8%
+#################################                                         46.0%
+#################################                                         47.2%
+##################################                                        48.4%
+###################################                                       49.5%
+####################################                                      50.6%
+#####################################                                     52.0%
+######################################                                    52.9%
+######################################                                    53.8%
+#######################################                                   54.9%
+########################################                                  55.9%
+#########################################                                 57.1%
+##########################################                                58.4%
+##########################################                                59.7%
+###########################################                               61.0%
+############################################                              62.2%
+#############################################                             63.6%
+##############################################                            64.7%
+###############################################                           65.8%
+################################################                          67.2%
+#################################################                         68.6%
+##################################################                        69.9%
+###################################################                       71.1%
+####################################################                      72.4%
+####################################################                      73.6%
+#####################################################                     74.8%
+######################################################                    76.0%
+#######################################################                   77.2%
+########################################################                  78.4%
+#########################################################                 79.5%
+##########################################################                80.7%
+##########################################################                81.9%
+###########################################################               83.3%
+############################################################              84.4%
+#############################################################             85.7%
+##############################################################            86.9%
+###############################################################           87.7%
+################################################################          89.2%
+#################################################################         90.4%
+#################################################################         91.6%
+##################################################################        92.8%
+###################################################################       93.9%
+####################################################################      95.3%
+#####################################################################     96.4%
+######################################################################    97.6%
+#######################################################################   98.8%
+#######################################################################  100.0%
+######################################################################## 100.0%
+Download manifest: data/processed/raster_download_manifest.csv 
+##[group]Run Rscript scripts/prepare_rasters.R --force --no-download
+Rscript scripts/prepare_rasters.R --force --no-download
+shell: /usr/bin/bash -e {0}
+env:
+  R_LIBS_USER: /home/runner/work/_temp/Library
+  TZ: UTC
+  _R_CHECK_SYSTEM_CLOCK_: FALSE
+  NOT_CRAN: true
+  RSPM: https://packagemanager.posit.co/cran/__linux__/noble/latest
+  RENV_CONFIG_REPOS_OVERRIDE: https://packagemanager.posit.co/cran/__linux__/noble/latest
+##[endgroup]
+Canonical grid: 1800 x 1440 cells; 0.00833333333333333 x 0.00833333333333333 degrees; 128, 143, 30, 42 
+- chelsa_bio05 -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_bio05.tif [bilinear]
+- chelsa_bio10 -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_bio10.tif [bilinear]
+- chelsa_gdd5 -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_gdd5.tif [bilinear]
+- chelsa_bio12 -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_bio12.tif [bilinear]
+- chelsa_bio14 -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_bio14.tif [bilinear]
+- chelsa_bio15 -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_bio15.tif [bilinear]
+- chelsa_cmimean -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_cmimean.tif [bilinear]
+- chelsa_vpdmean -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_vpdmean.tif [bilinear]
+- chelsa_swb -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_swb.tif [bilinear]
+- chelsa_rsdsmean -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/chelsa_rsdsmean.tif [bilinear]
+- soilgrids_bdod_0_5cm -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/soilgrids_bdod_0_5cm_mean.tif [average]
+- soilgrids_cfvo_0_5cm -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/soilgrids_cfvo_0_5cm_mean.tif [average]
+- soilgrids_sand_0_5cm -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/soilgrids_sand_0_5cm_mean.tif [average]
+- soilgrids_silt_0_5cm -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/soilgrids_silt_0_5cm_mean.tif [average]
+- soilgrids_nitrogen_0_5cm -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/soilgrids_nitrogen_0_5cm_mean.tif [average]
+- soilgrids_ocd_0_5cm -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/soilgrids_ocd_0_5cm_mean.tif [average]
+- soilgrids_soc_0_5cm -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/soilgrids_soc_0_5cm_mean.tif [average]
+- soilgrids_phh2o_0_5cm -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/soilgrids_phh2o_0_5cm_mean.tif [average]
+- worldclim_elevation_30s -> /home/runner/work/hotarubukuro/hotarubukuro/data/processed/rasters/elevation_30s.tif [bilinear] 
+Preparing chelsa_bio05 ...
+Preparing chelsa_bio10 ...
+Preparing chelsa_gdd5 ...
+Preparing chelsa_bio12 ...
+Preparing chelsa_bio14 ...
+Preparing chelsa_bio15 ...
+Preparing chelsa_cmimean ...
+Preparing chelsa_vpdmean ...
+Preparing chelsa_swb ...
+Preparing chelsa_rsdsmean ...
+Preparing soilgrids_bdod_0_5cm ...
+Preparing soilgrids_cfvo_0_5cm ...
+Preparing soilgrids_sand_0_5cm ...
+Preparing soilgrids_silt_0_5cm ...
+Preparing soilgrids_nitrogen_0_5cm ...
+Preparing soilgrids_ocd_0_5cm ...
+Preparing soilgrids_soc_0_5cm ...
+Preparing soilgrids_phh2o_0_5cm ...
+Preparing worldclim_elevation_30s ...
+
+|---------|---------|---------|---------|
+=========================================
+                                          
+
+|---------|---------|---------|---------|
+=========================================
+                                          
+
+|---------|---------|---------|---------|
+=========================================
+                                          
+Processed manifest: data/processed/raster_manifest.csv 
+##[group]Run Rscript analysis/run_bombus_availability.R \
+Rscript analysis/run_bombus_availability.R \
+  Data_S1.csv data/processed/rasters sdm results/bombus_availability
+shell: /usr/bin/bash -e {0}
+env:
+  R_LIBS_USER: /home/runner/work/_temp/Library
+  TZ: UTC
+  _R_CHECK_SYSTEM_CLOCK_: FALSE
+  NOT_CRAN: true
+  RSPM: https://packagemanager.posit.co/cran/__linux__/noble/latest
+  RENV_CONFIG_REPOS_OVERRIDE: https://packagemanager.posit.co/cran/__linux__/noble/latest
+##[endgroup]
+##[error]Error: [project] input crs is not valid
+Execution halted
+##[error]Process completed with exit code 1.
+Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Post job cleanup.
+[command]/usr/bin/git version
+git version 2.54.0
+Temporarily overriding HOME='/home/runner/work/_temp/086628fa-cf10-4f60-ba1d-17464b720407' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/hotarubukuro/hotarubukuro
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+http.https://github.com/.extraheader
+[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Cleaning up orphan processes
+##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

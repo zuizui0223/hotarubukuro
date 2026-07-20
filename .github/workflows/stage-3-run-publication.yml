@@ -67,10 +67,11 @@ jobs:
             install.packages(
               "INLA",
               repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/stable"),
-              dependencies = TRUE
+              dependencies = c("Depends", "Imports", "LinkingTo")
             )
           }
-          stopifnot(vapply(c(cran, "INLA"), requireNamespace, logical(1), quietly = TRUE))
+          ok <- vapply(c(cran, "INLA"), requireNamespace, logical(1), quietly = TRUE)
+          if (!all(ok)) stop("Failed to install/load: ", paste(names(ok)[!ok], collapse = ", "))
 
       - name: Restore processed rasters from Stage 1
         uses: actions/cache/restore@v4

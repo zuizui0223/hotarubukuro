@@ -8,8 +8,7 @@ on:
 
 permissions:
   actions: read
-  contents: read
-  issues: write
+  contents: write
 
 jobs:
   extract:
@@ -17,7 +16,6 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       REPOSITORY: zuizui0223/hotarubukuro
-      PR_NUMBER: "5"
       FAILED_JOB_ID: "88291599856"
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -39,10 +37,8 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          import os
           import re
 
-          job_id = os.environ["FAILED_JOB_ID"]
           source = Path("failed-job.log")
           text = source.read_text(encoding="utf-8-sig", errors="replace")
           lines = text.splitlines()
@@ -53,8 +49,8 @@ jobs:
           start = anchors[-1] if anchors else max(0, len(lines) - 500)
           excerpt = lines[start:]
 
-          # Keep the actionable tail compact enough for an issue comment while
-          # retaining the command, warnings, R error, and runner annotation.
+          # Keep the actionable tail compact while retaining the command,
+          # warnings, R error, and runner annotation.
           excerpt = excerpt[-450:]
           cleaned = []
           ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -64,33 +60,33 @@ jobs:
               cleaned.append(line)
 
           rendered = "\n".join(cleaned)
-          if len(rendered) > 18000:
-              rendered = rendered[-18000:]
+          if len(rendered) > 30000:
+              rendered = rendered[-30000:]
           Path("failure-excerpt.txt").write_text(rendered + "\n", encoding="utf-8")
 
-          body = (
-              "### Automated CI failure extraction\n\n"
-              f"Source: failed Actions job `{job_id}`. "
-              "The excerpt begins at the full-analysis step and is clipped to the actionable tail.\n\n"
-              "```text\n"
-              + rendered.replace("```", "` ` `")
-              + "\n```\n"
-          )
-          Path("failure-comment.md").write_text(body, encoding="utf-8")
-
-      - name: Post the extracted failure on PR 5
+      - name: Commit the extracted failure tail
         shell: bash
         run: |
           set -euo pipefail
-          gh api --method POST \
-            "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments" \
-            -f body="$(cat failure-comment.md)"
+          mkdir -p diagnostics
+          cp failure-excerpt.txt diagnostics/full-analysis-failure-98764de.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diagnostics/full-analysis-failure-98764de.txt
+          if git diff --cached --quiet; then
+            echo "Diagnostic excerpt is unchanged."
+          else
+            git commit -m "Record extracted full-analysis failure [skip ci]"
+            git push
+          fi
 
       - name: Upload the raw and reduced logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: failed-analysis-log-${{ github.run_number }}
           path: |
             failed-job.log
             failure-excerpt.txt
+          if-no-files-found: warn
           retention-days: 7

@@ -2,36 +2,43 @@
 
 Analysis version: `public-reanalysis-v1`.
 
-## Scope
+## Data flow
 
-The analysis starts from Data_S1 extraction version 2.2.2, hard-excludes 2 unresolved duplicate-photo/different-coordinate record(s), verifies the complete 30 arc-second public raster manifest, and attaches every raster by `analysis_id`.
+- 1,965 source photographs.
+- 2 duplicate-photo/different-coordinate records hard-excluded.
+- 1,963 primary photograph records retained; 1,955 complete for the six-predictor model.
+- 1,887 records have complete values for all five legacy *Bombus* suitability rasters.
+- 1,925 exact-site sensitivity units.
+- 19 public predictor layers validated and joined by stable ID.
 
-The primary response is display-referred CIELAB a* (red-green). L* and b* are illumination/exposure diagnostics. The global-reference colour PC1 is retained only for descriptive method comparison and is not cross-validated, because fitting it on all records would leak test-fold outcome information. No result is a calibrated pigment, reflectance, pollinator-vision, adaptation, or causal estimate.
+## Main result
 
-## Row flow
+For apparent CIELAB a*:
 
-- Primary inclusive photograph records: 1963.
-- Primary strict-OK photograph records: 1180.
-- Exact-site sensitivity records: 1925.
-- Public predictor layers validated: 19.
-- Candidate predictor maximum VIF: 95.56; retained six-predictor maximum VIF: 4.786.
-- Bombus-complete primary records: 1887; missing: 76.
-- All-colour-method common inclusive records: 1922.
-- Unique-coordinate fold sizes: 385, 385, 385, 385, 385.
+- Environment-only blocked Q²: 0.2156 on the full complete cohort.
+- Environment-only blocked Q²: 0.2337 on the *Bombus*-complete cohort.
+- Environment + *Bombus* suitability blocked Q²: 0.2521 on that same cohort.
+- Increment attributable to adding the legacy suitability sum: 0.0184 Q².
 
-## Descriptive model status
+The six colour-estimation methods give a narrow environment-only Q² range
+(0.2156–0.2234), so the predictive result is not driven by one colour summary.
 
-Full-cohort environment-only blocked Q2 for primary a: 0.2156. On the identical Bombus-complete cohort, environment-only Q2 is 0.2337 and environment-plus-Bombus Q2 is 0.2521.
+## Interpretation limit
 
-These are descriptive standardized linear models. Naive standard errors are included only as diagnostics and do not correct spatial dependence. 5 equal-site, principal-geographic-axis bands assess prediction sensitivity; no buffer is imposed and the result is not causal. Pooled Q2 uses each fold's training mean as its baseline, and fold-level/macro metrics are retained.
+`Bombus_suitability_sum` is a sum of climate-based legacy SDM predictions. It is
+not observed richness, visitation, geographic occupancy, or realized pollinator
+availability. In particular, the current model does not encode structural
+absence on the Izu Islands and therefore does not test the proposed
+Izu-white-flower availability hypothesis. The modest increment may partly
+reflect environmental information reused by the legacy SDMs.
 
-## Required caveats
+WorldPop is treated as an access/sampling-intensity proxy. These models describe
+camera-rendered apparent flower colour; they do not estimate calibrated pigment,
+reflectance, pollinator vision, adaptation, or causality.
 
-- White balance is not identifiable from the post-processed cut-outs and was not applied.
-- Manual adjudication of 785 automated review flags is incomplete; inclusive and strict-OK results are both retained.
-- Workbook coordinates were remapped to images but not independently recomputed from GPX.
-- The five Bombus rasters are structurally valid but their model-generation provenance is legacy_unverifiable; their sum is suitability, not richness.
-- Bombus suitability reuses environmental information and is therefore shown only as an additional sensitivity predictor.
-- WorldPop 2020 is treated mainly as a human access/sampling-intensity proxy, not a causal ecological driver.
-- CHELSA 1981–2010 climatology and WorldPop 2020 do not match individual photograph dates; season, camera, illumination, and non-random citizen-photo sampling remain uncontrolled.
-- SoilGrids uses a mutable `latest` endpoint; this run is pinned by the retrieved-file hashes in the raster manifest.
+## Remaining limitations
+
+Manual adjudication of 785 automated review flags is incomplete. Coordinates
+were remapped from the workbook but not independently reconstructed from GPX.
+White balance is not identifiable from the available cut-outs. The five
+*Bombus* rasters are structurally valid but remain `legacy_unverifiable`.

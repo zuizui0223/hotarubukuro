@@ -1,0 +1,91 @@
+name: "Stage 2 - Validate publication extraction"
+
+on:
+  workflow_dispatch:
+    inputs:
+      raster_commit:
+        description: Commit SHA whose Stage 1 processed-raster cache should be restored
+        required: true
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publication-stage-2-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  R_VERSION: "4.4.3"
+  RASTER_CACHE_VERSION: "v4"
+
+jobs:
+  validate-extraction:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: publication-r-${{ runner.os }}-${{ env.R_VERSION }}-spatial-v2
+          restore-keys: |
+            publication-r-${{ runner.os }}-${{ env.R_VERSION }}-
+
+      - name: Install spatial dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+          Rscript -e 'needed <- c("terra","sf","yaml"); missing <- needed[!vapply(needed, requireNamespace, logical(1), quietly=TRUE)]; if(length(missing)) install.packages(missing, repos="https://cloud.r-project.org"); stopifnot(vapply(needed, requireNamespace, logical(1), quietly=TRUE))'
+
+      - name: Restore processed rasters from Stage 1
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/processed/rasters
+            data/processed/raster_manifest.csv
+            data/processed/raster_download_manifest.csv
+          key: publication-processed-${{ env.RASTER_CACHE_VERSION }}-${{ inputs.raster_commit }}
+          fail-on-cache-miss: true
+
+      - name: Parse extraction diagnostic
+        shell: Rscript {0}
+        run: parse(file = "analysis/diagnose_all_extraction.R")
+
+      - name: Validate all environmental and Bombus extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript analysis/diagnose_all_extraction.R \
+            Data_S1.csv data/processed/rasters sdm results/all_extraction_diagnostic \
+            >all-extraction.log 2>&1
+          cat all-extraction.log
+
+      - name: Check diagnostic outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s all-extraction.log
+          test -d results/all_extraction_diagnostic
+          find results/all_extraction_diagnostic -type f -maxdepth 2 -print
+
+      - name: Upload extraction diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-extraction-${{ github.sha }}
+          path: |
+            all-extraction.log
+            results/all_extraction_diagnostic
+          if-no-files-found: warn
+          retention-days: 14

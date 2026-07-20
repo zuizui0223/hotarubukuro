@@ -1,0 +1,154 @@
+name: Publication staged CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publication-staged-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  R_VERSION: "4.4.3"
+
+jobs:
+  stage-1-prepare-rasters:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+      - name: Install system libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+      - name: Install raster dependencies
+        shell: Rscript {0}
+        run: |
+          needed <- c("terra", "sf", "yaml", "geodata", "digest", "jsonlite")
+          missing <- needed[!vapply(needed, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+          stopifnot(vapply(needed, requireNamespace, logical(1), quietly = TRUE))
+      - name: Download public rasters
+        run: Rscript scripts/download_rasters.R
+      - name: Prepare aligned rasters
+        run: Rscript scripts/prepare_rasters.R --force --no-download
+      - name: Validate raster outputs
+        shell: Rscript {0}
+        run: |
+          stopifnot(file.exists("data/processed/raster_manifest.csv"))
+          tif <- list.files("data/processed/rasters", pattern = "[.]tif$", full.names = TRUE)
+          stopifnot(length(tif) >= 19L, all(file.info(tif)$size > 0))
+      - name: Upload prepared rasters
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared-publication-rasters
+          path: |
+            data/processed/rasters
+            data/processed/raster_manifest.csv
+            data/processed/raster_download_manifest.csv
+          if-no-files-found: error
+          retention-days: 7
+
+  stage-2-validate-extraction:
+    needs: stage-1-prepare-rasters
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+      - name: Install system libraries and R packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+          Rscript -e 'needed <- c("terra","sf","yaml"); missing <- needed[!vapply(needed, requireNamespace, logical(1), quietly=TRUE)]; if(length(missing)) install.packages(missing, repos="https://cloud.r-project.org"); stopifnot(vapply(needed, requireNamespace, logical(1), quietly=TRUE))'
+      - uses: actions/download-artifact@v4
+        with:
+          name: prepared-publication-rasters
+          path: data/processed
+      - name: Validate environment and Bombus extraction
+        run: |
+          Rscript analysis/diagnose_all_extraction.R \
+            Data_S1.csv data/processed/rasters sdm results/all_extraction_diagnostic
+      - name: Upload extraction diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-extraction-diagnostics
+          path: results/all_extraction_diagnostic
+          if-no-files-found: error
+          retention-days: 7
+
+  stage-3-run-models:
+    needs: stage-2-validate-extraction
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+      - name: Install system libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+            libcurl4-openssl-dev libssl-dev
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+      - name: Install model dependencies
+        shell: Rscript {0}
+        run: |
+          needed <- c("terra", "sf", "lavaan", "qgam", "yaml", "geodata", "digest", "jsonlite")
+          missing <- needed[!vapply(needed, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+          if (!requireNamespace("INLA", quietly = TRUE)) {
+            install.packages("INLA", repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/stable"), dependencies = TRUE)
+          }
+          stopifnot(vapply(c(needed, "INLA"), requireNamespace, logical(1), quietly = TRUE))
+      - uses: actions/download-artifact@v4
+        with:
+          name: prepared-publication-rasters
+          path: data/processed
+      - name: Download human predictors
+        run: Rscript scripts/download_human_predictors.R data/cache/human
+      - name: Run CFA, SPDE-INLA and qGAM
+        run: |
+          Rscript analysis/run_publication_workflow.R \
+            Data_S1.csv data/processed/rasters sdm data/cache/human results/publication
+      - name: Validate manuscript outputs
+        shell: Rscript {0}
+        run: |
+          required <- file.path("results/publication", c(
+            "cfa_standardized_loadings.csv",
+            "environment_pca_loadings.csv",
+            "bombus_environment_correlations.csv",
+            "integrated_spde_model_diagnostics.csv",
+            "integrated_spde_fixed_effects.csv",
+            "qgam_model_summary.csv",
+            "anthropogenic_outlier_review.csv",
+            "sessionInfo.txt"
+          ))
+          stopifnot(all(file.exists(required)), all(file.info(required)$size > 0))
+      - name: Upload publication outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-analysis-${{ github.sha }}
+          path: results/publication
+          if-no-files-found: warn
+          retention-days: 30

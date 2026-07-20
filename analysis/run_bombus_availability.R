@@ -11,10 +11,44 @@ dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 z <- function(x) as.numeric(scale(x))
 nonempty <- function(x) !is.na(x) & nzchar(trimws(as.character(x)))
+
+ensure_raster_crs <- function(r, path) {
+  current <- terra::crs(r, proj = TRUE)
+  if (!is.na(current) && nzchar(trimws(current))) return(r)
+  ex <- as.vector(terra::ext(r))
+  looks_geographic <- length(ex) == 4L && all(is.finite(ex)) &&
+    ex[[1]] >= -180 && ex[[2]] <= 180 && ex[[3]] >= -90 && ex[[4]] <= 90
+  if (!looks_geographic) {
+    stop("Raster has no valid CRS and its extent is not geographic: ", path,
+         " [", paste(ex, collapse = ", "), "]", call. = FALSE)
+  }
+  warning("Raster CRS metadata was missing; assigning EPSG:4326 after geographic-extent validation: ", path,
+          call. = FALSE)
+  terra::crs(r) <- "EPSG:4326"
+  r
+}
+
+read_raster_checked <- function(path) {
+  if (!file.exists(path)) stop("Missing raster: ", path, call. = FALSE)
+  r <- terra::rast(path)
+  if (terra::nlyr(r) != 1L) stop("Expected one raster layer: ", path, call. = FALSE)
+  ensure_raster_crs(r, path)
+}
+
 extract_values <- function(paths, layer_names, dat) {
   if (any(!file.exists(paths))) stop("Missing raster(s): ", paste(paths[!file.exists(paths)], collapse = ", "))
-  r <- rast(paths); names(r) <- layer_names
+  layers <- lapply(paths, read_raster_checked)
+  reference <- layers[[1L]]
+  incompatible <- vapply(layers, function(x) {
+    !isTRUE(terra::same.crs(reference, x))
+  }, logical(1))
+  if (any(incompatible)) {
+    stop("Raster CRS differs within extraction stack: ",
+         paste(paths[incompatible], collapse = ", "), call. = FALSE)
+  }
+  r <- do.call(c, layers); names(r) <- layer_names
   pts <- vect(dat[c("longitude", "latitude")], geom = c("longitude", "latitude"), crs = "EPSG:4326")
+  if (!terra::same.crs(pts, r)) pts <- terra::project(pts, terra::crs(r))
   out <- as.data.frame(extract(r, pts, ID = FALSE), check.names = FALSE)
   stopifnot(nrow(out) == nrow(dat)); out
 }
@@ -67,9 +101,11 @@ env_files <- c(
 d <- cbind(d, extract_values(file.path(env_dir, env_files), names(env_files), d))
 
 elev_path <- file.path(env_dir, "elevation_30s.tif")
-if (!file.exists(elev_path)) stop("Missing elevation_30s.tif")
-elev <- rast(elev_path)
+elev <- read_raster_checked(elev_path)
 topo <- c(terrain(elev, "roughness"), terrain(elev, "slope", unit = "radians"), terrain(elev, "TRI")); names(topo) <- c("roughness","slope","TRI")
+if (is.na(terra::crs(topo, proj = TRUE)) || !nzchar(trimws(terra::crs(topo, proj = TRUE)))) {
+  terra::crs(topo) <- terra::crs(elev)
+}
 pts <- vect(d[c("longitude","latitude")], geom = c("longitude","latitude"), crs = "EPSG:4326")
 if (!same.crs(pts, topo)) pts <- project(pts, crs(topo))
 tv <- as.data.frame(extract(topo, pts, ID = FALSE)); stopifnot(nrow(tv) == nrow(d)); d <- cbind(d, tv)
@@ -127,15 +163,16 @@ hyper <- do.call(rbind,lapply(fits,function(o){x<-as.data.frame(o$fit$summary.hy
 # Same-cohort spatial block prediction sensitivity.
 axis1 <- prcomp(scale(loc),center=FALSE,scale.=FALSE)$x[,1]; br <- unique(quantile(axis1,seq(0,1,length.out=6),type=1)); if(length(br)!=6)stop("Cannot form folds")
 d$fold <- cut(axis1,br,include.lowest=TRUE,labels=FALSE); cv <- list()
-for(nm in names(models)) for(k in 1:5){tr<-d$fold!=k;te<-d$fold==k;f0<-lm(as.formula(paste("y ~",paste(models[[nm]],collapse=" + "))),d[tr,]);p<-predict(f0,d[te,]);den<-sum((d$y[te]-mean(d$y[tr]))^2);cv[[paste(nm,k)]]<-data.frame(model=nm,fold=k,n_test=sum(te),RMSE=sqrt(mean((d$y[te]-p)^2)),MAE=mean(abs(d$y[te]-p)),Q2=if(den>0)1-sum((d$y[te]-p)^2)/den else NA)}
-cv <- do.call(rbind,cv); cv_summary <- aggregate(cbind(RMSE,MAE,Q2)~model,cv,mean)
-spatial_diag <- data.frame(index=c("spatial_widespread","spatial_montane"),cor_longitude=c(cor(d$spatial_widespread,d$longitude),cor(d$spatial_montane,d$longitude)),cor_latitude=c(cor(d$spatial_widespread,d$latitude),cor(d$spatial_montane,d$latitude)),cor_axis1=c(cor(d$spatial_widespread,axis1),cor(d$spatial_montane,axis1)),cor_DOY=c(cor(d$spatial_widespread,d$DOY),cor(d$spatial_montane,d$DOY)))
-flow <- data.frame(stage=c("canonical_input","identity_excluded","incomplete_input_excluded","missing_sdm_excluded","model_incomplete_excluded","common_model_cohort"),n=c(n_input,nrow(excluded_identity),nrow(excluded_input),nrow(excluded_sdm),nrow(excluded_model),nrow(d)))
+for(nm in names(models)) for(k in 1:5){tr<-d$fold!=k;te<-d$fold==k;f0<-lm(as.formula(paste("y ~",paste(models[[nm]],collapse=" + "))),d[tr,]);p<-predict(f0,d[te,]);den<-sum((d$y[te]-mean(d$y[tr]))^2);cv[[paste(nm,k)]]<-data.frame(model=nm,fold=k,n_test=sum(te),RMSE=sqrt(mean((d$y[te]-p)^2)),MAE=mean(abs(d$y[te]-p)),R2_pred=if(den>0)1-sum((d$y[te]-p)^2)/den else NA)}
+cv_fold <- do.call(rbind,cv); cv_summary <- do.call(rbind,lapply(split(cv_fold,cv_fold$model),function(x)data.frame(model=x$model[1],RMSE_mean=mean(x$RMSE),RMSE_sd=sd(x$RMSE),MAE_mean=mean(x$MAE),R2_pred_mean=mean(x$R2_pred,na.rm=TRUE))))
 
-write.csv(comparison,file.path(out_dir,"spde_model_comparison.csv"),row.names=FALSE);write.csv(fixed,file.path(out_dir,"spde_fixed_effects.csv"),row.names=FALSE);write.csv(hyper,file.path(out_dir,"spde_hyperparameters.csv"),row.names=FALSE)
-write.csv(cv,file.path(out_dir,"blocked_cv_by_fold.csv"),row.names=FALSE);write.csv(cv_summary,file.path(out_dir,"blocked_cv_summary.csv"),row.names=FALSE);write.csv(spatial_diag,file.path(out_dir,"spatial_group_diagnostic.csv"),row.names=FALSE)
-write.csv(pca_loadings,file.path(out_dir,"environment_pca_loadings.csv"),row.names=FALSE);write.csv(flow,file.path(out_dir,"row_flow.csv"),row.names=FALSE)
-write.csv(excluded_identity,file.path(out_dir,"excluded_identity.csv"),row.names=FALSE);write.csv(excluded_input,file.path(out_dir,"excluded_incomplete_input.csv"),row.names=FALSE);write.csv(excluded_sdm,file.path(out_dir,"excluded_missing_sdm.csv"),row.names=FALSE);write.csv(excluded_model,file.path(out_dir,"excluded_model_incomplete.csv"),row.names=FALSE)
-keep <- c("observation_id","date","latitude","longitude","DOY","L","a","b","fold","Temperature_PC1","precip_PC1","topo_PC1","soil_phys_PC1","soil_nutrient_PC1","soil_pH","RSDS",species,"Bombus_suitability_sum","Bombus_any_availability","Bombus_max_availability","spatial_widespread","spatial_montane")
-write.csv(d[keep],file.path(out_dir,"analysis_data.csv"),row.names=FALSE);writeLines(capture.output(sessionInfo()),file.path(out_dir,"sessionInfo.txt"))
-print(flow);print(comparison);print(cv_summary)
+# Reviewer-facing exports.
+write.csv(comparison,file.path(out_dir,"spde_model_comparison.csv"),row.names=FALSE); write.csv(fixed,file.path(out_dir,"spde_fixed_effects.csv"),row.names=FALSE); write.csv(hyper,file.path(out_dir,"spde_hyperparameters.csv"),row.names=FALSE)
+write.csv(cv_fold,file.path(out_dir,"blocked_cv_folds.csv"),row.names=FALSE); write.csv(cv_summary,file.path(out_dir,"blocked_cv_summary.csv"),row.names=FALSE); write.csv(pca_loadings,file.path(out_dir,"environment_pca_loadings.csv"),row.names=FALSE)
+write.csv(rbind(data.frame(stage="input",n=n_input),data.frame(stage="excluded_identity",n=nrow(excluded_identity)),data.frame(stage="excluded_missing_input",n=nrow(excluded_input)),data.frame(stage="excluded_invalid_sdm",n=nrow(excluded_sdm)),data.frame(stage="excluded_incomplete_model",n=nrow(excluded_model)),data.frame(stage="common_model_cohort",n=nrow(d))),file.path(out_dir,"row_flow.csv"),row.names=FALSE)
+write.csv(data.frame(index=c("Bombus_suitability_sum","Bombus_any_availability","Bombus_max_availability","spatial_widespread","spatial_montane"),definition=c("sum of five species suitability values","probability-like union 1-product(1-p_i)","maximum suitability among five species","widespread-species union: ardens + diversus","montane-species union: beaticola + consobrinus + honshuensis")),file.path(out_dir,"bombus_index_definitions.csv"),row.names=FALSE)
+write.csv(data.frame(group=c("widespread","montane"),species=c("ardens;diversus","beaticola;consobrinus;honshuensis"),correlation_with_temperature=c(cor(d$spatial_widespread,d$Temperature_PC1),cor(d$spatial_montane,d$Temperature_PC1)),correlation_with_topography=c(cor(d$spatial_widespread,d$topo_PC1),cor(d$spatial_montane,d$topo_PC1))),file.path(out_dir,"spatial_group_diagnostic.csv"),row.names=FALSE)
+write.csv(d,file.path(out_dir,"analysis_data.csv"),row.names=FALSE)
+write.csv(excluded_identity,file.path(out_dir,"excluded_identity.csv"),row.names=FALSE); write.csv(excluded_input,file.path(out_dir,"excluded_missing_input.csv"),row.names=FALSE); write.csv(excluded_sdm,file.path(out_dir,"excluded_invalid_sdm.csv"),row.names=FALSE); write.csv(excluded_model,file.path(out_dir,"excluded_incomplete_model.csv"),row.names=FALSE)
+writeLines(capture.output(sessionInfo()),file.path(out_dir,"sessionInfo.txt"))
+cat("Completed common cohort:",nrow(d),"rows; outputs:",out_dir,"\n")

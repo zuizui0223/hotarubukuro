@@ -6,11 +6,22 @@
 # one shared spatial fold assignment.
 
 args <- commandArgs(trailingOnly = TRUE)
-repo_root <- normalizePath(file.path(dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1L])), ".."), winslash = "/", mustWork = TRUE)
+script_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
+script_path <- if (length(script_arg)) {
+  sub("^--file=", "", script_arg[[1L]])
+} else {
+  "scripts/run_bombus_availability_sensitivity.R"
+}
+repo_root <- normalizePath(file.path(dirname(script_path), ".."), winslash = "/", mustWork = TRUE)
 source(file.path(repo_root, "R", "analysis_core.R"))
 source(file.path(repo_root, "R", "sdm.R"))
 source(file.path(repo_root, "R", "reanalysis.R"))
 source(file.path(repo_root, "R", "bombus_availability.R"))
+
+prefix_columns_local <- function(data, values) {
+  for (name in names(values)) data[[name]] <- values[[name]]
+  data
+}
 
 usage <- function() {
   paste(
@@ -97,11 +108,11 @@ for (variant in names(variants)) {
     bombus_index = if (is.na(bombus_term)) "none" else bombus_term,
     records_common = nrow(analysis)
   )
-  coefficient_rows[[variant]] <- prefix_columns(fit$coefficients, meta)
+  coefficient_rows[[variant]] <- prefix_columns_local(fit$coefficients, meta)
   cv_performance <- cv$performance
   names(cv_performance)[names(cv_performance) == "records_complete"] <- "records_complete_cv"
-  performance_rows[[variant]] <- prefix_columns(cbind(fit$performance, cv_performance), meta)
-  fold_rows[[variant]] <- prefix_columns(cv$fold_performance, meta)
+  performance_rows[[variant]] <- prefix_columns_local(cbind(fit$performance, cv_performance), meta)
+  fold_rows[[variant]] <- prefix_columns_local(cv$fold_performance, meta)
 }
 
 coefficients <- do.call(rbind, coefficient_rows)

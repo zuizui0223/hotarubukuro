@@ -36,7 +36,7 @@ points_ll <- terra::vect(d, geom = c("longitude", "latitude"), crs = "EPSG:4326"
 summaries <- list()
 extracted <- list()
 for (i in seq_along(paths)) {
-  nm <- names(paths)[[i]]
+  nm <- names(files)[[i]]
   path <- paths[[i]]
   r <- terra::rast(path)
   ex <- as.vector(terra::ext(r))
@@ -99,7 +99,7 @@ for (i in seq_along(paths)) {
     ),
     as1, character(1)
   )
-  summaries[[nm]] <- as.data.frame(as.list(summary_fields), stringsAsFactors = FALSE)
+  summaries[[nm]] <- summary_fields
 
   if (!is.null(vector_values) && vector_finite > 0) {
     extracted[[nm]] <- as.numeric(vector_values[[1]])
@@ -110,7 +110,7 @@ for (i in seq_along(paths)) {
   }
 }
 
-summary_df <- do.call(rbind, summaries)
+summary_df <- as.data.frame(do.call(rbind, summaries), stringsAsFactors = FALSE, row.names = NULL)
 write.csv(summary_df, file.path(out_dir, "raster_extraction_diagnostic.csv"), row.names = FALSE)
 
 values <- as.data.frame(extracted, check.names = FALSE)

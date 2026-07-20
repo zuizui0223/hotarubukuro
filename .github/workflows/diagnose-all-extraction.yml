@@ -1,0 +1,97 @@
+name: Diagnose all environment and SDM extraction
+
+on:
+  push:
+    branches: ["analysis/minimal-bombus-availability"]
+    paths:
+      - ".github/workflows/diagnose-all-extraction.yml"
+      - "analysis/diagnose_all_extraction.R"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnose-all-extraction-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.3"
+
+      - name: Install terra dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+          Rscript -e 'if (!requireNamespace("terra", quietly=TRUE)) install.packages("terra", repos="https://cloud.r-project.org")'
+
+      - name: Restore processed raster cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/processed/rasters
+            data/processed/raster_manifest.csv
+          key: all-extraction-rasters-v1-${{ runner.os }}-${{ hashFiles('config/pipeline.yml', 'config/raster_sources.csv', 'R/raster_sources.R', 'scripts/prepare_rasters.R') }}
+          restore-keys: |
+            all-extraction-rasters-v1-${{ runner.os }}-
+            legacy-rasters-v3-${{ runner.os }}-
+
+      - name: Ensure all environmental rasters exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            chelsa_bio05 chelsa_bio10 chelsa_gdd5 chelsa_cmimean chelsa_vpdmean
+            chelsa_bio12 chelsa_bio14 chelsa_bio15 chelsa_swb chelsa_rsdsmean
+            elevation_30s soilgrids_bdod_0_5cm_mean soilgrids_cfvo_0_5cm_mean
+            soilgrids_sand_0_5cm_mean soilgrids_silt_0_5cm_mean
+            soilgrids_nitrogen_0_5cm_mean soilgrids_ocd_0_5cm_mean
+            soilgrids_soc_0_5cm_mean soilgrids_phh2o_0_5cm_mean
+          )
+          missing=0
+          for stem in "${required[@]}"; do
+            [[ -s "data/processed/rasters/${stem}.tif" ]] || missing=1
+          done
+          if [[ "$missing" -eq 1 ]]; then
+            Rscript scripts/download_rasters.R >download.log 2>&1
+            Rscript scripts/prepare_rasters.R --force --no-download >prepare.log 2>&1
+          fi
+
+      - name: Parse diagnostic
+        shell: Rscript {0}
+        run: parse(file="analysis/diagnose_all_extraction.R")
+
+      - name: Run extraction and PCA diagnostic only
+        shell: bash
+        run: |
+          set +e
+          Rscript analysis/diagnose_all_extraction.R \
+            Data_S1.csv data/processed/rasters sdm results/all_extraction_diagnostic \
+            >all-extraction.log 2>&1
+          status=$?
+          set -e
+          cat all-extraction.log
+          exit "$status"
+
+      - name: Upload diagnostic outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-extraction-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            all-extraction.log
+            download.log
+            prepare.log
+            results/all_extraction_diagnostic
+          if-no-files-found: warn
+          retention-days: 7

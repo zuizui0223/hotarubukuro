@@ -111,9 +111,19 @@ jobs:
       - name: Validate expanded outputs
         shell: Rscript {0}
         run: |
-          path <- "results/ci/expanded_bombus/performance.csv"
-          stopifnot(file.exists(path))
-          x <- read.csv(path, check.names = FALSE)
+          output_dir <- "results/ci/expanded_bombus"
+          required_files <- c(
+            "performance.csv",
+            "coefficients.csv",
+            "performance_by_fold.csv",
+            "environment_pca_loadings.csv",
+            "analysis_data.csv",
+            "row_flow.csv"
+          )
+          paths <- file.path(output_dir, required_files)
+          stopifnot(all(file.exists(paths)), all(file.info(paths)$size > 0))
+
+          x <- read.csv(file.path(output_dir, "performance.csv"), check.names = FALSE)
           expected <- c(
             "environment_only",
             "Bombus_suitability_sum",
@@ -122,8 +132,14 @@ jobs:
           )
           stopifnot(setequal(x$model_variant, expected))
           stopifnot(length(unique(x$records_common)) == 1L)
+          stopifnot(unique(x$records_common) > 0L)
           stopifnot(all(is.finite(x$q_squared_cv)))
-          loadings <- read.csv("results/ci/expanded_bombus/environment_pca_loadings.csv")
+
+          by_fold <- read.csv(file.path(output_dir, "performance_by_fold.csv"))
+          stopifnot(setequal(unique(by_fold$model_variant), expected))
+          stopifnot(length(unique(by_fold$fold)) == 5L)
+
+          loadings <- read.csv(file.path(output_dir, "environment_pca_loadings.csv"))
           stopifnot(setequal(unique(loadings$group), c(
             "Temperature_PC1", "precip_PC1", "soil_phys_PC1",
             "soil_nutrient_PC1", "topo_PC1"

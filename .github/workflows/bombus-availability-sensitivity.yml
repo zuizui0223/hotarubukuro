@@ -97,8 +97,14 @@ jobs:
             --sdm-dir sdm \
             --output-dir results/ci/pr4_reanalysis \
             >reanalysis.log 2>&1; then
-            echo "=== PR4 reanalysis failure ==="
-            tail -n 300 reanalysis.log
+            echo "=== PR4 reanalysis wrapper log ==="
+            tail -n 300 reanalysis.log || true
+            echo "=== PR4 internal run.log ==="
+            if [[ -f results/ci/pr4_reanalysis/run.log ]]; then
+              tail -n 500 results/ci/pr4_reanalysis/run.log
+            else
+              echo "Internal run.log was not created."
+            fi
             exit 1
           fi
 
@@ -165,6 +171,7 @@ jobs:
             prepare.log
             reanalysis.log
             expanded-analysis.log
+            results/ci/pr4_reanalysis/run.log
             results/ci/pr4_reanalysis/model_performance.csv
             results/ci/pr4_reanalysis/model_performance_by_fold.csv
             results/ci/pr4_reanalysis/row_flow.csv

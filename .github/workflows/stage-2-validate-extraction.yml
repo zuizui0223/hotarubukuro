@@ -3,14 +3,19 @@ name: "Stage 2 - Validate publication extraction"
 on:
   workflow_dispatch:
     inputs:
-      raster_commit:
-        description: Commit SHA whose Stage 1 processed-raster cache should be restored
+      stage1_run_id:
+        description: Stage 1 workflow run ID containing prepared-publication-rasters
         required: true
-        default: ""
+        type: string
+      raster_artifact_name:
+        description: Stage 1 artifact name
+        required: true
+        default: prepared-publication-rasters
         type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: publication-stage-2-${{ github.ref }}
@@ -18,7 +23,6 @@ concurrency:
 
 env:
   R_VERSION: "4.4.3"
-  RASTER_CACHE_VERSION: "v4"
 
 jobs:
   validate-extraction:
@@ -48,15 +52,24 @@ jobs:
             libgdal-dev libgeos-dev libproj-dev libudunits2-dev
           Rscript -e 'needed <- c("terra","sf","yaml"); missing <- needed[!vapply(needed, requireNamespace, logical(1), quietly=TRUE)]; if(length(missing)) install.packages(missing, repos="https://cloud.r-project.org"); stopifnot(vapply(needed, requireNamespace, logical(1), quietly=TRUE))'
 
-      - name: Restore processed rasters from Stage 1
-        uses: actions/cache/restore@v4
+      - name: Download Stage 1 prepared rasters
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            data/processed/rasters
-            data/processed/raster_manifest.csv
-            data/processed/raster_download_manifest.csv
-          key: publication-processed-${{ env.RASTER_CACHE_VERSION }}-${{ inputs.raster_commit }}
-          fail-on-cache-miss: true
+          name: ${{ inputs.raster_artifact_name }}
+          path: data/processed
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.stage1_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify restored Stage 1 artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s data/processed/raster_manifest.csv
+          test -d data/processed/rasters
+          count=$(find data/processed/rasters -maxdepth 1 -type f -name '*.tif' | wc -l)
+          test "$count" -ge 19
+          echo "Restored $count rasters from Stage 1 run ${{ inputs.stage1_run_id }}."
 
       - name: Parse extraction diagnostic
         shell: Rscript {0}
@@ -77,15 +90,25 @@ jobs:
           set -euo pipefail
           test -s all-extraction.log
           test -d results/all_extraction_diagnostic
-          find results/all_extraction_diagnostic -type f -maxdepth 2 -print
+          test "$(find results/all_extraction_diagnostic -type f | wc -l)" -ge 1
 
-      - name: Upload extraction diagnostics
-        if: always()
+      - name: Upload reusable extraction diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: publication-extraction-${{ github.sha }}
+          name: publication-extraction-diagnostics
           path: |
             all-extraction.log
             results/all_extraction_diagnostic
-          if-no-files-found: warn
-          retention-days: 14
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Write reuse instructions
+        shell: bash
+        run: |
+          {
+            echo "## Stage 2 completed"
+            echo "Stage 1 run ID: ${{ inputs.stage1_run_id }}"
+            echo "Stage 2 run ID: ${{ github.run_id }}"
+            echo "Artifact: publication-extraction-diagnostics"
+            echo "Stage 3 must use both run IDs separately."
+          } >> "$GITHUB_STEP_SUMMARY"

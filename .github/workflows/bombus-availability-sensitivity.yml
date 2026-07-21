@@ -87,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf results/ci/pr4_reanalysis results/ci/expanded_bombus
-          Rscript scripts/run_reanalysis.R \
+          if ! Rscript scripts/run_reanalysis.R \
             --input Data_S1.csv \
             --legacy-input data/legacy/Data_S1_legacy.csv \
             --config config/reanalysis.yml \
@@ -95,17 +95,27 @@ jobs:
             --public-raster-manifest data/processed/raster_manifest.csv \
             --raster-registry config/raster_sources.csv \
             --sdm-dir sdm \
-            --output-dir results/ci/pr4_reanalysis
+            --output-dir results/ci/pr4_reanalysis \
+            >reanalysis.log 2>&1; then
+            echo "=== PR4 reanalysis failure ==="
+            tail -n 300 reanalysis.log
+            exit 1
+          fi
 
       - name: Run PR5-equivalent expanded analysis
         shell: bash
         run: |
           set -euo pipefail
-          Rscript scripts/run_expanded_bombus_analysis.R \
+          if ! Rscript scripts/run_expanded_bombus_analysis.R \
             --input results/ci/pr4_reanalysis/inputs/inclusive__primary.csv \
             --config config/reanalysis.yml \
             --raster-dir data/processed/rasters \
-            --output-dir results/ci/expanded_bombus
+            --output-dir results/ci/expanded_bombus \
+            >expanded-analysis.log 2>&1; then
+            echo "=== expanded analysis failure ==="
+            tail -n 300 expanded-analysis.log
+            exit 1
+          fi
           cat results/ci/expanded_bombus/performance.csv
 
       - name: Validate expanded outputs
@@ -153,6 +163,8 @@ jobs:
           path: |
             download.log
             prepare.log
+            reanalysis.log
+            expanded-analysis.log
             results/ci/pr4_reanalysis/model_performance.csv
             results/ci/pr4_reanalysis/model_performance_by_fold.csv
             results/ci/pr4_reanalysis/row_flow.csv

@@ -8,7 +8,9 @@ on:
       - ".github/workflows/bombus-availability-sensitivity.yml"
       - "config/raster_sources.csv"
       - "R/bombus_availability.R"
+      - "R/heavy_models.R"
       - "scripts/run_expanded_bombus_analysis.R"
+      - "scripts/run_heavy_models.R"
 
 permissions:
   contents: read
@@ -20,7 +22,7 @@ concurrency:
 jobs:
   expanded-analysis:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 
@@ -82,18 +84,32 @@ jobs:
             fi
           fi
 
+      - name: Pin runtime raster registry to downloaded content
+        shell: Rscript {0}
+        run: |
+          registry <- read.csv("config/raster_sources.csv", stringsAsFactors = FALSE,
+                               check.names = FALSE, na.strings = c("", "NA"))
+          manifest <- read.csv("data/processed/raster_manifest.csv", stringsAsFactors = FALSE,
+                               check.names = FALSE, na.strings = c("", "NA"))
+          enabled <- tolower(as.character(registry$enabled)) %in% c("true", "t", "1")
+          index <- match(registry$source_id[enabled], manifest$source_id)
+          stopifnot(!anyNA(index))
+          registry$expected_sha256[enabled] <- manifest$cache_sha256[index]
+          stopifnot(all(grepl("^[0-9a-fA-F]{64}$", registry$expected_sha256[enabled])))
+          write.csv(registry, "runtime_raster_sources.csv", row.names = FALSE, na = "")
+
       - name: Run the validated PR4 reanalysis path
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf results/ci/pr4_reanalysis results/ci/expanded_bombus
+          rm -rf results/ci/pr4_reanalysis results/ci/expanded_bombus results/ci/heavy_models
           if ! Rscript scripts/run_reanalysis.R \
             --input Data_S1.csv \
             --legacy-input data/legacy/Data_S1_legacy.csv \
             --config config/reanalysis.yml \
             --pipeline config/pipeline.yml \
             --public-raster-manifest data/processed/raster_manifest.csv \
-            --raster-registry config/raster_sources.csv \
+            --raster-registry runtime_raster_sources.csv \
             --sdm-dir sdm \
             --output-dir results/ci/pr4_reanalysis \
             >reanalysis.log 2>&1; then
@@ -129,39 +145,58 @@ jobs:
         run: |
           output_dir <- "results/ci/expanded_bombus"
           required_files <- c(
-            "performance.csv",
-            "coefficients.csv",
-            "performance_by_fold.csv",
-            "environment_pca_loadings.csv",
-            "analysis_data.csv",
-            "row_flow.csv"
+            "performance.csv", "coefficients.csv", "performance_by_fold.csv",
+            "environment_pca_loadings.csv", "analysis_data.csv", "row_flow.csv"
           )
           paths <- file.path(output_dir, required_files)
           stopifnot(all(file.exists(paths)), all(file.info(paths)$size > 0))
-
           x <- read.csv(file.path(output_dir, "performance.csv"), check.names = FALSE)
-          expected <- c(
-            "environment_only",
-            "Bombus_suitability_sum",
-            "Bombus_any_availability",
-            "Bombus_max_availability"
-          )
+          expected <- c("environment_only", "Bombus_suitability_sum",
+                        "Bombus_any_availability", "Bombus_max_availability")
           stopifnot(setequal(x$model_variant, expected))
           stopifnot(length(unique(x$records_common)) == 1L)
           stopifnot(unique(x$records_common) > 0L)
           stopifnot(all(is.finite(x$q_squared_cv)))
-
           by_fold <- read.csv(file.path(output_dir, "performance_by_fold.csv"))
           stopifnot(setequal(unique(by_fold$model_variant), expected))
           stopifnot(length(unique(by_fold$fold)) == 5L)
-
           loadings <- read.csv(file.path(output_dir, "environment_pca_loadings.csv"))
           stopifnot(setequal(unique(loadings$group), c(
             "Temperature_PC1", "precip_PC1", "soil_phys_PC1",
             "soil_nutrient_PC1", "topo_PC1"
           )))
 
-      - name: Upload expanded results
+      - name: Install restored heavy-model packages
+        shell: Rscript {0}
+        run: |
+          cran <- c("lavaan", "qgam")
+          missing <- cran[!vapply(cran, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+          if (!requireNamespace("INLA", quietly = TRUE)) {
+            install.packages(
+              "INLA",
+              repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/stable"),
+              dependencies = TRUE
+            )
+          }
+          stopifnot(all(vapply(c("lavaan", "qgam", "INLA"), requireNamespace,
+                               logical(1), quietly = TRUE)))
+
+      - name: Run restored CFA SPDE-INLA and qGAM
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! Rscript scripts/run_heavy_models.R \
+            --input results/ci/expanded_bombus/analysis_data.csv \
+            --output-dir results/ci/heavy_models \
+            >heavy-models.log 2>&1; then
+            echo "=== heavy-model failure ==="
+            tail -n 500 heavy-models.log
+            exit 1
+          fi
+          cat results/ci/heavy_models/row_flow.csv
+
+      - name: Upload complete analysis results
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -171,11 +206,14 @@ jobs:
             prepare.log
             reanalysis.log
             expanded-analysis.log
+            heavy-models.log
+            runtime_raster_sources.csv
             results/ci/pr4_reanalysis/run.log
             results/ci/pr4_reanalysis/model_performance.csv
             results/ci/pr4_reanalysis/model_performance_by_fold.csv
             results/ci/pr4_reanalysis/row_flow.csv
             results/ci/pr4_reanalysis/raster_join_audit.csv
             results/ci/expanded_bombus
+            results/ci/heavy_models
           if-no-files-found: warn
           retention-days: 14

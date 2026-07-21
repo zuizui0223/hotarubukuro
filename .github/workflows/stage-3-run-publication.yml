@@ -3,20 +3,23 @@ name: "Stage 3 - Run publication models from artifacts"
 on:
   workflow_dispatch:
     inputs:
-      source_run_id:
-        description: Workflow run ID containing Stage 1 and Stage 2 artifacts
+      stage1_run_id:
+        description: Stage 1 run ID containing prepared rasters
         required: true
-        default: "29785336644"
+        type: string
+      stage2_run_id:
+        description: Stage 2 run ID containing extraction diagnostics
+        required: true
         type: string
       raster_artifact_name:
-        description: Name of the Stage 1 raster artifact
+        description: Stage 1 raster artifact name
         required: true
-        default: "prepared-publication-rasters"
+        default: prepared-publication-rasters
         type: string
       extraction_artifact_name:
-        description: Name of the Stage 2 extraction-diagnostics artifact
+        description: Stage 2 diagnostics artifact name
         required: true
-        default: "publication-extraction-diagnostics"
+        default: publication-extraction-diagnostics
         type: string
 
 permissions:
@@ -49,7 +52,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: publication-r-${{ runner.os }}-${{ env.R_VERSION }}-models-v3
+          key: publication-r-${{ runner.os }}-${{ env.R_VERSION }}-models-v4
           restore-keys: |
             publication-r-${{ runner.os }}-${{ env.R_VERSION }}-
 
@@ -64,73 +67,85 @@ jobs:
             libcurl4-openssl-dev libssl-dev
 
       - name: Install Python package
+        run: python -m pip install -e .
+
+      - name: Install or update mgcv in an isolated R session
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e .
+          set -euo pipefail
+          Rscript -e '
+            repos <- c(CRAN="https://cloud.r-project.org")
+            installed <- requireNamespace("mgcv", quietly=TRUE)
+            current <- if (installed) as.character(utils::packageVersion("mgcv")) else "0"
+            if (!installed || utils::packageVersion("mgcv") < "1.9.0") {
+              install.packages("mgcv", repos=repos, dependencies=c("Depends","Imports","LinkingTo"))
+            }
+            cat("mgcv installation session complete; prior version:", current, "\n")
+          '
 
-      - name: Install model dependencies
-        shell: Rscript {0}
+      - name: Install qgam and core packages in a fresh R session
+        shell: bash
         run: |
-          repos <- c(CRAN = "https://cloud.r-project.org")
-          options(repos = repos)
+          set -euo pipefail
+          Rscript -e '
+            repos <- c(CRAN="https://cloud.r-project.org")
+            stopifnot(requireNamespace("mgcv", quietly=TRUE))
+            cat("fresh-session mgcv:", as.character(utils::packageVersion("mgcv")), "\n")
+            stopifnot(utils::packageVersion("mgcv") >= "1.9.0")
+            core <- c("terra","sf","lavaan","yaml","geodata","digest","jsonlite")
+            missing <- core[!vapply(core, requireNamespace, logical(1), quietly=TRUE)]
+            if (length(missing)) install.packages(missing, repos=repos, dependencies=c("Depends","Imports","LinkingTo"))
+            if (!requireNamespace("qgam", quietly=TRUE)) {
+              install.packages("qgam", repos=repos, dependencies=c("Depends","Imports","LinkingTo"))
+            }
+            stopifnot(requireNamespace("qgam", quietly=TRUE))
+            cat("qgam:", as.character(utils::packageVersion("qgam")), "\n")
+          '
 
-          if (!requireNamespace("mgcv", quietly = TRUE) ||
-              utils::packageVersion("mgcv") < "1.9.0") {
-            install.packages("mgcv", repos = repos, dependencies = TRUE)
-          }
+      - name: Install INLA in a fresh R session
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript -e '
+            repos <- c(CRAN="https://cloud.r-project.org", INLA="https://inla.r-inla-download.org/R/stable")
+            if (!requireNamespace("INLA", quietly=TRUE)) {
+              install.packages("INLA", repos=repos, dependencies=c("Depends","Imports","LinkingTo"))
+            }
+            required <- c("terra","sf","lavaan","yaml","geodata","digest","jsonlite","mgcv","qgam","INLA")
+            ok <- vapply(required, requireNamespace, logical(1), quietly=TRUE)
+            if (!all(ok)) stop("Failed to install/load: ", paste(names(ok)[!ok], collapse=", "))
+          '
 
-          base_needed <- c("terra", "sf", "lavaan", "yaml", "geodata", "digest", "jsonlite")
-          missing <- base_needed[!vapply(base_needed, requireNamespace, logical(1), quietly = TRUE)]
-          if (length(missing)) install.packages(missing, repos = repos, dependencies = TRUE)
-
-          if (!requireNamespace("qgam", quietly = TRUE)) {
-            install.packages("qgam", repos = repos, dependencies = TRUE)
-          }
-
-          if (!requireNamespace("INLA", quietly = TRUE)) {
-            install.packages(
-              "INLA",
-              repos = c(repos, INLA = "https://inla.r-inla-download.org/R/stable"),
-              dependencies = c("Depends", "Imports", "LinkingTo")
-            )
-          }
-
-          ok <- vapply(c(base_needed, "mgcv", "qgam", "INLA"), requireNamespace, logical(1), quietly = TRUE)
-          if (!all(ok)) stop("Failed to install/load: ", paste(names(ok)[!ok], collapse = ", "))
-          stopifnot(utils::packageVersion("mgcv") >= "1.9.0")
-          cat("mgcv:", as.character(utils::packageVersion("mgcv")), "\n")
-          cat("qgam:", as.character(utils::packageVersion("qgam")), "\n")
-
-      - name: Download prepared rasters from prior Stage 1 run
+      - name: Download prepared rasters from Stage 1
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.raster_artifact_name }}
           path: data/processed
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.source_run_id }}
+          run-id: ${{ inputs.stage1_run_id }}
           github-token: ${{ github.token }}
 
-      - name: Download extraction diagnostics from prior Stage 2 run
+      - name: Download extraction diagnostics from Stage 2
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.extraction_artifact_name }}
-          path: results/all_extraction_diagnostic
+          path: stage2-artifact
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.source_run_id }}
+          run-id: ${{ inputs.stage2_run_id }}
           github-token: ${{ github.token }}
 
-      - name: Verify restored Stage 1 and Stage 2 artifacts
+      - name: Verify restored artifacts
         shell: bash
         run: |
           set -euo pipefail
           test -s data/processed/raster_manifest.csv
           test -d data/processed/rasters
-          count=$(find data/processed/rasters -maxdepth 1 -type f -name '*.tif' | wc -l)
-          test "$count" -ge 19
-          test -d results/all_extraction_diagnostic
-          diag_count=$(find results/all_extraction_diagnostic -type f | wc -l)
+          raster_count=$(find data/processed/rasters -maxdepth 1 -type f -name '*.tif' | wc -l)
+          test "$raster_count" -ge 19
+          diag_count=$(find stage2-artifact -type f | wc -l)
           test "$diag_count" -ge 1
-          echo "Restored $count rasters and $diag_count Stage 2 diagnostic files from run ${{ inputs.source_run_id }}."
+          echo "Restored $raster_count rasters from Stage 1 run ${{ inputs.stage1_run_id }}."
+          echo "Restored $diag_count diagnostic files from Stage 2 run ${{ inputs.stage2_run_id }}."
 
       - name: Restore human predictor cache
         uses: actions/cache@v4
@@ -177,17 +192,17 @@ jobs:
             "sessionInfo.txt"
           ))
           missing <- required[!file.exists(required)]
-          if (length(missing)) stop("Missing publication outputs: ", paste(missing, collapse = ", "))
+          if (length(missing)) stop("Missing publication outputs: ", paste(missing, collapse=", "))
           stopifnot(all(file.info(required)$size > 0))
 
       - name: Upload logs and publication outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: publication-models-${{ github.sha }}-${{ github.run_id }}
+          name: publication-models-${{ github.run_id }}
           path: |
             publication-analysis.log
             results/publication
-            results/all_extraction_diagnostic
+            stage2-artifact
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 90

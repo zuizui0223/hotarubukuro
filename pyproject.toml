@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hotarubukuro-analysis"
+version = "2.2.2"
+description = "Reproducible floral-colour extraction utilities"
+requires-python = ">=3.9"
+dependencies = [
+  "numpy>=1.24,<3",
+  "Pillow>=10,<13",
+]
+
+[project.optional-dependencies]
+excel = ["openpyxl>=3.1,<4"]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+hotarubukuro-color-v2 = "scripts.extract_color_v2:main"
+
+[tool.setuptools]
+py-modules = ["Code_S1", "Code_S2"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scripts*"]
+namespaces = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+addopts = "-q"

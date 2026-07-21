@@ -82,22 +82,23 @@ jobs:
           stopifnot(length(tif) >= 19L, all(file.info(tif)$size > 0))
           cat("Prepared", length(tif), "raster layers.\n")
 
-      - name: Save processed raster cache
-        uses: actions/cache/save@v4
+      - name: Upload reusable prepared-raster artifact
+        uses: actions/upload-artifact@v4
         with:
+          name: prepared-publication-rasters
           path: |
             data/processed/rasters
             data/processed/raster_manifest.csv
             data/processed/raster_download_manifest.csv
-          key: publication-processed-${{ env.RASTER_CACHE_VERSION }}-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 90
 
-      - name: Upload manifests and logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: publication-raster-manifests-${{ github.sha }}
-          path: |
-            data/processed/raster_manifest.csv
-            data/processed/raster_download_manifest.csv
-          if-no-files-found: warn
-          retention-days: 14
+      - name: Write reuse instructions
+        shell: bash
+        run: |
+          {
+            echo "## Stage 1 completed"
+            echo "Use run ID: ${{ github.run_id }}"
+            echo "Artifact: prepared-publication-rasters"
+            echo "Stage 2 and Stage 3 must reuse this run ID; do not rerun Stage 1 unless raster sources or preparation code changed."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,6 +1,10 @@
 name: "Stage 3 - Run publication models from artifacts"
 
 on:
+  push:
+    branches: ["ci/staged-publication-workflow"]
+    paths:
+      - ".github/workflows/stage-3-run-publication.yml"
   workflow_dispatch:
     inputs:
       stage1_run_id:
@@ -32,6 +36,10 @@ concurrency:
 
 env:
   R_VERSION: "4.4.3"
+  STAGE1_RUN_ID: ${{ inputs.stage1_run_id || '29785336644' }}
+  STAGE2_RUN_ID: ${{ inputs.stage2_run_id || '29785336644' }}
+  RASTER_ARTIFACT_NAME: ${{ inputs.raster_artifact_name || 'prepared-publication-rasters' }}
+  EXTRACTION_ARTIFACT_NAME: ${{ inputs.extraction_artifact_name || 'publication-extraction-diagnostics' }}
 
 jobs:
   run-models:
@@ -119,19 +127,19 @@ jobs:
       - name: Download prepared rasters from Stage 1
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.raster_artifact_name }}
+          name: ${{ env.RASTER_ARTIFACT_NAME }}
           path: data/processed
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.stage1_run_id }}
+          run-id: ${{ env.STAGE1_RUN_ID }}
           github-token: ${{ github.token }}
 
       - name: Download extraction diagnostics from Stage 2
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.extraction_artifact_name }}
+          name: ${{ env.EXTRACTION_ARTIFACT_NAME }}
           path: stage2-artifact
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.stage2_run_id }}
+          run-id: ${{ env.STAGE2_RUN_ID }}
           github-token: ${{ github.token }}
 
       - name: Verify restored artifacts
@@ -144,8 +152,8 @@ jobs:
           test "$raster_count" -ge 19
           diag_count=$(find stage2-artifact -type f | wc -l)
           test "$diag_count" -ge 1
-          echo "Restored $raster_count rasters from Stage 1 run ${{ inputs.stage1_run_id }}."
-          echo "Restored $diag_count diagnostic files from Stage 2 run ${{ inputs.stage2_run_id }}."
+          echo "Restored $raster_count rasters from Stage 1 run $STAGE1_RUN_ID."
+          echo "Restored $diag_count diagnostic files from Stage 2 run $STAGE2_RUN_ID."
 
       - name: Restore human predictor cache
         uses: actions/cache@v4

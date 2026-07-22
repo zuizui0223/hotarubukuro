@@ -1,0 +1,2596 @@
+---
+title: "Campanula punctata: final analysis"
+output:
+  html_document:
+    toc: false
+    code_folding: hide
+    self_contained: false
+---
+
+## Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align = "center")
+```
+
+```{r packages}
+if (!requireNamespace("patchwork", quietly = TRUE)) {
+  utils::install.packages("patchwork", repos = "https://cloud.r-project.org")
+}
+
+suppressPackageStartupMessages({
+  library(patchwork)
+  library(dplyr)
+  library(readr)
+  library(tidyr)
+  library(sf)
+  library(terra)
+  library(lavaan)
+  library(tibble)
+  library(INLA)
+  library(qgam)
+  library(mgcv)
+  library(ggplot2)
+  library(forcats)
+  library(purrr)
+  library(broom)
+  library(jsonlite)
+  library(digest)
+})
+
+set.seed(42)
+INLA::inla.setOption(num.threads = "1:1")
+
+if (requireNamespace("RhpcBLASctl", quietly = TRUE)) {
+  RhpcBLASctl::blas_set_num_threads(1)
+  RhpcBLASctl::omp_set_num_threads(1)
+}
+
+RNGkind(kind = "Mersenne-Twister", normal.kind = "Inversion")
+
+z <- function(x) as.numeric(scale(x))
+
+
+out_root <- path.expand("~/zui_results")
+dir.create(out_root, recursive = TRUE, showWarnings = FALSE)
+
+cmp_dir      <- file.path(out_root, "diagnostics")
+cmp_plotdir  <- file.path(cmp_dir, "plots")
+top_dir      <- file.path(out_root, "supplement_sensitivity")
+best_dir     <- file.path(out_root, "natural_baseline_final")
+best_plotdir <- file.path(best_dir, "plots")
+gam_dir      <- file.path(out_root, "qGAM_best_model_final")
+pub_dir      <- file.path(out_root, "publication_materials")
+fig_dir      <- file.path(pub_dir, "figures")
+table_dir    <- file.path(pub_dir, "tables")
+text_dir     <- file.path(pub_dir, "manuscript_text")
+repro_dir    <- file.path(pub_dir, "reproducibility")
+
+dir.create(cmp_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(cmp_plotdir, recursive = TRUE, showWarnings = FALSE)
+dir.create(top_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(best_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(best_plotdir, recursive = TRUE, showWarnings = FALSE)
+dir.create(gam_dir, recursive = TRUE, showWarnings = FALSE)
+for (d in c(pub_dir, fig_dir, table_dir, text_dir, repro_dir)) {
+  dir.create(d, recursive = TRUE, showWarnings = FALSE)
+}
+
+save_pub_plot <- function(plot, filename, width, height) {
+  print(plot)
+  ggplot2::ggsave(file.path(fig_dir, paste0(filename, ".pdf")), plot,
+                  width = width, height = height, device = cairo_pdf)
+  ggplot2::ggsave(file.path(fig_dir, paste0(filename, ".tiff")), plot,
+                  width = width, height = height, dpi = 600,
+                  compression = "lzw")
+  invisible(plot)
+}
+
+capture_warnings <- function(expr) {
+  messages <- character()
+  value <- withCallingHandlers(
+    expr,
+    warning = function(w) {
+      messages <<- c(messages, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  list(value = value, warnings = unique(messages))
+}
+```
+
+## Colour
+
+```{r load-color}
+in_csv <- "~/Desktop/Data_S1.csv"
+df <- read.csv(in_csv, stringsAsFactors = FALSE, check.names = FALSE)
+
+stopifnot(all(c("longitude", "latitude") %in% names(df)))
+
+if (!("sample_id" %in% names(df))) {
+  df$sample_id <- if ("observation_id" %in% names(df)) df$observation_id else seq_len(nrow(df))
+}
+
+rgb_cols <- if (all(c("median_R", "median_G", "median_B") %in% names(df))) {
+  c("median_R", "median_G", "median_B")
+} else {
+  stopifnot(all(c("R", "G", "B") %in% names(df)))
+  c("R", "G", "B")
+}
+
+rgb_primary <- as.data.frame(lapply(df[, rgb_cols, drop = FALSE], as.numeric))
+names(rgb_primary) <- c("R_primary", "G_primary", "B_primary")
+stopifnot(all(vapply(rgb_primary, function(x) all(is.na(x) | (x >= 0 & x <= 255)), logical(1))))
+df <- cbind(df, rgb_primary)
+
+srgb_to_lab_d65 <- function(r, g, b) {
+  rgb <- pmin(pmax(cbind(as.numeric(r), as.numeric(g), as.numeric(b)) / 255, 0), 1)
+  lin <- ifelse(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055)^2.4)
+  xyz <- lin %*% t(matrix(c(
+    0.4124564, 0.3575761, 0.1804375,
+    0.2126729, 0.7151522, 0.0721750,
+    0.0193339, 0.1191920, 0.9503041
+  ), nrow = 3, byrow = TRUE))
+  xyz <- sweep(xyz, 2, c(0.95047, 1, 1.08883), "/")
+  eps <- (6 / 29)^3
+  f <- ifelse(xyz > eps, xyz^(1 / 3), xyz / (3 * (6 / 29)^2) + 4 / 29)
+  data.frame(
+    L = 116 * f[, 2] - 16,
+    a = 500 * (f[, 1] - f[, 2]),
+    b = 200 * (f[, 2] - f[, 3]),
+    check.names = FALSE
+  )
+}
+
+lab <- srgb_to_lab_d65(df$R_primary, df$G_primary, df$B_primary)
+df$L  <- lab$L
+df$a  <- lab$a
+df$b  <- lab$b
+df$C  <- sqrt(df$a^2 + df$b^2)
+df$Lm <- -df$L
+
+hsv_mat <- t(grDevices::rgb2hsv(
+  df$R_primary / 255,
+  df$G_primary / 255,
+  df$B_primary / 255
+))
+colnames(hsv_mat) <- c("H", "S", "V")
+df <- cbind(df, as.data.frame(hsv_mat))
+df$Sm <- df$S
+
+df$cfa_qc_eligible <- TRUE
+if ("qc_status" %in% names(df)) {
+  df$cfa_qc_eligible <- df$cfa_qc_eligible & tolower(trimws(df$qc_status)) != "fail"
+}
+if ("duplicate_image_sha256" %in% names(df)) {
+  duplicate_flag <- tolower(trimws(as.character(df$duplicate_image_sha256))) %in% c("1", "true", "yes", "y")
+  df$cfa_qc_eligible <- df$cfa_qc_eligible & !duplicate_flag
+}
+if ("possible_overexposure" %in% names(df)) {
+  over_flag <- tolower(trimws(as.character(df$possible_overexposure))) %in% c("1", "true", "yes", "y")
+  df$cfa_qc_eligible <- df$cfa_qc_eligible & !over_flag
+}
+if ("mask_pixels" %in% names(df)) {
+  df$cfa_qc_eligible <- df$cfa_qc_eligible & (is.na(df$mask_pixels) | as.numeric(df$mask_pixels) >= 50)
+}
+if ("mask_fraction_visible" %in% names(df)) {
+  df$cfa_qc_eligible <- df$cfa_qc_eligible & (is.na(df$mask_fraction_visible) | as.numeric(df$mask_fraction_visible) > 0)
+}
+
+df$col_hex <- grDevices::rgb(
+  pmin(pmax(round(df$R_primary), 0), 255),
+  pmin(pmax(round(df$G_primary), 0), 255),
+  pmin(pmax(round(df$B_primary), 0), 255),
+  maxColorValue = 255
+)
+
+cat(
+  "✓ Loaded extraction-v2 colour features. n =", nrow(df),
+  "; CFA-QC eligible =", sum(df$cfa_qc_eligible, na.rm = TRUE), "\n"
+)
+```
+
+## Environment
+
+```{r public-environment-download}
+cache_root <- file.path(out_root, "public_environment_cache")
+chelsa_dir <- file.path(cache_root, "CHELSA_v2.1")
+soil_dir   <- file.path(cache_root, "SoilGrids_2.0")
+dem_dir    <- file.path(cache_root, "elevation")
+bee_dir    <- file.path(out_root, "bombus_sdm", "predictions") # rebuilt below from public GBIF + public 30s predictors
+human_dir  <- file.path(cache_root, "WorldPop_2020")
+for (d in c(chelsa_dir, soil_dir, dem_dir, human_dir, bee_dir)) dir.create(d, recursive = TRUE, showWarnings = FALSE)
+
+df <- df %>% mutate(.row_id = row_number())
+coord_ok <- is.finite(as.numeric(df$longitude)) & is.finite(as.numeric(df$latitude))
+coords <- df[coord_ok, c(".row_id", "longitude", "latitude")]
+coords$longitude <- as.numeric(coords$longitude)
+coords$latitude  <- as.numeric(coords$latitude)
+stopifnot(!anyDuplicated(coords$.row_id), nrow(coords) > 0)
+
+bbox <- terra::ext(
+  min(coords$longitude) - 0.15, max(coords$longitude) + 0.15,
+  min(coords$latitude)  - 0.15, max(coords$latitude)  + 0.15
+)
+
+safe_download <- function(url, dest, min_bytes = 10000) {
+  if (file.exists(dest) && file.info(dest)$size >= min_bytes) return(dest)
+  dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+  tmp <- paste0(dest, ".part")
+  unlink(tmp, force = TRUE)
+  on.exit(unlink(tmp, force = TRUE), add = TRUE)
+
+  errors <- character()
+
+  if (requireNamespace("curl", quietly = TRUE)) {
+    got <- try(
+      curl::curl_download(
+        url,
+        tmp,
+        quiet = FALSE,
+        mode = "wb",
+        handle = curl::new_handle(
+          followlocation = TRUE,
+          connecttimeout = 60,
+          timeout = 0,
+          ipresolve = 4L,
+          useragent = "Campanula-thesis/1.0"
+        )
+      ),
+      silent = TRUE
+    )
+    if (inherits(got, "try-error")) {
+      errors <- c(errors, paste0("curl package: ", conditionMessage(attr(got, "condition"))))
+    }
+  } else {
+    errors <- c(errors, "curl package: package not installed")
+  }
+
+  if (!file.exists(tmp) || file.info(tmp)$size < min_bytes) {
+    unlink(tmp, force = TRUE)
+    curl_bin <- Sys.which("curl")
+    if (nzchar(curl_bin)) {
+      status <- suppressWarnings(system2(
+        curl_bin,
+        c("-L", "--fail", "--retry", "5", "--retry-all-errors",
+          "--connect-timeout", "60", "-4", "-o", shQuote(tmp), shQuote(url))
+      ))
+      if (!identical(status, 0L)) errors <- c(errors, paste0("system curl exit status: ", status))
+    } else {
+      errors <- c(errors, "system curl: executable not found")
+    }
+  }
+
+  if (!file.exists(tmp) || file.info(tmp)$size < min_bytes) {
+    unlink(tmp, force = TRUE)
+    wget_bin <- Sys.which("wget")
+    if (nzchar(wget_bin)) {
+      status <- suppressWarnings(system2(
+        wget_bin,
+        c("--continue", "--tries=5", "--timeout=60", "-O", shQuote(tmp), shQuote(url))
+      ))
+      if (!identical(status, 0L)) errors <- c(errors, paste0("wget exit status: ", status))
+    } else {
+      errors <- c(errors, "wget: executable not found")
+    }
+  }
+
+  if (!file.exists(tmp) || file.info(tmp)$size < min_bytes) {
+    stop(
+      "Download failed or incomplete: ", url, "\n",
+      paste(errors, collapse = "\n"),
+      "\nOpen the URL in a browser. If the browser also fails, the CHELSA host is unreachable from this network."
+    )
+  }
+  if (!file.rename(tmp, dest)) stop("Could not move completed download to: ", dest)
+  dest
+}
+
+crop_cache <- function(src, name, out_dir, extent = bbox) {
+  out <- file.path(out_dir, paste0(name, "_Japan_crop.tif"))
+  if (!file.exists(out)) {
+    r <- terra::rast(src)
+    r <- terra::crop(x = r, y = extent, snap = "out")
+    names(r) <- name
+    terra::writeRaster(x = r, filename = out, overwrite = TRUE, gdal = c("COMPRESS=DEFLATE"))
+  }
+  out
+}
+
+source_manifest <- tibble::tribble(
+  ~variable, ~provider, ~version_period, ~unit_note, ~role,
+  "bio5", "CHELSA", "v2.1; 1981-2010", "CHELSA native units; rescaled below", "temperature",
+  "bio10", "CHELSA", "v2.1; 1981-2010", "CHELSA native units; rescaled below", "temperature",
+  "bio12", "CHELSA", "v2.1; 1981-2010", "kg m-2 yr-1 (numerically mm yr-1)", "moisture",
+  "bio14", "CHELSA", "v2.1; 1981-2010", "kg m-2 month-1", "moisture",
+  "bio15", "CHELSA", "v2.1; 1981-2010", "coefficient of variation", "moisture seasonality",
+  "CMI", "CHELSA", "v2.1; 1981-2010 climatological mean", "mean climatic moisture index", "AI replacement",
+  "bdod/cfvo/nitrogen/ocd/soc/phh2o/sand/silt", "SoilGrids", "2.0; 0-5 cm mean", "property-specific mapped integer units; converted below", "soil",
+  "elevation", "WorldClim elevation", "v2.1; 30 arc-second", "m", "topography",
+  "population_count", "WorldPop", "2020; 1 km", "people per raster cell", "anthropogenic"
+)
+write_csv(source_manifest, file.path(cache_root, "environment_source_manifest.csv"))
+
+chelsa_unil_base <- "https://os.unil.cloud.switch.ch/chelsa02/chelsa/global"
+
+as_vsicurl <- function(url) {
+  if (startsWith(url, "/vsi")) url else paste0("/vsicurl/", url)
+}
+
+open_remote_30s <- function(url) {
+  old <- Sys.getenv(c(
+    "GDAL_DISABLE_READDIR_ON_OPEN", "CPL_VSIL_CURL_ALLOWED_EXTENSIONS",
+    "GDAL_HTTP_MULTIRANGE", "GDAL_HTTP_TIMEOUT", "GDAL_HTTP_MAX_RETRY",
+    "GDAL_HTTP_RETRY_DELAY", "VSI_CACHE", "VSI_CACHE_SIZE"
+  ), unset = NA_character_)
+  on.exit({
+    for (nm in names(old)) {
+      if (is.na(old[[nm]])) {
+        Sys.unsetenv(nm)
+      } else {
+        do.call(Sys.setenv, stats::setNames(list(old[[nm]]), nm))
+      }
+    }
+  }, add = TRUE)
+  Sys.setenv(
+    GDAL_DISABLE_READDIR_ON_OPEN = "EMPTY_DIR",
+    CPL_VSIL_CURL_ALLOWED_EXTENSIONS = ".tif,.tiff",
+    GDAL_HTTP_MULTIRANGE = "YES",
+    GDAL_HTTP_TIMEOUT = "120",
+    GDAL_HTTP_MAX_RETRY = "4",
+    GDAL_HTTP_RETRY_DELAY = "3",
+    VSI_CACHE = "TRUE",
+    VSI_CACHE_SIZE = "50000000"
+  )
+  r <- terra::rast(as_vsicurl(url))
+  rs <- terra::res(r)
+  target <- 1 / 120 # 30 arc-second in decimal degrees
+  if (terra::is.lonlat(r) && any(abs(rs - target) > 1e-5)) {
+    stop("CHELSA raster is not native 30 arc-second: ", url,
+         " (resolution=", paste(signif(rs, 8), collapse = " x "), ")")
+  }
+  r
+}
+
+crop_remote_30s <- function(urls, stable_name, out_dir) {
+  out <- file.path(out_dir, paste0(stable_name, "_Japan_crop_30s.tif"))
+  if (file.exists(out) && file.info(out)$size > 10000) return(out)
+  errors <- character()
+  for (url in unique(urls)) {
+    rr <- try(open_remote_30s(url), silent = TRUE)
+    if (inherits(rr, "try-error")) {
+      errors <- c(errors, paste0(url, " -> ", conditionMessage(attr(rr, "condition"))))
+      next
+    }
+    ans <- try({
+      if (!terra::is.lonlat(rr)) {
+        stop("Expected a lon/lat CHELSA raster, got CRS: ", terra::crs(rr))
+      }
+      x <- terra::crop(x = rr, y = bbox, snap = "out")
+      names(x) <- stable_name
+      terra::writeRaster(
+        x = x,
+        filename = out,
+        overwrite = TRUE,
+        gdal = c("COMPRESS=DEFLATE", "TILED=YES")
+      )
+      out
+    }, silent = TRUE)
+    if (!inherits(ans, "try-error")) {
+      message("CHELSA 30s source: ", url)
+      return(ans)
+    }
+    errors <- c(errors, paste0(url, " -> ", conditionMessage(attr(ans, "condition"))))
+  }
+  stop("Could not open/crop CHELSA 30s layer ", stable_name, "\n",
+       paste(errors, collapse = "\n"))
+}
+
+chelsa_bio <- c(bio4 = 4L, bio5 = 5L, bio6 = 6L, bio10 = 10L, bio12 = 12L, bio13 = 13L, bio14 = 14L, bio15 = 15L)
+chelsa_files <- setNames(character(length(chelsa_bio)), names(chelsa_bio))
+for (nm in names(chelsa_bio)) {
+  xx <- sprintf("%02d", chelsa_bio[[nm]])
+  fn <- sprintf("CHELSA_bio%s_1981-2010_V.2.1.tif", xx)
+  url <- sprintf("%s/bioclim/bio%s/1981-2010/%s", chelsa_unil_base, xx, fn)
+  chelsa_files[[nm]] <- crop_remote_30s(url, nm, chelsa_dir)
+}
+
+gdd5_fn <- "CHELSA_gdd5_1981-2010_V.2.1.tif"
+gdd5_url <- sprintf("%s/bioclim/gdd5/1981-2010/%s", chelsa_unil_base, gdd5_fn)
+chelsa_files[["gdd5"]] <- crop_remote_30s(gdd5_url, "gdd5", chelsa_dir)
+
+cmi_fn <- "CHELSA_cmimean_1981-2010_V.2.1.tif"
+cmi_url <- sprintf(
+  "%s/bioclim/cmimean/1981-2010/%s",
+  chelsa_unil_base,
+  cmi_fn
+)
+chelsa_files[["CMI"]] <- crop_remote_30s(cmi_url, "CMI", chelsa_dir)
+
+rsds_url <- paste0(
+  "https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/",
+  "climatologies/1981-2010/bio/",
+  "CHELSA_rsds_1981-2010_mean_V.2.1.tif"
+)
+chelsa_files[["RSDS"]] <- crop_remote_30s(
+  urls = rsds_url,
+  stable_name = "RSDS",
+  out_dir = chelsa_dir
+)
+
+soil_registry <- tibble::tribble(
+  ~variable,   ~map_name,   ~coverage_id,              ~scale_factor,
+  "bdod",      "bdod",      "bdod_0-5cm_mean",         0.01,
+  "cfvo",      "cfvo",      "cfvo_0-5cm_mean",         0.1,
+  "nitrogen",  "nitrogen",  "nitrogen_0-5cm_mean",     0.01,
+  "ocd",       "ocd",       "ocd_0-5cm_mean",          0.1,
+  "soc",       "soc",       "soc_0-5cm_mean",          0.1,
+  "phh2o",     "phh2o",     "phh2o_0-5cm_mean",        0.1,
+  "sand",      "sand",      "sand_0-5cm_mean",         0.1,
+  "silt",      "silt",      "silt_0-5cm_mean",         0.1
+)
+
+make_30s_template <- function(extent) {
+  res30 <- 30 / 3600
+  snap_down <- function(value, anchor) anchor + floor((value - anchor) / res30) * res30
+  snap_up   <- function(value, anchor) anchor + ceiling((value - anchor) / res30) * res30
+  terra::rast(
+    xmin = snap_down(terra::xmin(extent), -180),
+    xmax = snap_up(terra::xmax(extent), -180),
+    ymin = snap_down(terra::ymin(extent), -90),
+    ymax = snap_up(terra::ymax(extent), -90),
+    resolution = res30,
+    crs = "EPSG:4326"
+  )
+}
+soil_template_30s <- make_30s_template(bbox)
+
+soilgrids_wcs_url <- function(map_name, coverage_id, extent,
+                              width = 11000L, height = 5400L) {
+  roi_ll <- terra::as.polygons(
+    terra::ext(
+      terra::xmin(extent), terra::xmax(extent),
+      terra::ymin(extent), terra::ymax(extent)
+    ),
+    crs = "EPSG:4326"
+  )
+  roi_sg <- terra::project(x = roi_ll, y = "ESRI:54052")
+  projected <- as.vector(terra::ext(roi_sg))
+
+  paste0(
+    "https://maps.isric.org/mapserv?map=/map/", map_name, ".map",
+    "&SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage",
+    "&COVERAGEID=", utils::URLencode(coverage_id, reserved = TRUE),
+    "&FORMAT=GEOTIFF_INT16",
+    "&SUBSET=x(", format(projected[[1]], scientific = FALSE, digits = 17L),
+    ",", format(projected[[2]], scientific = FALSE, digits = 17L), ")",
+    "&SUBSET=y(", format(projected[[3]], scientific = FALSE, digits = 17L),
+    ",", format(projected[[4]], scientific = FALSE, digits = 17L), ")",
+    "&SCALESIZE=x(", as.integer(width), "),y(", as.integer(height), ")",
+    "&INTERPOLATION=NEAREST"
+  )
+}
+
+cache_soilgrids_30s <- function(variable, map_name, coverage_id, scale_factor,
+                                out_dir, extent = bbox, template = soil_template_30s) {
+  native_out <- file.path(out_dir, paste0(variable, "_0-5cm_mean_WCS_native.tif"))
+  final_out  <- file.path(out_dir, paste0(variable, "_0-5cm_mean_30s.tif"))
+  if (file.exists(final_out) && file.info(final_out)$size > 10000) return(final_out)
+
+  request <- soilgrids_wcs_url(
+    map_name = map_name,
+    coverage_id = coverage_id,
+    extent = extent
+  )
+
+  old <- Sys.getenv(c("GDAL_HTTP_TIMEOUT", "GDAL_HTTP_MAX_RETRY"), unset = NA_character_)
+  on.exit({
+    for (nm in names(old)) {
+      if (is.na(old[[nm]])) {
+        Sys.unsetenv(nm)
+      } else {
+        do.call(Sys.setenv, stats::setNames(list(old[[nm]]), nm))
+      }
+    }
+  }, add = TRUE)
+  Sys.setenv(GDAL_HTTP_TIMEOUT = "1800", GDAL_HTTP_MAX_RETRY = "3")
+
+  if (!file.exists(native_out) || file.info(native_out)$size <= 10000) {
+    native <- terra::rast(request)
+    if (terra::nlyr(native) != 1L) {
+      stop("Expected one SoilGrids layer for ", variable)
+    }
+    if (!nzchar(terra::crs(native))) terra::crs(native) <- "ESRI:54052"
+    terra::writeRaster(
+      x = native,
+      filename = native_out,
+      overwrite = TRUE,
+      gdal = c("TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2")
+    )
+  }
+
+  native <- terra::rast(native_out)
+  native <- native * as.numeric(scale_factor)
+  aligned <- terra::project(
+    x = native,
+    y = template,
+    method = "bilinear",
+    mask = TRUE
+  )
+  names(aligned) <- variable
+  terra::writeRaster(
+    x = aligned,
+    filename = final_out,
+    overwrite = TRUE,
+    gdal = c("TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2")
+  )
+  final_out
+}
+
+soil_files <- setNames(character(nrow(soil_registry)), soil_registry$variable)
+for (i in seq_len(nrow(soil_registry))) {
+  row <- soil_registry[i, ]
+  soil_files[[row$variable]] <- cache_soilgrids_30s(
+    variable = row$variable,
+    map_name = row$map_name,
+    coverage_id = row$coverage_id,
+    scale_factor = row$scale_factor,
+    out_dir = soil_dir
+  )
+}
+
+worldpop_url <- paste0(
+  "https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/",
+  "2020/JPN/jpn_ppp_2020_1km_Aggregated.tif"
+)
+worldpop_raw <- safe_download(
+  worldpop_url,
+  file.path(human_dir, "jpn_ppp_2020_1km_Aggregated.tif"),
+  min_bytes = 100000
+)
+worldpop_file <- crop_cache(worldpop_raw, "population_count", human_dir)
+
+dem_zip <- safe_download(
+  "https://geodata.ucdavis.edu/climate/worldclim/2_1/base/wc2.1_30s_elev.zip",
+  file.path(dem_dir, "wc2.1_30s_elev.zip"),
+  min_bytes = 1000000
+)
+dem_unzip_dir <- file.path(dem_dir, "wc2.1_30s_elev")
+dir.create(dem_unzip_dir, recursive = TRUE, showWarnings = FALSE)
+dem_candidates <- list.files(dem_unzip_dir, pattern = "\\.tif$", full.names = TRUE)
+if (!length(dem_candidates)) {
+  utils::unzip(dem_zip, exdir = dem_unzip_dir)
+  dem_candidates <- list.files(dem_unzip_dir, pattern = "\\.tif$", full.names = TRUE)
+}
+if (!length(dem_candidates)) stop("Elevation raster was not found after extracting: ", dem_zip)
+dem_file <- crop_cache(dem_candidates[[1]], "elevation", dem_dir)
+
+public_files <- c(chelsa_files, soil_files, elevation = dem_file, population_count = worldpop_file)
+```
+
+## Bombus SDM
+
+```{r rebuild_bombus_sdm}
+
+message("RUNNING PIPELINE VERSION: FINAL_PUBLICATION_CLEAN_20KM")
+REBUILD_BOMBUS_SDM <- isTRUE(getOption("campanula.rebuild_bombus_sdm", TRUE))
+BOMBUS_FORCE_GBIF_REFRESH <- isTRUE(getOption("campanula.refresh_gbif", FALSE))
+BOMBUS_MAX_COORD_UNCERTAINTY_M <- 10000
+BOMBUS_BACKGROUND_N <- 10000
+BOMBUS_SEED <- 42
+set.seed(BOMBUS_SEED)
+
+bombus_root <- file.path(out_root, "bombus_sdm")
+bombus_occ_dir <- file.path(bombus_root, "occurrences")
+bombus_model_dir <- file.path(bombus_root, "models")
+bombus_eval_dir <- file.path(bombus_root, "evaluation")
+for (d in c(bombus_root, bombus_occ_dir, bombus_model_dir, bombus_eval_dir, bee_dir)) {
+  dir.create(d, recursive = TRUE, showWarnings = FALSE)
+}
+
+bombus_species <- tibble::tribble(
+  ~species, ~short,
+  "Bombus ardens", "ardens",
+  "Bombus beaticola", "beaticola",
+  "Bombus consobrinus", "consobrinus",
+  "Bombus diversus", "diversus",
+  "Bombus honshuensis", "honshuensis"
+)
+
+required_sdm_pkgs <- c("rgbif", "ENMeval", "maxnet", "usdm")
+
+install_missing_cran_packages <- function(packages) {
+  missing <- packages[
+    !vapply(packages, requireNamespace, logical(1), quietly = TRUE)
+  ]
+  if (!length(missing)) return(invisible(character()))
+
+  message("Installing missing Bombus-SDM packages: ", paste(missing, collapse = ", "))
+  repos <- getOption("repos")
+  if (is.null(repos) || identical(unname(repos[["CRAN"]]), "@CRAN@")) {
+    repos <- c(CRAN = "https://cloud.r-project.org")
+  }
+
+  tryCatch(
+    utils::install.packages(
+      missing,
+      repos = repos,
+      dependencies = TRUE,
+      Ncpus = max(1L, parallel::detectCores(logical = FALSE) - 1L)
+    ),
+    error = function(e) {
+      stop(
+        "Automatic installation of Bombus-SDM packages failed: ",
+        conditionMessage(e),
+        "\nInstall manually with:\n",
+        'install.packages(c(\"rgbif\", \"ENMeval\", \"maxnet\", \"usdm\"), dependencies = TRUE)',
+        call. = FALSE
+      )
+    }
+  )
+
+  still_missing <- packages[
+    !vapply(packages, requireNamespace, logical(1), quietly = TRUE)
+  ]
+  if (length(still_missing)) {
+    stop(
+      "Packages remain unavailable after installation: ",
+      paste(still_missing, collapse = ", "),
+      ". Restart R and knit again. If usdm alone fails, install it separately before rerunning.",
+      call. = FALSE
+    )
+  }
+  invisible(missing)
+}
+
+if (REBUILD_BOMBUS_SDM) {
+  install_missing_cran_packages(required_sdm_pkgs)
+}
+
+`%||%` <- function(x, y) {
+  if (is.null(x) || !length(x) || all(is.na(x))) y else x
+}
+
+extract_gbif_taxon_key <- function(x) {
+  candidates <- list(
+    x$usageKey,
+    x$taxonKey,
+    x$key,
+    if (is.list(x$usage)) x$usage$key else NULL,
+    if (is.list(x$acceptedUsage)) x$acceptedUsage$key else NULL
+  )
+  for (candidate in candidates) {
+    if (!is.null(candidate) && length(candidate) == 1L && !is.na(candidate)) {
+      candidate <- as.character(candidate)
+      if (nzchar(candidate)) return(candidate)
+    }
+  }
+  NA_character_
+}
+
+resolve_gbif_taxon <- function(scientific_name) {
+  matched <- tryCatch(
+    rgbif::name_backbone(
+      name = scientific_name,
+      kingdom = "Animalia",
+      rank = "species",
+      strict = FALSE
+    ),
+    error = function(e) NULL
+  )
+  key <- if (is.null(matched)) NA_character_ else extract_gbif_taxon_key(matched)
+
+  if (is.na(key)) {
+    suggested <- tryCatch(
+      rgbif::name_suggest(q = scientific_name, rank = "species", limit = 50)$data,
+      error = function(e) NULL
+    )
+    if (!is.null(suggested) && nrow(suggested)) {
+      candidate_name <- tolower(trimws(scientific_name))
+      name_columns <- intersect(
+        c("canonicalName", "scientificName", "species"),
+        names(suggested)
+      )
+      exact <- rep(FALSE, nrow(suggested))
+      for (column in name_columns) {
+        exact <- exact | tolower(trimws(as.character(suggested[[column]]))) == candidate_name
+      }
+      suggested <- suggested[exact, , drop = FALSE]
+      if (nrow(suggested)) {
+        for (column in intersect(c("key", "usageKey", "taxonKey"), names(suggested))) {
+          value <- as.character(suggested[[column]][1])
+          if (!is.na(value) && nzchar(value)) {
+            key <- value
+            break
+          }
+        }
+      }
+    }
+  }
+
+  if (is.na(key)) {
+    stop(
+      "GBIF taxon key unresolved after backbone and exact-suggestion lookup: ",
+      scientific_name,
+      ". This can occur during GBIF taxonomy reprocessing. Retry later or use a frozen occurrence cache.",
+      call. = FALSE
+    )
+  }
+
+  list(key = key, match = matched)
+}
+
+fetch_gbif_species <- function(scientific_name, cache_csv, refresh = FALSE) {
+  if (file.exists(cache_csv) && !refresh) {
+    return(readr::read_csv(cache_csv, show_col_types = FALSE))
+  }
+
+  taxon <- resolve_gbif_taxon(scientific_name)
+  key <- taxon$key
+  message("GBIF taxon resolved: ", scientific_name, " -> ", key)
+
+  page_size <- 300L
+  start <- 0L
+  pages <- list()
+  repeat {
+    ans <- rgbif::occ_search(
+      taxonKey = key,
+      country = "JP",
+      hasCoordinate = TRUE,
+      occurrenceStatus = "present",
+      limit = page_size,
+      start = start,
+      fields = c(
+        "key", "scientificName", "decimalLongitude", "decimalLatitude",
+        "coordinateUncertaintyInMeters", "basisOfRecord", "year",
+        "datasetKey", "publishingOrgKey", "issues"
+      )
+    )
+    if (!nrow(ans$data)) break
+    pages[[length(pages) + 1L]] <- ans$data
+    start <- start + nrow(ans$data)
+    if (start >= ans$meta$count || nrow(ans$data) < page_size) break
+  }
+
+  out <- dplyr::bind_rows(pages)
+  if (!nrow(out)) stop("No GBIF records returned for ", scientific_name)
+
+  accepted_basis <- c(
+    "HUMAN_OBSERVATION", "OBSERVATION", "PRESERVED_SPECIMEN",
+    "MATERIAL_SAMPLE", "MACHINE_OBSERVATION"
+  )
+  out <- out |>
+    dplyr::mutate(
+      decimalLongitude = as.numeric(decimalLongitude),
+      decimalLatitude = as.numeric(decimalLatitude),
+      coordinateUncertaintyInMeters = as.numeric(coordinateUncertaintyInMeters)
+    ) |>
+    dplyr::filter(
+      is.finite(decimalLongitude), is.finite(decimalLatitude),
+      decimalLongitude >= 120, decimalLongitude <= 150,
+      decimalLatitude >= 20, decimalLatitude <= 50,
+      is.na(coordinateUncertaintyInMeters) |
+        coordinateUncertaintyInMeters <= BOMBUS_MAX_COORD_UNCERTAINTY_M,
+      is.na(basisOfRecord) | basisOfRecord %in% accepted_basis
+    ) |>
+    dplyr::distinct(key, .keep_all = TRUE)
+
+  readr::write_csv(out, cache_csv)
+  out
+}
+
+as_terra_xy <- function(x, lon = "lon", lat = "lat") {
+  if (!all(c(lon, lat) %in% names(x))) {
+    stop("Coordinate columns missing: ", lon, ", ", lat, call. = FALSE)
+  }
+  lon_v <- suppressWarnings(as.numeric(unlist(x[[lon]], use.names = FALSE)))
+  lat_v <- suppressWarnings(as.numeric(unlist(x[[lat]], use.names = FALSE)))
+  if (length(lon_v) != nrow(x) || length(lat_v) != nrow(x)) {
+    stop("Coordinate columns are not scalar numeric vectors.", call. = FALSE)
+  }
+  xy <- cbind(lon = lon_v, lat = lat_v)
+  storage.mode(xy) <- "double"
+  xy
+}
+
+select_best_enmeval <- function(results) {
+  idx <- seq_len(nrow(results))
+  if ("cbi.val.avg" %in% names(results) && any(is.finite(results$cbi.val.avg))) {
+    best_cbi <- max(results$cbi.val.avg, na.rm = TRUE)
+    idx <- idx[is.finite(results$cbi.val.avg[idx]) &
+                 results$cbi.val.avg[idx] >= best_cbi - 0.02]
+  }
+  if ("or.10p.val.avg" %in% names(results) && length(idx) > 1L &&
+      any(is.finite(results$or.10p.val.avg[idx]))) {
+    best_or <- min(results$or.10p.val.avg[idx], na.rm = TRUE)
+    idx <- idx[is.finite(results$or.10p.val.avg[idx]) &
+                 results$or.10p.val.avg[idx] <= best_or + 0.02]
+  }
+  if ("AICc" %in% names(results) && length(idx) > 1L &&
+      any(is.finite(results$AICc[idx]))) {
+    idx <- idx[which.min(results$AICc[idx])]
+  }
+  idx[[1]]
+}
+
+predict_maxnet_cloglog <- function(env_rast, model) {
+  terra::predict(
+    object = env_rast,
+    model = model,
+    fun = function(m, newdata, ...) {
+      as.numeric(stats::predict(
+        m,
+        newdata = as.data.frame(newdata),
+        type = "cloglog"
+      ))
+    },
+    na.rm = TRUE
+  )
+}
+
+if (REBUILD_BOMBUS_SDM) {
+  sdm_base_files <- c(
+    bio4 = chelsa_files[["bio4"]],
+    bio6 = chelsa_files[["bio6"]],
+    bio13 = chelsa_files[["bio13"]],
+    CMI = chelsa_files[["CMI"]],
+    RSDS = chelsa_files[["RSDS"]],
+    bdod = soil_files[["bdod"]],
+    cfvo = soil_files[["cfvo"]],
+    sand = soil_files[["sand"]],
+    silt = soil_files[["silt"]],
+    nitrogen = soil_files[["nitrogen"]],
+    soil_pH = soil_files[["phh2o"]],
+    soc = soil_files[["soc"]],
+    elevation = dem_file
+  )
+  stopifnot(all(file.exists(sdm_base_files)))
+
+  sdm_env <- terra::rast(unname(sdm_base_files))
+  names(sdm_env) <- names(sdm_base_files)
+
+  dem_sdm <- terra::rast(dem_file)
+  sdm_slope <- terra::terrain(dem_sdm, v = "slope", unit = "degrees")
+  sdm_rough <- terra::terrain(dem_sdm, v = "roughness")
+  names(sdm_slope) <- "slope"
+  names(sdm_rough) <- "roughness"
+  sdm_slope <- terra::resample(sdm_slope, sdm_env[[1]], method = "bilinear")
+  sdm_rough <- terra::resample(sdm_rough, sdm_env[[1]], method = "bilinear")
+  sdm_env <- c(sdm_env, sdm_slope, sdm_rough)
+
+  occurrence_list <- list()
+  occurrence_manifest <- list()
+  for (i in seq_len(nrow(bombus_species))) {
+    sp <- bombus_species$species[[i]]
+    sh <- bombus_species$short[[i]]
+    cache_csv <- file.path(bombus_occ_dir, paste0(sh, "_gbif.csv"))
+    occ_i <- fetch_gbif_species(sp, cache_csv, BOMBUS_FORCE_GBIF_REFRESH)
+    occurrence_list[[sh]] <- occ_i
+    occurrence_manifest[[sh]] <- tibble::tibble(
+      species = sp,
+      short = sh,
+      n_raw_cached = nrow(occ_i),
+      accessed_utc = format(Sys.time(), tz = "UTC", usetz = TRUE),
+      cache_csv = normalizePath(cache_csv, winslash = "/", mustWork = TRUE),
+      dataset_keys = paste(sort(unique(stats::na.omit(occ_i$datasetKey))), collapse = ";")
+    )
+  }
+  readr::write_csv(
+    dplyr::bind_rows(occurrence_manifest),
+    file.path(bombus_root, "gbif_occurrence_manifest.csv")
+  )
+
+  pooled <- dplyr::bind_rows(
+    lapply(names(occurrence_list), function(sh) {
+      occurrence_list[[sh]] |>
+        dplyr::transmute(
+          short = sh,
+          lon = decimalLongitude,
+          lat = decimalLatitude
+        )
+    })
+  )
+  pooled_cells <- terra::cellFromXY(sdm_env[[1]], as_terra_xy(pooled))
+  pooled <- pooled[!is.na(pooled_cells) & !duplicated(pooled_cells), , drop = FALSE]
+  pooled_cells <- terra::cellFromXY(sdm_env[[1]], as_terra_xy(pooled))
+
+  make_species_M <- function(occ_df, species_short,
+                             min_buffer_km = 100,
+                             max_buffer_km = 300,
+                             range_fraction = 0.15) {
+    pts <- sf::st_as_sf(occ_df, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+    pts_ea <- sf::st_transform(pts, 6933)
+    bb <- sf::st_bbox(pts_ea)
+    range_diag_m <- sqrt((bb[["xmax"]] - bb[["xmin"]])^2 +
+                         (bb[["ymax"]] - bb[["ymin"]])^2)
+    buffer_km <- max(min_buffer_km,
+                     min(max_buffer_km, range_fraction * range_diag_m / 1000))
+    m_ea <- sf::st_buffer(sf::st_convex_hull(sf::st_union(pts_ea)), dist = buffer_km * 1000)
+    m_ll <- sf::st_transform(sf::st_as_sf(m_ea), 4326)
+    m_ll$species <- species_short
+    m_ll$buffer_km <- buffer_km
+    m_ll$n_occurrence_cells <- nrow(occ_df)
+    m_ll
+  }
+
+  sdm_metrics <- list()
+  sdm_warning_log <- list()
+  for (i in seq_len(nrow(bombus_species))) {
+    sp <- bombus_species$species[[i]]
+    sh <- bombus_species$short[[i]]
+    occ_i <- occurrence_list[[sh]] |>
+      dplyr::transmute(lon = decimalLongitude, lat = decimalLatitude) |>
+      dplyr::filter(is.finite(lon), is.finite(lat))
+
+    occ_cells <- terra::cellFromXY(sdm_env[[1]], as_terra_xy(occ_i))
+    occ_i <- occ_i[!is.na(occ_cells) & !duplicated(occ_cells), , drop = FALSE]
+    if (nrow(occ_i) < 20L) stop("Too few one-per-cell records for ", sp, ": ", nrow(occ_i))
+
+    species_M_sf <- make_species_M(occ_i, sh)
+    species_M_file <- file.path(bombus_model_dir, paste0(sh, "_accessible_area_M.gpkg"))
+    if (file.exists(species_M_file)) unlink(species_M_file)
+    sf::st_write(species_M_sf, species_M_file, quiet = TRUE)
+    species_M <- terra::vect(species_M_sf)
+
+    species_env <- terra::crop(sdm_env, species_M, snap = "out")
+    species_env <- terra::mask(species_env, species_M)
+    if (terra::ncell(species_env) < 1000L) {
+      stop("Accessible area is too small for ", sp, ". Check occurrence coordinates.")
+    }
+
+    domain_sample <- terra::spatSample(
+      species_env,
+      size = min(20000, terra::ncell(species_env)),
+      method = "random",
+      na.rm = TRUE,
+      values = TRUE,
+      as.df = TRUE
+    )
+    domain_sample <- domain_sample[stats::complete.cases(domain_sample), , drop = FALSE]
+    if (nrow(domain_sample) < 200L) stop("Too few complete environmental cells in M for ", sp)
+    vif_fit <- usdm::vifstep(domain_sample, th = 10)
+    kept_sdm_vars <- as.character(vif_fit@results$Variables)
+    if (!length(kept_sdm_vars)) stop("No Bombus SDM predictor survived VIF filtering for ", sp)
+    species_env_kept <- species_env[[kept_sdm_vars]]
+    readr::write_csv(
+      as.data.frame(vif_fit@results),
+      file.path(bombus_eval_dir, paste0(sh, "_sdm_predictor_vif.csv"))
+    )
+
+    pooled_cells_i <- terra::cellFromXY(species_env_kept[[1]], as_terra_xy(pooled))
+    bg_pool <- pooled[!is.na(pooled_cells_i), c("lon", "lat"), drop = FALSE]
+    occ_cells_i <- terra::cellFromXY(species_env_kept[[1]], as_terra_xy(occ_i))
+    bg_cells_i <- terra::cellFromXY(species_env_kept[[1]], as_terra_xy(bg_pool))
+    bg_pool <- bg_pool[!is.na(bg_cells_i) & !bg_cells_i %in% occ_cells_i & !duplicated(bg_cells_i), , drop = FALSE]
+    if (nrow(bg_pool) > BOMBUS_BACKGROUND_N) {
+      bg_pool <- bg_pool[sample.int(nrow(bg_pool), BOMBUS_BACKGROUND_N), , drop = FALSE]
+    }
+    if (nrow(bg_pool) < 500L) {
+      fallback <- terra::spatSample(
+        species_env_kept,
+        size = min(BOMBUS_BACKGROUND_N, terra::ncell(species_env_kept)),
+        method = "random",
+        na.rm = TRUE,
+        values = FALSE,
+        xy = TRUE
+      )
+      bg_pool <- as.data.frame(fallback)
+      names(bg_pool) <- c("lon", "lat")
+      fallback_cells <- terra::cellFromXY(species_env_kept[[1]], as_terra_xy(bg_pool))
+      bg_pool <- bg_pool[!is.na(fallback_cells) & !fallback_cells %in% occ_cells_i & !duplicated(fallback_cells), , drop = FALSE]
+    }
+    if (nrow(bg_pool) < 500L) stop("Too few background cells inside M for ", sp)
+
+    eval_capture <- capture_warnings(ENMeval::ENMevaluate(
+      occs = as.data.frame(as_terra_xy(occ_i)),
+      envs = species_env_kept,
+      bg = as.data.frame(as_terra_xy(bg_pool)),
+      algorithm = "maxnet",
+      partitions = "block",
+      tune.args = list(fc = c("L", "LQ", "LQH"), rm = 1:5),
+      parallel = FALSE,
+      quiet = TRUE
+    ))
+    eval_obj <- eval_capture$value
+    if (length(eval_capture$warnings)) {
+      sdm_warning_log[[sh]] <- tibble::tibble(species = sp, warning = eval_capture$warnings)
+    }
+    res <- ENMeval::eval.results(eval_obj)
+    best_i <- select_best_enmeval(res)
+    best_model <- ENMeval::eval.models(eval_obj)[[best_i]]
+
+    pred <- predict_maxnet_cloglog(species_env_kept, best_model)
+    pred <- terra::mask(pred, species_M)
+    names(pred) <- sh
+    pred_file <- file.path(bee_dir, paste0(sh, ".tif"))
+    terra::writeRaster(pred, pred_file, overwrite = TRUE)
+
+    saveRDS(eval_obj, file.path(bombus_model_dir, paste0(sh, "_ENMeval.rds")))
+    readr::write_csv(res, file.path(bombus_eval_dir, paste0(sh, "_all_models.csv")))
+    readr::write_csv(
+      dplyr::bind_cols(
+        tibble::tibble(species = sp, short = sh, selected_row = best_i),
+        res[best_i, , drop = FALSE]
+      ),
+      file.path(bombus_eval_dir, paste0(sh, "_selected_model.csv"))
+    )
+    sdm_metrics[[sh]] <- dplyr::bind_cols(
+      tibble::tibble(
+        species = sp,
+        short = sh,
+        n_occurrence_cells = nrow(occ_i),
+        n_background = nrow(bg_pool),
+        accessible_area_definition = "buffered_MCP_in_EPSG6933",
+        accessible_area_buffer_km = species_M_sf$buffer_km[[1]],
+        prediction_outside_M = "NA_not_evaluated",
+        output_scale = "maxnet_cloglog_relative_suitability_not_calibrated_presence_probability",
+        predictors = paste(kept_sdm_vars, collapse = ";")
+      ),
+      res[best_i, , drop = FALSE]
+    )
+  }
+
+  readr::write_csv(
+    dplyr::bind_rows(sdm_metrics),
+    file.path(bombus_root, "bombus_sdm_manifest.csv")
+  )
+  sdm_warnings <- dplyr::bind_rows(sdm_warning_log)
+  readr::write_csv(sdm_warnings, file.path(bombus_root, "ENMeval_warnings.csv"))
+  if (nrow(sdm_warnings)) print(sdm_warnings) else cat("No ENMeval warnings.\n")
+}
+
+expected_bee_files <- file.path(bee_dir, paste0(bombus_species$short, ".tif"))
+if (any(!file.exists(expected_bee_files))) {
+  stop(
+    "Missing reproducible Bombus predictions: ",
+    paste(expected_bee_files[!file.exists(expected_bee_files)], collapse = ", "),
+    call. = FALSE
+  )
+}
+```
+
+## Extraction
+
+```{r extract_public_predictors}
+extract_files_by_row <- function(files, coords) {
+  pts <- terra::vect(coords, geom = c("longitude", "latitude"), crs = "EPSG:4326", keepgeom = FALSE)
+  vals <- lapply(files, function(f) {
+    r <- terra::rast(f)
+    p <- if (terra::same.crs(pts, r)) pts else terra::project(x = pts, y = terra::crs(r))
+    terra::extract(r, p, ID = FALSE)[, 1]
+  })
+  out <- as.data.frame(vals)
+  names(out) <- names(files)
+  dplyr::bind_cols(tibble(.row_id = coords$.row_id), out)
+}
+
+env_vals <- extract_files_by_row(public_files, coords)
+
+bee_tifs <- expected_bee_files
+names(bee_tifs) <- bombus_species$short
+stopifnot(all(file.exists(bee_tifs)))
+bee_vals <- extract_files_by_row(bee_tifs, coords)
+
+df <- df %>%
+  left_join(env_vals, by = ".row_id") %>%
+  left_join(bee_vals, by = ".row_id")
+
+
+df2 <- df %>% filter(coord_ok[.row_id]) %>% distinct(longitude, latitude, .keep_all = TRUE)
+```
+
+## Topography
+
+```{r dem-topography}
+if (file.exists(dem_file)) {
+  dem_r <- terra::rast(dem_file)
+
+  slope_r  <- terra::terrain(dem_r, v = "slope",  unit = "radians")
+  aspect_r <- terra::terrain(dem_r, v = "aspect", unit = "radians")
+  tri_r    <- terra::terrain(dem_r, v = "TRI")
+  tpi_r    <- terra::terrain(dem_r, v = "TPI")
+  rough_r  <- terra::terrain(dem_r, v = "roughness")
+
+  names(slope_r)  <- "slope"
+  names(aspect_r) <- "aspect"
+  names(tri_r)    <- "TRI"
+  names(tpi_r)    <- "TPI"
+  names(rough_r)  <- "roughness"
+
+  topo_stack <- c(slope_r, aspect_r, tri_r, tpi_r, rough_r)
+
+  pts <- terra::vect(
+    df2 %>% dplyr::select(longitude, latitude),
+    geom = c("longitude", "latitude"),
+    crs  = "EPSG:4326"
+  )
+
+  pts_use <- if (!terra::same.crs(pts, topo_stack)) {
+    terra::project(x = pts, y = terra::crs(topo_stack))
+  } else {
+    pts
+  }
+
+  topo_vals <- terra::extract(topo_stack, pts_use, ID = FALSE)
+  df2 <- cbind(df2, topo_vals)
+
+  df2$northness <- cos(df2$aspect)
+  df2$eastness  <- sin(df2$aspect)
+
+} else {
+  cat("! DEM file not found:", dem_file, "\n")
+}
+```
+
+## Environmental axes
+
+```{r pca}
+set.seed(42)
+
+temp_vars <- intersect(c("bio5", "bio10", "gdd5"), names(df2))
+
+Temperature_PC1 <- rep(NA_real_, nrow(df2))
+temp_pc_obj <- NULL
+
+if (length(temp_vars) >= 1) {
+  Xt <- df2[, temp_vars, drop = FALSE]
+  cc <- complete.cases(Xt)
+  if (sum(cc) >= 3 && ncol(Xt) >= 2) {
+    temp_pc_obj <- prcomp(Xt[cc, ], scale. = TRUE)
+    Temperature_PC1[cc] <- temp_pc_obj$x[, 1]
+  } else if (ncol(Xt) == 1) {
+    Temperature_PC1 <- as.numeric(scale(Xt[[1]]))
+  }
+}
+df2$Temperature_PC1 <- Temperature_PC1
+
+precip_vars <- intersect(c("CMI", "bio12", "bio14"), names(df2))
+
+precip_PC1 <- rep(NA_real_, nrow(df2))
+precip_pc_obj <- NULL
+
+if (length(precip_vars) >= 1) {
+  Xp <- df2[, precip_vars, drop = FALSE]
+  cc <- complete.cases(Xp)
+  if (sum(cc) >= 3 && ncol(Xp) >= 2) {
+    precip_pc_obj <- prcomp(Xp[cc, ], scale. = TRUE)
+    precip_PC1[cc] <- precip_pc_obj$x[, 1]
+  } else if (ncol(Xp) == 1) {
+    precip_PC1 <- as.numeric(scale(Xp[[1]]))
+  }
+}
+df2$precip_PC1 <- precip_PC1
+stopifnot("CMI" %in% precip_vars, !any(grepl("(^|_)AI($|_)", precip_vars, ignore.case = TRUE)))
+write_csv(tibble(variable = precip_vars), file.path(cmp_dir, "moisture_pca_variables.csv"))
+write_csv(
+  tibble::tribble(
+    ~axis, ~source_variable, ~interpretation,
+    "TemperatureSeasonality", "BIO4", "interannual climatological temperature variability",
+    "PrecipSeasonality", "BIO15", "interannual climatological precipitation variability"
+  ),
+  file.path(cmp_dir, "seasonality_predictor_definitions.csv")
+)
+if (!("bio15" %in% names(df2))) stop("BIO15 is required as a separate precipitation-seasonality predictor.")
+df2$PrecipSeasonality <- z(df2$bio15)
+if (!("bio4" %in% names(df2))) stop("BIO4 is required as a separate temperature-seasonality predictor.")
+df2$TemperatureSeasonality <- z(df2$bio4)
+
+soil_phys_vars <- intersect(c("bdod", "cfvo", "sand", "silt"), names(df2))
+
+soil_phys_PC1 <- rep(NA_real_, nrow(df2))
+soil_phys_pc_obj <- NULL
+
+if (length(soil_phys_vars) >= 1) {
+  Xp <- df2[, soil_phys_vars, drop = FALSE]
+  keep <- vapply(Xp, function(v) is.numeric(v) && sd(v, na.rm = TRUE) > 0, logical(1))
+  Xp <- Xp[, keep, drop = FALSE]
+  if (ncol(Xp) >= 2) {
+    cc <- complete.cases(Xp)
+    if (sum(cc) >= 3) {
+      soil_phys_pc_obj <- prcomp(Xp[cc, ], scale. = TRUE)
+      soil_phys_PC1[cc] <- soil_phys_pc_obj$x[, 1]
+    }
+  } else if (ncol(Xp) == 1) {
+    soil_phys_PC1 <- as.numeric(scale(Xp[[1]]))
+  }
+}
+df2$soil_phys_PC1 <- soil_phys_PC1
+
+soil_nutrient_vars <- intersect(c("nitrogen", "ocd", "soc"), names(df2))
+
+soil_nutrient_PC1 <- rep(NA_real_, nrow(df2))
+soil_nutrient_pc_obj <- NULL
+
+if (length(soil_nutrient_vars) >= 1) {
+  Xn <- df2[, soil_nutrient_vars, drop = FALSE]
+  keep <- vapply(Xn, function(v) is.numeric(v) && sd(v, na.rm = TRUE) > 0, logical(1))
+  Xn <- Xn[, keep, drop = FALSE]
+  if (ncol(Xn) >= 2) {
+    cc <- complete.cases(Xn)
+    if (sum(cc) >= 3) {
+      soil_nutrient_pc_obj <- prcomp(Xn[cc, ], scale. = TRUE)
+      soil_nutrient_PC1[cc] <- soil_nutrient_pc_obj$x[, 1]
+    }
+  } else if (ncol(Xn) == 1) {
+    soil_nutrient_PC1 <- as.numeric(scale(Xn[[1]]))
+  }
+}
+df2$soil_nutrient_PC1 <- soil_nutrient_PC1
+
+soil_pH_var <- intersect("phh2o", names(df2))
+if (length(soil_pH_var) >= 1) {
+  df2$soil_pH <- df2[[soil_pH_var[1]]]
+} else {
+  df2$soil_pH <- NA_real_
+}
+
+topo_vars <- intersect(c("roughness", "slope", "TRI"), names(df2))
+
+topo_PC1 <- rep(NA_real_, nrow(df2))
+topo_pc_obj <- NULL
+
+if (length(topo_vars) >= 2) {
+  Xt <- df2[, topo_vars, drop = FALSE]
+  keep <- vapply(Xt, function(v) is.numeric(v) && sd(v, na.rm = TRUE) > 0, logical(1))
+  Xt <- Xt[, keep, drop = FALSE]
+  if (ncol(Xt) >= 2) {
+    cc <- complete.cases(Xt)
+    if (sum(cc) >= 3) {
+      topo_pc_obj <- prcomp(Xt[cc, ], scale. = TRUE)
+      topo_PC1[cc] <- topo_pc_obj$x[, 1]
+    }
+  } else if (ncol(Xt) == 1) {
+    topo_PC1 <- as.numeric(scale(Xt[[1]]))
+  }
+}
+df2$topo_PC1 <- topo_PC1
+
+```
+
+## Pigmentation index
+
+```{r cfa-pigment}
+cfa_vars <- c("a", "Lm", "C", "Sm")
+stopifnot(all(cfa_vars %in% names(df2)))
+
+cfa_rows <- which(df2$cfa_qc_eligible & complete.cases(df2[, cfa_vars]))
+if (length(cfa_rows) < 100L) {
+  stop("Fewer than 100 QC-eligible complete records for upgraded CFA.", call. = FALSE)
+}
+
+cfa_data <- as.data.frame(scale(df2[cfa_rows, cfa_vars]))
+names(cfa_data) <- paste0(cfa_vars, "_z")
+
+model_pig_v2 <- '
+  Pigment =~ a_z + Lm_z + C_z + Sm_z
+  a_z ~~ C_z
+'
+
+fit_pig <- lavaan::cfa(
+  model = model_pig_v2,
+  data = cfa_data,
+  estimator = "MLR",
+  std.lv = TRUE,
+  meanstructure = TRUE,
+  missing = "fiml"
+)
+
+if (!isTRUE(lavaan::inspect(fit_pig, "converged"))) {
+  stop("Upgraded pigmentation CFA did not converge.", call. = FALSE)
+}
+
+score_qc <- as.numeric(lavaan::lavPredict(fit_pig, type = "lv")[, "Pigment"])
+loading_v2 <- lavaan::standardizedSolution(fit_pig)
+loading_v2 <- loading_v2[loading_v2$op == "=~", c("lhs", "rhs", "est.std", "se", "pvalue")]
+if (mean(loading_v2$est.std, na.rm = TRUE) < 0) score_qc <- -score_qc
+
+df2$Pigment <- NA_real_
+df2$Pigment[cfa_rows] <- score_qc
+
+fit_measures <- lavaan::fitMeasures(
+  fit_pig,
+  c("chisq.scaled", "df.scaled", "pvalue.scaled", "cfi.scaled",
+    "tli.scaled", "rmsea.scaled", "rmsea.ci.lower.scaled",
+    "rmsea.ci.upper.scaled", "srmr", "aic", "bic")
+)
+
+std_sol <- lavaan::standardizedSolution(fit_pig)
+lambda <- std_sol$est.std[std_sol$op == "=~"]
+theta <- std_sol$est.std[std_sol$op == "~~" & std_sol$lhs == std_sol$rhs &
+                           std_sol$lhs %in% paste0(cfa_vars, "_z")]
+omega_cfa <- (sum(lambda)^2) / ((sum(lambda)^2) + sum(theta))
+
+legacy_model <- 'LegacyPigment =~ 1*a + Lm + C'
+legacy_fit <- lavaan::cfa(
+  legacy_model,
+  data = df2[cfa_rows, c("a", "Lm", "C")],
+  estimator = "MLR", std.lv = FALSE, missing = "fiml"
+)
+legacy_score <- as.numeric(lavaan::lavPredict(legacy_fit, type = "lv")[, "LegacyPigment"])
+legacy_cor <- suppressWarnings(cor(score_qc, legacy_score, use = "complete.obs"))
+
+write_csv(loading_v2, file.path(cmp_dir, "pigment_cfa_v2_standardized_loadings.csv"))
+write_csv(
+  tibble::tibble(metric = names(fit_measures), value = as.numeric(fit_measures)),
+  file.path(cmp_dir, "pigment_cfa_v2_fit_measures.csv")
+)
+write_csv(
+  tibble::tibble(
+    n_total = nrow(df2),
+    n_qc_eligible_complete = length(cfa_rows),
+    omega_composite = omega_cfa,
+    correlation_with_legacy_score = legacy_cor,
+    extraction_version = if ("extraction_version" %in% names(df2))
+      paste(sort(unique(na.omit(df2$extraction_version))), collapse = ";") else NA_character_,
+    primary_rgb_columns = paste(rgb_cols, collapse = ",")
+  ),
+  file.path(cmp_dir, "pigment_cfa_v2_summary.csv")
+)
+write_csv(
+  df2[, intersect(c("sample_id", "observation_id", "cfa_qc_eligible", "Pigment",
+                    "a", "Lm", "C", "Sm", "qc_status", "qc_flags"), names(df2))],
+  file.path(cmp_dir, "pigment_cfa_v2_scores_and_qc.csv")
+)
+
+if (is.finite(fit_measures[["cfi.scaled"]]) && fit_measures[["cfi.scaled"]] < 0.90) {
+  warning("Pigmentation CFA CFI < 0.90; inspect exported diagnostics before interpretation.")
+}
+if (is.finite(fit_measures[["rmsea.scaled"]]) && fit_measures[["rmsea.scaled"]] > 0.10) {
+  warning("Pigmentation CFA RMSEA > 0.10; inspect exported diagnostics before interpretation.")
+}
+
+cat(
+  "✓ Upgraded Pigment CFA computed. n =", length(cfa_rows),
+  "; omega =", round(omega_cfa, 3),
+  "; legacy r =", round(legacy_cor, 3), "\n"
+)
+
+colour_pc <- stats::prcomp(cfa_data, center = FALSE, scale. = FALSE)
+colour_pc1 <- colour_pc$x[, 1]
+if (stats::cor(colour_pc1, score_qc, use = "complete.obs") < 0) colour_pc1 <- -colour_pc1
+colour_index_sensitivity <- tibble::tibble(
+  comparison = c("CFA_vs_colour_PC1", "CFA_vs_legacy_CFA"),
+  correlation = c(
+    stats::cor(score_qc, colour_pc1, use = "complete.obs"),
+    legacy_cor
+  )
+)
+write_csv(colour_index_sensitivity,
+          file.path(cmp_dir, "colour_index_sensitivity.csv"))
+```
+
+## Exports
+
+```{r export-loadings}
+if (!is.null(temp_pc_obj)) {
+  write_csv(
+    as.data.frame(temp_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
+    file.path(cmp_dir, "temperature_pca_loadings.csv")
+  )
+}
+if (!is.null(precip_pc_obj)) {
+  write_csv(
+    as.data.frame(precip_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
+    file.path(cmp_dir, "precip_pca_loadings.csv")
+  )
+}
+if (!is.null(soil_phys_pc_obj)) {
+  write_csv(
+    as.data.frame(soil_phys_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
+    file.path(cmp_dir, "soil_physical_pca_loadings.csv")
+  )
+}
+if (!is.null(soil_nutrient_pc_obj)) {
+  write_csv(
+    as.data.frame(soil_nutrient_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
+    file.path(cmp_dir, "soil_nutrient_pca_loadings.csv")
+  )
+}
+if (!is.null(topo_pc_obj)) {
+  write_csv(
+    as.data.frame(topo_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
+    file.path(cmp_dir, "topography_pca_loadings.csv")
+  )
+}
+```
+
+## Predictors
+
+```{r rsds-pigment-bee}
+if (!"RSDS" %in% names(df2)) {
+  stop(
+    "Required RSDS column is absent after public-raster extraction. ",
+    "Check the RSDS acquisition step and public_files names.",
+    call. = FALSE
+  )
+}
+df2$RSDS <- df2[["RSDS"]]
+
+stopifnot("Pigment" %in% names(df2), any(is.finite(df2$Pigment)))
+
+bee_cols <- intersect(
+  c("ardens", "beaticola", "consobrinus", "diversus", "honshuensis"),
+  names(df2)
+)
+stopifnot(length(bee_cols) > 0)
+
+bee_values <- as.data.frame(lapply(df2[, bee_cols, drop = FALSE], function(x) pmin(pmax(as.numeric(x), 0), 1)))
+
+df2$Bombus_union_score <- apply(bee_values, 1, function(x) {
+  x <- x[is.finite(x)]
+  if (!length(x)) NA_real_ else 1 - prod(1 - x)
+})
+
+df2$Bombus_max  <- apply(
+  bee_values, 1,
+  function(x) if (all(!is.finite(x))) NA_real_ else max(x, na.rm = TRUE)
+)
+df2$Bombus_mean <- rowMeans(bee_values, na.rm = TRUE)
+
+df2$Bombus_primary <- df2$Bombus_union_score
+
+bee_index_definition <- tibble::tribble(
+  ~index, ~formula, ~interpretation, ~probability_claim,
+  "Bombus_union_score", "1 - product(1 - s_i)",
+  "bounded union-like composite of five cloglog suitability scores", FALSE,
+  "Bombus_max", "max(s_i)",
+  "conservative any-species suitability proxy dominated by the best-supported species", FALSE,
+  "Bombus_mean", "mean(s_i)",
+  "average focal-species suitability", FALSE
+)
+write_csv(bee_index_definition, file.path(cmp_dir, "bombus_index_definition.csv"))
+
+```
+
+## Model data
+
+```{r build-model-data}
+need_vars <- c(
+  "Pigment",
+  "topo_PC1",
+  "Temperature_PC1",
+  "precip_PC1",
+  "TemperatureSeasonality",
+  "PrecipSeasonality",
+  "soil_nutrient_PC1",
+  "soil_phys_PC1",
+  "soil_pH",
+  "RSDS",
+  "Bombus_primary", "Bombus_max", "Bombus_mean",
+  "longitude", "latitude"
+)
+
+dat0 <- df2 %>%
+  dplyr::select(any_of(c("sample_id", "observation_id", "col_hex")),
+                all_of(need_vars), any_of("date"), any_of("elevation")) %>%
+  dplyr::filter(complete.cases(across(all_of(need_vars)))) %>%
+  dplyr::mutate(
+    y         = Pigment,
+    z_RSDS    = z(RSDS),
+    z_soil_pH = z(soil_pH),
+    z_Bee     = z(Bombus_primary),
+    z_Bee_max = z(Bombus_max),
+    z_Bee_mean = z(Bombus_mean)
+  )
+
+stopifnot(nrow(dat0) >= 50)
+```
+
+## Diagnostics
+
+```{r predictor-audit, fig.width=8, fig.height=5}
+all_candidate_terms <- c(
+  "Temperature_PC1",
+  "precip_PC1",
+  "TemperatureSeasonality",
+  "PrecipSeasonality",
+  "topo_PC1",
+  "soil_phys_PC1",
+  "soil_nutrient_PC1",
+  "z_soil_pH",
+  "z_RSDS",
+  "z_Bee"
+)
+stopifnot(all(all_candidate_terms %in% names(dat0)))
+
+compute_vif <- function(data, terms) {
+  purrr::map_dfr(terms, function(term) {
+    others <- setdiff(terms, term)
+    if (!length(others)) return(tibble::tibble(term = term, VIF = 1))
+    fit <- stats::lm(stats::reformulate(others, response = term), data = data)
+    r2 <- summary(fit)$r.squared
+    tibble::tibble(term = term, VIF = 1 / pmax(1 - r2, 1e-8))
+  })
+}
+
+filter_vif <- function(data, terms, threshold = 5) {
+  kept <- terms
+  history <- list()
+  removed <- character()
+  step <- 0L
+  repeat {
+    step <- step + 1L
+    tab <- compute_vif(data, kept) |> dplyr::arrange(dplyr::desc(VIF), term)
+    tab$step <- step
+    tab$removed_this_step <- NA_character_
+    if (max(tab$VIF, na.rm = TRUE) < threshold) {
+      history[[step]] <- tab
+      break
+    }
+    drop_term <- tab$term[1]
+    tab$removed_this_step <- drop_term
+    history[[step]] <- tab
+    removed <- c(removed, drop_term)
+    kept <- setdiff(kept, drop_term)
+    if (length(kept) < 2L) stop("VIF filtering left fewer than two predictors.", call. = FALSE)
+  }
+  list(kept = kept, removed = removed, history = dplyr::bind_rows(history))
+}
+
+vif_selection <- filter_vif(dat0, all_candidate_terms, threshold = 5)
+selected_joint_terms <- vif_selection$kept
+selected_abiotic_terms <- setdiff(selected_joint_terms, "z_Bee")
+if (!("z_Bee" %in% selected_joint_terms)) {
+  stop("Joint VIF filtering removed z_Bee; an independent Bombus extension is not estimable with VIF < 5.", call. = FALSE)
+}
+stopifnot(length(selected_abiotic_terms) >= 1)
+
+vif_final <- compute_vif(dat0, selected_joint_terms) |> dplyr::arrange(dplyr::desc(VIF))
+audit_cor <- stats::cor(dat0[, selected_joint_terms, drop = FALSE], use = "pairwise.complete.obs")
+bombus_cor <- tibble::tibble(
+  environmental_term = selected_abiotic_terms,
+  r_with_Bombus = audit_cor[selected_abiotic_terms, "z_Bee"]
+)
+
+write_csv(vif_selection$history, file.path(cmp_dir, "VIF_filter_history.csv"))
+write_csv(vif_final, file.path(cmp_dir, "VIF_final_environment_plus_Bombus.csv"))
+write_csv(tibble::tibble(
+  term = all_candidate_terms,
+  retained = all_candidate_terms %in% selected_joint_terms,
+  removal_order = match(all_candidate_terms, vif_selection$removed)
+), file.path(cmp_dir, "VIF_term_selection.csv"))
+utils::write.csv(audit_cor, file.path(cmp_dir, "final_predictor_correlation_matrix.csv"), row.names = TRUE)
+write_csv(bombus_cor, file.path(cmp_dir, "Bombus_environment_correlations.csv"))
+
+print(vif_final)
+print(tibble::tibble(retained_term = selected_joint_terms))
+
+p_vif <- ggplot(vif_final, aes(VIF, forcats::fct_reorder(term, VIF))) +
+  geom_vline(xintercept = 5, linetype = 2) +
+  geom_point(size = 2.5) +
+  labs(x = "Final VIF", y = NULL, title = "Joint VIF filter: environment + Bombus") +
+  theme_classic(base_size = 11)
+print(p_vif)
+```
+
+## Models
+
+```{r primary-model-definitions}
+environment_terms <- selected_abiotic_terms
+primary_terms <- list(
+  M0_spatial = character(0),
+  M1_abiotic_spatial = environment_terms,
+  M2_abiotic_Bombus_spatial = c(environment_terms, "z_Bee")
+)
+
+write_csv(
+  tibble::tibble(
+    model = names(primary_terms),
+    role = c("spatial reference", "confirmatory abiotic baseline", "exploratory biotic extension"),
+    terms = vapply(primary_terms, function(x) paste(x, collapse = " + "), character(1))
+  ),
+  file.path(cmp_dir, "primary_model_definitions.csv")
+)
+```
+
+## SPDE model
+
+A 20-km maximum inner mesh edge was used for the final analysis. In a preliminary numerical-resolution check, the 10- and 20-km meshes had effectively identical WAIC, whereas the 40-km mesh performed worse. The 20-km mesh used approximately one quarter of the vertices required by the 10-km mesh and was therefore retained as the parsimonious numerical resolution. Mesh edge length is a computational setting and is not interpreted as an ecological dispersal distance.
+
+```{r spde-model}
+sf_cmp <- sf::st_as_sf(dat0, coords = c("longitude", "latitude"), crs = 4326)
+sf_cmp_m <- sf::st_transform(sf_cmp, 3857)
+coords_cmp <- sf::st_coordinates(sf_cmp_m)
+
+mesh_cmp <- INLA::inla.mesh.2d(
+  loc = coords_cmp,
+  max.edge = 1000 * c(20, 100),
+  cutoff = 1000 * 5
+)
+
+spde_cmp <- INLA::inla.spde2.matern(mesh_cmp, alpha = 2)
+A_cmp <- INLA::inla.spde.make.A(mesh_cmp, loc = coords_cmp)
+
+selected_bundle <- list(
+  mesh = mesh_cmp,
+  spde = spde_cmp,
+  A = A_cmp
+)
+
+fit_spde <- function(dat, terms, model_name, bundle = selected_bundle) {
+  X <- if (length(terms)) {
+    dat[, terms, drop = FALSE]
+  } else {
+    data.frame(row.names = seq_len(nrow(dat)))
+  }
+
+  X$Intercept <- 1
+  X <- X[, c("Intercept", terms), drop = FALSE]
+
+  stk <- INLA::inla.stack(
+    data = list(y = dat$y),
+    A = list(bundle$A, 1),
+    effects = list(
+      s = seq_len(bundle$spde$n.spde),
+      X = X
+    ),
+    tag = "est"
+  )
+
+  rhs <- c("-1", names(X), "f(s, model = bundle$spde)")
+  formula <- stats::as.formula(
+    paste("y ~", paste(rhs, collapse = " + "))
+  )
+
+  fit_capture <- capture_warnings(
+    INLA::inla(
+      formula,
+      data = INLA::inla.stack.data(stk),
+      family = "gaussian",
+      control.predictor = list(
+        A = INLA::inla.stack.A(stk),
+        compute = TRUE
+      ),
+      control.compute = list(
+        config = TRUE,
+        dic = TRUE,
+        waic = TRUE,
+        cpo = TRUE
+      )
+    )
+  )
+
+  fit <- fit_capture$value
+  idx <- INLA::inla.stack.index(stk, "est")$data
+
+  stats <- tibble::tibble(
+    model = model_name,
+    DIC = fit$dic$dic,
+    WAIC = fit$waic$waic,
+    pWAIC = fit$waic$p.eff,
+    mean_neglogCPO = mean(-log(fit$cpo$cpo[idx]), na.rm = TRUE),
+    n_CPO_NA = sum(!is.finite(fit$cpo$cpo[idx]))
+  )
+
+  list(
+    name = model_name,
+    terms = terms,
+    formula = formula,
+    fit = fit,
+    stack = stk,
+    index = idx,
+    stats = stats,
+    warnings = fit_capture$warnings,
+    bundle = bundle
+  )
+}
+
+primary_fits <- purrr::imap(
+  primary_terms,
+  ~fit_spde(dat0, .x, .y)
+)
+
+m1 <- primary_fits[["M1_abiotic_spatial"]]
+m2 <- primary_fits[["M2_abiotic_Bombus_spatial"]]
+delta_m2_vs_m1 <- m2$stats$WAIC - m1$stats$WAIC
+
+primary_comparison <- dplyr::bind_rows(
+  purrr::map(primary_fits, "stats")
+) |>
+  dplyr::arrange(WAIC) |>
+  dplyr::mutate(
+    delta_WAIC = WAIC - min(WAIC, na.rm = TRUE)
+  )
+
+write_csv(
+  primary_comparison,
+  file.path(cmp_dir, "M0_M1_M2_comparison.csv")
+)
+
+model_warnings <- purrr::imap_dfr(
+  primary_fits,
+  function(x, nm) {
+    if (!length(x$warnings)) return(tibble::tibble())
+    tibble::tibble(model = nm, warning = x$warnings)
+  }
+)
+
+print(primary_comparison)
+if (nrow(model_warnings)) {
+  print(model_warnings)
+} else {
+  cat("No INLA warnings.\n")
+}
+
+write_csv(
+  model_warnings,
+  file.path(cmp_dir, "model_warnings.csv")
+)
+```
+
+## Selected model
+
+```{r select-best-model}
+best_model_name <- primary_comparison$model[which.min(primary_comparison$WAIC)]
+best_model <- primary_fits[[best_model_name]]
+
+model_selection <- primary_comparison |>
+  dplyr::mutate(
+    selected = model == best_model_name,
+    equivalent_support = delta_WAIC < 2
+  )
+write_csv(model_selection, file.path(best_dir, "selected_model.csv"))
+print(model_selection)
+```
+
+## Best-model results
+
+```{r best-model-results}
+fit_final <- best_model$fit
+stk_final <- best_model$stack
+IDX <- INLA::inla.stack.index(stk_final, "est")$data
+
+# Fixed effects
+fixef_final <- fit_final$summary.fixed |>
+  as.data.frame() |>
+  tibble::rownames_to_column("term")
+
+write_csv(fixef_final, file.path(best_dir, "best_model_fixed_effects.csv"))
+print(fixef_final)
+
+# Observation-level spatial field and fixed linear predictor
+spatial_nodes <- fit_final$summary.random$s$mean
+s_obs <- as.numeric(A_cmp %*% spatial_nodes)
+
+eta <- fit_final$summary.linear.predictor$mean[IDX]
+fixed_part <- eta - s_obs
+
+# Gaussian observation variance: posterior median precision
+precision_row <- grep(
+  "Precision.*Gaussian",
+  rownames(fit_final$summary.hyperpar),
+  value = TRUE
+)[1]
+
+if (is.na(precision_row) || !nzchar(precision_row)) {
+  stop("Gaussian observation precision was not found in fit_final$summary.hyperpar.")
+}
+
+prec_med <- fit_final$summary.hyperpar[precision_row, "0.5quant"]
+resid_var <- 1 / prec_med
+
+# Standard descriptive variance decomposition
+v_fixed   <- stats::var(fixed_part, na.rm = TRUE)
+v_spatial <- stats::var(s_obs, na.rm = TRUE)
+v_resid   <- resid_var
+v_total   <- v_fixed + v_spatial + v_resid
+
+var_decomp <- tibble::tibble(
+  component = c("Fixed effects", "Spatial field", "Residual"),
+  variance = c(v_fixed, v_spatial, v_resid),
+  proportion = c(v_fixed, v_spatial, v_resid) / v_total,
+  percent = 100 * proportion,
+  selected_model = best_model_name
+)
+
+write_csv(
+  var_decomp,
+  file.path(best_dir, "best_model_variance_decomposition.csv")
+)
+print(var_decomp)
+
+p_var_decomp <- ggplot(
+  var_decomp,
+  aes(x = "Selected model", y = proportion, fill = component)
+) +
+  geom_col(width = 0.62) +
+  scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  labs(
+    x = NULL,
+    y = "Proportion of component variance",
+    fill = NULL,
+    title = paste("Variance decomposition:", best_model_name),
+    subtitle = "Fixed linear predictor, SPDE field, and Gaussian observation variance"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom"
+  )
+
+print(p_var_decomp)
+ggsave(
+  file.path(best_plotdir, "best_model_variance_decomposition.png"),
+  p_var_decomp,
+  width = 7.2,
+  height = 4.8,
+  dpi = 300
+)
+
+# Mesh specification retained for reproducibility
+mesh_specification <- tibble::tibble(
+  inner_max_edge_km = 20,
+  outer_max_edge_km = 100,
+  cutoff_km = 5,
+  mesh_vertices = mesh_cmp$n,
+  interpretation = "Numerical resolution only; not an ecological distance."
+)
+
+write_csv(
+  mesh_specification,
+  file.path(best_dir, "best_model_mesh_specification.csv")
+)
+print(mesh_specification)
+
+# Fitted values and residuals
+y_obs   <- INLA::inla.stack.data(stk_final)$y[IDX]
+yhat    <- fit_final$summary.fitted.values$mean[IDX]
+yhat_sd <- fit_final$summary.fitted.values$sd[IDX]
+
+resid_raw  <- y_obs - yhat
+resid_zfit <- resid_raw / pmax(as.numeric(yhat_sd), 1e-6)
+
+dat_used <- dat0
+dat_used$yhat       <- yhat
+dat_used$yhat_sd    <- yhat_sd
+dat_used$resid_raw  <- resid_raw
+dat_used$resid_zfit <- resid_zfit
+
+write_csv(dat_used, file.path(best_dir, "best_model_residuals.csv"))
+
+response_scale_check <- tibble::tibble(
+  statistic = c(
+    "n",
+    "mean response",
+    "SD response",
+    "variance response",
+    "fixed + spatial + residual variance"
+  ),
+  value = c(
+    length(y_obs),
+    mean(y_obs, na.rm = TRUE),
+    stats::sd(y_obs, na.rm = TRUE),
+    stats::var(y_obs, na.rm = TRUE),
+    v_total
+  )
+)
+
+write_csv(
+  response_scale_check,
+  file.path(best_dir, "best_model_response_scale_check.csv")
+)
+print(response_scale_check)
+
+# Fixed-effect figure
+coef_plot_tbl <- fixef_final |>
+  dplyr::filter(term != "Intercept") |>
+  dplyr::mutate(
+    CI_excludes_zero = (`0.025quant` > 0) | (`0.975quant` < 0),
+    term = forcats::fct_reorder(term, mean)
+  )
+
+p_fixef <- ggplot(coef_plot_tbl, aes(mean, term)) +
+  geom_vline(xintercept = 0, linetype = 2, colour = "grey55") +
+  geom_errorbarh(
+    aes(xmin = `0.025quant`, xmax = `0.975quant`),
+    height = 0.12
+  ) +
+  geom_point(
+    aes(fill = CI_excludes_zero),
+    shape = 21,
+    size = 3,
+    stroke = 0.7
+  ) +
+  scale_fill_manual(
+    values = c(`FALSE` = "white", `TRUE` = "black"),
+    guide = "none"
+  ) +
+  labs(
+    x = "Posterior mean coefficient (95% CrI)",
+    y = NULL,
+    title = paste("Selected model:", best_model_name)
+  ) +
+  theme_classic(base_size = 11)
+
+print(p_fixef)
+ggsave(
+  file.path(best_plotdir, "selected_model_fixed_effects.png"),
+  p_fixef,
+  width = 8,
+  height = 5.5,
+  dpi = 300
+)
+```
+
+## Natural anomalies
+
+```{r natural-anomalies}
+y_obs <- INLA::inla.stack.data(stk_final)$y[IDX]
+yhat <- fit_final$summary.fitted.values$mean[IDX]
+yhat_sd <- fit_final$summary.fitted.values$sd[IDX]
+pit <- fit_final$cpo$pit[IDX]
+pit_clamped <- pmin(pmax(as.numeric(pit), 1e-6), 1 - 1e-6)
+
+anomaly <- stats::qnorm(pit_clamped)
+dat_used <- dat0
+dat_used$natural_expected <- yhat
+dat_used$natural_expected_sd <- yhat_sd
+dat_used$natural_anomaly <- anomaly
+dat_used$upper_anomaly_95 <- anomaly > stats::qnorm(0.95)
+dat_used$lower_anomaly_05 <- anomaly < stats::qnorm(0.05)
+
+write_csv(dat_used, file.path(best_dir, "natural_model_anomalies.csv"))
+write_csv(
+  tibble::tibble(
+    selected_model = best_model_name,
+    n = nrow(dat_used),
+    n_upper_95 = sum(dat_used$upper_anomaly_95, na.rm = TRUE),
+    n_lower_05 = sum(dat_used$lower_anomaly_05, na.rm = TRUE),
+    PIT_missing = sum(!is.finite(pit))
+  ),
+  file.path(best_dir, "anomaly_summary.csv")
+)
+```
+
+## Upper-tail analysis
+
+```{r anomaly-qgam}
+set.seed(42)
+
+if ("date" %in% names(dat_used)) {
+  date_parsed <- suppressWarnings(as.Date(dat_used$date, tryFormats = c(
+    "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y%m%d",
+    "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M"
+  )))
+  dat_used$DOY <- as.integer(strftime(date_parsed, "%j"))
+} else dat_used$DOY <- NA_integer_
+
+pts_human <- terra::vect(dat_used, geom = c("longitude", "latitude"), crs = "EPSG:4326")
+r_human <- terra::rast(worldpop_file)
+if (!terra::same.crs(pts_human, r_human)) pts_human <- terra::project(pts_human, terra::crs(r_human))
+dat_used$population_count <- terra::extract(r_human, pts_human, ID = FALSE)[, 1]
+dat_used$human_exposure <- log1p(dat_used$population_count)
+
+q_required <- c("natural_anomaly", "longitude", "latitude", "human_exposure", "elevation")
+if (sum(is.finite(dat_used$DOY)) >= 100 && length(unique(na.omit(dat_used$DOY))) >= 8) q_required <- c(q_required, "DOY")
+qdat <- dat_used[stats::complete.cases(dat_used[, q_required]), , drop = FALSE]
+
+q_formula <- if ("DOY" %in% q_required) {
+  natural_anomaly ~ s(longitude, latitude, k = 60) + s(elevation, k = 10) +
+    s(human_exposure, k = 10) + s(DOY, k = 12)
+} else {
+  natural_anomaly ~ s(longitude, latitude, k = 60) + s(elevation, k = 10) +
+    s(human_exposure, k = 10)
+}
+
+taus <- c(0.50, 0.75, 0.90, 0.95)
+qgam_capture <- lapply(taus, function(tau) capture_warnings(
+  qgam::qgam(q_formula, data = qdat, qu = tau)
+))
+qgam_models <- stats::setNames(lapply(qgam_capture, `[[`, "value"), paste0("q", taus))
+qgam_warnings <- purrr::map2_dfr(qgam_capture, taus, function(x, tau) {
+  if (!length(x$warnings)) return(tibble::tibble())
+  tibble::tibble(tau = tau, warning = x$warnings)
+})
+write_csv(qgam_warnings, file.path(gam_dir, "qGAM_warnings.csv"))
+if (nrow(qgam_warnings)) print(qgam_warnings) else cat("No qGAM warnings.\n")
+
+qgam_summary <- purrr::imap_dfr(qgam_models, function(mod, nm) {
+  sm <- summary(mod)$s.table
+  tibble::as_tibble(sm, rownames = "smooth") |>
+    dplyr::mutate(model = nm, tau = as.numeric(sub("q", "", nm)), .before = 1)
+})
+write_csv(qgam_summary, file.path(gam_dir, "upper_tail_qGAM_smooth_tests.csv"))
+writeLines(paste(deparse(q_formula), collapse = " "), file.path(gam_dir, "qGAM_formula.txt"))
+```
+
+### qGAM effect plots
+
+```{r qgam-effect-plots}
+make_qgam_newdata <- function(data, varname, n = 200) {
+  xseq <- seq(
+    min(data[[varname]], na.rm = TRUE),
+    max(data[[varname]], na.rm = TRUE),
+    length.out = n
+  )
+
+  nd <- data[rep(1, n), , drop = FALSE]
+  nd[[varname]] <- xseq
+
+  hold_vars <- intersect(
+    c("longitude", "latitude", "elevation", "human_exposure", "DOY"),
+    names(nd)
+  )
+  hold_vars <- setdiff(hold_vars, varname)
+
+  for (v in hold_vars) {
+    nd[[v]] <- median(data[[v]], na.rm = TRUE)
+  }
+
+  list(x = xseq, newdata = nd)
+}
+
+get_qgam_curve <- function(mod, data, varname, tau_label, n = 200) {
+  nd <- make_qgam_newdata(data, varname, n)
+  pr <- predict(mod, newdata = nd$newdata, se.fit = TRUE, type = "response")
+
+  tibble::tibble(
+    variable = varname,
+    x = nd$x,
+    fit = as.numeric(pr$fit),
+    se = as.numeric(pr$se.fit),
+    lower = fit - 1.96 * se,
+    upper = fit + 1.96 * se,
+    tau = tau_label
+  )
+}
+
+q95_name <- names(qgam_models)[which.min(abs(taus - 0.95))]
+q95_model <- qgam_models[[q95_name]]
+
+qgam_plot_vars <- intersect(
+  c("human_exposure", "DOY", "elevation"),
+  q_required
+)
+
+q95_curves <- purrr::map_dfr(
+  qgam_plot_vars,
+  ~get_qgam_curve(q95_model, qdat, .x, "0.95")
+)
+
+q95_plots <- purrr::map(
+  qgam_plot_vars,
+  function(v) {
+    dfp <- dplyr::filter(q95_curves, variable == v)
+    p <- ggplot(dfp, aes(x, fit)) +
+      geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.20) +
+      geom_line(linewidth = 0.9) +
+      geom_hline(yintercept = 0, linetype = 2, colour = "grey55") +
+      labs(
+        x = dplyr::recode(
+          v,
+          human_exposure = "Human exposure (log population count)",
+          DOY = "Day of year",
+          elevation = "Elevation"
+        ),
+        y = "Predicted 0.95 anomaly quantile",
+        title = paste("Upper-tail effect:", v)
+      ) +
+      theme_classic(base_size = 11)
+
+    print(p)
+    ggsave(
+      file.path(gam_dir, paste0("qGAM_q095_", v, ".png")),
+      p, width = 6.2, height = 4.5, dpi = 300
+    )
+    p
+  }
+)
+names(q95_plots) <- qgam_plot_vars
+
+multi_tau_curves <- purrr::imap_dfr(
+  qgam_models,
+  function(mod, nm) {
+    purrr::map_dfr(
+      qgam_plot_vars,
+      ~get_qgam_curve(
+        mod,
+        qdat,
+        .x,
+        as.numeric(sub("q", "", nm))
+      )
+    )
+  }
+)
+
+multi_tau_plots <- purrr::map(
+  qgam_plot_vars,
+  function(v) {
+    dfp <- dplyr::filter(multi_tau_curves, variable == v)
+    p <- ggplot(dfp, aes(x, fit, group = tau, linetype = factor(tau))) +
+      geom_line(linewidth = 0.9) +
+      geom_hline(yintercept = 0, linetype = 2, colour = "grey65") +
+      labs(
+        x = dplyr::recode(
+          v,
+          human_exposure = "Human exposure (log population count)",
+          DOY = "Day of year",
+          elevation = "Elevation"
+        ),
+        y = "Predicted anomaly quantile",
+        linetype = expression(tau),
+        title = paste("Quantile-specific effect:", v)
+      ) +
+      theme_classic(base_size = 11) +
+      theme(legend.position = "bottom")
+
+    print(p)
+    ggsave(
+      file.path(gam_dir, paste0("qGAM_multitau_", v, ".png")),
+      p, width = 6.5, height = 4.6, dpi = 300
+    )
+    p
+  }
+)
+names(multi_tau_plots) <- qgam_plot_vars
+
+write_csv(q95_curves, file.path(gam_dir, "qGAM_q095_effect_curves.csv"))
+write_csv(multi_tau_curves, file.path(gam_dir, "qGAM_multitau_effect_curves.csv"))
+```
+
+## Candidates
+
+```{r candidate-ranking}
+rank01 <- function(x, decreasing = FALSE) {
+  r <- rank(if (decreasing) -x else x, na.last = "keep", ties.method = "average")
+  (r - 1) / pmax(sum(is.finite(r)) - 1, 1)
+}
+
+candidates <- dat_used |>
+  dplyr::mutate(
+    anomaly_percentile = rank01(natural_anomaly),
+    human_percentile = rank01(human_exposure),
+    early_percentile = if ("DOY" %in% names(dat_used)) rank01(DOY, decreasing = TRUE) else NA_real_,
+    horticultural_candidate_score =
+      0.60 * anomaly_percentile +
+      0.25 * human_percentile +
+      0.15 * dplyr::coalesce(early_percentile, 0.5)
+  ) |>
+  dplyr::arrange(dplyr::desc(horticultural_candidate_score))
+
+write_csv(candidates, file.path(gam_dir, "horticultural_candidate_ranking.csv"))
+write_csv(head(candidates, 100), file.path(gam_dir, "top100_field_validation_candidates.csv"))
+```
+
+## Sensitivity
+
+```{r minimal-sensitivity}
+bee_sensitivity_terms <- c(z_Bee_max = "z_Bee_max", z_Bee_mean = "z_Bee_mean")
+bee_sensitivity <- purrr::imap_dfr(bee_sensitivity_terms, function(term, label) {
+  obj <- fit_spde(dat0, c(environment_terms, term), paste0("sensitivity_", label), selected_bundle)
+  row <- obj$fit$summary.fixed[term, , drop = FALSE]
+  tibble::tibble(
+    index = label,
+    posterior_mean = row[, "mean"],
+    lower_95 = row[, "0.025quant"],
+    upper_95 = row[, "0.975quant"],
+    WAIC = obj$stats$WAIC,
+    delta_WAIC_vs_M1 = obj$stats$WAIC - m1$stats$WAIC
+  )
+})
+write_csv(bee_sensitivity, file.path(top_dir, "Bombus_index_sensitivity.csv"))
+```
+
+## Submission files
+
+```{r submission-materials}
+term_labels <- c(
+  Temperature_PC1 = "Thermal growing conditions",
+  precip_PC1 = "Moisture amount / dryness",
+  TemperatureSeasonality = "Temperature seasonality",
+  PrecipSeasonality = "Precipitation seasonality",
+  topo_PC1 = "Topographic complexity",
+  soil_phys_PC1 = "Soil physical properties",
+  soil_nutrient_PC1 = "Soil nutrient status",
+  z_soil_pH = "Soil pH",
+  z_RSDS = "Solar radiation",
+  z_Bee = "Bombus-associated suitability"
+)
+
+fig1_dat <- dat0 |>
+  dplyr::mutate(display_colour = dplyr::coalesce(as.character(col_hex), "#808080"))
+
+p1a <- ggplot(fig1_dat, aes(longitude, latitude)) +
+  geom_point(aes(colour = display_colour), size = 1.1, alpha = 0.75) +
+  scale_colour_identity() +
+  coord_quickmap() +
+  labs(x = "Longitude", y = "Latitude", tag = "a",
+       title = "Nationwide georeferenced floral colour") +
+  theme_classic(base_size = 10)
+
+p1b <- ggplot(fig1_dat, aes(y)) +
+  geom_histogram(bins = 40, boundary = 0) +
+  labs(x = "Latent floral-colour index", y = "Observations", tag = "b",
+       title = "Continuous pigmentation variation") +
+  theme_classic(base_size = 10)
+
+cfa_plot_tbl <- loading_v2 |>
+  dplyr::mutate(
+    indicator = dplyr::recode(rhs,
+      a_z = "Red–magenta (a*)",
+      Lm_z = "Inverted lightness",
+      C_z = "Chroma",
+      Sm_z = "Saturation"
+    ),
+    indicator = forcats::fct_reorder(indicator, est.std)
+  )
+p1c <- ggplot(cfa_plot_tbl, aes(est.std, indicator)) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_point(size = 2.5) +
+  labs(x = "Standardized loading", y = NULL, tag = "c",
+       title = "Measurement model") +
+  theme_classic(base_size = 10)
+
+if (requireNamespace("patchwork", quietly = TRUE)) {
+  figure1 <- (p1a | p1b) / p1c +
+    patchwork::plot_layout(heights = c(1.15, 0.75), guides = "collect") +
+    patchwork::plot_annotation(title = "Figure 1. Georeferenced phenotyping and continuous floral-colour variation") &
+    theme(plot.title = element_text(face = "bold", size = 11),
+          plot.tag = element_text(face = "bold"),
+          legend.position = "bottom")
+  save_pub_plot(figure1, "Figure_1_phenotyping_and_colour", 178/25.4, 175/25.4)
+  print(figure1)
+} else {
+  save_pub_plot(p1a, "Figure_1a_colour_map", 90/25.4, 90/25.4)
+  save_pub_plot(p1b, "Figure_1b_pigment_distribution", 90/25.4, 90/25.4)
+  save_pub_plot(p1c, "Figure_1c_CFA_loadings", 90/25.4, 70/25.4)
+}
+
+coef_fig_tbl <- best_model$fit$summary.fixed |>
+  as.data.frame() |>
+  tibble::rownames_to_column("term") |>
+  dplyr::filter(term != "Intercept") |>
+  dplyr::mutate(
+    label = dplyr::recode(term, !!!term_labels),
+    label = forcats::fct_reorder(label, mean),
+    supported = (`0.025quant` > 0) | (`0.975quant` < 0)
+  )
+p2a <- ggplot(coef_fig_tbl, aes(mean, label)) +
+  geom_vline(xintercept = 0, linetype = 2, colour = "grey55") +
+  geom_errorbarh(aes(xmin = `0.025quant`, xmax = `0.975quant`), height = 0.12) +
+  geom_point(aes(fill = supported), shape = 21, size = 2.8, stroke = 0.7) +
+  scale_fill_manual(values = c(`FALSE` = "white", `TRUE` = "black"), guide = "none") +
+  labs(x = "Posterior coefficient (95% CrI)", y = NULL, tag = "a",
+       title = paste("Fixed effects:", best_model_name)) +
+  theme_classic(base_size = 10)
+
+mcomp <- primary_comparison |>
+  dplyr::mutate(
+    label = dplyr::recode(model,
+      M0_spatial = "M0: spatial",
+      M1_abiotic_spatial = "M1: abiotic + spatial",
+      M2_abiotic_Bombus_spatial = "M2: abiotic + Bombus + spatial"
+    ),
+    label = forcats::fct_reorder(label, delta_WAIC, .desc = TRUE)
+  )
+p2b <- ggplot(mcomp, aes(delta_WAIC, label)) +
+  geom_col() +
+  labs(x = expression(Delta*"WAIC"), y = NULL, tag = "b",
+       title = "Prespecified model comparison") +
+  theme_classic(base_size = 10)
+
+if (requireNamespace("patchwork", quietly = TRUE)) {
+  figure2 <- (p2a | p2b) / p_var_decomp +
+    patchwork::plot_layout(heights = c(1.15, 0.70), widths = c(1.55, 1), guides = "collect") +
+    patchwork::plot_annotation(title = "Figure 2. Selected ecological–spatial model") &
+    theme(plot.title = element_text(face = "bold", size = 11),
+          plot.tag = element_text(face = "bold"),
+          legend.position = "bottom")
+  save_pub_plot(figure2, "Figure_2_selected_model", 178/25.4, 155/25.4)
+  print(figure2)
+} else {
+  save_pub_plot(p2a, "Figure_2a_abiotic_coefficients", 110/25.4, 100/25.4)
+  save_pub_plot(p2b, "Figure_2b_model_comparison", 68/25.4, 100/25.4)
+}
+
+bee_main <- m2$fit$summary.fixed["z_Bee", , drop = FALSE]
+bee_plot <- dplyr::bind_rows(
+  tibble::tibble(
+    index = "Union-like primary",
+    posterior_mean = bee_main[, "mean"],
+    lower_95 = bee_main[, "0.025quant"],
+    upper_95 = bee_main[, "0.975quant"],
+    delta_WAIC_vs_M1 = m2$stats$WAIC - m1$stats$WAIC
+  ),
+  bee_sensitivity |>
+    dplyr::transmute(
+      index = dplyr::recode(index,
+        z_Bee_max = "Maximum",
+        z_Bee_mean = "Mean"
+      ),
+      posterior_mean, lower_95, upper_95, delta_WAIC_vs_M1
+    )
+) |>
+  dplyr::mutate(index = forcats::fct_reorder(index, posterior_mean))
+
+p3a <- ggplot(bee_plot, aes(posterior_mean, index)) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_errorbarh(aes(xmin = lower_95, xmax = upper_95), height = 0.15) +
+  geom_point(size = 2.6) +
+  labs(x = "Bombus coefficient (95% credible interval)", y = NULL, tag = "a",
+       title = "Sensitivity to composite definition") +
+  theme_classic(base_size = 10)
+
+p3b <- ggplot(bombus_cor,
+              aes(r_with_Bombus,
+                  forcats::fct_reorder(dplyr::recode(environmental_term, !!!term_labels),
+                                      r_with_Bombus))) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_point(size = 2.6) +
+  labs(x = "Correlation with primary Bombus index", y = NULL, tag = "b",
+       title = "Overlap with measured environment") +
+  theme_classic(base_size = 10)
+
+if (requireNamespace("patchwork", quietly = TRUE)) {
+  figure3 <- p3a | p3b +
+    patchwork::plot_layout(widths = c(1.15, 1), guides = "collect") +
+    patchwork::plot_annotation(title = "Figure 3. Exploratory pollinator-associated context") &
+    theme(plot.title = element_text(face = "bold", size = 11),
+          plot.tag = element_text(face = "bold"),
+          legend.position = "bottom")
+  save_pub_plot(figure3, "Figure_3_Bombus_context", 178/25.4, 105/25.4)
+  print(figure3)
+} else {
+  save_pub_plot(p3a, "Figure_3a_Bombus_sensitivity", 90/25.4, 95/25.4)
+  save_pub_plot(p3b, "Figure_3b_Bombus_environment_overlap", 88/25.4, 95/25.4)
+}
+
+p4a <- ggplot(dat_used, aes(longitude, latitude, colour = natural_anomaly)) +
+  geom_point(size = 1.25, alpha = 0.8) +
+  coord_quickmap() +
+  scale_colour_gradient2(midpoint = 0) +
+  labs(x = "Longitude", y = "Latitude", colour = "Selected-model\nanomaly",
+       tag = "a", title = "Deviation from the selected ecological–spatial model") +
+  theme_classic(base_size = 10)
+
+upper_bin <- dat_used |>
+  dplyr::filter(is.finite(human_exposure), !is.na(upper_anomaly_95)) |>
+  dplyr::mutate(exposure_bin = dplyr::ntile(human_exposure, 5L)) |>
+  dplyr::group_by(exposure_bin) |>
+  dplyr::summarise(
+    human_exposure = stats::median(human_exposure, na.rm = TRUE),
+    upper_tail_fraction = mean(upper_anomaly_95, na.rm = TRUE),
+    n = dplyr::n(), .groups = "drop"
+  )
+
+p4b <- ggplot(upper_bin, aes(human_exposure, upper_tail_fraction)) +
+  geom_hline(yintercept = 0.05, linetype = 2) +
+  geom_line() + geom_point(size = 2.5) +
+  labs(x = "Human exposure, log(population + 1)",
+       y = "Fraction above selected-model 95% threshold", tag = "b",
+       title = "Upper-tail enrichment across human exposure") +
+  theme_classic(base_size = 10)
+
+q_effect <- purrr::imap_dfr(qgam_models, function(mod, nm) {
+  xseq <- seq(stats::quantile(qdat$human_exposure, 0.02, na.rm = TRUE),
+              stats::quantile(qdat$human_exposure, 0.98, na.rm = TRUE),
+              length.out = 120)
+  nd <- data.frame(
+    longitude = stats::median(qdat$longitude, na.rm = TRUE),
+    latitude = stats::median(qdat$latitude, na.rm = TRUE),
+    elevation = stats::median(qdat$elevation, na.rm = TRUE),
+    human_exposure = xseq
+  )
+  if ("DOY" %in% names(qdat)) nd$DOY <- stats::median(qdat$DOY, na.rm = TRUE)
+  pr <- stats::predict(mod, newdata = nd, se.fit = TRUE)
+  tibble::tibble(
+    human_exposure = xseq,
+    fit = as.numeric(pr$fit),
+    lower = as.numeric(pr$fit - 1.96 * pr$se.fit),
+    upper = as.numeric(pr$fit + 1.96 * pr$se.fit),
+    tau = as.numeric(sub("q", "", nm))
+  )
+})
+p4c <- ggplot(q_effect, aes(human_exposure, fit, group = factor(tau),
+                            linetype = factor(tau))) +
+  geom_line(linewidth = 0.8) +
+  labs(x = "Human exposure, log(population + 1)",
+       y = "Predicted anomaly", linetype = expression(tau),
+       tag = "c", title = "Conditional quantile responses") +
+  theme_classic(base_size = 10)
+
+if (requireNamespace("patchwork", quietly = TRUE)) {
+  p4c_final <- if ("human_exposure" %in% names(q95_plots)) {
+    q95_plots[["human_exposure"]]
+  } else {
+    p4c
+  }
+
+  figure4 <- (p4a | p4b) / p4c_final +
+    patchwork::plot_layout(heights = c(1.1, 0.85), widths = c(1.25, 1), guides = "collect") +
+    patchwork::plot_annotation(title = "Figure 4. Upper-tail deviations from the selected ecological–spatial model") &
+    theme(plot.title = element_text(face = "bold", size = 11),
+          plot.tag = element_text(face = "bold"),
+          legend.position = "bottom")
+  save_pub_plot(figure4, "Figure_4_natural_anomalies", 178/25.4, 175/25.4)
+  print(figure4)
+} else {
+  save_pub_plot(p4a, "Figure_4a_anomaly_map", 90/25.4, 90/25.4)
+  save_pub_plot(p4b, "Figure_4b_anomaly_scatter", 88/25.4, 90/25.4)
+  save_pub_plot(p4c, "Figure_4c_quantile_effects", 120/25.4, 80/25.4)
+}
+
+table1 <- tibble::tibble(
+  domain = c("Thermal growing conditions", "Temperature seasonality",
+             "Moisture amount / dryness", "Precipitation seasonality",
+             "Topography", "Soil physical", "Soil nutrient", "Soil chemistry",
+             "Solar radiation", "Pollinator-associated context"),
+  variables = c(
+    paste(temp_vars, collapse = ", "),
+    "BIO4",
+    paste(precip_vars, collapse = ", "),
+    "BIO15",
+    paste(topo_vars, collapse = ", "),
+    paste(soil_phys_vars, collapse = ", "),
+    paste(soil_nutrient_vars, collapse = ", "),
+    "Soil pH",
+    "RSDS",
+    "Five species-specific Bombus SDMs; union-like composite"
+  ),
+  representation = c(
+    "PC1", "standardized single predictor", "PC1",
+    "standardized single predictor", "PC1", "PC1", "PC1",
+    "standardized single predictor", "standardized single predictor",
+    "exploratory standardized index"
+  )
+)
+write_csv(table1, file.path(table_dir, "Table_1_predictor_definitions.csv"))
+write_csv(primary_comparison, file.path(table_dir, "Table_2_primary_model_comparison.csv"))
+write_csv(fixef_final, file.path(table_dir, "Table_3_selected_model_coefficients.csv"))
+write_csv(var_decomp, file.path(table_dir, "Table_4_variance_decomposition.csv"))
+write_csv(qgam_summary, file.path(table_dir, "Table_5_qGAM_smooth_tests.csv"))
+write_csv(bee_plot, file.path(table_dir, "Table_S_Bombus_index_sensitivity.csv"))
+
+sdm_selected_files <- list.files(bombus_eval_dir, pattern = "_selected_model\\\\.csv$",
+                                 full.names = TRUE)
+if (length(sdm_selected_files)) {
+  sdm_selected <- dplyr::bind_rows(lapply(sdm_selected_files, readr::read_csv,
+                                          show_col_types = FALSE))
+  write_csv(sdm_selected, file.path(table_dir, "Table_S_Bombus_ENMeval_selected_models.csv"))
+}
+
+cfa_values <- setNames(as.numeric(fit_measures), names(fit_measures))
+reviewer_audit <- tibble::tribble(
+  ~component, ~check, ~value, ~status,
+  "Colour measurement", "CFA convergence", as.character(lavaan::inspect(fit_pig, "converged")),
+  ifelse(isTRUE(lavaan::inspect(fit_pig, "converged")), "pass", "fail"),
+  "Colour measurement", "Composite omega", sprintf("%.3f", omega_cfa),
+  ifelse(is.finite(omega_cfa) && omega_cfa >= 0.70, "pass", "inspect"),
+  "Colour measurement", "Correlation with colour PC1",
+  sprintf("%.3f", colour_index_sensitivity$correlation[1]),
+  ifelse(colour_index_sensitivity$correlation[1] >= 0.90, "pass", "inspect"),
+  "Predictors", "Maximum absolute pairwise correlation",
+  sprintf("%.3f", max(abs(audit_cor[upper.tri(audit_cor)]), na.rm = TRUE)),
+  ifelse(max(abs(audit_cor[upper.tri(audit_cor)]), na.rm = TRUE) < 0.70, "pass", "inspect"),
+  "Predictors", "Maximum VIF including Bombus",
+  sprintf("%.3f", max(vif_final$VIF, na.rm = TRUE)),
+  ifelse(max(vif_final$VIF, na.rm = TRUE) < 5, "pass", "inspect"),
+  "Spatial models", "CPO failures in selected baseline",
+  as.character(sum(!is.finite(fit_final$cpo$cpo[IDX]))),
+  ifelse(sum(!is.finite(fit_final$cpo$cpo[IDX])) == 0, "pass", "inspect"),
+  "Natural anomaly", "PIT values available",
+  sprintf("%d/%d", sum(is.finite(pit)), length(pit)),
+  ifelse(mean(is.finite(pit)) >= 0.99, "pass", "inspect"),
+  "Bombus", "M2 improves exploratory fit", as.character(delta_m2_vs_m1 < 0),
+  "descriptive_only",
+  "Anthropogenic exploration", "qGAM complete observations",
+  as.character(nrow(qdat)),
+  ifelse(nrow(qdat) >= 500, "pass", "inspect")
+)
+write_csv(reviewer_audit, file.path(repro_dir, "reviewer_audit.csv"))
+
+fmt <- function(x, digits = 2) formatC(x, digits = digits, format = "f")
+m0_waic <- primary_fits[["M0_spatial"]]$stats$WAIC
+m1_waic <- m1$stats$WAIC
+m2_waic <- m2$stats$WAIC
+supported_terms <- coef_fig_tbl |>
+  dplyr::filter(supported) |>
+  dplyr::pull(label)
+
+results_lines <- c(
+  paste0("A total of ", nrow(dat0),
+         " QC-eligible georeferenced observations entered the spatial analysis."),
+  paste0("The prespecified abiotic–spatial model improved WAIC by ",
+         fmt(m0_waic - m1_waic), " relative to the spatial-only model."),
+  paste0("Adding the exploratory Bombus-associated index changed WAIC by ",
+         fmt(m2_waic - m1_waic),
+         " relative to the matched abiotic–spatial model. Anomalies were calculated from the minimum-WAIC selected model."),
+  paste0("Abiotic predictors with 95% credible intervals excluding zero were: ",
+         if (length(supported_terms)) paste(supported_terms, collapse = ", ") else "none", "."),
+  paste0(sum(dat_used$upper_anomaly_95, na.rm = TRUE),
+         " observations exceeded the upper 95% leave-one-out predictive threshold.")
+)
+writeLines(results_lines, file.path(text_dir, "results_key_sentences.txt"))
+
+caption_lines <- c(
+  "Figure 1. Georeferenced phenotyping and continuous floral-colour variation. Photograph-derived median sRGB values were converted to CIELAB and summarized by a prespecified latent display-colour model.",
+  "Figure 2. Fixed effects from the minimum-WAIC ecological–spatial model and support for the prespecified M0–M2 model set. Filled points have 95% credible intervals excluding zero; models with ΔWAIC < 2 have comparable support.",
+  "Figure 3. Exploratory Bombus-associated context. The left panel assesses dependence on the suitability-composite definition; the right panel shows overlap between the primary Bombus index and measured environmental axes.",
+  "Figure 4. Selected-model anomalies. Positive PIT-normal anomalies indicate flowers darker than predicted by the minimum-WAIC ecological–spatial model in approximate leave-one-out prediction. Upper-tail enrichment and quantile relationships are exploratory and do not establish horticultural origin."
+)
+writeLines(caption_lines, file.path(text_dir, "figure_captions.txt"))
+
+review_scope <- c(
+  "Confirmatory core: photograph-derived continuous floral colour modelled against prespecified abiotic domains with an SPDE spatial field.",
+  "Exploratory biotic extension: species-specific, spatially cross-validated Bombus suitability SDMs; suitability is not occurrence probability, abundance, visitation, or selection.",
+  "Exploratory anomaly stage: upper-tail departure from the selected ecological–spatial model; association with human exposure does not establish horticultural origin.",
+  "The SPDE field represents residual spatial dependence and cannot be uniquely attributed to history, genetics, or unmeasured environment.",
+  "PCA reduces within-domain dimension; it does not make ecological domains or the Bombus index independent."
+)
+writeLines(review_scope, file.path(text_dir, "scope_and_inference_limits.txt"))
+
+analysis_config <- list(
+  pipeline_version = "FINAL_PUBLICATION_CLEAN_20KM",
+  run_utc = format(Sys.time(), tz = "UTC", usetz = TRUE),
+  random_seed = 42,
+  input_csv = normalizePath(path.expand(in_csv), winslash = "/", mustWork = TRUE),
+  input_csv_md5 = unname(tools::md5sum(path.expand(in_csv))),
+  rmd_path = tryCatch(normalizePath(knitr::current_input(), winslash = "/", mustWork = TRUE), error = function(e) NA_character_),
+  rmd_md5 = tryCatch(unname(tools::md5sum(knitr::current_input())), error = function(e) NA_character_),
+  output_root = normalizePath(out_root, winslash = "/", mustWork = TRUE),
+  selected_model = best_model_name,
+  primary_models = primary_terms,
+  environment_terms = environment_terms,
+  bombus_species = bombus_species,
+  bombus_background_n = BOMBUS_BACKGROUND_N,
+  bombus_coordinate_uncertainty_max_m = BOMBUS_MAX_COORD_UNCERTAINTY_M,
+  mesh = list(max_edge_m = c(20000, 100000), cutoff_m = 5000),
+  qgam_quantiles = taus
+)
+jsonlite::write_json(analysis_config,
+                     file.path(repro_dir, "analysis_config.json"),
+                     pretty = TRUE, auto_unbox = TRUE, null = "null")
+
+saveRDS(
+  list(
+    fit_pigment_cfa = fit_pig,
+    pca = list(
+      temperature = temp_pc_obj,
+      moisture = precip_pc_obj,
+      soil_physical = soil_phys_pc_obj,
+      soil_nutrient = soil_nutrient_pc_obj,
+      topography = topo_pc_obj
+    ),
+    primary_fits = primary_fits,
+    selected_model_name = best_model_name,
+    qgam_models = qgam_models
+  ),
+  file.path(repro_dir, "fitted_analysis_objects.rds"),
+  compress = "xz"
+)
+
+capture.output(sessionInfo(), file = file.path(repro_dir, "sessionInfo.txt"))
+installed_used <- unique(c(
+  "dplyr", "readr", "tidyr", "sf", "terra", "lavaan", "tibble", "INLA",
+  "qgam", "mgcv", "ggplot2", "forcats", "purrr", "broom", "jsonlite",
+  "digest", required_sdm_pkgs
+))
+package_versions <- tibble::tibble(
+  package = installed_used,
+  version = vapply(installed_used, function(pkg) {
+    if (requireNamespace(pkg, quietly = TRUE)) as.character(utils::packageVersion(pkg)) else NA_character_
+  }, character(1))
+)
+write_csv(package_versions, file.path(repro_dir, "package_versions.csv"))
+
+all_outputs <- list.files(pub_dir, recursive = TRUE, full.names = TRUE)
+all_outputs <- all_outputs[file.info(all_outputs)$isdir %in% FALSE]
+output_manifest <- tibble::tibble(
+  file = sub(paste0("^", normalizePath(pub_dir, winslash = "/"), "/?"), "",
+             normalizePath(all_outputs, winslash = "/", mustWork = TRUE)),
+  bytes = file.info(all_outputs)$size,
+  md5 = unname(tools::md5sum(all_outputs))
+)
+write_csv(output_manifest, file.path(repro_dir, "publication_output_manifest.csv"))
+```
+
+## Complete
+
+```{r completion}
+cat("Submission materials:", pub_dir, "\n")
+cat("Reproducibility archive:", repro_dir, "\n")
+```

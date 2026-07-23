@@ -1,0 +1,11 @@
+"stage","artifact","inference_role","exists"
+"phenotype","results/ecological_v11_pigmentation_hurdle/pigmentation_measurement_summary.csv","confirmatory_measurement",TRUE
+"national_natural_model","results/ecological_v16_predictive_replication/predictive_replication_model_performance.csv","confirmatory_natural_baseline",TRUE
+"national_natural_model","results/ecological_v16_predictive_replication/predictive_replication_bombus_paired_contrast.csv","national_bombus_sensitivity",TRUE
+"local_bombus_turnover","results/ecological_v17_local_pair_turnover/local_pair_predictive_summary.csv","planned_local_bombus_test",TRUE
+"local_bombus_turnover","results/ecological_v17_local_pair_turnover/local_pair_metadata.csv","planned_local_bombus_test",TRUE
+"local_isolate_definition","results/ecological_v20_local_white_isolates/local_isolate_natural_null_summary.csv","candidate_definition_and_natural_null",TRUE
+"local_human_context","results/ecological_v21_local_human_neighbourhood/human_neighbourhood_population_scale_summary.csv","exploratory_human_context",TRUE
+"local_human_context","results/ecological_v21_local_human_neighbourhood/human_neighbourhood_quality_summary.csv","negative_control",TRUE
+"did_sensitivity","results/ecological_v22_did_human_context/did_contrast_summary.csv","exploratory_human_context_sensitivity",TRUE
+"did_sensitivity","results/ecological_v22_did_human_context/did_context_composition_summary.csv","exploratory_human_context_sensitivity",TRUE

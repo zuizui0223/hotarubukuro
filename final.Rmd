@@ -39,7 +39,6 @@ suppressPackageStartupMessages({
 })
 
 set.seed(42)
-INLA::inla.setOption(num.threads = "1:1")
 
 if (requireNamespace("RhpcBLASctl", quietly = TRUE)) {
   RhpcBLASctl::blas_set_num_threads(1)
@@ -50,8 +49,9 @@ RNGkind(kind = "Mersenne-Twister", normal.kind = "Inversion")
 
 z <- function(x) as.numeric(scale(x))
 
+source("scripts/ecological_analysis_v2.R")
 
-out_root <- path.expand("~/zui_results")
+out_root <- path.expand(Sys.getenv("HOTARUBUKURO_OUTPUT_ROOT", "~/zui_results"))
 dir.create(out_root, recursive = TRUE, showWarnings = FALSE)
 
 cmp_dir      <- file.path(out_root, "diagnostics")
@@ -101,8 +101,20 @@ capture_warnings <- function(expr) {
 
 ## Colour
 
+For each photograph, the focal floral subject was first extracted and cropped.
+The author then visually verified the retained petal colour-extraction region
+before automated colour calculation. The script quantified colour only within
+that author-confirmed floral region. Observations were not excluded because of
+mask shape, multiple colour modes, or extreme dark/pink colour: those features
+can be genuine floral variation and the extreme upper tail is itself relevant
+to the horticultural-origin hypothesis. Only observations for which a colour
+measurement could not be formed, and exact duplicate images, were excluded.
+Because a neutral reference was not available, the measurements are
+uncalibrated display-referred sRGB summaries converted to CIELAB, not absolute
+petal reflectance.
+
 ```{r load-color}
-in_csv <- "~/Desktop/Data_S1.csv"
+in_csv <- path.expand(Sys.getenv("HOTARUBUKURO_INPUT_CSV", "Data_S1.csv"))
 df <- read.csv(in_csv, stringsAsFactors = FALSE, check.names = FALSE)
 
 stopifnot(all(c("longitude", "latitude") %in% names(df)))
@@ -160,16 +172,19 @@ df$Sm <- df$S
 
 df$cfa_qc_eligible <- TRUE
 if ("qc_status" %in% names(df)) {
-  df$cfa_qc_eligible <- df$cfa_qc_eligible & tolower(trimws(df$qc_status)) != "fail"
+  # manual_review_required is a warning, not a failed measurement. Excluding it
+  # would condition inclusion on features such as whiteness and multimodality.
+  hard_fail <- tolower(trimws(df$qc_status)) %in%
+    c("fail", "no_mask", "missing_image", "unreadable_image")
+  df$cfa_qc_eligible <- df$cfa_qc_eligible & !hard_fail
 }
 if ("duplicate_image_sha256" %in% names(df)) {
   duplicate_flag <- tolower(trimws(as.character(df$duplicate_image_sha256))) %in% c("1", "true", "yes", "y")
   df$cfa_qc_eligible <- df$cfa_qc_eligible & !duplicate_flag
 }
-if ("possible_overexposure" %in% names(df)) {
-  over_flag <- tolower(trimws(as.character(df$possible_overexposure))) %in% c("1", "true", "yes", "y")
-  df$cfa_qc_eligible <- df$cfa_qc_eligible & !over_flag
-}
+# possible_overexposure is retained in the inclusive primary set because the
+# heuristic is response-dependent for genuinely white flowers. It is audited
+# and excluded only in the no-automated-warning sensitivity analysis.
 if ("mask_pixels" %in% names(df)) {
   df$cfa_qc_eligible <- df$cfa_qc_eligible & (is.na(df$mask_pixels) | as.numeric(df$mask_pixels) >= 50)
 }
@@ -197,7 +212,10 @@ cache_root <- file.path(out_root, "public_environment_cache")
 chelsa_dir <- file.path(cache_root, "CHELSA_v2.1")
 soil_dir   <- file.path(cache_root, "SoilGrids_2.0")
 dem_dir    <- file.path(cache_root, "elevation")
-bee_dir    <- file.path(out_root, "bombus_sdm", "predictions") # rebuilt below from public GBIF + public 30s predictors
+bee_dir    <- path.expand(Sys.getenv(
+  "HOTARUBUKURO_BOMBUS_DIR",
+  file.path(out_root, "bombus_sdm", "predictions")
+)) # rebuilt below from public GBIF + public 30s predictors unless supplied
 human_dir  <- file.path(cache_root, "WorldPop_2020")
 for (d in c(chelsa_dir, soil_dir, dem_dir, human_dir, bee_dir)) dir.create(d, recursive = TRUE, showWarnings = FALSE)
 
@@ -794,23 +812,14 @@ as_terra_xy <- function(x, lon = "lon", lat = "lat") {
 }
 
 select_best_enmeval <- function(results) {
-  idx <- seq_len(nrow(results))
+  if ("AICc" %in% names(results) && any(is.finite(results$AICc))) {
+    return(which.min(results$AICc))
+  }
+  # Fallback only for algorithms/runs that do not return AICc.
   if ("cbi.val.avg" %in% names(results) && any(is.finite(results$cbi.val.avg))) {
-    best_cbi <- max(results$cbi.val.avg, na.rm = TRUE)
-    idx <- idx[is.finite(results$cbi.val.avg[idx]) &
-                 results$cbi.val.avg[idx] >= best_cbi - 0.02]
+    return(which.max(results$cbi.val.avg))
   }
-  if ("or.10p.val.avg" %in% names(results) && length(idx) > 1L &&
-      any(is.finite(results$or.10p.val.avg[idx]))) {
-    best_or <- min(results$or.10p.val.avg[idx], na.rm = TRUE)
-    idx <- idx[is.finite(results$or.10p.val.avg[idx]) &
-                 results$or.10p.val.avg[idx] <= best_or + 0.02]
-  }
-  if ("AICc" %in% names(results) && length(idx) > 1L &&
-      any(is.finite(results$AICc[idx]))) {
-    idx <- idx[which.min(results$AICc[idx])]
-  }
-  idx[[1]]
+  stop("ENMeval returned neither finite AICc nor validation CBI.", call. = FALSE)
 }
 
 predict_maxnet_cloglog <- function(env_rast, model) {
@@ -1047,6 +1056,14 @@ if (any(!file.exists(expected_bee_files))) {
     call. = FALSE
   )
 }
+# ENMeval objects and raster stacks can retain several GB. All reusable results
+# have been written above; release transient objects before the SPDE stage.
+rm(list = intersect(
+  c("eval_obj", "best_model", "species_env_kept", "species_env", "sdm_env",
+    "occurrence_list", "pooled", "bg_pool", "pred", "res"),
+  ls()
+))
+invisible(gc())
 ```
 
 ## Extraction
@@ -1076,7 +1093,10 @@ df <- df %>%
   left_join(bee_vals, by = ".row_id")
 
 
-df2 <- df %>% filter(coord_ok[.row_id]) %>% distinct(longitude, latitude, .keep_all = TRUE)
+# Repeated coordinates can represent different flowers or dates and are not
+# duplicate photographs. Preserve them; exact image hashes are handled by the
+# colour-measurement eligibility rule.
+df2 <- df %>% filter(coord_ok[.row_id])
 ```
 
 ## Topography
@@ -1223,6 +1243,32 @@ if (length(soil_pH_var) >= 1) {
 } else {
   df2$soil_pH <- NA_real_
 }
+
+# Physical, nutrient, and pH summaries were strongly collinear when entered as
+# separate fixed effects (VIF > 25). A response-blind joint soil PCA preserves
+# the domain with orthogonal axes; PC1 and PC2 retain about 89% in the current
+# data. Exact variance and loadings are exported below.
+soil_joint_vars <- intersect(
+  c("bdod", "cfvo", "sand", "silt", "nitrogen", "ocd", "soc", "phh2o"),
+  names(df2)
+)
+Xsoil <- df2[, soil_joint_vars, drop = FALSE]
+soil_keep <- vapply(Xsoil, function(v) is.numeric(v) && sd(v, na.rm = TRUE) > 0, logical(1))
+Xsoil <- Xsoil[, soil_keep, drop = FALSE]
+soil_cc <- complete.cases(Xsoil)
+if (ncol(Xsoil) < 2 || sum(soil_cc) < 3) stop("Joint soil PCA could not be formed.")
+soil_joint_pc_obj <- prcomp(Xsoil[soil_cc, , drop = FALSE], center = TRUE, scale. = TRUE)
+for (j in 1:2) {
+  anchor <- which.max(abs(soil_joint_pc_obj$rotation[, j]))
+  if (soil_joint_pc_obj$rotation[anchor, j] < 0) {
+    soil_joint_pc_obj$rotation[, j] <- -soil_joint_pc_obj$rotation[, j]
+    soil_joint_pc_obj$x[, j] <- -soil_joint_pc_obj$x[, j]
+  }
+}
+df2$soil_PC1 <- NA_real_
+df2$soil_PC2 <- NA_real_
+df2$soil_PC1[soil_cc] <- soil_joint_pc_obj$x[, 1]
+df2$soil_PC2[soil_cc] <- soil_joint_pc_obj$x[, 2]
 
 topo_vars <- intersect(c("roughness", "slope", "TRI"), names(df2))
 
@@ -1386,6 +1432,19 @@ if (!is.null(soil_nutrient_pc_obj)) {
     file.path(cmp_dir, "soil_nutrient_pca_loadings.csv")
   )
 }
+write_csv(
+  as.data.frame(soil_joint_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
+  file.path(cmp_dir, "soil_joint_pca_loadings.csv")
+)
+soil_joint_importance <- summary(soil_joint_pc_obj)$importance
+write_csv(
+  tibble::tibble(
+    component = colnames(soil_joint_importance),
+    proportion_variance = as.numeric(soil_joint_importance["Proportion of Variance", ]),
+    cumulative_variance = as.numeric(soil_joint_importance["Cumulative Proportion", ])
+  ),
+  file.path(cmp_dir, "soil_joint_pca_variance.csv")
+)
 if (!is.null(topo_pc_obj)) {
   write_csv(
     as.data.frame(topo_pc_obj$rotation) %>% tibble::rownames_to_column("variable"),
@@ -1416,6 +1475,30 @@ stopifnot(length(bee_cols) > 0)
 
 bee_values <- as.data.frame(lapply(df2[, bee_cols, drop = FALSE], function(x) pmin(pmax(as.numeric(x), 0), 1)))
 
+normal_score <- function(x) {
+  out <- rep(NA_real_, length(x))
+  ok <- is.finite(x)
+  if (any(ok)) {
+    p <- (rank(x[ok], ties.method = "average") - 0.5) / sum(ok)
+    out[ok] <- stats::qnorm(p)
+  }
+  out
+}
+
+bee_normal <- as.data.frame(lapply(bee_values, normal_score))
+widespread_cols <- intersect(c("ardens", "diversus"), names(bee_normal))
+alpine_cols <- intersect(c("beaticola", "consobrinus", "honshuensis"), names(bee_normal))
+stopifnot(length(widespread_cols) == 2L, length(alpine_cols) == 3L)
+
+df2$Bombus_W <- ifelse(
+  rowSums(is.finite(as.matrix(bee_normal[widespread_cols]))) == 2L,
+  rowMeans(as.matrix(bee_normal[widespread_cols])), NA_real_
+)
+df2$Bombus_A <- ifelse(
+  rowSums(is.finite(as.matrix(bee_normal[alpine_cols]))) == 3L,
+  rowMeans(as.matrix(bee_normal[alpine_cols])), NA_real_
+)
+
 df2$Bombus_union_score <- apply(bee_values, 1, function(x) {
   x <- x[is.finite(x)]
   if (!length(x)) NA_real_ else 1 - prod(1 - x)
@@ -1427,12 +1510,16 @@ df2$Bombus_max  <- apply(
 )
 df2$Bombus_mean <- rowMeans(bee_values, na.rm = TRUE)
 
-df2$Bombus_primary <- df2$Bombus_union_score
+df2$Bombus_primary <- df2$Bombus_W
 
 bee_index_definition <- tibble::tribble(
   ~index, ~formula, ~interpretation, ~probability_claim,
+  "Bombus_W", "mean normal-score suitability of B. ardens and B. diversus",
+  "prespecified nationwide widespread-species block used as the primary Bombus covariate", FALSE,
+  "Bombus_A", "mean normal-score suitability of three alpine species on their common M domain",
+  "alpine-species block used only in explicitly labelled common-support analyses", FALSE,
   "Bombus_union_score", "1 - product(1 - s_i)",
-  "bounded union-like composite of five cloglog suitability scores", FALSE,
+  "legacy union-like sensitivity index; not used as a probability or primary covariate", FALSE,
   "Bombus_max", "max(s_i)",
   "conservative any-species suitability proxy dominated by the best-supported species", FALSE,
   "Bombus_mean", "mean(s_i)",
@@ -1452,9 +1539,8 @@ need_vars <- c(
   "precip_PC1",
   "TemperatureSeasonality",
   "PrecipSeasonality",
-  "soil_nutrient_PC1",
-  "soil_phys_PC1",
-  "soil_pH",
+  "soil_PC1",
+  "soil_PC2",
   "RSDS",
   "Bombus_primary", "Bombus_max", "Bombus_mean",
   "longitude", "latitude"
@@ -1467,7 +1553,6 @@ dat0 <- df2 %>%
   dplyr::mutate(
     y         = Pigment,
     z_RSDS    = z(RSDS),
-    z_soil_pH = z(soil_pH),
     z_Bee     = z(Bombus_primary),
     z_Bee_max = z(Bombus_max),
     z_Bee_mean = z(Bombus_mean)
@@ -1479,19 +1564,17 @@ stopifnot(nrow(dat0) >= 50)
 ## Diagnostics
 
 ```{r predictor-audit, fig.width=8, fig.height=5}
-all_candidate_terms <- c(
+environment_candidate_terms <- c(
   "Temperature_PC1",
   "precip_PC1",
   "TemperatureSeasonality",
   "PrecipSeasonality",
   "topo_PC1",
-  "soil_phys_PC1",
-  "soil_nutrient_PC1",
-  "z_soil_pH",
-  "z_RSDS",
-  "z_Bee"
+  "soil_PC1",
+  "soil_PC2",
+  "z_RSDS"
 )
-stopifnot(all(all_candidate_terms %in% names(dat0)))
+stopifnot(all(environment_candidate_terms %in% names(dat0)))
 
 compute_vif <- function(data, terms) {
   purrr::map_dfr(terms, function(term) {
@@ -1527,12 +1610,9 @@ filter_vif <- function(data, terms, threshold = 5) {
   list(kept = kept, removed = removed, history = dplyr::bind_rows(history))
 }
 
-vif_selection <- filter_vif(dat0, all_candidate_terms, threshold = 5)
-selected_joint_terms <- vif_selection$kept
-selected_abiotic_terms <- setdiff(selected_joint_terms, "z_Bee")
-if (!("z_Bee" %in% selected_joint_terms)) {
-  stop("Joint VIF filtering removed z_Bee; an independent Bombus extension is not estimable with VIF < 5.", call. = FALSE)
-}
+vif_selection <- filter_vif(dat0, environment_candidate_terms, threshold = 5)
+selected_abiotic_terms <- vif_selection$kept
+selected_joint_terms <- c(selected_abiotic_terms, "z_Bee")
 stopifnot(length(selected_abiotic_terms) >= 1)
 
 vif_final <- compute_vif(dat0, selected_joint_terms) |> dplyr::arrange(dplyr::desc(VIF))
@@ -1545,9 +1625,9 @@ bombus_cor <- tibble::tibble(
 write_csv(vif_selection$history, file.path(cmp_dir, "VIF_filter_history.csv"))
 write_csv(vif_final, file.path(cmp_dir, "VIF_final_environment_plus_Bombus.csv"))
 write_csv(tibble::tibble(
-  term = all_candidate_terms,
-  retained = all_candidate_terms %in% selected_joint_terms,
-  removal_order = match(all_candidate_terms, vif_selection$removed)
+  term = environment_candidate_terms,
+  retained = environment_candidate_terms %in% selected_abiotic_terms,
+  removal_order = match(environment_candidate_terms, vif_selection$removed)
 ), file.path(cmp_dir, "VIF_term_selection.csv"))
 utils::write.csv(audit_cor, file.path(cmp_dir, "final_predictor_correlation_matrix.csv"), row.names = TRUE)
 write_csv(bombus_cor, file.path(cmp_dir, "Bombus_environment_correlations.csv"))
@@ -1558,7 +1638,7 @@ print(tibble::tibble(retained_term = selected_joint_terms))
 p_vif <- ggplot(vif_final, aes(VIF, forcats::fct_reorder(term, VIF))) +
   geom_vline(xintercept = 5, linetype = 2) +
   geom_point(size = 2.5) +
-  labs(x = "Final VIF", y = NULL, title = "Joint VIF filter: environment + Bombus") +
+  labs(x = "Diagnostic VIF", y = NULL, title = "Environment fixed before adding Bombus") +
   theme_classic(base_size = 11)
 print(p_vif)
 ```
@@ -1587,18 +1667,27 @@ write_csv(
 
 A 20-km maximum inner mesh edge was used for the final analysis. In a preliminary numerical-resolution check, the 10- and 20-km meshes had effectively identical WAIC, whereas the 40-km mesh performed worse. The 20-km mesh used approximately one quarter of the vertices required by the 10-km mesh and was therefore retained as the parsimonious numerical resolution. Mesh edge length is a computational setting and is not interpreted as an ecological dispersal distance.
 
-```{r spde-model}
+```{r spde-model, results='hide'}
+invisible(gc())
 sf_cmp <- sf::st_as_sf(dat0, coords = c("longitude", "latitude"), crs = 4326)
-sf_cmp_m <- sf::st_transform(sf_cmp, 3857)
-coords_cmp <- sf::st_coordinates(sf_cmp_m)
+sf_cmp_m <- sf::st_transform(
+  sf_cmp,
+  "+proj=laea +lat_0=36 +lon_0=137 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+)
+coords_cmp <- sf::st_coordinates(sf_cmp_m) / 1000
 
 mesh_cmp <- INLA::inla.mesh.2d(
   loc = coords_cmp,
-  max.edge = 1000 * c(20, 100),
-  cutoff = 1000 * 5
+  max.edge = c(20, 100),
+  cutoff = 5
 )
 
-spde_cmp <- INLA::inla.spde2.matern(mesh_cmp, alpha = 2)
+spde_cmp <- INLA::inla.spde2.pcmatern(
+  mesh_cmp,
+  alpha = 2,
+  prior.range = c(100, 0.05),
+  prior.sigma = c(1, 0.05)
+)
 A_cmp <- INLA::inla.spde.make.A(mesh_cmp, loc = coords_cmp)
 
 selected_bundle <- list(
@@ -1642,11 +1731,14 @@ fit_spde <- function(dat, terms, model_name, bundle = selected_bundle) {
         compute = TRUE
       ),
       control.compute = list(
-        config = TRUE,
+        config = FALSE,
         dic = TRUE,
         waic = TRUE,
         cpo = TRUE
-      )
+      ),
+      # Windows INLA 25.10.19 devel failed to collect this model in quiet mode;
+      # the identical verbose call is stable and is retained in the knit log.
+      verbose = TRUE
     )
   )
 
@@ -1979,7 +2071,7 @@ q_formula <- if ("DOY" %in% q_required) {
 
 taus <- c(0.50, 0.75, 0.90, 0.95)
 qgam_capture <- lapply(taus, function(tau) capture_warnings(
-  qgam::qgam(q_formula, data = qdat, qu = tau)
+  qgam::qgam(q_formula, data = qdat, qu = tau, argGam = list(method = "REML"))
 ))
 qgam_models <- stats::setNames(lapply(qgam_capture, `[[`, "value"), paste0("q", taus))
 qgam_warnings <- purrr::map2_dfr(qgam_capture, taus, function(x, tau) {
@@ -2184,9 +2276,8 @@ term_labels <- c(
   TemperatureSeasonality = "Temperature seasonality",
   PrecipSeasonality = "Precipitation seasonality",
   topo_PC1 = "Topographic complexity",
-  soil_phys_PC1 = "Soil physical properties",
-  soil_nutrient_PC1 = "Soil nutrient status",
-  z_soil_pH = "Soil pH",
+  soil_PC1 = "Joint soil gradient PC1",
+  soil_PC2 = "Joint soil gradient PC2",
   z_RSDS = "Solar radiation",
   z_Bee = "Bombus-associated suitability"
 )
@@ -2417,7 +2508,7 @@ if (requireNamespace("patchwork", quietly = TRUE)) {
 table1 <- tibble::tibble(
   domain = c("Thermal growing conditions", "Temperature seasonality",
              "Moisture amount / dryness", "Precipitation seasonality",
-             "Topography", "Soil physical", "Soil nutrient", "Soil chemistry",
+             "Topography", "Joint soil environment",
              "Solar radiation", "Pollinator-associated context"),
   variables = c(
     paste(temp_vars, collapse = ", "),
@@ -2425,16 +2516,14 @@ table1 <- tibble::tibble(
     paste(precip_vars, collapse = ", "),
     "BIO15",
     paste(topo_vars, collapse = ", "),
-    paste(soil_phys_vars, collapse = ", "),
-    paste(soil_nutrient_vars, collapse = ", "),
-    "Soil pH",
+    paste(soil_joint_vars, collapse = ", "),
     "RSDS",
-    "Five species-specific Bombus SDMs; union-like composite"
+    "Two widespread Bombus SDMs (W); three alpine SDMs evaluated separately on common M"
   ),
   representation = c(
     "PC1", "standardized single predictor", "PC1",
-    "standardized single predictor", "PC1", "PC1", "PC1",
-    "standardized single predictor", "standardized single predictor",
+    "standardized single predictor", "PC1", "PC1 and PC2",
+    "standardized single predictor",
     "exploratory standardized index"
   )
 )
@@ -2445,8 +2534,12 @@ write_csv(var_decomp, file.path(table_dir, "Table_4_variance_decomposition.csv")
 write_csv(qgam_summary, file.path(table_dir, "Table_5_qGAM_smooth_tests.csv"))
 write_csv(bee_plot, file.path(table_dir, "Table_S_Bombus_index_sensitivity.csv"))
 
-sdm_selected_files <- list.files(bombus_eval_dir, pattern = "_selected_model\\\\.csv$",
-                                 full.names = TRUE)
+external_sdm_selection <- path.expand(Sys.getenv("HOTARUBUKURO_ENMEVAL_SELECTION_CSV", ""))
+sdm_selected_files <- if (nzchar(external_sdm_selection) && file.exists(external_sdm_selection)) {
+  external_sdm_selection
+} else {
+  list.files(bombus_eval_dir, pattern = "_selected_model\\\\.csv$", full.names = TRUE)
+}
 if (length(sdm_selected_files)) {
   sdm_selected <- dplyr::bind_rows(lapply(sdm_selected_files, readr::read_csv,
                                           show_col_types = FALSE))
@@ -2515,6 +2608,8 @@ caption_lines <- c(
 writeLines(caption_lines, file.path(text_dir, "figure_captions.txt"))
 
 review_scope <- c(
+  "Colour measurement provenance: the focal flower was extracted/cropped and the author visually verified the petal colour-extraction region before scripted colour calculation.",
+  "QC did not exclude mask-shape warnings, multimodal colour, or extreme dark/pink values; such values may be biological and are central to the upper-tail horticultural hypothesis.",
   "Confirmatory core: photograph-derived continuous floral colour modelled against prespecified abiotic domains with an SPDE spatial field.",
   "Exploratory biotic extension: species-specific, spatially cross-validated Bombus suitability SDMs; suitability is not occurrence probability, abundance, visitation, or selection.",
   "Exploratory anomaly stage: upper-tail departure from the selected ecological–spatial model; association with human exposure does not establish horticultural origin.",
@@ -2553,6 +2648,7 @@ saveRDS(
       moisture = precip_pc_obj,
       soil_physical = soil_phys_pc_obj,
       soil_nutrient = soil_nutrient_pc_obj,
+      soil_joint = soil_joint_pc_obj,
       topography = topo_pc_obj
     ),
     primary_fits = primary_fits,
@@ -2586,6 +2682,57 @@ output_manifest <- tibble::tibble(
   md5 = unname(tools::md5sum(all_outputs))
 )
 write_csv(output_manifest, file.path(repro_dir, "publication_output_manifest.csv"))
+```
+
+## Ecological analysis v2
+
+The publication pipeline also runs the prespecified redesign: direct CIELAB a*
+as the primary response, widespread and alpine Bombus blocks, PC-prior SPDE,
+spatial-block cross-fitted upper-tail anomalies, and raw-colour quantile models
+for the horticultural hypothesis. The author-confirmed flower-colour extraction
+regions remain in the primary set. A warning-free subset is only a potentially
+selection-biased diagnostic because several automated warnings depend on colour;
+it is not a higher-quality analysis or a basis for excluding extreme flowers.
+
+```{r ecological-analysis-v2, results='hide'}
+run_v2 <- tolower(Sys.getenv("HOTARUBUKURO_RUN_ECOLOGICAL_V2", "true")) %in%
+  c("1", "true", "yes", "y")
+
+if (run_v2) {
+  supplied_v2_input <- path.expand(Sys.getenv("HOTARUBUKURO_V2_INPUT_CSV", ""))
+  if (nzchar(supplied_v2_input) && file.exists(supplied_v2_input)) {
+    v2_input_file <- supplied_v2_input
+  } else {
+    v2_input_file <- file.path(out_root, "ecological_v2_colour_inclusive_input.csv")
+    v2_input_columns <- intersect(c(
+      "sample_id", "observation_id", "exact_site_id", "col_hex", "date",
+      "longitude", "latitude", "elevation", "Pigment",
+      "Temperature_PC1", "precip_PC1", "TemperatureSeasonality",
+      "PrecipSeasonality", "topo_PC1", "soil_PC1", "soil_PC2", "RSDS"
+    ), names(df2))
+    readr::write_csv(df2[, v2_input_columns, drop = FALSE], v2_input_file)
+  }
+  invisible(gc())
+  ecological_v2 <- run_ecological_analysis_v2(
+    anomaly_csv = v2_input_file,
+    raw_colour_csv = in_csv,
+    bombus_dir = bee_dir,
+    output_dir = file.path(out_root, "ecological_v2"),
+    raster_paths = list(
+      H = worldpop_file,
+      R = Sys.getenv("HOTARUBUKURO_R_RASTER", ""),
+      N = unname(chelsa_files[["gdd5"]]),
+      A = Sys.getenv("HOTARUBUKURO_A_RASTER", "")
+    ),
+    strict_qc = FALSE,
+    east_west_cut = 136.5,
+    block_km = 50,
+    folds = 5,
+    run_inla = TRUE,
+    k_space = 25,
+    author_review_confirmed = TRUE
+  )
+}
 ```
 
 ## Complete

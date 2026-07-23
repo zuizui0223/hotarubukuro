@@ -1,0 +1,22 @@
+# Final analysis claim audit: LOCKED
+
+Confirmatory core: hierarchical pigmentation response and nationwide environment-plus-SPDE natural predictive replication.
+
+Planned local mechanism: 25-km Bombus fingerprint turnover was associated with pigmentation-presence turnover (beta 0.084, q 0.028) and pigmented-only intensity turnover (beta 0.092, q 0.028).
+
+Exploratory human context: 5-km population and DID alignment were directional but not family-wise significant (corrected p 0.076 and 0.084).
+
+No causal pollinator effect, planting, horticultural origin, escape, introgression, or genetic pollution is inferred.
+
+- Two-part phenotype is the only final flower-colour response: PASS (pigmentation presence and pigmented-only intensity retained)
+- National Bombus gain remains small: PASS (mean AUC change=0.0061)
+- Local Bombus turnover is supported in both hurdle stages: PASS (presence beta=0.084 q=0.028; intensity beta=0.092 q=0.028)
+- Local Bombus result is association not causal selection: PASS (local association beyond fitted natural-map expectation; not causal selection)
+- Primary local isolates are not excessive under the natural model: PASS (count=16 p=0.273; fraction=0.045 p=0.125)
+- Human-context directions remain exploratory: PASS (5-km population p=0.076; DID alignment p=0.084; class p=0.117)
+- Sampling and environmental controls remain null: PASS (minimum quality-control FWER p=0.914)
+- Only one human-context follow-up cell and no early-dark convergence: PASS (cell-1km--108_-147; early q=0.943; dark q=0.194)
+- Residual and superseded horticultural analyses are excluded: PASS (exclusion registry contains residual, v18-v19, and old v20 branches)
+- Horticultural origin is not demonstrated: PASS (field history and genetic evidence remain required)
+- Independent final validation complete: PASS (16 checks passed)
+- final.Rmd unchanged: PASS (md5= 0173d76bef175c6319d43196b1406cc8)

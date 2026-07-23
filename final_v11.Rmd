@@ -1,0 +1,444 @@
+---
+title: "Campanula punctata floral-colour geography: pigmentation-hurdle analysis v11"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    code_folding: hide
+    self_contained: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, warning = TRUE, message = FALSE, fig.align = "center", dpi = 150
+)
+
+hurdle_dir <- Sys.getenv(
+  "HOTARUBUKURO_HURDLE_RESULTS",
+  "results/ecological_v11_pigmentation_hurdle"
+)
+base_dir <- Sys.getenv(
+  "HOTARUBUKURO_BASE_RESULTS",
+  "results/ecological_v9_final_public_HRNA_50km"
+)
+
+read_required <- function(dir, name) {
+  path <- file.path(dir, name)
+  if (!file.exists(path)) stop("Missing required v11 result: ", path)
+  utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
+}
+
+measurement <- read_required(hurdle_dir, "pigmentation_measurement_summary.csv")
+components <- read_required(hurdle_dir, "pigmentation_mixture_components.csv")
+measurement_obs <- read_required(hurdle_dir, "pigmentation_measurement_observations.csv")
+class_sensitivity <- read_required(hurdle_dir, "pigmentation_classification_sensitivity.csv")
+presence_coef <- read_required(hurdle_dir, "pigmentation_presence_bombus_coefficients.csv")
+presence_held <- read_required(hurdle_dir, "pigmentation_presence_bombus_heldout.csv")
+intensity_coef <- read_required(hurdle_dir, "pigmented_intensity_bombus_coefficients.csv")
+intensity_held <- read_required(hurdle_dir, "pigmented_intensity_bombus_heldout.csv")
+rule_coef <- read_required(hurdle_dir, "pigmentation_rule_sensitivity_coefficients.csv")
+rule_held <- read_required(hurdle_dir, "pigmentation_rule_sensitivity_heldout.csv")
+inla_cmp <- read_required(hurdle_dir, "pigmentation_hurdle_inla_model_comparison.csv")
+inla_fixed <- read_required(hurdle_dir, "pigmentation_hurdle_inla_fixed_effects.csv")
+hr_coef <- read_required(hurdle_dir, "pigmentation_hurdle_HR_coefficients.csv")
+hr_held <- read_required(hurdle_dir, "pigmentation_hurdle_HR_heldout.csv")
+tail_coef <- read_required(hurdle_dir, "pigmentation_residual_tail_HR_coefficients.csv")
+tail_held <- read_required(hurdle_dir, "pigmentation_residual_tail_HR_heldout.csv")
+tail_early <- read_required(hurdle_dir, "pigmentation_residual_tail_early_enrichment.csv")
+tail_candidates <- read_required(hurdle_dir, "pigmentation_residual_tail_candidates.csv")
+vif <- read_required(hurdle_dir, "pigmentation_hurdle_collinearity_vif.csv")
+condition <- read_required(hurdle_dir, "pigmentation_hurdle_collinearity_condition.csv")
+enmeval <- read_required(base_dir, "bombus_enmeval_selection.csv")
+
+num <- function(x, digits = 3) formatC(as.numeric(x), digits = digits, format = "f")
+one <- function(x, keep, label) {
+  out <- x[keep, , drop = FALSE]
+  if (nrow(out) != 1L) stop("Expected one row for ", label, "; found ", nrow(out))
+  out
+}
+coef_ci <- function(row) paste0(
+  num(row$estimate), " (95% interval ", num(row$lower_95), " to ",
+  num(row$upper_95), ")"
+)
+inla_ci <- function(row) paste0(
+  num(row$mean), " (95% credible interval ", num(row[["0.025quant"]]),
+  " to ", num(row[["0.975quant"]]), ")"
+)
+
+w_presence <- one(
+  presence_coef,
+  presence_coef$predictor == "Bombus_W" &
+    presence_coef$rung == "environment_space_adjusted",
+  "W presence env-space coefficient"
+)
+a_presence <- one(
+  presence_coef,
+  presence_coef$predictor == "Bombus_A" &
+    presence_coef$rung == "environment_space_adjusted",
+  "A presence env-space coefficient"
+)
+w_intensity <- one(
+  intensity_coef,
+  intensity_coef$predictor == "Bombus_W" &
+    intensity_coef$rung == "environment_space_adjusted",
+  "W intensity env-space coefficient"
+)
+a_intensity <- one(
+  intensity_coef,
+  intensity_coef$predictor == "Bombus_A" &
+    intensity_coef$rung == "environment_space_adjusted",
+  "A intensity env-space coefficient"
+)
+
+w_presence_cv <- one(
+  presence_held,
+  presence_held$predictor == "Bombus_W" &
+    presence_held$rung == "environment_space_adjusted",
+  "W presence env-space heldout"
+)
+a_presence_cv <- one(
+  presence_held,
+  presence_held$predictor == "Bombus_A" &
+    presence_held$rung == "environment_space_adjusted",
+  "A presence env-space heldout"
+)
+w_intensity_cv <- one(
+  intensity_held,
+  intensity_held$predictor == "Bombus_W" &
+    intensity_held$rung == "environment_space_adjusted",
+  "W intensity env-space heldout"
+)
+a_intensity_cv <- one(
+  intensity_held,
+  intensity_held$predictor == "Bombus_A" &
+    intensity_held$rung == "environment_space_adjusted",
+  "A intensity env-space heldout"
+)
+```
+
+# Scope and result
+
+This report uses the workflow and provenance statements in `final.Rmd`, but it
+replaces the old single continuous flower-colour response with a two-part
+pigmentation response. The old numerical results are not carried forward.
+
+The defensible result is:
+
+> Author-confirmed photograph regions revealed a nationwide optical transition
+> between white-like and pigmented flowers and a separate intensity gradient
+> among pigmented flowers. Bombus suitability overlaps both gradients at broad
+> spatial scales, but pigmentation presence gains essentially no predictive
+> information from W or A after environmental and spatial structure is included.
+> A small W-associated intensity gradient remains among pigmented flowers, but
+> it does not establish pollinator-mediated selection. Human--forest interface
+> associations are weak and do not become stronger in the extreme residual
+> tail; horticultural provenance therefore remains an unconfirmed candidate
+> explanation rather than a supported population-level result.
+
+# Measurement: two biological regimes
+
+For each photograph, the focal floral subject was extracted/cropped and the
+author visually verified the retained petal colour-extraction region before
+scripted colour calculation. Mask shape was not used to decide biological
+eligibility. Extreme dark or pink values were retained because they can be real
+flowers and are central to the horticultural hypothesis.
+
+White flowers do not provide a continuous proxy for anthocyanin amount. Their
+small a* differences are therefore treated as colour-measurement variation.
+The primary response-blind Gaussian mixture fitted only to a* estimated an
+operational boundary of **a* = `r num(measurement$decision_boundary_a, 2)`**:
+`r measurement$n_white` white-like and `r measurement$n_pigmented` pigmented
+observations. `r measurement$n_ambiguous` observations fall in the posterior
+uncertainty zone at an 0.8 confidence rule.
+
+The two outcomes are:
+
+1. pigmentation presence/absence across all `r measurement$n` flowers;
+2. standardized visible colour intensity among the `r measurement$n_pigmented`
+   flowers classified as pigmented.
+
+These are optical phenotypes from uncalibrated display-referred sRGB converted
+to CIELAB. They are not chemical anthocyanin concentrations, reflectance spectra,
+or bee-perceptual contrasts.
+
+```{r mixture-figure, fig.width=8, fig.height=4.5, fig.cap="Observed CIELAB a* distribution and the response-blind operational pigmentation boundary."}
+hist(
+  measurement_obs$colour_a, breaks = 60, col = "grey85", border = "white",
+  xlab = "CIELAB a*", main = "White-like and pigmented measurement regimes"
+)
+abline(v = measurement$decision_boundary_a, col = "#B2182B", lwd = 3)
+legend(
+  "topright", legend = paste0("mixture boundary = ", num(measurement$decision_boundary_a, 2)),
+  lwd = 3, col = "#B2182B", bty = "n"
+)
+```
+
+```{r classification-table}
+knitr::kable(
+  class_sensitivity, digits = 3,
+  caption = "Pigmentation classification by region under prespecified sensitivity rules."
+)
+```
+
+The rule a*>0 is not the primary boundary: it classifies
+`r measurement$n_nonnegative_below_boundary` non-negative but white-like
+observations as pigmented. High-confidence exclusion and the joint L*a*C*
+mixture are the biologically more informative robustness checks.
+
+# Analysis architecture and anti-circularity
+
+The same causal idea is evaluated as a sequence of distinct estimands rather
+than as one saturated model.
+
+1. **Natural baseline:** eight response-blind environmental axes plus region and
+   a continuous spatial field.
+2. **Biotic addition:** W nationwide; A only within its common ENMeval support.
+3. **Horticultural increment:** H (human exposure), R (human--forest interface),
+   and H×R are added to the original outcome model. This is the inferential test.
+4. **Residual-tail exploration:** a natural model that contains no H, R, road
+   access, early-flowering score, or residual rank produces spatially
+   cross-fitted predictions. Its residuals rank unexpected observations only.
+
+Residuals are therefore not treated as a new measured trait, and candidate
+selection is not recycled as confirmation of the H/R model.
+
+# Bombus: broad overlap versus incremental information
+
+## ENMeval suitability inputs
+
+All five suitability models were rebuilt and selected with ENMeval; existing
+Bombus TIFF files were not used as trusted inputs. AICc, not AUC, selected model
+complexity. The broad-distribution B. diversus model has modest validation AUC,
+which is expected when presence locations occupy much of the accessible
+background; it limits fine-scale discrimination and is reported rather than
+hidden.
+
+```{r enmeval-table}
+enmeval_show <- enmeval[c(
+  "species", "fc", "rm", "auc.val.avg", "auc.val.sd", "cbi.val.avg",
+  "or.10p.avg", "AICc", "ncoef"
+)]
+knitr::kable(enmeval_show, digits = 3, caption = "Selected ENMeval models.")
+```
+
+## Evidence ladder
+
+At the landscape rung, W is negatively associated and A positively associated
+with pigmentation presence. After environment and space, the W coefficient is
+`r coef_ci(w_presence)` and the A coefficient is `r coef_ci(a_presence)`.
+Their spatial-fold predictive changes are respectively
+Δlog-loss=`r num(w_presence_cv$delta_log_loss, 4)` and
+`r num(a_presence_cv$delta_log_loss, 4)`: effectively no gain.
+
+Among pigmented flowers, W retains a negative coefficient,
+`r coef_ci(w_intensity)`, with Δheld-out R²=
+`r num(w_intensity_cv$delta_R2, 4)`. A is `r coef_ci(a_intensity)` with
+Δheld-out R²=`r num(a_intensity_cv$delta_R2, 4)`.
+
+```{r bombus-ladder-table}
+coef_show <- rbind(
+  subset(presence_coef, predictor %in% c("Bombus_W", "Bombus_A") &
+           rung %in% c("landscape", "environment_space_adjusted")),
+  subset(intensity_coef, predictor %in% c("Bombus_W", "Bombus_A") &
+           rung %in% c("landscape", "environment_space_adjusted"))
+)
+knitr::kable(
+  coef_show[c("outcome", "predictor", "rung", "n", "estimate", "lower_95", "upper_95", "p_value")],
+  digits = 4, caption = "Bombus evidence ladder for the two response components."
+)
+```
+
+The three montane species show similar broad positive overlap but are highly
+correlated spatial proxies, not independent biological replications. One
+B. consobrinus presence cross-validation fold emitted an mgcv step-failure
+warning; the W/A results and all conditional-intensity folds had no such warning.
+
+## Threshold robustness
+
+The primary conclusion is stable under high-confidence classification and the
+joint L*a*C* mixture. The a*>0 rule alone makes the adjusted A coefficient look
+positive, demonstrating why including white-like a* noise as low pigment can
+change inference.
+
+```{r threshold-robustness-table}
+rule_show <- subset(
+  rule_coef,
+  rung == "environment_space_adjusted" & predictor %in% c("Bombus_W", "Bombus_A")
+)
+knitr::kable(
+  rule_show[c(
+    "classification_rule", "outcome_role", "predictor", "n", "estimate",
+    "lower_95", "upper_95", "p_value"
+  )],
+  digits = 4, caption = "Environment-and-space-adjusted threshold sensitivity."
+)
+```
+
+# SPDE-INLA check
+
+The binary presence outcome uses a binomial-logit SPDE model; conditional
+intensity uses a Gaussian SPDE model. Both use the same mesh construction and
+PC-Matérn prior specification. Adding W to the nationwide presence model worsens
+WAIC by 1.37. Adding A within common support worsens WAIC by 2.71. For intensity,
+W improves nationwide WAIC by only 0.54 and A changes it by 0.04.
+
+```{r inla-comparison-table}
+knitr::kable(
+  inla_cmp[c(
+    "model", "family", "n", "mesh_vertices", "WAIC", "mean_neglogCPO",
+    "n_CPO_nonfinite", "comparison_set", "delta_WAIC_within_set"
+  )],
+  digits = 3, caption = "Two-part SPDE-INLA model comparison."
+)
+```
+
+# Shared structure and multicollinearity
+
+Environment-only axes are not the main identifiability problem. Bombus W is
+strongly aligned with temperature, especially in the pigmented and eastern
+subsets. Within A support, W and A are also strongly negatively correlated.
+This is expected shared biogeography, but it widens intervals and prevents a
+clean local selection interpretation.
+
+```{r collinearity-table}
+max_vif <- do.call(rbind, lapply(split(vif, vif$design), function(x) {
+  x[which.max(x$VIF), c("design", "n", "term", "VIF")]
+}))
+knitr::kable(max_vif, digits = 3, caption = "Maximum VIF in each actual analysis subset.")
+knitr::kable(
+  condition[c("design", "n", "p", "condition_number")], digits = 3,
+  caption = "Condition numbers in the same subsets."
+)
+```
+
+Variables are not automatically deleted by a VIF threshold because W, A, H and
+R represent prespecified processes. Instead, the claim is bounded by intervals,
+WAIC/CPO, spatial-fold prediction and proxy sensitivities. In the most difficult
+intensity A-support design, the maximum VIF is about 41 and the condition number
+about 18.3; W-versus-A attribution there is consequently weak.
+
+# Horticultural hypothesis
+
+## Direct incremental test
+
+In western Japan, the direct presence model gives a positive H×R coefficient,
+but the effect is small in held-out prediction. Conditional intensity has a
+positive point estimate with an interval crossing zero. Date, access and mesh-
+boundary sensitivities do not turn this into strong convergent evidence.
+
+```{r horticulture-direct-table}
+direct_west <- subset(
+  hr_coef, region == "West" & term == "z_H_R"
+)
+direct_cv_west <- subset(
+  hr_held, region == "West" & increment == "H_by_R_only"
+)
+knitr::kable(
+  direct_west[c(
+    "outcome", "variant", "n", "events", "estimate", "lower_95", "upper_95", "p_value"
+  )],
+  digits = 4, caption = "Western H-by-R coefficients on the original two-part outcomes."
+)
+knitr::kable(
+  direct_cv_west[c(
+    "outcome", "variant", "n", "delta_log_loss", "delta_auc", "delta_R2",
+    "base_R2", "full_R2"
+  )],
+  digits = 4, caption = "Spatial-fold incremental performance for H-by-R."
+)
+```
+
+## Cross-fitted residual-tail test
+
+The residual analysis asks a narrower question: after a natural model is fitted
+without human variables, do H and R identify increasingly extreme departures?
+The answer is no. Western unexpected presence has a signal at the 80th
+percentile, but it disappears at 90% and 95%. For intensity, H×R changes sign,
+all intervals cross zero, and every western threshold worsens spatial-fold
+log-loss.
+
+```{r residual-tail-table}
+tail_west <- subset(
+  tail_coef, region == "West" & variant == "primary" & term == "z_H_R"
+)
+tail_cv_west <- subset(tail_held, region == "West" & variant == "primary")
+knitr::kable(
+  tail_west[c(
+    "outcome", "threshold", "n", "events", "estimate", "lower_95", "upper_95", "p_value"
+  )],
+  digits = 4, caption = "Western H-by-R estimates across cross-fitted residual tails."
+)
+knitr::kable(
+  tail_cv_west[c(
+    "outcome", "threshold", "n", "delta_log_loss", "delta_auc", "n_warning_folds"
+  )],
+  digits = 4, caption = "Held-out performance across the same residual tails."
+)
+```
+
+Early flowering also fails as a western convergent signature. Among the eight
+western flowers in the top 5% conditional-intensity residual tail, none belongs
+to the early-score top 10%. This does not prove natural origin for individual
+flowers; it falsifies the current population-level early-cultivar prediction.
+
+```{r early-table}
+knitr::kable(
+  tail_early, digits = 3,
+  caption = "Early-flowering enrichment in cross-fitted residual tails."
+)
+```
+
+## Candidate ranking is not provenance
+
+The candidate table remains useful for follow-up because it identifies flowers
+that the natural model predicts poorly. Ranking uses cross-fitted residuals; it
+does not label horticultural origin. Exact locality is omitted here.
+
+```{r candidate-table}
+candidate_show <- subset(
+  tail_candidates,
+  candidate_outcome == "pigmented_intensity" & region == "West"
+)
+candidate_show <- head(candidate_show[order(-candidate_show$candidate_percentile), ], 12)
+knitr::kable(
+  candidate_show[c(
+    "observation_id", "candidate_percentile", "colour_a",
+    "natural_intensity_prediction", "intensity_natural_residual", "z_H", "z_R",
+    "early_score", "z_A", "DOY", "year", "spatial_fold"
+  )],
+  digits = 3, caption = "Top western conditional-intensity residual candidates for external validation."
+)
+```
+
+# Reviewer-facing interpretation
+
+| Question | Supported statement | Not supported |
+|---|---|---|
+| Colour geography | Optical pigmentation presence and conditional intensity have broad environmental and spatial gradients. | a* in white flowers is anthocyanin quantity. |
+| Bombus | W/A guild turnover overlaps flower pigmentation geography; a small W-associated conditional-intensity gradient remains. | A local causal pollinator-selection effect independent of shared climate and geography. |
+| Space | SPDE quantifies structured residual geography and shows that spatial structure is biologically informative. | The spatial field is a specific historical or genetic mechanism. |
+| Horticulture | Human-interface variables can rank candidates and show a weak direct western presence association. | Residual extremes become increasingly horticultural, or horticultural provenance is established. |
+
+The main novelty is therefore methodological and system-specific: large-scale
+SNS phenotyping can separate pigmentation expression from intensity, explicitly
+partition environmental and spatial structure, and then evaluate a biotic proxy
+and human-interface hypothesis without treating either collinearity or residuals
+as a shortcut to causality. Campanula punctata is especially informative because
+its known Bombus pollination, mainland colour polymorphism, white-flowered island
+relative in a Bombus-poor setting, and horticultural use generate competing
+predictions that can be made explicit.
+
+# Limitations and next validation
+
+- The optical threshold lacks chemical anthocyanin or reflectance validation.
+- Occurrence/suitability proxies are not visitation, abundance or selection
+  gradients, and the broad species are difficult to discriminate spatially.
+- H, R and road access are exposure proxies, not records of planting or escape.
+- Cross-fitted residuals reduce fitting circularity but remain model-dependent.
+- Exact provenance requires cultivar genotypes, planting records, field
+  observations, or targeted sampling of the ranked candidates.
+
+The current paper can lead with the two-part colour geography and SPDE result,
+present Bombus as a carefully bounded biotic extension, and present horticulture
+as a falsifiable exploratory workflow whose strongest predicted convergence was
+not observed.

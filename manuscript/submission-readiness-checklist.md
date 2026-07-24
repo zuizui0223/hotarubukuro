@@ -9,8 +9,9 @@ must be confirmed before the manuscript is uploaded.
 - exact department, graduate school, postal address, and country;
 - corresponding-author email and ORCID;
 - final author list, order, and CRediT roles;
-- conflict-of-interest declaration; and
-- funding numbers, institutional support, and acknowledgements.
+- funding numbers or an explicit no-specific-funding statement; and
+- author confirmation of the acknowledgements, conflict-of-interest, and
+  AI-use disclosures already drafted in the manuscript.
 
 The generated draft currently uses “Kyoto University, Kyoto, Japan” and a
 single-author CRediT statement as working metadata. These are not inferred
@@ -29,14 +30,18 @@ beyond the information available in the project.
 
 ## Figures and submission files
 
-- regenerate the final figures from the locked stage outputs;
-- cite every table and figure in numerical order in the main text;
-- prepare journal-compliant figure files and alt text;
-- build the independently numbered Supporting Information S1 file from
-  `manuscript/supporting-information-plan.md`, then add its cross-references to
-  the main text only after every supplementary item exists;
+- [x] regenerate the final figures from the locked stage outputs;
+- [x] cite every main table and figure in numerical order in the main text;
+- [x] embed descriptive alt text in the generated review manuscript;
+- [x] include and cross-reference Appendices A–C in the main article;
+- prepare journal-compliant separate production figure files;
+- create a Supporting Information S1 file only if requested by the editor or
+  required by the upload limit, following
+  `manuscript/supporting-information-plan.md`;
 - archive analysis-ready derived data and executable code in the DOI release
-  rather than relying on the Supporting Information file as the data archive;
+  rather than relying on appendices or Supporting Information as the data
+  archive;
+- insert the DOI in the manuscript and cover letter;
 - check that the final title page and declarations match the submission
   system; and
 - verify the final Word or PDF rendering in Microsoft Word before upload.

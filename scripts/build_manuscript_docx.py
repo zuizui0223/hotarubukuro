@@ -236,6 +236,24 @@ def shade_cell(cell, fill: str) -> None:
     cell_properties.append(shading)
 
 
+def set_table_geometry(table) -> None:
+    """Lock the generated grid width while retaining equal column widths."""
+    grid_columns = table._tbl.tblGrid.gridCol_lst
+    grid_width = sum(
+        int(column.get(qn("w:w"))) for column in grid_columns
+    )
+    table_properties = table._tbl.tblPr
+    table_width = table_properties.first_child_found_in("w:tblW")
+    table_width.set(qn("w:type"), "dxa")
+    table_width.set(qn("w:w"), str(grid_width))
+    table_indent = table_properties.first_child_found_in("w:tblInd")
+    if table_indent is None:
+        table_indent = OxmlElement("w:tblInd")
+        table_properties.append(table_indent)
+    table_indent.set(qn("w:type"), "dxa")
+    table_indent.set(qn("w:w"), "120")
+
+
 def add_table(document: Document, rows: list[list[str]]) -> None:
     if not rows:
         return
@@ -261,6 +279,7 @@ def add_table(document: Document, rows: list[list[str]]) -> None:
                 shade_cell(cell, "D9EAF7")
                 for run in paragraph.runs:
                     run.bold = True
+    set_table_geometry(table)
     document.add_paragraph()
 
 
@@ -310,7 +329,7 @@ def build(source: Path, output: Path) -> None:
 
     title_seen = False
     abstract_seen = False
-    references_seen = False
+    in_references = False
     figures_seen = 0
     for kind, payload in paragraph_blocks(text.splitlines()):
         if kind == "heading":
@@ -327,7 +346,12 @@ def build(source: Path, output: Path) -> None:
             if heading == "Abstract" and not abstract_seen:
                 document.add_page_break()
                 abstract_seen = True
-            references_seen = heading == "References" or references_seen
+            if heading == "References":
+                in_references = True
+            elif level <= 2:
+                in_references = False
+            if heading.startswith("Appendix "):
+                document.add_page_break()
             style = "Heading 1" if level == 2 else "Heading 2"
             paragraph = document.add_paragraph(style=style)
             add_inline(paragraph, heading, size=14 if level == 2 else 12)
@@ -377,7 +401,7 @@ def build(source: Path, output: Path) -> None:
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
             paragraph.paragraph_format.space_after = Pt(6)
-        elif references_seen:
+        elif in_references:
             paragraph.paragraph_format.left_indent = Cm(0.75)
             paragraph.paragraph_format.first_line_indent = Cm(-0.75)
             paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
@@ -391,8 +415,8 @@ def build(source: Path, output: Path) -> None:
 
     core = document.core_properties
     core.title = (
-        "From hiking records to two-part floral-colour geography: "
-        "scale-aware inference from YAMAP photographs of Campanula punctata"
+        "Flower-colour state and conditional visible intensity in "
+        "Campanula punctata: environmental and spatial structure across Japan"
     )
     core.author = "Ruiqi Zhang"
     core.subject = "Ecology and Evolution Research Article"

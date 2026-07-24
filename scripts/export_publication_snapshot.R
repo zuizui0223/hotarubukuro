@@ -50,15 +50,22 @@ repository_files <- c(
   "docs/methodology-literature.md",
   "docs/reproduction-guide.md",
   "manuscript/ecology-and-evolution-manuscript.md",
+  "manuscript/figure-map.md",
   "manuscript/submission-readiness-checklist.md",
   "R/pipeline_support.R",
   "R/final_registry.R",
+  "scripts/build_publication_figures.R",
   "scripts/build_manuscript_docx.py",
   "scripts/export_publication_snapshot.R",
   "scripts/run_publication_pipeline.R",
   "scripts/render_phenotype_report.R",
   if (file.exists("reports/phenotype-analysis.html")) {
     "reports/phenotype-analysis.html"
+  } else {
+    character()
+  },
+  if (dir.exists("manuscript/figures")) {
+    list.files("manuscript/figures", full.names = TRUE)
   } else {
     character()
   }

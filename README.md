@@ -98,9 +98,13 @@ Render the phenotype-analysis report:
   scripts/render_phenotype_report.R
 ```
 
-Build the *Ecology and Evolution* submission-format Word draft:
+Build the publication figures and the *Ecology and Evolution*
+submission-format Word draft:
 
 ```powershell
+& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
+  scripts/build_publication_figures.R
+
 & 'C:\Users\zuizui\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
   scripts/build_manuscript_docx.py
 ```

@@ -397,7 +397,7 @@ observations at a*=4.9445. One hundred twenty-four observations had
 classification confidence <0.8 and were retained with an ambiguity flag.
 Conditional intensity was defined only for the 957 pigmented observations.
 Aggregation produced 1,307 unique 1-km cells, including 88 mixed cells and 674
-cells with a conditional-intensity value.
+cells with a conditional-intensity value (Figure 1).
 
 ### 3.2 | National environmental clines and continuous geography
 
@@ -427,7 +427,7 @@ The cross-fitted national presence model had AUC=0.862, Brier score=0.150,
 calibration intercept=−0.133, and calibration slope=1.141. Conditional
 intensity had RMSE=0.914, MAE=0.710, and 95% predictive coverage=0.947.
 These values quantify withheld-geography prediction inside the YAMAP sampling
-frame.
+frame (Figure 2).
 
 ### 3.3 | National and local predicted-*Bombus* information
 
@@ -446,7 +446,7 @@ pre-specified responses had BH q=0.028. The observed statistics lay at the
 97.3rd and 98.7th percentiles of their replicated natural-map distributions.
 The correspondence was scale-sensitive: the intensity association was also
 evident at 10 and 50 km, whereas presence was weaker at 10 km and marginal at
-50 km.
+50 km (Figure 3).
 
 ### 3.4 | Local isolates were compatible with the natural predictive baseline
 
@@ -455,7 +455,8 @@ Across 1,000 replicated natural maps, the mean was 13.507
 (95% predictive interval 7–21), giving upper-tail p=0.273. The observed
 candidate fraction was 0.0448 versus a replicated mean of 0.0341
 (95% interval 0.0169–0.0537; p=0.125). The observed number and fraction of
-isolates were therefore not unusually large under the fitted natural baseline.
+isolates were therefore not unusually large under the fitted natural baseline
+(Figure 4a,b).
 
 ### 3.5 | Human-context signals were directional but not familywise significant
 
@@ -474,7 +475,7 @@ DID family passed its corrected threshold. Early-flowering and unusually dark
 pigmented colour did not converge: their primary case–control contrasts were
 not positive relative to the replicated baseline. One leading joint candidate
 combined an unexpected-pigmentation tail with local DID proximity, but was
-neither unusually early nor unusually dark.
+neither unusually early nor unusually dark (Figure 4c,d).
 
 ## 4 | Discussion
 
@@ -883,26 +884,33 @@ response.** (a) YAMAP activity record, author taxon and petal-region review,
 deterministic colour extraction, and spatial analysis stages. (b) Distribution
 of CIELAB a* with the response-blind mixture boundary at 4.9445. (c) National
 locations of white-like and pigmented observations. (d) Conditional intensity
-among pigmented flowers. The figure must state that colour is uncalibrated
-human-visible sRGB, not anthocyanin concentration or *Bombus* colour contrast.
+among pigmented flowers. Colour is uncalibrated human-visible sRGB, not
+anthocyanin concentration or *Bombus* colour contrast.
 
 **Figure 2. National environmental and continuous spatial structure of the two
-flower-colour components.** Posterior environmental coefficients with 95%
-credible intervals and SPDE field summaries for (a–b) pigmentation presence and
-(c–d) pigmented-only intensity. Maps show conditional spatial structure, not
-causal process attribution.
+flower-colour components.** (a) Posterior environmental coefficients with 95%
+credible intervals for pigmentation presence and pigmented-only intensity.
+(b) Posterior SPDE ranges retained after environmental adjustment. (c)
+Cross-fitted pigmentation probabilities and (d) cross-fitted conditional
+intensity predictions at sampled 1-km cells. The maps show withheld-geography
+predictions, not causal process attribution or isolated spatial-field effects.
 
 **Figure 3. National incremental and local turnover tests of the predicted
 *Bombus* community fingerprint.** (a) Same-support held-out AUC for national
 environment-plus-SPDE models with and without the environment-orthogonal
-fingerprint. (b–c) Observed 25-km partial turnover statistics over their
+fingerprint; lines join the same spatial fold and diamonds denote fold means.
+(b–c) Observed 25-km partial turnover statistics over their
 1,000-map natural reference distributions for pigmentation share and
 pigmented-only intensity. (d) Fixed 10-, 25-, and 50-km sensitivity results.
+The fingerprint represents relative predicted habitat suitability across five
+species, not abundance or visitation.
 
 **Figure 4. Repeated local-isolate events and post-selection human context.**
-(a) Definition of a pigmented focal 1-km cell among environment-similar white
-neighbours. (b) Observed candidate count and fraction relative to 1,000
-replicated natural maps. (c) Population-scale contrasts with maxT-adjusted
-p-values. (d) DID, land-use, early-flowering, and dark-colour follow-up
-features. Candidate locations are follow-up priorities, not horticultural
+(a) Locations of the 16 pigmented focal 1-km cells isolated among
+environment-similar white neighbours. (b) Observed candidate count and fraction
+relative to 1,000 replicated natural maps. (c) Population-scale and
+densely-inhabited-district (DID) contrasts with natural-map 95% intervals; no
+familywise maxT test passed 0.05. (d) Candidate-level early-flowering and
+dark-colour predictive-tail checks; neither met the pre-specified q=0.10
+criterion. Candidate locations are follow-up priorities, not horticultural
 provenance assignments.

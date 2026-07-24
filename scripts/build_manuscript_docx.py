@@ -22,6 +22,34 @@ from docx.shared import Cm, Pt, RGBColor
 
 DEFAULT_SOURCE = Path("manuscript/ecology-and-evolution-manuscript.md")
 DEFAULT_OUTPUT = Path("local_outputs/manuscript_review/revised.docx")
+FIGURE_FILES = {
+    1: "figure_1_two_part_phenotype.png",
+    2: "figure_2_environment_space.png",
+    3: "figure_3_bombus_turnover.png",
+    4: "figure_4_isolates_human_context.png",
+}
+FIGURE_ALT_TEXT = {
+    1: (
+        "Four-panel figure showing the supervised YAMAP photograph workflow, "
+        "the CIELAB a-star mixture boundary, national white-like and pigmented "
+        "records, and pigmented-only conditional intensity."
+    ),
+    2: (
+        "Four-panel figure showing environmental posterior coefficients, "
+        "SPDE spatial ranges, cross-fitted pigmentation probability, and "
+        "cross-fitted pigmented-only intensity across Japan."
+    ),
+    3: (
+        "Four-panel figure comparing paired held-out AUC with and without the "
+        "predicted Bombus fingerprint and local turnover statistics against "
+        "replicated natural-map reference distributions."
+    ),
+    4: (
+        "Four-panel figure showing locally isolated pigmented cells, their "
+        "natural-map extremeness checks, human-context contrasts, and early "
+        "flowering and dark-colour predictive tail checks."
+    ),
+}
 
 
 def set_run_font(run, name: str = "Times New Roman", size: float = 12) -> None:
@@ -115,6 +143,23 @@ def add_page_number(paragraph) -> None:
     end = OxmlElement("w:fldChar")
     end.set(qn("w:fldCharType"), "end")
     run._r.extend([begin, instruction, separate, result, end])
+
+
+def set_picture_alt_text(run, description: str) -> None:
+    drawing_properties = run._element.xpath(".//wp:docPr")
+    if drawing_properties:
+        drawing_properties[0].set("descr", description)
+        drawing_properties[0].set("title", description)
+
+
+def add_figure(document: Document, image_path: Path, alt_text: str) -> None:
+    paragraph = document.add_paragraph()
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph.paragraph_format.keep_with_next = True
+    paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+    run = paragraph.add_run()
+    run.add_picture(str(image_path), width=Cm(15.8))
+    set_picture_alt_text(run, alt_text)
 
 
 def configure_section(section) -> None:
@@ -254,6 +299,7 @@ def build(source: Path, output: Path) -> None:
     title_seen = False
     abstract_seen = False
     references_seen = False
+    figures_seen = 0
     for kind, payload in paragraph_blocks(text.splitlines()):
         if kind == "heading":
             hashes, heading = payload.split(" ", 1)
@@ -289,6 +335,29 @@ def build(source: Path, output: Path) -> None:
             paragraph = document.add_paragraph(style=style)
             paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.DOUBLE
             add_inline(paragraph, list_text)
+            continue
+
+        figure_match = re.match(r"\*\*Figure ([1-4])\.", payload)
+        if figure_match:
+            figure_number = int(figure_match.group(1))
+            image_path = source.parent / "figures" / FIGURE_FILES[figure_number]
+            if not image_path.exists():
+                raise FileNotFoundError(
+                    f"Missing Figure {figure_number} image: {image_path}"
+                )
+            if figures_seen:
+                document.add_page_break()
+            add_figure(
+                document,
+                image_path,
+                FIGURE_ALT_TEXT[figure_number],
+            )
+            figures_seen += 1
+            paragraph = document.add_paragraph(style="Caption")
+            paragraph.paragraph_format.keep_together = True
+            paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+            paragraph.paragraph_format.space_after = Pt(6)
+            add_inline(paragraph, payload, size=10)
             continue
 
         paragraph = document.add_paragraph()

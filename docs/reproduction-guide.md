@@ -109,10 +109,18 @@ the final registries, a file-level MD5 manifest, R session information, and
 year-specific sample counts. Copy its `repository/` directory into a checkout
 of the recorded commit to repeat the locked-result verification.
 
-## Rebuild the manuscript
+## Rebuild the figures and manuscript
 
-The Word draft is generated from the versioned manuscript rather than edited
-from the superseded DOCX:
+Build the four figures from the locked analysis artifacts first:
+
+```powershell
+& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
+  scripts/build_publication_figures.R
+```
+
+This writes 600-dpi PNG review copies and vector PDF submission masters under
+`manuscript/figures/`. The Word draft is then generated from the versioned
+manuscript rather than edited from the superseded DOCX:
 
 ```powershell
 & 'C:\Users\zuizui\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
@@ -124,7 +132,8 @@ The default output is
 write a separate submission copy elsewhere. The generated document uses A4
 pages, 2.54-cm margins, Times New Roman 12 pt, double-spaced body text,
 continuous line numbering, page numbers, semantic headings, and marked table
-header rows.
+header rows. It embeds the PNG figures with alternative text while retaining
+the PDF versions as separate journal-upload files.
 
 ## Sampling and interpretation limits
 

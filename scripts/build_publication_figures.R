@@ -99,6 +99,7 @@ read_num <- function(x) suppressWarnings(as.numeric(x))
 analysis <- hb_read_csv(
   "results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv"
 )
+raw_colour <- hb_read_csv("Data_S1.csv")
 cells <- hb_read_csv(
   "results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv"
 )
@@ -114,6 +115,20 @@ analysis$pigmentation_class <- factor(
   levels = c("white", "pigmented"),
   labels = c("White-like", "Pigmented")
 )
+rgb_columns <- c("R", "G", "B")
+rgb_match <- match(analysis$observation_id, raw_colour$observation_id)
+stopifnot(!anyNA(rgb_match))
+for (column in rgb_columns) {
+  analysis[[column]] <- read_num(raw_colour[[column]][rgb_match])
+}
+stopifnot(all(vapply(
+  analysis[rgb_columns],
+  function(values) all(is.finite(values) & values >= 0 & values <= 255),
+  logical(1)
+)))
+analysis$observed_rgb <- grDevices::rgb(
+  analysis$R, analysis$G, analysis$B, maxColorValue = 255
+)
 cells$longitude <- read_num(cells$longitude)
 cells$latitude <- read_num(cells$latitude)
 cells$conditional_intensity_median <- read_num(
@@ -122,38 +137,56 @@ cells$conditional_intensity_median <- read_num(
 threshold <- unique(read_num(analysis$pigment_boundary_a))
 stopifnot(length(threshold) == 1L, is.finite(threshold))
 
-# Figure 1: supervised workflow and two-stage response.
-workflow <- data.frame(
-  x = 1,
-  y = 4:1,
-  label = c(
-    "YAMAP records\n1,965 photos",
-    "Author review\nidentity + petal region",
-    "Two-part phenotype\npresence + intensity",
-    "Scale-aware models\nnational + local"
-  ),
-  fill = c(light_grey, light_grey, "#F7D6E7", "#D8E8F5")
+# Figure 1: observed extracted colours and two-stage response.
+swatches <- analysis[order(
+  analysis$pigmentation_class, analysis$colour_a, analysis$colour_L
+), ]
+swatches$within_class_rank <- ave(
+  seq_len(nrow(swatches)), swatches$pigmentation_class,
+  FUN = seq_along
 )
-fig1a <- ggplot2::ggplot(workflow, ggplot2::aes(x = x, y = y)) +
-  ggplot2::geom_segment(
-    data = data.frame(y = c(3.7, 2.7, 1.7), yend = c(3.3, 2.3, 1.3)),
-    ggplot2::aes(x = 1, xend = 1, y = y, yend = yend),
-    inherit.aes = FALSE, arrow = grid::arrow(length = grid::unit(2.2, "mm")),
-    colour = mid_grey, linewidth = 0.6
-  ) +
-  ggplot2::geom_label(
-    ggplot2::aes(label = label, fill = fill),
-    linewidth = 0.25, label.padding = grid::unit(2.2, "mm"),
-    size = 2.7, colour = ink
-  ) +
+swatch_columns <- 48L
+swatches$tile_column <- (swatches$within_class_rank - 1L) %% swatch_columns + 1L
+swatches$tile_row <- -(
+  (swatches$within_class_rank - 1L) %/% swatch_columns
+)
+swatches$swatch_group <- factor(
+  swatches$pigmentation_class,
+  levels = c("White-like", "Pigmented"),
+  labels = c("White-like (n = 966)", "Pigmented (n = 957)")
+)
+fig1a <- ggplot2::ggplot(
+  swatches,
+  ggplot2::aes(x = tile_column, y = tile_row, fill = observed_rgb)
+) +
+  ggplot2::geom_tile(colour = "#EEF1F4", linewidth = 0.08) +
+  ggplot2::facet_wrap(~swatch_group, ncol = 1) +
   ggplot2::scale_fill_identity() +
-  ggplot2::coord_cartesian(xlim = c(0.35, 1.65), ylim = c(0.55, 4.45)) +
-  ggplot2::labs(title = "Supervised digital-phenotyping workflow") +
+  ggplot2::coord_fixed(expand = FALSE) +
+  ggplot2::labs(
+    title = "Extracted median sRGB colours",
+    subtitle = "Each tile is one photograph; ordered by a*"
+  ) +
   ggplot2::theme_void(base_family = "Arial", base_size = 9) +
   ggplot2::theme(
     plot.title = ggplot2::element_text(
-      face = "bold", colour = ink, size = 10, margin = ggplot2::margin(b = 5)
+      face = "bold", colour = ink, size = 10,
+      margin = ggplot2::margin(b = 3)
     ),
+    plot.subtitle = ggplot2::element_text(
+      colour = mid_grey, size = 8.2, margin = ggplot2::margin(b = 4)
+    ),
+    strip.text = ggplot2::element_text(
+      face = "bold", colour = ink, size = 8.3,
+      margin = ggplot2::margin(2, 0, 2, 0)
+    ),
+    strip.background = ggplot2::element_rect(
+      fill = "#F4F7FA", colour = NA
+    ),
+    panel.border = ggplot2::element_rect(
+      colour = "#C8D1DA", fill = NA, linewidth = 0.35
+    ),
+    panel.spacing = grid::unit(2.5, "mm"),
     plot.margin = ggplot2::margin(7, 7, 7, 7)
   )
 

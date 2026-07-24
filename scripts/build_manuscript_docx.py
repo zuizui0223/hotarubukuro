@@ -30,9 +30,10 @@ FIGURE_FILES = {
 }
 FIGURE_ALT_TEXT = {
     1: (
-        "Four-panel figure showing the supervised YAMAP photograph workflow, "
-        "the CIELAB a-star mixture boundary, national white-like and pigmented "
-        "records, and pigmented-only conditional intensity."
+        "Four-panel figure showing every observation as an extracted median "
+        "sRGB colour swatch, the CIELAB a-star mixture boundary, national "
+        "white-like and pigmented records, and pigmented-only conditional "
+        "intensity."
     ),
     2: (
         "Four-panel figure showing environmental posterior coefficients, "

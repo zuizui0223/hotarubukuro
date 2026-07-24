@@ -879,13 +879,16 @@ https://help.yamap.com/hc/ja/articles/900000911666
 
 ## Figure legends
 
-**Figure 1. Supervised YAMAP-to-phenotype workflow and the two-part flower-colour
-response.** (a) YAMAP activity record, author taxon and petal-region review,
-deterministic colour extraction, and spatial analysis stages. (b) Distribution
-of CIELAB a* with the response-blind mixture boundary at 4.9445. (c) National
-locations of white-like and pigmented observations. (d) Conditional intensity
-among pigmented flowers. Colour is uncalibrated human-visible sRGB, not
-anthocyanin concentration or *Bombus* colour contrast.
+**Figure 1. Observation-level extracted colours and the two-part flower-colour
+response.** (a) Every final observation represented by its extracted
+channel-wise median sRGB colour from the author-confirmed petal region,
+separated into white-like and pigmented classes and ordered by a* from left to
+right and then top to bottom.
+(b) Distribution of CIELAB a* with the response-blind mixture boundary at
+4.9445. (c) National locations of white-like and pigmented observations.
+(d) Conditional intensity among pigmented flowers. Displayed colours are
+uncalibrated human-visible sRGB, not anthocyanin concentration or *Bombus*
+colour contrast.
 
 **Figure 2. National environmental and continuous spatial structure of the two
 flower-colour components.** (a) Posterior environmental coefficients with 95%

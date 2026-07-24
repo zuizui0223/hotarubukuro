@@ -8,12 +8,12 @@ are compared.
 
 ## Figure 1 — Two-part digital phenotype
 
-- **Reader question:** How were YAMAP photographs converted into the two
-  response stages, and where were those stages observed?
-- **Panels:** supervised workflow; CIELAB a* distribution and mixture boundary;
-  national white-like/pigmented observations; pigmented-only conditional
-  intensity.
-- **Sources:** `analysis_data_pigmentation_hurdle.csv`,
+- **Reader question:** What extracted display colours underlie the two response
+  stages, and where were those stages observed?
+- **Panels:** observation-level swatch mosaic filled with the extracted median
+  sRGB value; CIELAB a* distribution and mixture boundary; national
+  white-like/pigmented observations; pigmented-only conditional intensity.
+- **Sources:** `Data_S1.csv`, `analysis_data_pigmentation_hurdle.csv`,
   `multiscale_hotspot_cells_1km.csv`, and
   `pigmentation_mixture_components.csv`.
 - **Claim ceiling:** human-visible colour extracted from uncalibrated sRGB

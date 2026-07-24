@@ -1,4 +1,4 @@
-# From hiking records to two-part floral-colour geography: scale-aware inference from YAMAP photographs of *Campanula punctata*
+# Flower-colour state and conditional visible intensity in *Campanula punctata*: environmental and spatial structure across Japan
 
 Ruiqi Zhang
 
@@ -6,41 +6,37 @@ Kyoto University, Kyoto, Japan
 
 Article type: Research Article
 
-Target journal: *Ecology and Evolution*
-
 ## Abstract
 
 Geographical analyses of intraspecific plant traits are often limited by a
-lack of quantitative observations from wild populations. Community
-photographs can fill part of this gap, but flower-colour studies must
-distinguish pigment absence from variation among pigmented flowers and must not
-confuse shared geography with biotic effects. We used every eligible
-*Campanula punctata* record identified by the author on YAMAP, a GPS-enabled
-hiking platform, from 1 June to 31 August in 2023–2025. The focal taxon and
-petal extraction region were manually verified; repeated photographs of the
-same individual and misidentifications, including *Adenophora triphylla*, were
-removed before database construction. The curated database contained 1,965
-records, and 1,923 had joint environmental and predicted-*Bombus* support. A
-response-blind mixture on CIELAB a* separated 966 white-like and 957 pigmented
-flowers at a*=4.9445. We modelled pigmentation presence and visible intensity
-conditional on pigmentation separately. National INLA-SPDE models detected
-temperature associations in both components, while soil was associated with
-pigmentation presence and topographic heterogeneity with pigmented-only
-intensity. Five geographically blocked predictive folds yielded AUC=0.862 for
-pigmentation presence and RMSE=0.914 for conditional intensity. A five-species
-ENMeval *Bombus*-community fingerprint added little national discrimination
-(mean AUC gain=0.0061), but its local turnover was associated with both
-pigmentation-share turnover (partial beta=0.084) and pigmented-only intensity
-turnover (beta=0.092) at the pre-specified 25-km scale (both BH q=0.028).
-Sixteen locally isolated pigmented cells were not excessive across 1,000 maps
-replicated from the natural model. Their population and dense-settlement
-contrasts were directionally positive but did not pass familywise correction.
-Thus, route-linked hiking photographs can help close a quantitative-trait data
-gap when the response hierarchy, process scale, predictive uncertainty, and
-platform-specific sampling are kept explicit. The *Bombus* result is a
-scale-specific correspondence, not evidence of pollinator-mediated selection,
-and the human-context result prioritizes follow-up sites rather than
-demonstrating horticultural origin.
+lack of quantitative observations from wild populations. Route-linked
+photographs can help fill this gap, but flower-colour analyses must distinguish
+pigmentation absence from variation among pigmented flowers and must not
+mistake shared geography for a biotic effect. We screened every eligible
+*Campanula punctata* record identified on YAMAP, a GPS-enabled hiking platform,
+from 1 June to 31 August in 2023–2025. The author verified the taxon and petal
+extraction region and removed repeated individuals and misidentifications. The
+curated database contained 1,965 records, of which 1,923 had joint
+environmental and predicted-*Bombus* support. A response-blind mixture of
+CIELAB a* separated 966 white-like and 957 pigmented flowers at a*=4.9445. We
+modelled flower-colour state and visible intensity conditional on pigmentation
+as distinct responses. National INLA-SPDE models detected temperature
+associations in both components, a soil association with colour state, and a
+topographic association with pigmented-only intensity. Five geographically
+blocked folds yielded AUC=0.862 for pigmentation presence and RMSE=0.914 for
+conditional intensity. A five-species ENMeval *Bombus* fingerprint added little
+national discrimination (mean AUC gain=0.0061), but local fingerprint turnover
+corresponded to both pigmentation-share turnover (partial beta=0.084) and
+pigmented-only intensity turnover (beta=0.092) at the pre-specified 25-km scale
+(both BH q=0.028). Sixteen locally isolated pigmented cells were not excessive
+across 1,000 maps replicated from the natural model. Population and
+dense-settlement contrasts were directionally positive but did not pass
+familywise correction. Route-linked photographs can therefore help close a
+quantitative-trait data gap when response hierarchy, process scale, predictive
+uncertainty, and platform selection are explicit. The *Bombus* result is a
+scale-specific correspondence, not evidence of pollinator-mediated selection;
+the human-context result prioritizes follow-up sites rather than demonstrating
+horticultural origin.
 
 ## Keywords
 
@@ -193,7 +189,8 @@ exclusion.
 
 The phenotype represents uncalibrated human-visible image colour. We did not
 interpret a* as anthocyanin concentration, ultraviolet reflectance, or
-bumblebee chromatic contrast.
+bumblebee chromatic contrast. Appendix A records the measurement and exclusion
+safeguards used to keep these interpretation limits auditable.
 
 ### 2.3 | Two-part flower-colour response
 
@@ -233,8 +230,11 @@ All continuous layers were cropped to Japan and aligned to an EPSG:4326,
 30-arc-second grid. Values at observations were bilinearly extracted.
 Response-blind principal components summarized temperature, precipitation,
 soil, and topography. Axis signs were fixed before modelling for reproducible
-interpretation. The source versions, provider URLs, and raster MD5 hashes are
-provided with the data package.
+interpretation. Within-group dimension reduction was used instead of deleting
+biologically distinct predictor families. In the final cross-fitted natural
+baseline, the maximum fold-specific variance inflation factor was 1.538 and the
+maximum absolute predictor correlation was 0.519. The source versions, provider
+URLs, and raster MD5 hashes are provided with the data package.
 
 For the replicated natural baseline, we used elevation, CHELSA BIO10, CHELSA
 BIO12, and CHELSA radiation at two spatial scales. For each observed 1-km cell,
@@ -305,7 +305,10 @@ As a national sensitivity analysis, the three fingerprint axes were
 orthogonalized against the four environmental predictors inside each training
 fold and added as a block to the presence model on common support. We compared
 held-out AUC with an environment-plus-SPDE reference fitted to exactly the same
-cells.
+cells. Because the axes jointly describe predicted community support and
+composition, we interpreted the fingerprint only as a block and did not assign
+independent ecological effects to individual axes or species. Appendix B gives
+the model equations and species-level ENMeval selections.
 
 ### 2.7 | Local flower-colour and predicted-community turnover
 
@@ -371,6 +374,7 @@ roads, and land use can influence both plant exposure and observation
 opportunity, and the restricted frame can attenuate contrasts by reducing the
 available range of accessibility. Human-context tests therefore characterize
 the sampled route network; they do not estimate a population-wide human effect.
+Appendix C records the selection-free local designs and multiplicity controls.
 
 ### 2.9 | Software, reproducibility, and claim control
 
@@ -379,7 +383,7 @@ mclust, mgcv, ranger, and supporting packages; colour extraction used Python
 3.12 with Pillow and NumPy. Seeds, package assignments, input and prediction
 hashes, complete stage outputs, and independent validations are stored in the
 publication snapshot. Every final numerical claim was read from the locked
-result registry rather than copied from the obsolete earlier manuscript.
+result registry and independently rechecked during the publication lock.
 
 ## 3 | Results
 
@@ -643,14 +647,22 @@ bounded ecological inference from non-random, georeferenced image records.
 The analysis code, derived flower-colour table, manual-review and QC
 provenance, public-data source registry, model-selection tables, prediction
 hashes, seeds, complete adopted stage outputs, and independent validations are
-available in the project repository and dated local publication snapshot.
-Before submission, the repository release will be archived in a DOI-issuing
-repository. Original YAMAP photographs are third-party user content and are
-not redistributed automatically. `Data_S1.csv` contains source identifiers,
-image hashes, reviewed coordinates, derived colour measurements, and QC fields
-needed to audit the analytical phenotypes. Provider versions and source URLs
-for CHELSA, SoilGrids, WorldClim, WorldPop, MLIT, and GBIF are listed in
-`docs/data-sources/public-environment-sources.md`.
+versioned at https://github.com/zuizui0223/hotarubukuro. A DOI-bearing
+preservation copy of the exact submission release, together with a
+file-by-file data dictionary and reviewer-access instructions, will replace
+this repository URL before journal upload. Original YAMAP photographs are
+third-party user content and are not redistributed. Subject to final
+terms-of-use and privacy review, `Data_S1.csv` provides the permitted source
+provenance, image hashes, analysis coordinates or 1-km cell identifiers,
+derived colour measurements, and QC fields needed to audit the analytical
+phenotypes. Provider versions and source URLs for CHELSA, SoilGrids, WorldClim,
+WorldPop, MLIT, and GBIF are recorded with the release.
+
+## Acknowledgements
+
+The author thanks the YAMAP users whose route-linked observations made this
+study possible. YAMAP did not participate in the study design, analysis, or
+interpretation.
 
 ## Author Contributions
 
@@ -661,6 +673,14 @@ Writing – review and editing.
 ## Conflict of Interest
 
 The author declares no conflict of interest.
+
+## AI-use disclosure
+
+OpenAI Codex was used under author supervision to assist exploratory workflow
+design, code implementation and refactoring, validation, figure and document
+generation, and language editing. The author made the final scientific
+decisions, verified the data and outputs, checked all numerical claims against
+the locked result registry, and takes responsibility for the content.
 
 ## References
 
@@ -846,6 +866,123 @@ https://help.yamap.com/hc/ja/articles/900000929903
 YAMAP. (2026b). How to record an activity. YAMAP Help Center. Accessed
 24 July 2026.
 https://help.yamap.com/hc/ja/articles/900000911666
+
+## Appendix A | Sampling and optical-measurement safeguards
+
+The analytical unit was one author-reviewed flower record, not one photograph
+file or one YAMAP user. Screening preceded construction of the analysis table.
+The author first confirmed *C. punctata*, excluded repeated photographs of the
+same individual and taxonomic errors, and then confirmed the cropped flower and
+petal extraction region. The scripted stage measured the confirmed region; it
+did not decide flower identity or infer a petal solely from shape.
+
+The colour pipeline used the channel-wise median of eligible display-referred
+sRGB pixels and converted that value to CIELAB under D65 and a 2° observer.
+Because no neutral reference, camera calibration, or standardized illumination
+was available, the response is an optical image phenotype. Mask coverage,
+overexposure, shadows, multimodality, and disagreement among candidate summaries
+generated audit flags. An extreme dark value was not an exclusion criterion.
+Warning-free analyses were sensitivities rather than a replacement primary
+dataset.
+
+The Gaussian-mixture boundary was estimated without geography, environment,
+date, *Bombus*, human-context variables, or fitted departures. Classification
+confidence below 0.8 generated an ambiguity flag, and all 124 ambiguous records
+were retained. The binary response used all 1,923 complete-support
+observations. Conditional intensity used only the 957 observations assigned to
+the pigmented component. This prevents small camera- and scattering-related
+differences among white flowers from being analysed as pigment quantity.
+
+| Safeguard | Locked implementation | Inferential purpose |
+|---|---|---|
+| Sampling window | all eligible records identified from 1 June–31 August in each of 2023–2025 | avoids selecting years, regions, or only conspicuous colours after viewing results |
+| Taxon and unit review | author-confirmed *C. punctata*; repeated individuals and *A. triphylla* errors removed | protects the taxonomic and observational unit |
+| Measurement region | cropped flower and petal extraction region visually confirmed before scripting | separates supervised region choice from deterministic colour calculation |
+| Programmatic exclusion | non-formable colour or exact duplicate image only; two exact duplicates removed | prevents colour intensity from determining inclusion |
+| Mixture boundary | response-blind a*=4.944542 | separates state classification from environmental, biotic, and human hypotheses |
+| Ambiguity | confidence <0.8 flagged, not removed | propagates classification caution without selective deletion |
+| White-flower values | excluded only from conditional-intensity response | avoids interpreting optical noise as anthocyanin amount |
+
+## Appendix B | National and predicted-community model specification
+
+For observation-level inference, pigmentation presence followed
+`Y_i ~ Bernoulli(p_i)` with
+`logit(p_i) = beta_0 + X_i beta + w(s_i)`. Conditional visible intensity among
+pigmented flowers followed `Z_i ~ Normal(mu_i, sigma^2)` with
+`mu_i = alpha_0 + X_i alpha + v(s_i)`. The fields `w` and `v` were separate
+Matérn SPDE fields with the mesh and penalised-complexity priors specified in
+Methods 2.5. Environmental coefficients are therefore conditional on the
+measured covariates and spatial-field specification.
+
+For the natural predictive baseline, the cell-level presence response was
+`K_c ~ Binomial(n_c, p_c)`, preserving the number of flowers observed in each
+1-km cell. The intensity response was the cell median among pigmented flowers.
+Four response-blind predictors represented two broad 50-km environmental axes
+and two cell-minus-neighbourhood axes. Standardization and fitting occurred
+inside each of five 100-km geographical training folds. The final fold-specific
+maximum variance inflation factor was 1.538 and maximum absolute predictor
+correlation was 0.519. Each held-out cell received 1,000 replicated outcomes;
+no held-out response was used to fit its own predictive distribution.
+
+The *Bombus* extension used new predictions from the selected ENMeval/maxnet
+models, rather than pre-existing TIFF predictions. Table B1 records the
+minimum-finite-AICc selections. Validation AUC values describe discrimination
+of occurrence records from background under the ENMeval partition and are not
+estimates of abundance or pollination service.
+
+### Table B1. ENMeval models used to construct the predicted-community fingerprint
+
+| Species | Filtered GBIF records | Feature class | Regularization multiplier | Validation AUC |
+|---|---:|---:|---:|---:|
+| *Bombus ardens* | 2,814 | LQ | 1 | 0.758 |
+| *Bombus diversus* | 7,309 | LQH | 5 | 0.631 |
+| *Bombus beaticola* | 939 | LQH | 3 | 0.922 |
+| *Bombus consobrinus* | 286 | LQH | 4 | 0.853 |
+| *Bombus honshuensis* | 1,084 | LQ | 1 | 0.882 |
+
+Species predictions were rank-standardized within species before calculating
+total support and Hellinger-composition principal components. At the national
+scale, all three axes were residualized against environmental predictors inside
+each training fold and evaluated as one block on the same 584-cell support as
+the reference model. Correlation among community summaries was therefore not
+handled by claiming axis-specific independent effects. The held-out comparison
+asked only whether the block added predictive information beyond the
+environment-plus-SPDE reference.
+
+## Appendix C | Local reference tests and human-context separation
+
+The local *Bombus* test did not use first-stage flower-colour residuals. A
+response-blind graph was built from location and five-species support, with at
+most five neighbours per node, no duplicate undirected edges, and no edges
+crossing geographical fold boundaries. The primary 25-km graph contained 1,742
+presence edges and 1,183 edges whose endpoints both supported conditional
+intensity. Identical fixed graphs were used for observed and replicated colour
+maps. Distance, expected natural colour difference, environmental difference,
+sampling support, year, and shared-node dependence were handled identically.
+The Monte Carlo probability was calculated as one plus the number of replicated
+statistics at least as large as the observed statistic, divided by 1,001.
+Benjamini–Hochberg correction covered the two pre-specified 25-km responses;
+10- and 50-km radii were sensitivity scales.
+
+The human-context analysis used a different event extractor. A focal cell was
+selected using only observed pigmentation state, response-blind proximity,
+environmental similarity, and sampling support. The same rule was applied to
+every natural predictive map before population, land use, roads, DID proximity,
+flowering date, or conditional intensity were inspected. Candidate count and
+fraction were predictive model checks. Only after the candidate and its
+environment-similar white neighbourhood had been fixed were human-context
+contrasts calculated. Each contrast was repeated for candidates generated from
+all 1,000 natural maps, and maxT controlled familywise error within the
+population, land-use, road/interface, and DID feature families.
+
+This ordering does not make human exposure random and does not identify
+provenance. It prevents human variables from defining the observations later
+described as human-associated, avoids regression of one fitted residual on a
+second predictor set, and gives the horticultural hypothesis an explicit
+failure condition. The observed isolate count and fraction were compatible
+with the natural baseline, no human family passed corrected significance, and
+early flowering and unusually dark colour did not converge. Consequently,
+Appendix C supports candidate prioritization only.
 
 ## Tables
 

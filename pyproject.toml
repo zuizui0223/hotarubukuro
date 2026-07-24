@@ -17,10 +17,10 @@ excel = ["openpyxl>=3.1,<4"]
 test = ["pytest>=8,<10"]
 
 [project.scripts]
-hotarubukuro-color-v2 = "scripts.extract_color_v2:main"
+hotarubukuro-color = "scripts.extract_color:main"
 
 [tool.setuptools]
-py-modules = ["Code_S1", "Code_S2"]
+py-modules = ["Code_S1"]
 
 [tool.setuptools.packages.find]
 where = ["."]

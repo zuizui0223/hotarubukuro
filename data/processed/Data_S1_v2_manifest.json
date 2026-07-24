@@ -61,7 +61,7 @@
         "reason": "postprocessed_srgb_cutout_no_camera_wb_metadata_or_neutral_reference"
       }
     },
-    "file": "color_extraction_v2.json",
+    "file": "color_extraction.json",
     "sha256": "3e17b1562f2df658374ec3543ac3599dac8435f9b07659e48dec3aa500331604"
   },
   "colour_scope": "uncalibrated_display_referred_sRGB",

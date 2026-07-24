@@ -290,3 +290,173 @@ hybrid誌で、OAは任意。OAを選択する場合の現行APCはUSD 3,970 / G
 - https://besjournals.onlinelibrary.wiley.com/hub/journal/13652745/author-guidelines
 - https://besjournals.onlinelibrary.wiley.com/hub/journal/13652745/author-guidelines-revisions
 - https://besjournals.onlinelibrary.wiley.com/hub/journal/13652745/fundedaccess
+
+---
+
+## 追補：Ecology and Evolutionへの適合性再審査とタイトル選定
+
+追補調査日: 2026-07-24
+
+### 適合性の再結論
+
+**条件付きで適合する。ただし、無条件の「安全誌」ではない。**
+
+Ecology and Evolutionが候補になる根拠は、誌面が生態・進化・保全科学を広く扱い、特定の分類群や実験様式に限定せず、Research Articleとして新しい方法やデータベースの生態学的利用も受け入れることにある。[Journal home](https://onlinelibrary.wiley.com/journal/20457758) / [Author Guidelines](https://onlinelibrary.wiley.com/page/journal/20457758/homepage/forauthors.html) さらに同誌は、ページ数上限を置かず、単に予想されるimpactで切るのではなく、証拠に基づく研究を掲載する編集方針を掲げる。[Overview](https://onlinelibrary.wiley.com/page/journal/20457758/homepage/productinformation.html)
+
+しかし、この広いscopeは、解析を多く入れれば適合するという意味ではない。本原稿が適合するのは、主張を次の強度に保った場合である。
+
+- 主たる貢献は、SNS写真から得た花色を**色の状態**と**有色花内の強度**に分け、全国スケールの環境・空間構造を評価したこと。
+- Bombus解析は、実測した訪花・送粉・選択圧ではなく、独立の分布データから予測した群集構造との**局所的対応**を調べたこと。
+- 人為的解析は、園芸逸出を同定したのではなく、自然モデルから反復して外れる候補の**human-context characteristics**を記述したこと。
+- SNS画像の量だけでなく、手動確認、抽出域指定、色計測限界、観察努力・撮影選択の影響を開示したこと。
+
+逆に、次のいずれかを原稿またはタイトルの中心に置くなら、現状のデータでは適合性は低くなる。
+
+- `pollinator-mediated selection shapes floral color`
+- `horticultural escape explains anomalous flowers`
+- `anthropogenic introduction causes early and dark flowering`
+- `pigment concentration`という生化学的に直接測定していない表現
+- SNS観察努力を扱わず、観測地点を自然個体群の無作為標本として解釈すること
+
+### 同誌の掲載実績から見た「適合する理由」と「足りない部分」
+
+以下はすべてEcology and Evolutionの公式掲載ページであり、タイトルの付け方と証拠水準を比較するために参照した。
+
+| 掲載例 | 本研究との共通点 | 本研究が同じ強さで言えない点 |
+|---|---|---|
+| [Is color data from citizen science photographs reliable for biodiversity research?](https://onlinelibrary.wiley.com/doi/10.1002/ece3.7307) | 市民科学写真から鳥・植物の色を測り、写真色データの利用可能性を問う。花写真を手動で品質選別している | 管理条件・museum spectrometry等との比較により写真色の信頼性を直接検証している。本研究が同程度の校正を持たないなら、`accurately quantifies pigmentation`とは言えない |
+| [Occupancy of Urban Habitats by the Jersey Tiger Moth Is Revealed by Social Media Data but Not Traditional Monitoring](https://onlinelibrary.wiley.com/doi/10.1002/ece3.71086) | Instagram・Flickr等のSNSデータを広域生態推論へ使用する | データ源間を比較し、recorder effortの指標を開発している。本研究も人口・アクセスを人為移入だけでなく観察努力として感度分析しないと、同じ説得力にならない |
+| [Birds, Bats or Climate? Eucalypt Floral Traits Reflect Pollination Over Abiotic Environment](https://onlinelibrary.wiley.com/doi/10.1002/ece3.71449) | 花色を生物要因と非生物環境の両方から広域に評価する | 800種超の樹木群とpollination syndromeを比較する研究である。本研究のBombus SDMは訪花や選択圧の直接測定ではないため、`reflect pollinator selection`のようなタイトルは強すぎる |
+| [Floral Color and Family Drive Contrasting Plant–Pollinator Responses to Nutrient Enrichment](https://onlinelibrary.wiley.com/doi/10.1002/ece3.72153) | 花色、環境、送粉者群集を扱う | 栄養添加実験と実測した花・送粉者応答があるため`Drive`を用いている。本研究は観察・予測解析なので`drive`、`determine`、`shape`を避ける |
+| [Where and What Kind—A Better Understanding of Local and Landscape Features in Planning the Urban Flower Meadows for Supporting Bee Communities](https://onlinelibrary.wiley.com/doi/10.1002/ece3.71376) | 局所・景観スケールを分け、花色とハナバチ群集を扱う | ハナバチのabundanceとspecies richnessを現地で測定している。本研究の予測確率をabundanceまたはpollination serviceへ読み替えない |
+| [A Most Aggressive Bear: Safari Videos Document Sloth Bear Defense Against Tiger Predation](https://onlinelibrary.wiley.com/doi/10.1002/ece3.10606) | インターネット・SNS由来の画像／動画を生態データとして用いる誌面上の前例 | 動画が行動そのものを直接記録する。写真地点とSDMの重なりは送粉行動そのものの記録ではない |
+
+これらの掲載例は、本研究が誌面外ではないことを示す。一方で、同誌がSNSデータなら無批判に受け入れることを示すものではない。むしろ近い掲載例ほど、写真色の妥当性、観察努力、独立データとの比較、または直接の生物観測を明示している。
+
+### Desk rejectの主なリスク
+
+1. **一つの論文に見えない**
+
+   全国SPDE、Bombus SDM、局所ペア、自然モデル反復、人為景観解析が、同じ生態学的質問の段階ではなく、独立した解析の寄せ集めに見える危険がある。色の状態と有色内強度を中核に置き、局所Bombusとhuman-contextを「異なるスケールで未説明部分を特徴づける二つの限定的拡張」とする必要がある。
+
+2. **単一種の記述地図に見える**
+
+   *Campanula punctata*の日本地図だけでは一般性が弱い。非無作為なデジタル観測から、離散状態と条件付き連続形質を分け、広域環境・空間と局所生物群集を異なる推論単位で評価する、という一般化可能な設計を示す必要がある。
+
+3. **画像色の測定妥当性が不足する**
+
+   同誌には市民科学写真の色を基準測定と比較した直接の前例がある。[Laitly et al.](https://onlinelibrary.wiley.com/doi/10.1002/ece3.7307) 本研究は元データを増やせないため、少なくとも手動確認済み抽出域、色外れ値を除外しない規則、白花を連続強度解析へ入れない理由、照明・カメラ差の限界、頑健性分析を明示する。
+
+4. **SNS観察努力と人為影響を混同する**
+
+   人口、道路、都市近接性は植物の移出可能性と撮影・投稿可能性の両方を表す。近年の同誌SNS研究はrecorder effortを明示的に扱っている。[Stephenson et al.](https://onlinelibrary.wiley.com/doi/10.1002/ece3.71086) この二重性をMethodsとDiscussionで扱わない場合、human-context解析は選択バイアスの再記述と判断され得る。
+
+5. **Bombusを直接効果として書く**
+
+   SDM適合度は個体数、訪花頻度、花色選択、送粉成功ではない。`Bombus effect`や`pollinator selection`をタイトル・Abstract・Results見出しに使わない。許容されるのは`predicted Bombus community turnover`との対応である。
+
+6. **園芸由来を実証したように見せる**
+
+   濃色、早咲き、人口・人為景観、局所孤立が同時に現れても、園芸由来の識別ではない。遺伝、栽培履歴、現地標本による検証候補の優先順位づけである。
+
+7. **データ公開要件を満たせない**
+
+   同誌は投稿時にデータ、メタデータ、コードを査読可能にすることを要求し、データのない投稿をeditorへ回さない。[Author Guidelines](https://onlinelibrary.wiley.com/page/journal/20457758/homepage/forauthors.html) 元SNS画像を再配布できない場合、派生値、画像ID・URL、取得日、権利情報、抽出手順、再取得不能例の扱いを公開する必要がある。
+
+### タイトル作成の判断基準
+
+同誌の近年タイトルは、直接示した結果については`Revealed`、`Drive`、`Reflect`のような動詞を使う一方、測定妥当性が主題なら疑問文、複数候補の比較なら`X, Y or Z?`を用いる。ただし、強い動詞を用いた論文は、実験、直接観測、独立データ比較によってその表現を支えている。
+
+本研究では、最も堅い成果が「色の状態と、有色という条件下での強度を分けた全国環境・空間解析」であり、Bombusと人為影響は限定的拡張である。したがって、タイトルは最も強い成果を表し、弱い拡張をすべて列挙しない方がよい。
+
+避ける語:
+
+- `first`
+- `drives`
+- `determines`
+- `shapes`（少なくともBombusまたは人為影響を主語にする場合）
+- `pollinator-mediated selection`
+- `horticultural escape`
+- `anthropogenic introduction`
+- `anthocyanin concentration`
+- `natural prediction`（何を意味するかタイトルだけでは不明瞭）
+
+使える語:
+
+- `structure`
+- `variation`
+- `associations`
+- `correspondence`
+- `predicted Bombus turnover`
+- `human-context departures`
+- `color state`
+- `pigmentation intensity`（生化学的濃度ではなく画像由来指標と本文で定義）
+
+### タイトル候補の順位
+
+#### 1. 推奨
+
+**From Floral Color State to Pigmentation Intensity: Environmental and Spatial Structure in *Campanula punctata* Across Japan**
+
+- 二段階応答という方法・生物学上の中核を冒頭で示す。
+- 環境と空間について因果ではなく`structure`と表現する。
+- 全国研究であることと対象種が分かる。
+- Bombusと人為的候補をタイトルで過剰に約束せず、Abstractと本文の限定的拡張として提示できる。
+- `pigmentation intensity`は画像由来の有色花内指標であり、アントシアニン濃度そのものではないとMethodsで定義する必要がある。
+
+#### 2.
+
+**Two Levels of Floral Color Variation in *Campanula punctata*: Nationwide Structure of Color State and Pigmented-Flower Intensity**
+
+- 二つの応答を最も明示的に示す。
+- `Two Levels`は読みやすいが、環境・空間解析がタイトルから見えにくい。
+
+#### 3.
+
+**Environmental and Spatial Structure of Floral Color State and Intensity in *Campanula punctata* Across Japan**
+
+- 最も保守的で、解析内容とのずれが小さい。
+- SNSデータと局所拡張の新規性はAbstractで補う必要がある。
+
+#### 4.
+
+**Multiscale Floral Color Variation in *Campanula punctata*: Nationwide Structure and Local Ecological Departures**
+
+- 全国モデルと局所解析のスケール分担を示す。
+- `ecological departures`がやや抽象的で、読者がBombus・human contextを予測しにくい。
+
+#### 5.
+
+**Social-Media Photographs Characterize Floral Color State and Intensity in *Campanula punctata* Across Japan**
+
+- SNS画像活用を前面に出し、`characterize`により`accurately measure`ほど強く言わない。
+- 観察努力・画像色妥当性への査読を強く誘発する。画像方法の検証を十分に見せる場合に限る。
+
+#### 6.
+
+**Nationwide Floral Color Structure in *Campanula punctata* With Local Correspondence to Predicted *Bombus* Turnover**
+
+- 種に注目する理由であるBombus仮説を見せられる。
+- human-context解析が消え、かつ予測Bombus結果が弱い場合はタイトルと結果の釣り合いが悪くなる。
+
+#### 7.
+
+**Contrasting Broad-Scale Structure and Local Departures in the Floral Color of *Campanula punctata***
+
+- スケール分離を簡潔に表す。
+- 日本、二段階応答、環境、Bombusが見えず、検索性が低い。
+
+#### 8.
+
+**Mapping Floral Color Variation in *Campanula punctata*: Environment, Space, and Local Human-Context Associations Across Japan**
+
+- 人為的候補まで見せるが、`mapping`は研究を記述地図に見せる危険がある。
+- Bombusが落ち、human contextが主解析と同等に見えるため、現状では優先しない。
+
+### 単一の推奨タイトル
+
+> **From Floral Color State to Pigmentation Intensity: Environmental and Spatial Structure in *Campanula punctata* Across Japan**
+
+このタイトルを推奨する最大の理由は、原稿で最も証拠が強く新規性のある部分と、タイトルが約束する内容を一致させられることにある。白花の連続色値を色素量として扱わず、色の有無と有色花内強度を分けることは、本研究の測定論・生態学双方の中核である。環境と空間は全国解析として直接評価しているためタイトルに出せる。一方、予測Bombusとhuman-contextは重要だが、直接の送粉効果または園芸由来を示していないため、タイトルから外すことで過小評価するのではなく、証拠階層を正しく表す。
+
+Ecology and Evolutionへの適合性は、このタイトルだけで決まらない。Abstractの結論でも同じ階層を守り、Bombusを`local correspondence with predicted community turnover`、人為的候補を`repeated departures associated with human-context variables`と表現した場合に、最も一貫した投稿になる。

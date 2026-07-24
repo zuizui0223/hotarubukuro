@@ -32,6 +32,11 @@ beyond the information available in the project.
 - regenerate the final figures from the locked stage outputs;
 - cite every table and figure in numerical order in the main text;
 - prepare journal-compliant figure files and alt text;
+- build the independently numbered Supporting Information S1 file from
+  `manuscript/supporting-information-plan.md`, then add its cross-references to
+  the main text only after every supplementary item exists;
+- archive analysis-ready derived data and executable code in the DOI release
+  rather than relying on the Supporting Information file as the data archive;
 - check that the final title page and declarations match the submission
   system; and
 - verify the final Word or PDF rendering in Microsoft Word before upload.

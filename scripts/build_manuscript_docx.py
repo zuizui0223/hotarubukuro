@@ -30,10 +30,11 @@ FIGURE_FILES = {
 }
 FIGURE_ALT_TEXT = {
     1: (
-        "Four-panel figure showing a national map filled with each "
-        "observation's extracted median sRGB colour, the CIELAB a-star "
-        "mixture boundary, national white-like and pigmented records, and "
-        "pigmented-only conditional intensity."
+        "Four-panel figure showing three common-extent maps of Japan, "
+        "including Hokkaido: a map filled with each observation's extracted "
+        "median sRGB colour, national white-like and pigmented records, and "
+        "pigmented-only conditional intensity; the fourth panel shows the "
+        "CIELAB a-star mixture boundary."
     ),
     2: (
         "Four-panel figure showing environmental posterior coefficients, "
@@ -92,7 +93,7 @@ def add_hyperlink(paragraph, text: str, url: str):
 
 
 INLINE_TOKEN = re.compile(
-    r"(\*\*.+?\*\*|\*.+?\*|`.+?`|https?://\S+)",
+    r"(\*\*.+?\*\*|(?<!\w)\*(?!\*)[^*\n]+?\*(?!\*)|`.+?`|https?://\S+)",
     flags=re.DOTALL,
 )
 
@@ -206,6 +207,16 @@ def configure_styles(document: Document) -> None:
         style.paragraph_format.space_after = Pt(6)
         if name != "Title":
             style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+    caption = document.styles["Caption"]
+    caption.font.name = "Times New Roman"
+    caption._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
+    caption.font.size = Pt(10)
+    caption.font.bold = False
+    caption.font.italic = False
+    caption.font.color.rgb = RGBColor(0, 0, 0)
+    caption.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+    caption.paragraph_format.space_after = Pt(6)
 
 
 def parse_table(lines: list[str]) -> list[list[str]]:

@@ -886,7 +886,9 @@ author-confirmed petal region; thin neutral outlines retain the visibility of
 pale points.
 (b) Distribution of CIELAB a* with the response-blind mixture boundary at
 4.9445. (c) National locations of white-like and pigmented observations.
-(d) Conditional intensity among pigmented flowers. Displayed colours are
+(d) Conditional intensity among pigmented flowers. The three maps share the
+same WGS84 extent and include Hokkaido for national geographic context.
+Displayed colours are
 uncalibrated human-visible sRGB, not anthocyanin concentration or *Bombus*
 colour contrast.
 

@@ -48,7 +48,22 @@ theme_map <- function() {
   theme_publication() +
     ggplot2::theme(
       axis.title = ggplot2::element_blank(),
-      panel.grid = ggplot2::element_blank(),
+      axis.text = ggplot2::element_text(
+        colour = "#64717D", size = 6.7
+      ),
+      axis.ticks = ggplot2::element_line(
+        colour = "#BCC5CD", linewidth = 0.22
+      ),
+      panel.grid.major = ggplot2::element_line(
+        colour = "#E1E7EC", linewidth = 0.22
+      ),
+      panel.grid.minor = ggplot2::element_blank(),
+      panel.background = ggplot2::element_rect(
+        fill = "#F8FAFC", colour = NA
+      ),
+      panel.border = ggplot2::element_rect(
+        colour = "#C6CED5", fill = NA, linewidth = 0.3
+      ),
       legend.key.height = grid::unit(3.2, "mm")
     )
 }
@@ -63,18 +78,38 @@ tag_panel <- function(plot, label) {
 }
 
 japan <- rnaturalearth::ne_countries(
-  scale = "small", country = "Japan", returnclass = "sf"
+  scale = "medium", country = "Japan", returnclass = "sf"
 )
 
-base_japan_map <- function() {
+base_japan_map <- function(national_extent = FALSE) {
+  if (national_extent) {
+    map_xlim <- c(129.0, 146.2)
+    map_ylim <- c(30.0, 46.2)
+    longitude_breaks <- c(130, 135, 140, 145)
+    latitude_breaks <- c(30, 35, 40, 45)
+  } else {
+    map_xlim <- c(129.2, 142.4)
+    map_ylim <- c(32.0, 40.8)
+    longitude_breaks <- c(130, 134, 138, 142)
+    latitude_breaks <- c(32, 36, 40)
+  }
+
   ggplot2::ggplot() +
     ggplot2::geom_sf(
-      data = japan, fill = "#F5F5F2", colour = "#AAB4BE",
-      linewidth = 0.25
+      data = japan, fill = "#F2F1EC", colour = "#8795A1",
+      linewidth = 0.34
     ) +
     ggplot2::coord_sf(
-      xlim = c(129.2, 142.4), ylim = c(32.0, 40.8),
-      expand = FALSE
+      xlim = map_xlim, ylim = map_ylim, expand = FALSE,
+      datum = sf::st_crs(4326)
+    ) +
+    ggplot2::scale_x_continuous(
+      breaks = longitude_breaks,
+      labels = function(x) paste0(x, "\u00b0E")
+    ) +
+    ggplot2::scale_y_continuous(
+      breaks = latitude_breaks,
+      labels = function(x) paste0(x, "\u00b0N")
     ) +
     theme_map()
 }
@@ -139,19 +174,19 @@ stopifnot(length(threshold) == 1L, is.finite(threshold))
 
 # Figure 1: observed extracted colours and two-stage response.
 rgb_map <- analysis[order(analysis$colour_a), ]
-fig1a <- base_japan_map() +
+fig1a <- base_japan_map(national_extent = TRUE) +
   ggplot2::geom_point(
     data = rgb_map,
     ggplot2::aes(
       x = longitude, y = latitude, fill = observed_rgb
     ),
     shape = 21, colour = "#56616B", stroke = 0.12,
-    size = 1.35, alpha = 0.96
+    size = 1.18, alpha = 0.96
   ) +
   ggplot2::scale_fill_identity() +
   ggplot2::labs(
-    title = "Extracted median sRGB across Japan",
-    subtitle = "Each point is one author-confirmed petal region"
+    title = "Observed petal colours",
+    subtitle = "Median sRGB at 1,923 author-confirmed locations"
   ) +
   ggplot2::theme(
     plot.subtitle = ggplot2::element_text(
@@ -183,11 +218,11 @@ fig1b <- ggplot2::ggplot(
   ) +
   theme_publication()
 
-fig1c <- base_japan_map() +
+fig1c <- base_japan_map(national_extent = TRUE) +
   ggplot2::geom_point(
     data = analysis,
     ggplot2::aes(x = longitude, y = latitude, fill = pigmentation_class),
-    shape = 21, colour = paper, stroke = 0.08, size = 1.05, alpha = 0.8
+    shape = 21, colour = paper, stroke = 0.08, size = 0.92, alpha = 0.8
   ) +
   ggplot2::scale_fill_manual(
     values = c("White-like" = blue, "Pigmented" = pink)
@@ -198,13 +233,13 @@ fig1c <- base_japan_map() +
   )
 
 intensity_cells <- cells[is.finite(cells$conditional_intensity_median), ]
-fig1d <- base_japan_map() +
+fig1d <- base_japan_map(national_extent = TRUE) +
   ggplot2::geom_point(
     data = intensity_cells,
     ggplot2::aes(
       x = longitude, y = latitude, colour = conditional_intensity_median
     ),
-    size = 1.35, alpha = 0.9
+    size = 1.18, alpha = 0.9
   ) +
   ggplot2::scale_colour_gradient2(
     low = "#F2D7E5", mid = "#C35A91", high = "#701A4B",

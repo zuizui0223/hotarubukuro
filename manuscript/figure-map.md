@@ -13,6 +13,9 @@ are compared.
 - **Panels:** national observation map filled with each observation's extracted
   median sRGB value; CIELAB a* distribution and mixture boundary; national
   white-like/pigmented observations; pigmented-only conditional intensity.
+- **Geographic frame:** all three map panels use the same 129.0-146.2 degrees E
+  by 30.0-46.2 degrees N extent, a WGS84 graticule, and the medium-resolution
+  Natural Earth coastline so that Hokkaido is not cropped.
 - **Sources:** `Data_S1.csv`, `analysis_data_pigmentation_hurdle.csv`,
   `multiscale_hotspot_cells_1km.csv`, and
   `pigmentation_mixture_components.csv`.

@@ -14,6 +14,9 @@ hb_package_groups <- list(
   bombus_occurrences = c("dplyr", "jsonlite", "readr", "rgbif"),
   environment_input = c("jsonlite", "terra"),
   human_context = c("foreign", "ranger", "terra"),
+  publication_figures = c(
+    "cowplot", "ggplot2", "patchwork", "rnaturalearth", "scales", "sf"
+  ),
   reporting = c("knitr", "rmarkdown"),
   testing = "testthat"
 )
@@ -32,6 +35,7 @@ hb_stage_packages <- list(
   environment_input = c("environment_input"),
   human_raster = c("human_context"),
   reporting = c("reporting"),
+  publication_figures = c("publication_figures"),
   full = names(hb_package_groups)
 )
 

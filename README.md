@@ -1,9 +1,11 @@
 # hotarubukuro
 
 Reproducible nationwide analysis of floral-colour geography in *Campanula
-punctata* using author-reviewed social-media photographs, environmental
-rasters, spatial models, predicted *Bombus* communities, and exploratory human
-landscape context.
+punctata* using author-reviewed YAMAP hiking-activity photographs,
+environmental rasters, spatial models, predicted *Bombus* communities, and
+exploratory human-landscape context. The occurrence frame is concentrated on
+hiking trails and activity routes and is not a random sample of Japanese plant
+populations.
 
 ## Biological response
 
@@ -40,6 +42,13 @@ abundance, visitation, pollination efficiency, or direct selection pressure.
 See `docs/analysis-plan.md` for the complete inferential design and
 `docs/manuscript-story.md` for the reviewer-facing narrative and claim
 ceilings.
+
+The current submission draft is
+`manuscript/ecology-and-evolution-manuscript.md`. Public raster provenance,
+journal selection, literature support, and exact rerun commands are recorded in
+`docs/data-sources/public-environment-sources.md`,
+`docs/journal-target-review.md`, `docs/methodology-literature.md`, and
+`docs/reproduction-guide.md`.
 
 ## Repository layout
 
@@ -87,6 +96,17 @@ Render the phenotype-analysis report:
 ```powershell
 & 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
   scripts/render_phenotype_report.R
+```
+
+Build the publication figures and the *Ecology and Evolution*
+submission-format Word draft:
+
+```powershell
+& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
+  scripts/build_publication_figures.R
+
+& 'C:\Users\zuizui\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
+  scripts/build_manuscript_docx.py
 ```
 
 On Windows, INLA may require `TEMP` and `TMP` to point to an ASCII-only

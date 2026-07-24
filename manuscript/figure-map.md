@@ -8,10 +8,10 @@ are compared.
 
 ## Figure 1 — Two-part digital phenotype
 
-- **Reader question:** What extracted display colours underlie the two response
-  stages, and where were those stages observed?
-- **Panels:** observation-level swatch mosaic filled with the extracted median
-  sRGB value; CIELAB a* distribution and mixture boundary; national
+- **Reader question:** How are the extracted display colours distributed
+  geographically, and how do they relate to the two response stages?
+- **Panels:** national observation map filled with each observation's extracted
+  median sRGB value; CIELAB a* distribution and mixture boundary; national
   white-like/pigmented observations; pigmented-only conditional intensity.
 - **Sources:** `Data_S1.csv`, `analysis_data_pigmentation_hurdle.csv`,
   `multiscale_hotspot_cells_1km.csv`, and

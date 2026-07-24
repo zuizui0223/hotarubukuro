@@ -138,56 +138,25 @@ threshold <- unique(read_num(analysis$pigment_boundary_a))
 stopifnot(length(threshold) == 1L, is.finite(threshold))
 
 # Figure 1: observed extracted colours and two-stage response.
-swatches <- analysis[order(
-  analysis$pigmentation_class, analysis$colour_a, analysis$colour_L
-), ]
-swatches$within_class_rank <- ave(
-  seq_len(nrow(swatches)), swatches$pigmentation_class,
-  FUN = seq_along
-)
-swatch_columns <- 48L
-swatches$tile_column <- (swatches$within_class_rank - 1L) %% swatch_columns + 1L
-swatches$tile_row <- -(
-  (swatches$within_class_rank - 1L) %/% swatch_columns
-)
-swatches$swatch_group <- factor(
-  swatches$pigmentation_class,
-  levels = c("White-like", "Pigmented"),
-  labels = c("White-like (n = 966)", "Pigmented (n = 957)")
-)
-fig1a <- ggplot2::ggplot(
-  swatches,
-  ggplot2::aes(x = tile_column, y = tile_row, fill = observed_rgb)
-) +
-  ggplot2::geom_tile(colour = "#EEF1F4", linewidth = 0.08) +
-  ggplot2::facet_wrap(~swatch_group, ncol = 1) +
-  ggplot2::scale_fill_identity() +
-  ggplot2::coord_fixed(expand = FALSE) +
-  ggplot2::labs(
-    title = "Extracted median sRGB colours",
-    subtitle = "Each tile is one photograph; ordered by a*"
-  ) +
-  ggplot2::theme_void(base_family = "Arial", base_size = 9) +
-  ggplot2::theme(
-    plot.title = ggplot2::element_text(
-      face = "bold", colour = ink, size = 10,
-      margin = ggplot2::margin(b = 3)
+rgb_map <- analysis[order(analysis$colour_a), ]
+fig1a <- base_japan_map() +
+  ggplot2::geom_point(
+    data = rgb_map,
+    ggplot2::aes(
+      x = longitude, y = latitude, fill = observed_rgb
     ),
+    shape = 21, colour = "#56616B", stroke = 0.12,
+    size = 1.35, alpha = 0.96
+  ) +
+  ggplot2::scale_fill_identity() +
+  ggplot2::labs(
+    title = "Extracted median sRGB across Japan",
+    subtitle = "Each point is one author-confirmed petal region"
+  ) +
+  ggplot2::theme(
     plot.subtitle = ggplot2::element_text(
       colour = mid_grey, size = 8.2, margin = ggplot2::margin(b = 4)
-    ),
-    strip.text = ggplot2::element_text(
-      face = "bold", colour = ink, size = 8.3,
-      margin = ggplot2::margin(2, 0, 2, 0)
-    ),
-    strip.background = ggplot2::element_rect(
-      fill = "#F4F7FA", colour = NA
-    ),
-    panel.border = ggplot2::element_rect(
-      colour = "#C8D1DA", fill = NA, linewidth = 0.35
-    ),
-    panel.spacing = grid::unit(2.5, "mm"),
-    plot.margin = ggplot2::margin(7, 7, 7, 7)
+    )
   )
 
 fig1b <- ggplot2::ggplot(

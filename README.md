@@ -1,130 +1,110 @@
 # hotarubukuro
 
-Nationwide image phenotyping and spatial ecological analysis of floral colour in
-*Campanula punctata*.
+Reproducible nationwide analysis of floral-colour geography in *Campanula
+punctata* using author-reviewed social-media photographs, environmental
+rasters, spatial models, predicted *Bombus* communities, and exploratory human
+landscape context.
 
-## Current study design
+## Biological response
 
-The author isolated/cropped each focal flower and visually confirmed the petal
-colour-extraction region before scripted colour calculation. The current primary
-responses are (i) response-blind optical pigmentation presence and (ii) CIELAB
-a* intensity conditional on flowers classified as pigmented. White-flower a*
-variation is not treated as anthocyanin quantity. Dark/pink extremes and
-automatic mask/shape warnings are retained; only unformable colour measurements
-and exact duplicate images are excluded.
+Each focal flower was cropped and its retained petal colour region was visually
+confirmed by the author before scripted colour extraction. The analysis then
+uses a two-part response:
 
-The inferential workflow has three layers:
+1. optical pigmentation presence across all observations; and
+2. CIELAB a* intensity conditional on a flower being classified as pigmented.
 
-1. **Natural baseline:** response-blind environmental axes plus PC-prior
-   INLA-SPDE quantify measured gradients and unresolved spatial biogeography.
-2. **Bombus challenge:** freshly generated ENMeval predictions and frozen public
-   occurrence records separate landscape concordance, shared geography, and
-   locally remaining variation. Pre-existing Bombus TIFFs are not analysis
-   inputs.
-3. **Human-interface challenge:** population exposure H and an independently
-   defined MLIT forest--human interface R test a prespecified H-by-R prediction
-   on the original two-part outcomes. Road access A and observation date are
-   sensitivities. Natural-model cross-fitted residuals are used only for
-   residual-tail convergence checks and candidate ranking, never as
-   horticultural labels.
+White-flower a* variation is not interpreted as anthocyanin quantity. Extreme
+dark or pink flowers are retained because they may be biologically real and are
+relevant to follow-up of possible human-mediated introductions.
 
-## Current results
+## Publication analysis
 
-- Final locked pipeline: `results/final_analysis_pipeline/`
-- Base: `results/ecological_v9_final_public_HRNA_50km/`
-- Mechanism extension: `results/ecological_v10_final_mechanism_HRNA/`
-- Response-corrected analysis: `results/ecological_v11_pigmentation_hurdle/`
-- Public MLIT layers: `results/public_rasters/mlit_human_forest_edge_2021/`
-- Local white-neighbourhood human context:
-  `results/ecological_v21_local_human_neighbourhood/`
-- DID settlement-context sensitivity:
-  `results/ecological_v22_did_human_context/`
-- Rendered report: `final_v11.html`
+The pipeline separates nationwide pattern, local biotic turnover, and
+exploratory human context so that they do not share a single causal claim.
 
-The response-blind a* mixture separates 966 white-like and 957 pigmented
-observations at a*=4.94. Bombus proxies show strong broad co-geography, but W/A
-add essentially no spatial-fold information for pigmentation presence after
-environment and space. W retains a small negative gradient within pigmented
-flowers (held-out delta R-squared about 0.01); A does not. A weak western H-by-R
-association occurs for pigmentation presence, but it does not strengthen in the
-extreme residual tail and early-flowering convergence is absent. The current
-data therefore rank horticultural candidates but do not support cultivar origin
-or garden escape at population level.
+| Stage | Manuscript role | Main analysis |
+|---|---|---|
+| `01_phenotype` | Measurement model | White/pigmented classification and pigmented-only intensity |
+| `02_natural_model` | Confirmatory natural baseline | Response-blind environment plus PC-prior INLA-SPDE and spatial cross-validation |
+| `03_local_bombus` | Planned local biotic test | Near-neighbour flower-colour turnover versus predicted *Bombus* community turnover |
+| `04_candidate_definition` | Candidate definition | Pigmented isolates among environment-similar observed-white neighbours |
+| `05_human_context` | Exploratory characterization | Population and DID contrasts without using human variables to select candidates |
+| `06_final_lock` | Reproducibility and claim control | Result, exclusion, checksum, validation, and claim registries |
 
-The later v21/v22 local-discontinuity workflow holds human variables out of
-candidate selection and compares each pigmented isolate with its own
-environment-similar observed-white neighbours in 1,000 natural predictive maps.
-Five-km population and an independent 2015 DID layer show a consistent local
-settlement-proximity direction, but neither passes a strict 0.05 family-wise
-threshold. These results prioritize follow-up cells and do not identify
-planting, garden escape, horticultural origin, or introgression.
+Fresh ENMeval model selection and prediction are used for the five *Bombus*
+species. Previously generated *Bombus* TIFF files are not accepted as analysis
+inputs. Predicted suitability is treated as a community fingerprint, not as
+abundance, visitation, pollination efficiency, or direct selection pressure.
 
-See:
+See `docs/analysis-plan.md` for the complete inferential design and
+`docs/manuscript-story.md` for the reviewer-facing narrative and claim
+ceilings.
 
-- `FINAL_ANALYSIS_PIPELINE.md` for the locked final workflow, included results,
-  and explicit exclusions;
-- `ANALYSIS_REVIEW_V11.md` for the reviewer-facing validity audit;
-- `MANUSCRIPT_STORY_V11.md` for the paper narrative and claim language;
-- `MECHANISM_WORKFLOW_V3.md` for locked hypotheses and anti-circularity rules;
-- `PUBLIC_RASTER_DESIGN.md` for H/R/N/A definitions;
-- `ANALYSIS_REVIEW_V22.md` for the current human-settlement continuation;
-- `results/README.md` for current versus development output directories.
-
-## Main files
+## Repository layout
 
 ```text
-Data_S1.csv
-final.Rmd                         legacy full analysis draft; preserved
-final_v11.Rmd                     manuscript synthesis of the v11 hurdle results
-scripts/ecological_analysis_v2.R  base ecological/SPDE implementation
-scripts/ecological_mechanism_v3.R Bombus and horticultural evidence workflow
-scripts/pigmentation_hurdle_v4.R  two-part response and residual-tail workflow
-scripts/mlit_human_forest_edge.R  response-blind MLIT R and A construction
-scripts/run_ecological_analysis_v2.R
-scripts/run_ecological_mechanism_v3.R
-scripts/run_pigmentation_hurdle_v4.R
-scripts/run_local_human_neighbourhood_v14.R
-scripts/run_did_human_context_v15.R
-scripts/render_final_v11.R
-tests/testthat/
+R/                         stage-specific analysis functions
+R/pipeline_support.R       package groups, module registry, shared helpers
+scripts/                   executable data-build and stage runners
+validation/                independent validation and claim audits
+tests/testthat/             unit and interface tests
+reports/                   analysis reports, separate from executable modules
+docs/                      current analysis and data-source documentation
+results/final_analysis_pipeline/
+                           publication registries and locked handoff
+Data_S1.csv                analysis data
+scripts/extract_color.py   deterministic colour-extraction CLI
+Code_S1.py                 supplementary GPX georeferencing code
 ```
 
-`final.Rmd` is retained as the historical, full executable draft. The v10 report
-and v11 report are deliberately separate so that old embedded results cannot
-silently overwrite the response-corrected outputs.
+Stable code filenames do not contain development version numbers. Versioned
+result directories such as `ecological_v11_*` and `ecological_v22_*` remain as
+provenance identifiers for frozen analyses.
 
-## Reproducibility
+## Run and verify
 
-Render the current report from the repository root:
+From the repository root, verify all locked artifacts and run the test suite:
 
 ```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' scripts/render_final_v11.R
+& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
+  scripts/run_publication_pipeline.R --mode=verify --tests=true
 ```
 
-The render helper automatically finds the Pandoc bundled with RStudio when it is
-not already on `PATH`.
-
-Run the test suite:
+Rebuild the post-baseline extensions from the frozen natural-model checkpoint:
 
 ```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' -e "testthat::test_dir('tests/testthat')"
+& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
+  scripts/run_publication_pipeline.R --mode=extensions --tests=true
 ```
 
-On Windows, run INLA with `TEMP` and `TMP` set to an ASCII-only directory before
-starting R. INLA's external executable can fail to create a working directory
-when the temporary path contains Japanese characters.
+Use `--mode=full` to rebuild the natural predictive model and subsequent
+stages. Image extraction and manually reviewed colour regions remain fixed
+upstream inputs.
 
-The base runner requires an anomaly input and the directory of freshly selected
-ENMeval prediction rasters. The mechanism runner defaults to the locked v9 base
-and requires the frozen Bombus occurrence directory through `--occurrence-dir`
-or `HOTARUBUKURO_BOMBUS_OCCURRENCE_DIR`.
+Render the phenotype-analysis report:
 
-## Key dependencies
+```powershell
+& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
+  scripts/render_phenotype_report.R
+```
 
-R packages include `INLA`, `sf`, `terra`, `ENMeval`, `maxnet`, `mclust`, `qgam`, `mgcv`,
-`testthat`, and `rmarkdown`. Python image/georeferencing utilities use `opencv-
-python`, `pandas`, `scikit-learn`, `numpy`, and `openpyxl`.
+On Windows, INLA may require `TEMP` and `TMP` to point to an ASCII-only
+directory.
 
-## License
+## Dependencies
 
-Code: MIT License. Data: CC BY 4.0.
+R package requirements and their stage assignments are centralized in
+`R/pipeline_support.R`. Major dependencies are `INLA`, `sf`, `terra`,
+`ENMeval`, `maxnet`, `mclust`, `mgcv`, `qgam`, `ranger`, `testthat`, and
+`rmarkdown`. Python dependencies for supplementary colour extraction are
+declared in `pyproject.toml`.
+
+## Interpretation ceiling
+
+The natural model quantifies environmental and unresolved spatial structure.
+The local *Bombus* analysis evaluates correspondence between predicted
+community turnover and flower-colour turnover. The human-context analysis ranks
+follow-up candidates. None of these analyses alone establishes pollinator
+selection, horticultural origin, planting, garden escape, introgression, or
+genetic contamination; those require field, provenance, and genetic evidence.

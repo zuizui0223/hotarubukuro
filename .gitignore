@@ -1,0 +1,35 @@
+# Local analysis state
+.tmp/
+graphify-out/
+.Rhistory
+.RData
+.Rproj.user/
+__pycache__/
+*.egg-info/
+build/
+dist/
+
+# Rendered reports
+*.html
+*_files/
+*.docx
+*.xlsx
+
+# Large/generated analysis products. Curated lightweight CSV files already
+# tracked under results/ remain versioned; new products stay local by default.
+results/*
+*.tif
+*.tiff
+*.rds
+*.log
+
+# Superseded local drafts retained outside the publication pipeline
+ANALYSIS_REVIEW.md
+ANALYSIS_REVIEW_V6.md
+ANALYSIS_REVIEW_V10.md
+ANALYSIS_REVIEW_V16.md
+ANALYSIS_REVIEW_V18.md
+COMMUNITY_THRESHOLD_DESIGN_V13.md
+MANUSCRIPT_STORY_V10.md
+TRANSITION_ZONE_DESIGN_V12.md
+final_v10.Rmd

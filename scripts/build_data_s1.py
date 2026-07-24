@@ -24,7 +24,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
-from scripts.extract_color_v2 import srgb_to_cielab
+from scripts.extract_color import srgb_to_cielab
 
 
 REQUIRED_COLUMNS = {

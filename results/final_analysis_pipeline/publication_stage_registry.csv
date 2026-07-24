@@ -1,0 +1,7 @@
+"stage_id","manuscript_role","response"
+"01_phenotype","measurement_model","pigmentation presence and pigmented-only intensity"
+"02_natural_model","confirmatory_natural_baseline","same two-part response"
+"03_local_bombus","planned_local_biotic_test","local turnover of both response stages"
+"04_candidate_definition","candidate_definition","pigmented isolates among environment-similar white neighbours"
+"05_human_context","exploratory_human_context","population and DID contrasts"
+"06_final_lock","claim_and_artifact_lock","registered results and claim ceilings"

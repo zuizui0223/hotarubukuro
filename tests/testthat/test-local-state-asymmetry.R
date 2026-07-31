@@ -1,4 +1,4 @@
-source(file.path("R", "local_state_asymmetry.R"))
+source(file.path("..", "..", "R", "local_state_asymmetry.R"))
 
 testthat::test_that("directional profiles detect both local event directions", {
   graph <- list(

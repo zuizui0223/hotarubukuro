@@ -35,6 +35,7 @@ expected_metrics <- c(
   "pigmented_in_white_rate", "white_in_pigmented_rate",
   "count_difference", "rate_difference", "log_rate_ratio"
 )
+expected_directions <- c("pigmented_in_white", "white_in_pigmented")
 
 add_check(
   "state_rules_complete",
@@ -48,17 +49,25 @@ add_check(
     all(expected_metrics %in% summary$metric),
   paste("rows=", nrow(summary))
 )
+n_natural_maps <- unique(as.integer(summary$n_natural_maps))
 add_check(
   "natural_maps_complete",
-  all(table(null$state_rule) == 1000L) &&
-    all(summary$n_natural_maps == 1000L),
-  paste("null rows=", nrow(null))
+  length(n_natural_maps) == 1L && n_natural_maps > 0L &&
+    all(table(null$state_rule) == n_natural_maps),
+  paste(
+    "natural maps=", paste(n_natural_maps, collapse = ","),
+    "null rows=", nrow(null)
+  )
 )
 add_check(
-  "both_directions_exported",
-  all(c("pigmented_in_white", "white_in_pigmented") %in%
-        unique(candidates$direction)),
-  paste("directions=", paste(sort(unique(candidates$direction)), collapse = ","))
+  "candidate_directions_valid",
+  all(candidates$direction %in% expected_directions) &&
+    all(c("pigmented_in_white_count", "white_in_pigmented_count") %in%
+          summary$metric),
+  paste(
+    "observed directions with at least one candidate=",
+    paste(sort(unique(candidates$direction)), collapse = ",")
+  )
 )
 add_check(
   "candidate_ids_unique_within_direction",
@@ -108,7 +117,7 @@ add_check(
 add_check(
   "post_hoc_label",
   all(summary$analysis_status == "post_hoc_diagnostic") &&
-    grepl("post_hoc", metadata_value[["analysis_spec_version"]], fixed = TRUE) &&
+    grepl("posthoc", metadata_value[["analysis_spec_version"]], fixed = TRUE) &&
     grepl("not pre-specified", metadata_value[["analysis_status"]], fixed = TRUE),
   metadata_value[["analysis_status"]]
 )

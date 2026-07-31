@@ -38,7 +38,7 @@ v23_require_columns(
   cells,
   c(
     "exact_site_id", "n_pigmented", "n_observations",
-    "x_km", "y_km", "spatial_fold",
+    "n_independent_sites", "x_km", "y_km", "spatial_fold",
     "broad50km_pc1", "broad50km_pc2",
     "within50km_pc1", "within50km_pc2"
   ),

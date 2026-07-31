@@ -1,0 +1,426 @@
+name: Full reconstruction and symmetry v2
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/full-reproduction-and-symmetry-v2.yml"
+      - "R/**"
+      - "scripts/**"
+      - "validation/**"
+      - "Data_S1.csv"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: full-reproduction-symmetry-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  R_VERSION: "4.5.3"
+  HISTORICAL_PUBLICATION_COMMIT: "bcceb7c7c909adcb5f7b69721ee5c5921ae90f2e"
+  RASTER_RUN_ID: "29793112921"
+  PUBLIC_CACHE: ${{ github.workspace }}/reproduction_inputs/public_environment_cache
+  RASTER_ARTIFACT: ${{ github.workspace }}/reproduction_inputs/prepared_publication_rasters
+  MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
+  GBIF_CACHE: ${{ github.workspace }}/results/bombus_occurrence_phenology_cache
+  BOMBUS_DIR: ${{ github.workspace }}/results/enmeval_aicc_reselected/predictions
+  STATUS_DIR: ${{ github.workspace }}/reproduction_status
+
+jobs:
+  reproduce-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out repository and complete history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+          use-public-rspm: true
+
+      - name: Install system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends \
+            gdal-bin libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+            libcurl4-openssl-dev libssl-dev libxml2-dev libglpk-dev \
+            libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
+            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
+            unzip zip jq
+
+      - name: Restore reusable caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.R_LIBS_USER }}
+            reproduction_inputs/mlit_l03_2021
+            results/bombus_occurrence_phenology_cache
+            reproduction_inputs/worldpop
+          key: full-reproduction-v2-${{ runner.os }}-r${{ env.R_VERSION }}-${{ hashFiles('R/pipeline_support.R', 'R/phenotype_hurdle.R', 'R/natural_predictive_model.R') }}
+          restore-keys: |
+            full-reproduction-v2-${{ runner.os }}-r${{ env.R_VERSION }}-
+            full-reproduction-${{ runner.os }}-r${{ env.R_VERSION }}-
+
+      - name: Install R dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$STATUS_DIR"
+          Rscript - <<'RS'
+          options(repos = c(CRAN = Sys.getenv(
+            "RSPM", "https://packagemanager.posit.co/cran/__linux__/noble/latest"
+          )))
+          packages <- c(
+            "jsonlite", "yaml", "digest", "mclust", "mgcv", "qgam",
+            "quantreg", "sf", "terra", "FNN", "dplyr", "readr", "rgbif",
+            "foreign", "ranger", "testthat", "geodata", "curl", "httr2",
+            "units", "knitr", "rmarkdown"
+          )
+          missing <- packages[
+            !vapply(packages, requireNamespace, logical(1), quietly = TRUE)
+          ]
+          if (length(missing)) install.packages(missing, Ncpus = 2L)
+          if (!requireNamespace("INLA", quietly = TRUE)) {
+            install.packages(
+              "INLA",
+              repos = c(
+                getOption("repos"),
+                INLA = "https://inla.r-inla-download.org/R/stable"
+              ),
+              dependencies = TRUE,
+              Ncpus = 2L
+            )
+          }
+          required <- c(packages, "INLA")
+          stopifnot(vapply(required, requireNamespace, logical(1), quietly = TRUE))
+          writeLines(capture.output(sessionInfo()), "reproduction_status/sessionInfo_dependencies.txt")
+          RS
+
+      - name: Download retained prepared-raster artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-publication-rasters
+          path: ${{ env.RASTER_ARTIFACT }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.RASTER_RUN_ID }}
+
+      - name: Prepare environmental and population rasters
+        shell: bash
+        run: |
+          exec > >(tee "$STATUS_DIR/prepare_public_rasters.log") 2>&1
+          set -euxo pipefail
+          mkdir -p "$PUBLIC_CACHE" reproduction_inputs/worldpop
+          find "$RASTER_ARTIFACT" -type f -name '*.tif' \
+            -exec cp -f '{}' "$PUBLIC_CACHE/" ';'
+          find "$RASTER_ARTIFACT" -type f \
+            \( -name 'raster_manifest.csv' -o -name 'raster_download_manifest.csv' \) \
+            -exec cp -f '{}' "$PUBLIC_CACHE/" ';'
+
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          root = Path("reproduction_inputs/public_environment_cache")
+          aliases = {
+              "bio5_Japan_crop_30s.tif": "chelsa_bio05.tif",
+              "bio10_Japan_crop_30s.tif": "chelsa_bio10.tif",
+              "gdd5_Japan_crop_30s.tif": "chelsa_gdd5.tif",
+              "CMI_Japan_crop_30s.tif": "chelsa_cmimean.tif",
+              "bio12_Japan_crop_30s.tif": "chelsa_bio12.tif",
+              "bio14_Japan_crop_30s.tif": "chelsa_bio14.tif",
+              "bio15_Japan_crop_30s.tif": "chelsa_bio15.tif",
+              "RSDS_Japan_crop_30s.tif": "chelsa_rsdsmean.tif",
+              "bdod_0-5cm_mean_30s.tif": "soilgrids_bdod_0_5cm_mean.tif",
+              "cfvo_0-5cm_mean_30s.tif": "soilgrids_cfvo_0_5cm_mean.tif",
+              "sand_0-5cm_mean_30s.tif": "soilgrids_sand_0_5cm_mean.tif",
+              "silt_0-5cm_mean_30s.tif": "soilgrids_silt_0_5cm_mean.tif",
+              "nitrogen_0-5cm_mean_30s.tif": "soilgrids_nitrogen_0_5cm_mean.tif",
+              "ocd_0-5cm_mean_30s.tif": "soilgrids_ocd_0_5cm_mean.tif",
+              "soc_0-5cm_mean_30s.tif": "soilgrids_soc_0_5cm_mean.tif",
+              "phh2o_0-5cm_mean_30s.tif": "soilgrids_phh2o_0_5cm_mean.tif",
+              "elevation_Japan_crop.tif": "elevation_30s.tif",
+          }
+          missing = []
+          for destination, source in aliases.items():
+              src = root / source
+              if not src.exists():
+                  missing.append(str(src))
+              else:
+                  shutil.copy2(src, root / destination)
+          if missing:
+              raise SystemExit("Missing retained raster inputs: " + ", ".join(missing))
+          PY
+
+          if [[ ! -s "$PUBLIC_CACHE/bio4_Japan_crop_30s.tif" ]]; then
+            bio4_url="https://os.unil.cloud.switch.ch/chelsa02/chelsa/global/bioclim/bio04/1981-2010/CHELSA_bio04_1981-2010_V.2.1.tif"
+            gdal_translate -q \
+              --config GDAL_HTTP_MAX_RETRY 5 \
+              --config GDAL_HTTP_RETRY_DELAY 5 \
+              -projwin 120 50 150 20 \
+              -of GTiff -co COMPRESS=DEFLATE -co TILED=YES \
+              "/vsicurl/${bio4_url}" \
+              "$PUBLIC_CACHE/bio4_Japan_crop_30s.tif"
+          fi
+
+          if [[ ! -s "$PUBLIC_CACHE/population_count_Japan_crop.tif" ]]; then
+            Rscript - <<'RS'
+            library(terra)
+            library(geodata)
+            cache <- file.path(getwd(), "reproduction_inputs", "worldpop")
+            population <- geodata::population(
+              country = "JPN", year = 2020, res = 30, path = cache
+            )
+            if (nlyr(population) > 1L) population <- population[[1L]]
+            names(population) <- "population_count"
+            writeRaster(
+              population,
+              file.path(Sys.getenv("PUBLIC_CACHE"), "population_count_Japan_crop.tif"),
+              overwrite = TRUE,
+              wopt = list(gdal = c("COMPRESS=DEFLATE", "TILED=YES"))
+            )
+            RS
+          fi
+
+          find "$PUBLIC_CACHE" -maxdepth 1 -type f -printf '%f\t%s\n' \
+            | sort > "$STATUS_DIR/public_raster_inventory.tsv"
+          test -s "$PUBLIC_CACHE/bio4_Japan_crop_30s.tif"
+          test -s "$PUBLIC_CACHE/population_count_Japan_crop.tif"
+          printf 'raster_source=retained_actions_artifact_run_%s\n' "$RASTER_RUN_ID" \
+            > "$STATUS_DIR/public_input_mode.txt"
+
+      - name: Recover five historical Bombus prediction surfaces
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$BOMBUS_DIR" "$STATUS_DIR"
+          git fetch --no-tags origin "$HISTORICAL_PUBLICATION_COMMIT"
+          for species in ardens beaticola consobrinus diversus honshuensis; do
+            git show "$HISTORICAL_PUBLICATION_COMMIT:sdm/${species}.tif" \
+              > "$BOMBUS_DIR/${species}.tif"
+            test -s "$BOMBUS_DIR/${species}.tif"
+          done
+          {
+            echo "mode=legacy_committed_prediction_fallback"
+            echo "source_commit=$HISTORICAL_PUBLICATION_COMMIT"
+            echo "strict_current_enmeval_reselection=false"
+          } > "$STATUS_DIR/bombus_input_mode.txt"
+
+      - name: Build MLIT human-landscape rasters
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript scripts/build_human_raster.R \
+            --observation-csv=Data_S1.csv \
+            --cache-dir="$MLIT_CACHE" \
+            --output-dir=results/public_rasters/mlit_human_forest_edge_2021 \
+            2>&1 | tee "$STATUS_DIR/build_human_raster.log"
+
+      - name: Build natural-environment observation input
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p results/environment_v3
+          Rscript scripts/build_environment_input.R \
+            --raw-colour-csv=Data_S1.csv \
+            --cache-root="$PUBLIC_CACHE" \
+            --output-csv=results/environment_v3/ecological_input_v2.csv \
+            2>&1 | tee "$STATUS_DIR/build_environment_input.log"
+
+      - name: Reconstruct pre-hurdle analysis table
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript scripts/run_environment_spatial.R \
+            --anomaly-csv=results/environment_v3/ecological_input_v2.csv \
+            --raw-colour-csv=Data_S1.csv \
+            --bombus-dir="$BOMBUS_DIR" \
+            --H-raster="$PUBLIC_CACHE/population_count_Japan_crop.tif" \
+            --R-raster=results/public_rasters/mlit_human_forest_edge_2021/mlit_human_forest_edge_1km.tif \
+            --N-raster="$PUBLIC_CACHE/gdd5_Japan_crop_30s.tif" \
+            --A-raster=results/public_rasters/mlit_human_forest_edge_2021/mlit_major_road_distance_1km.tif \
+            --output-dir=results/ecological_v9_final_public_HRNA_50km \
+            --run-inla=false \
+            --author-review-confirmed=true \
+            2>&1 | tee "$STATUS_DIR/run_environment_spatial.log"
+
+      - name: Restore or fetch Bombus occurrence cache
+        shell: bash
+        run: |
+          set -o pipefail
+          refresh=false
+          for species in ardens diversus beaticola consobrinus honshuensis; do
+            [[ -s "$GBIF_CACHE/${species}_gbif.csv" ]] || refresh=true
+          done
+          Rscript scripts/fetch_bombus_occurrences.R \
+            --output-dir="$GBIF_CACHE" \
+            --refresh="$refresh" \
+            2>&1 | tee "$STATUS_DIR/fetch_bombus_occurrences.log"
+          echo "refresh=$refresh" > "$STATUS_DIR/bombus_occurrence_input_mode.txt"
+
+      - name: Reconstruct response-blind biotic covariates
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript scripts/run_natural_biotic_covariates.R \
+            --analysis-data=results/ecological_v9_final_public_HRNA_50km/analysis_data.csv \
+            --occurrence-dir="$GBIF_CACHE" \
+            --raw-colour-csv=Data_S1.csv \
+            --output-dir=results/ecological_v10_final_mechanism_HRNA \
+            --tail-bootstraps=199 \
+            2>&1 | tee "$STATUS_DIR/run_natural_biotic_covariates.log"
+
+      - name: Refit two-part phenotype models
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript scripts/run_phenotype_hurdle.R \
+            --analysis-data=results/ecological_v10_final_mechanism_HRNA/analysis_data_mechanism_v3.csv \
+            --output-dir=results/ecological_v11_pigmentation_hurdle \
+            --run-inla=true \
+            2>&1 | tee "$STATUS_DIR/run_phenotype_hurdle.log"
+
+      - name: Rebuild 1-km multiscale cell table
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript scripts/run_multiscale_hotspots.R \
+            --input=results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+            --output-dir=results/ecological_v15_multiscale_hotspots \
+            --environment-cache="$PUBLIC_CACHE" \
+            --worldpop-raster="$PUBLIC_CACHE/population_count_Japan_crop.tif" \
+            --bootstrap=1000 \
+            2>&1 | tee "$STATUS_DIR/run_multiscale_hotspots.log"
+
+      - name: Refit 1,000-map national predictive model
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript scripts/run_natural_predictive_model.R \
+            --observations=results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+            --cells=results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+            --output=results/ecological_v16_predictive_replication \
+            --draws=1000 --force=true --seed=20260725 \
+            2>&1 | tee "$STATUS_DIR/run_natural_predictive_model.log"
+
+      - name: Audit reconstructed natural core
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          for command in \
+            "Rscript validation/audit_phenotype.R" \
+            "Rscript validation/audit_multiscale_hotspots.R" \
+            "Rscript validation/validate_natural_predictive_model.R" \
+            "Rscript validation/audit_natural_predictive_model.R"; do
+            label="$(echo "$command" | tr ' /' '__')"
+            bash -lc "$command" > "$STATUS_DIR/${label}.log" 2>&1
+            status=$?
+            printf '%s\t%s\n' "$command" "$status" \
+              >> "$STATUS_DIR/natural_core_validation_status.tsv"
+            cat "$STATUS_DIR/${label}.log"
+          done
+          exit 0
+
+      - name: Reconstruct downstream local and human-context stages
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          run_stage() {
+            stage="$1"; shift
+            "$@" > "$STATUS_DIR/${stage}.log" 2>&1
+            status=$?
+            printf '%s\t%s\n' "$stage" "$status" \
+              >> "$STATUS_DIR/downstream_stage_status.tsv"
+            cat "$STATUS_DIR/${stage}.log"
+          }
+          run_stage local_bombus_turnover Rscript scripts/run_local_bombus_turnover.R
+          run_stage human_landscape_features Rscript scripts/run_human_landscape_features.R
+          run_stage local_pigmented_isolates Rscript scripts/run_local_pigmented_isolates.R
+          run_stage local_human_context Rscript scripts/run_local_human_context.R
+
+      - name: Run bidirectional local state-asymmetry analysis
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript scripts/run_local_state_asymmetry.R \
+            --cells=results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+            --presence-checkpoint=results/ecological_v16_predictive_replication/checkpoints/national_environment_spde_presence_draws1000.rds \
+            --max-draws=1000 \
+            --output=results/ecological_v23_local_state_asymmetry \
+            2>&1 | tee "$STATUS_DIR/run_local_state_asymmetry.log"
+
+      - name: Validate and print asymmetry results
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript validation/validate_local_state_asymmetry.R \
+            results/ecological_v23_local_state_asymmetry \
+            2>&1 | tee "$STATUS_DIR/validate_local_state_asymmetry.log"
+          Rscript - <<'RS' | tee "$STATUS_DIR/asymmetry_primary_results.txt"
+          x <- read.csv(
+            "results/ecological_v23_local_state_asymmetry/local_state_asymmetry_summary.csv",
+            check.names = FALSE
+          )
+          wanted <- x$metric %in% c(
+            "pigmented_in_white_count", "white_in_pigmented_count",
+            "pigmented_in_white_rate", "white_in_pigmented_rate",
+            "log_rate_ratio"
+          )
+          columns <- intersect(c(
+            "state_rule", "metric", "observed_value", "null_mean",
+            "lower_95", "upper_95", "upper_p", "lower_p",
+            "two_sided_p", "percentile", "n_natural_maps"
+          ), names(x))
+          print(x[wanted, columns, drop = FALSE], row.names = FALSE)
+          RS
+
+      - name: Write reconstruction provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$STATUS_DIR"
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "tested_commit=${GITHUB_SHA}"
+            echo "historical_prediction_commit=${HISTORICAL_PUBLICATION_COMMIT}"
+            echo "raster_artifact_run=${RASTER_RUN_ID}"
+            echo "strict_current_enmeval_reselection=false"
+            echo "symmetry_output_present=$([[ -s results/ecological_v23_local_state_asymmetry/local_state_asymmetry_summary.csv ]] && echo true || echo false)"
+          } > "$STATUS_DIR/reconstruction_provenance.txt"
+          find results -maxdepth 3 -type f -printf '%p\t%s\n' \
+            | sort > "$STATUS_DIR/result_inventory.tsv"
+
+      - name: Upload reconstructed outputs and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-reproduction-symmetry-v2-${{ github.sha }}
+          path: |
+            reproduction_status
+            results/environment_v3
+            results/ecological_v9_final_public_HRNA_50km
+            results/ecological_v10_final_mechanism_HRNA
+            results/ecological_v11_pigmentation_hurdle
+            results/ecological_v15_multiscale_hotspots
+            results/ecological_v16_predictive_replication
+            results/ecological_v17_local_pair_turnover
+            results/ecological_v19_human_landscape_extremes
+            results/ecological_v20_local_white_isolates
+            results/ecological_v21_local_human_neighbourhood
+            results/ecological_v23_local_state_asymmetry
+          if-no-files-found: warn
+          retention-days: 30

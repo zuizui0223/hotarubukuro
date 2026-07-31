@@ -84,10 +84,10 @@ testthat::test_that("asymmetry summary compares observed and replicated maps", {
   testthat::expect_true(all(summary$analysis_status == "post_hoc_diagnostic"))
 })
 
-testthat::test_that("invalid overlapping state definitions are rejected", {
+testthat::test_that("overlapping state assignments are rejected", {
   testthat::expect_error(
     v23_classify_states(
-      counts = c(0, 1), trials = c(1, 1),
+      counts = c(0, 1, 2), trials = c(2, 2, 2),
       white_max_share = 0.6, pigmented_min_share = 0.4
     ),
     "overlap"

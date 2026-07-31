@@ -78,26 +78,28 @@ v23_graph_support <- function(graph, n_cells) {
     stop("graph$neighbours must be a list with one entry per cell.",
          call. = FALSE)
   }
-  supported <- if (is.null(graph$supported)) {
-    vapply(graph$neighbours, length, integer(1L)) > 0L
-  } else {
+  supported <- if (!is.null(graph$supported)) {
     as.logical(graph$supported)
+  } else if (!is.null(graph$support) &&
+             "supported" %in% names(graph$support)) {
+    as.logical(graph$support$supported)
+  } else {
+    vapply(graph$neighbours, length, integer(1L)) > 0L
   }
   if (length(supported) != n_cells || anyNA(supported)) {
-    stop("graph$supported must align one-to-one with cells.", call. = FALSE)
+    stop("graph support must align one-to-one with cells.", call. = FALSE)
   }
   supported
 }
 
-v23_all_neighbours_in_state <- function(state, neighbours, supported) {
+v23_all_neighbours_in_state <- function(state, neighbours, focal_supported) {
   n_cells <- nrow(state)
   n_draws <- ncol(state)
   out <- matrix(FALSE, n_cells, n_draws)
-  for (index in which(supported)) {
+  for (index in which(focal_supported)) {
     adjacent <- as.integer(neighbours[[index]])
     adjacent <- adjacent[
-      is.finite(adjacent) & adjacent >= 1L & adjacent <= n_cells &
-        supported[adjacent]
+      is.finite(adjacent) & adjacent >= 1L & adjacent <= n_cells
     ]
     if (!length(adjacent)) next
     out[index, ] <- colSums(state[adjacent, , drop = FALSE]) == length(adjacent)

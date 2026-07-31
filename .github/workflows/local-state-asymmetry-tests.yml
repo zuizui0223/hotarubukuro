@@ -1,0 +1,46 @@
+name: Local state asymmetry tests
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "R/local_state_asymmetry.R"
+      - "scripts/run_local_state_asymmetry.R"
+      - "validation/validate_local_state_asymmetry.R"
+      - "tests/testthat/test-local-state-asymmetry.R"
+      - ".github/workflows/local-state-asymmetry-tests.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "R/local_state_asymmetry.R"
+      - "scripts/run_local_state_asymmetry.R"
+      - "validation/validate_local_state_asymmetry.R"
+      - "tests/testthat/test-local-state-asymmetry.R"
+      - ".github/workflows/local-state-asymmetry-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-r-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.3"
+      - name: Install testthat
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::testthat
+          cache: true
+      - name: Run local asymmetry unit tests
+        shell: Rscript {0}
+        run: |
+          testthat::test_file(
+            "tests/testthat/test-local-state-asymmetry.R",
+            reporter = "summary",
+            stop_on_failure = TRUE,
+            stop_on_warning = TRUE
+          )

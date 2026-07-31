@@ -34,7 +34,7 @@ jobs:
         shell: Rscript {0}
         run: |
           options(repos = c(CRAN = "https://cloud.r-project.org"))
-          install.packages("testthat", dependencies = TRUE)
+          install.packages("testthat")
       - name: Run local asymmetry unit tests
         shell: Rscript {0}
         run: |

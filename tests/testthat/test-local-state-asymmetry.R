@@ -3,39 +3,30 @@ source(file.path("R", "local_state_asymmetry.R"))
 testthat::test_that("directional profiles detect both local event directions", {
   graph <- list(
     neighbours = list(
-      c(2L, 3L),       # pigmented focal among white neighbours
-      c(1L, 4L),       # white focal among pigmented neighbours
-      c(1L, 5L),
-      c(2L, 6L),
-      c(3L, 6L),
-      c(4L, 5L)
+      c(2L, 3L), c(1L, 4L), c(1L, 4L), c(2L, 3L)
     ),
-    supported = rep(TRUE, 6L)
+    supported = rep(TRUE, 4L)
   )
-  counts <- c(1, 0, 0, 1, 1, 1)
-  trials <- rep(1, 6L)
+  counts <- c(1, 0, 0, 1)
+  trials <- rep(1, 4L)
   profile <- v23_directional_profiles(counts, trials, graph)
 
   testthat::expect_true(profile$pigmented_in_white[1, 1])
   testthat::expect_true(profile$white_in_pigmented[2, 1])
-  testthat::expect_equal(
-    profile$summary$pigmented_in_white_count, 1
-  )
-  testthat::expect_equal(
-    profile$summary$white_in_pigmented_count, 1
-  )
+  testthat::expect_equal(profile$summary$pigmented_in_white_count, 2)
+  testthat::expect_equal(profile$summary$white_in_pigmented_count, 2)
   testthat::expect_equal(profile$summary$log_rate_ratio, 0)
 })
 
 testthat::test_that("opportunity normalization distinguishes count and rate asymmetry", {
   graph <- list(
     neighbours = list(
-      c(2L, 3L), c(1L, 4L), c(1L, 5L), c(2L, 6L),
-      c(3L, 7L), c(4L, 8L), c(5L, 8L), c(6L, 7L)
+      c(2L, 3L), c(1L, 4L), c(1L, 2L), c(1L, 2L),
+      c(1L, 2L), c(1L, 2L), c(1L, 2L), c(1L, 2L)
     ),
     supported = rep(TRUE, 8L)
   )
-  counts <- c(1, 0, 0, 1, 1, 1, 1, 1)
+  counts <- c(1, 0, 0, 1, 0, 0, 0, 0)
   trials <- rep(1, 8L)
   profile <- v23_directional_profiles(counts, trials, graph)
 

@@ -1,0 +1,251 @@
+name: Local state asymmetry full diagnostic
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/local-state-asymmetry-full.yml"
+      - "R/local_state_asymmetry.R"
+      - "scripts/run_local_state_asymmetry.R"
+      - "validation/validate_local_state_asymmetry.R"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: local-state-asymmetry-full-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  recover-run-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      CELLS_PATH: results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+      CHECKPOINT_PATH: results/ecological_v16_predictive_replication/checkpoints/national_environment_spde_presence_draws1000.rds
+      OUTPUT_DIR: results/ecological_v23_local_state_asymmetry
+    steps:
+      - name: Check out repository and full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch repository branches and pull-request heads
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            '+refs/heads/*:refs/remotes/origin/*' \
+            '+refs/pull/*/head:refs/remotes/pull/*' || true
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.5.3"
+
+      - name: Attempt results-cache restoration
+        id: results-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: results
+          key: local-state-asymmetry-results-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            local-state-asymmetry-results-${{ runner.os }}-
+            publication-results-
+            ecological-results-
+            publication-analysis-
+
+      - name: Attempt processed-raster cache restoration
+        id: raster-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/processed/rasters
+            data/processed/raster_manifest.csv
+            data/processed/raster_download_manifest.csv
+          key: publication-processed-v4-${{ github.sha }}
+          restore-keys: |
+            publication-processed-v4-
+
+      - name: Recover exact inputs from reachable Git history
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$CELLS_PATH")" "$(dirname "$CHECKPOINT_PATH")" diagnostic_inventory
+          git rev-list --all --objects > diagnostic_inventory/git-objects.txt
+          recover_from_history() {
+            local target="$1"
+            [[ -f "$target" ]] && return 0
+            local record object path
+            record="$(awk -v target="$target" '$0 ~ (" " target "$") {line=$0} END {print line}' diagnostic_inventory/git-objects.txt)"
+            [[ -z "$record" ]] && return 0
+            object="${record%% *}"
+            path="${record#* }"
+            if [[ "$(git cat-file -t "$object" 2>/dev/null || true)" == "blob" ]]; then
+              echo "Recovering $target from Git object $object ($path)"
+              git cat-file blob "$object" > "$target"
+            fi
+          }
+          recover_from_history "$CELLS_PATH"
+          recover_from_history "$CHECKPOINT_PATH"
+
+      - name: Inventory and recover inputs from retained workflow artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p diagnostic_inventory artifact_downloads "$(dirname "$CELLS_PATH")" "$(dirname "$CHECKPOINT_PATH")"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" > diagnostic_inventory/artifacts.json
+          python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+
+          data = json.load(open("diagnostic_inventory/artifacts.json", encoding="utf-8"))
+          artifacts = [a for a in data.get("artifacts", []) if not a.get("expired", False)]
+          artifacts.sort(key=lambda a: a.get("created_at", ""), reverse=True)
+          pattern = re.compile(r"publication|predictive|analysis|model|snapshot|result|ecological|stage", re.I)
+          rows = []
+          for a in artifacts:
+              rows.append({
+                  "id": a["id"], "name": a.get("name", ""),
+                  "size_in_bytes": a.get("size_in_bytes", 0),
+                  "created_at": a.get("created_at", ""),
+                  "workflow_run_id": (a.get("workflow_run") or {}).get("id"),
+                  "candidate": bool(pattern.search(a.get("name", ""))),
+              })
+          json.dump(rows, open("diagnostic_inventory/artifact_inventory.json", "w", encoding="utf-8"), indent=2)
+          with open("diagnostic_inventory/artifact_candidates.tsv", "w", encoding="utf-8") as handle:
+              for row in rows:
+                  if row["candidate"] and row["size_in_bytes"] <= 1_500_000_000:
+                      handle.write(f'{row["id"]}\t{row["name"]}\t{row["size_in_bytes"]}\n')
+          print(f"Retained artifacts: {len(rows)}; candidate artifacts: {sum(r['candidate'] for r in rows)}")
+          PY
+
+          inspected=0
+          while IFS=$'\t' read -r artifact_id artifact_name artifact_size; do
+            [[ -f "$CELLS_PATH" && -f "$CHECKPOINT_PATH" ]] && break
+            [[ -z "${artifact_id:-}" ]] && continue
+            inspected=$((inspected + 1))
+            [[ $inspected -gt 30 ]] && break
+            safe_name="$(printf '%s' "$artifact_name" | tr -cs 'A-Za-z0-9._-' '_')"
+            archive="artifact_downloads/${artifact_id}-${safe_name}.zip"
+            echo "Inspecting artifact $artifact_id: $artifact_name ($artifact_size bytes)"
+            if ! gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > "$archive"; then
+              rm -f "$archive"
+              continue
+            fi
+            ARTIFACT_ID="$artifact_id" ARTIFACT_NAME="$artifact_name" ARCHIVE="$archive" \
+            CELLS_PATH="$CELLS_PATH" CHECKPOINT_PATH="$CHECKPOINT_PATH" python - <<'PY'
+          import os, zipfile
+          from pathlib import Path
+
+          archive = os.environ["ARCHIVE"]
+          targets = [os.environ["CELLS_PATH"], os.environ["CHECKPOINT_PATH"]]
+          with zipfile.ZipFile(archive) as zf:
+              names = zf.namelist()
+              with open(f"diagnostic_inventory/artifact-{os.environ['ARTIFACT_ID']}-members.txt", "w", encoding="utf-8") as out:
+                  out.write("\n".join(names))
+              for target in targets:
+                  if Path(target).exists():
+                      continue
+                  exact = [name for name in names if name.replace("\\", "/").endswith(target)]
+                  if not exact:
+                      base = Path(target).name
+                      exact = [name for name in names if Path(name).name == base]
+                  if not exact:
+                      continue
+                  member = exact[0]
+                  Path(target).parent.mkdir(parents=True, exist_ok=True)
+                  with zf.open(member) as src, open(target, "wb") as dst:
+                      while True:
+                          chunk = src.read(1024 * 1024)
+                          if not chunk:
+                              break
+                          dst.write(chunk)
+                  with open("diagnostic_inventory/recovery_sources.txt", "a", encoding="utf-8") as out:
+                      out.write(f"{target}\tartifact={os.environ['ARTIFACT_ID']}\tname={os.environ['ARTIFACT_NAME']}\tmember={member}\n")
+                  print(f"Recovered {target} from {member}")
+          PY
+            rm -f "$archive"
+          done < diagnostic_inventory/artifact_candidates.tsv
+
+      - name: Record input inventory
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          mkdir -p diagnostic_inventory
+          {
+            echo "results_cache_hit=${{ steps.results-cache.outputs.cache-hit }}"
+            echo "results_cache_primary_key=${{ steps.results-cache.outputs.cache-primary-key }}"
+            echo "raster_cache_hit=${{ steps.raster-cache.outputs.cache-hit }}"
+            echo "raster_cache_primary_key=${{ steps.raster-cache.outputs.cache-primary-key }}"
+            echo "cells_present=$([[ -f "$CELLS_PATH" ]] && echo true || echo false)"
+            echo "checkpoint_present=$([[ -f "$CHECKPOINT_PATH" ]] && echo true || echo false)"
+            [[ -f "$CELLS_PATH" ]] && { wc -l "$CELLS_PATH"; sha256sum "$CELLS_PATH"; }
+            [[ -f "$CHECKPOINT_PATH" ]] && { ls -lh "$CHECKPOINT_PATH"; sha256sum "$CHECKPOINT_PATH"; }
+          } | tee diagnostic_inventory/input_status.txt
+          find results -maxdepth 4 -type f -printf '%p\t%s bytes\n' 2>/dev/null | sort > diagnostic_inventory/results-files.txt || true
+          find data/processed -maxdepth 4 -type f -printf '%p\t%s bytes\n' 2>/dev/null | sort > diagnostic_inventory/processed-files.txt || true
+
+      - name: Require frozen numerical inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -f "$CELLS_PATH" ]] || missing+=("$CELLS_PATH")
+          [[ -f "$CHECKPOINT_PATH" ]] || missing+=("$CHECKPOINT_PATH")
+          if (( ${#missing[@]} )); then
+            printf 'Missing frozen input: %s\n' "${missing[@]}" | tee diagnostic_inventory/missing_inputs.txt
+            echo "The full numerical diagnostic cannot be substituted with a refit or synthetic map." | tee -a diagnostic_inventory/missing_inputs.txt
+            exit 2
+          fi
+
+      - name: Run 1,000-map bidirectional asymmetry diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_local_state_asymmetry.R \
+            --cells="$CELLS_PATH" \
+            --presence-checkpoint="$CHECKPOINT_PATH" \
+            --max-draws=1000 \
+            --output="$OUTPUT_DIR" \
+            2>&1 | tee diagnostic_inventory/asymmetry-run.log
+
+      - name: Validate numerical outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript validation/validate_local_state_asymmetry.R "$OUTPUT_DIR" \
+            2>&1 | tee diagnostic_inventory/asymmetry-validation.log
+          echo "=== Primary and sensitivity results ==="
+          Rscript - <<'RS'
+          x <- read.csv(
+            "results/ecological_v23_local_state_asymmetry/local_state_asymmetry_summary.csv",
+            check.names = FALSE
+          )
+          keep <- x$metric %in% c(
+            "pigmented_in_white_count", "white_in_pigmented_count",
+            "pigmented_in_white_rate", "white_in_pigmented_rate",
+            "log_rate_ratio"
+          )
+          print(x[keep, c(
+            "state_rule", "metric", "observed_value", "null_mean",
+            "lower_95", "upper_95", "upper_p", "lower_p",
+            "two_sided_p", "percentile", "n_natural_maps"
+          )], row.names = FALSE)
+          RS
+
+      - name: Upload diagnostic inventory and numerical results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-state-asymmetry-full-${{ github.sha }}
+          path: |
+            diagnostic_inventory
+            results/ecological_v23_local_state_asymmetry
+          if-no-files-found: warn
+          retention-days: 30

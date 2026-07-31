@@ -41,15 +41,26 @@ v23_classify_states <- function(counts, trials,
   if (any(!is.finite(trials)) || any(trials <= 0)) {
     stop("trials must be finite and positive.", call. = FALSE)
   }
+  if (!is.finite(white_max_share) || white_max_share < 0 ||
+      white_max_share > 1 || !is.finite(pigmented_min_share) ||
+      pigmented_min_share <= 0 || pigmented_min_share > 1) {
+    stop("state thresholds must lie in [0, 1], with a positive pigmented threshold.",
+         call. = FALSE)
+  }
   counts <- v23_as_matrix(counts, length(trials), "counts")
+  trial_matrix <- matrix(trials, nrow(counts), ncol(counts))
   if (any(!is.finite(counts)) || any(counts < 0) ||
-      any(counts > matrix(trials, nrow(counts), ncol(counts)))) {
+      any(counts > trial_matrix)) {
     stop("counts must be finite and lie between zero and trials.",
          call. = FALSE)
   }
   share <- sweep(counts, 1L, trials, "/")
   white <- share <= white_max_share + 1e-12
-  pigmented <- share >= pigmented_min_share - 1e-12
+  pigmented <- if (pigmented_min_share <= .Machine$double.eps * 10) {
+    counts > 0
+  } else {
+    share >= pigmented_min_share - 1e-12
+  }
   overlap <- white & pigmented
   if (any(overlap)) {
     stop("white and pigmented state definitions overlap.", call. = FALSE)
@@ -98,6 +109,9 @@ v23_directional_profiles <- function(counts, trials, graph,
                                      white_max_share = 0,
                                      pigmented_min_share = .Machine$double.eps,
                                      pseudocount = 0.5) {
+  if (!is.finite(pseudocount) || pseudocount <= 0) {
+    stop("pseudocount must be finite and positive.", call. = FALSE)
+  }
   states <- v23_classify_states(
     counts, trials,
     white_max_share = white_max_share,

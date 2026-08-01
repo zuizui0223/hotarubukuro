@@ -143,21 +143,24 @@ jobs:
 
           path = Path("R/natural_predictive_model.R")
           text = path.read_text(encoding="utf-8")
-          needle = '  )\n  if (identical(family, "binomial")) {'
-          replacement = '''  )
-          if (identical(model, "national_environment_year_spde_phenology")) {
-            arguments$control.inla <- list(
-              diagonal = as.numeric(Sys.getenv("PHENOLOGY_JOINT_PRECISION_DIAGONAL"))
-            )
-          }
-          if (identical(family, "binomial")) {'''
+          needle = '    fit <- do.call(INLA::inla, arguments)'
+          replacement = (
+              '    if (identical(model, "national_environment_year_spde_phenology")) {\n'
+              '      arguments$control.inla <- list(\n'
+              '        diagonal = as.numeric(Sys.getenv(\n'
+              '          "PHENOLOGY_JOINT_PRECISION_DIAGONAL"\n'
+              '        ))\n'
+              '      )\n'
+              '    }\n'
+              '    fit <- do.call(INLA::inla, arguments)'
+          )
           if text.count(needle) != 1:
               raise SystemExit(
-                  "Expected exactly one v16 INLA argument block for phenology patch"
+                  "Expected exactly one v16 INLA execution point for phenology patch"
               )
           path.write_text(text.replace(needle, replacement), encoding="utf-8")
           PY
-          grep -n -A5 -B2 'PHENOLOGY_JOINT_PRECISION_DIAGONAL' \
+          grep -n -A9 -B2 'PHENOLOGY_JOINT_PRECISION_DIAGONAL' \
             R/natural_predictive_model.R
 
       - name: Reconstruct all stages and run asymmetry analysis

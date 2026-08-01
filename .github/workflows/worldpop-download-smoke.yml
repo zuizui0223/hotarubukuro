@@ -1,0 +1,59 @@
+name: WorldPop download smoke test
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/worldpop-download-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download-and-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GDAL
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends gdal-bin curl ca-certificates
+
+      - name: Download and validate WorldPop Japan 2020 1-km counts
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/2020/JPN/jpn_ppp_2020_1km_Aggregated.tif"
+          curl --fail --location --retry 5 --retry-all-errors \
+            --connect-timeout 30 --max-time 300 \
+            "$url" -o population_count_Japan_crop.tif
+          test -s population_count_Japan_crop.tif
+          gdalinfo population_count_Japan_crop.tif | tee worldpop_gdalinfo.txt
+          gdalinfo -json population_count_Japan_crop.tif > worldpop_gdalinfo.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          info = json.loads(Path("worldpop_gdalinfo.json").read_text())
+          size = info.get("size", [])
+          bands = info.get("bands", [])
+          assert len(size) == 2 and min(size) > 0, size
+          assert len(bands) == 1, len(bands)
+          wkt = info.get("coordinateSystem", {}).get("wkt", "")
+          assert "WGS 84" in wkt or "WGS_1984" in wkt, wkt[:200]
+          print({"size": size, "bands": len(bands)})
+          PY
+
+      - name: Upload checked raster
+        uses: actions/upload-artifact@v4
+        with:
+          name: worldpop-japan-2020-1km
+          path: |
+            population_count_Japan_crop.tif
+            worldpop_gdalinfo.txt
+            worldpop_gdalinfo.json
+          retention-days: 30

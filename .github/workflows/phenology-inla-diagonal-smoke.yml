@@ -1,0 +1,191 @@
+name: Phenology INLA diagonal smoke test
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/phenology-inla-diagonal-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  phenology-fold-one:
+    name: diagonal-${{ matrix.diagonal }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        diagonal: ["1e-8", "1e-6", "1e-4"]
+
+    env:
+      R_VERSION: "4.5.3"
+      INLA_VERSION: "25.10.19"
+      SOURCE_RUN_ID: "30691092443"
+      SOURCE_ARTIFACT: "full-reproduction-symmetry-v4-14c07881b31bf0e51cde56de748c20fedee3114d"
+      STATUS_DIR: ${{ github.workspace }}/phenology_smoke/${{ matrix.diagonal }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+          use-public-rspm: true
+
+      - name: Install system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends \
+            gdal-bin libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+            libcurl4-openssl-dev libssl-dev libxml2-dev libglpk-dev \
+            libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
+            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
+            curl ca-certificates unzip zip jq
+
+      - name: Restore reusable R cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: full-reproduction-v4-${{ runner.os }}-r${{ env.R_VERSION }}-inla${{ env.INLA_VERSION }}-${{ hashFiles('R/pipeline_support.R', 'R/phenotype_hurdle.R', 'R/natural_predictive_model.R', 'scripts/run_full_reproduction_action.sh') }}
+          restore-keys: |
+            full-reproduction-v4-${{ runner.os }}-r${{ env.R_VERSION }}-inla${{ env.INLA_VERSION }}-
+
+      - name: Install R dependencies and pinned INLA
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          options(repos = c(
+            inlabruorg = "https://inlabru-org.r-universe.dev",
+            CRAN = Sys.getenv(
+              "RSPM",
+              "https://packagemanager.posit.co/cran/__linux__/noble/latest"
+            )
+          ))
+          packages <- c(
+            "jsonlite", "yaml", "digest", "mclust", "mgcv", "qgam",
+            "quantreg", "sf", "terra", "FNN", "dplyr", "readr", "rgbif",
+            "foreign", "ranger", "testthat", "geodata", "curl", "httr2",
+            "units", "knitr", "rmarkdown", "fmesher", "MatrixModels", "sp",
+            "lifecycle", "rlang", "withr", "sn"
+          )
+          missing <- packages[
+            !vapply(packages, requireNamespace, logical(1), quietly = TRUE)
+          ]
+          if (length(missing)) install.packages(missing, Ncpus = 2L)
+          target_version <- Sys.getenv("INLA_VERSION")
+          installed_version <- if (requireNamespace("INLA", quietly = TRUE)) {
+            as.character(utils::packageVersion("INLA"))
+          } else ""
+          if (!identical(installed_version, target_version)) {
+            archive <- tempfile(fileext = ".tar.gz")
+            url <- sprintf(
+              "https://www.inla.r-inla-download.org/R/stable/src/contrib/INLA_%s.tar.gz",
+              target_version
+            )
+            download.file(url, archive, mode = "wb", method = "libcurl")
+            install.packages(archive, repos = NULL, type = "source")
+          }
+          stopifnot(requireNamespace("INLA", quietly = TRUE))
+          stopifnot(as.character(utils::packageVersion("INLA")) == target_version)
+          RS
+
+      - name: Download failed-run reconstruction artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.SOURCE_ARTIFACT }}
+          path: ${{ github.workspace }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+
+      - name: Apply candidate diagonal only in smoke-test checkout
+        shell: bash
+        env:
+          PHENOLOGY_DIAGONAL: ${{ matrix.diagonal }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path("R/natural_predictive_model.R")
+          text = path.read_text(encoding="utf-8")
+          needle = "    control.compute = list(config = TRUE),\n    verbose = isTRUE(inla_verbose)"
+          diagonal = os.environ["PHENOLOGY_DIAGONAL"]
+          replacement = (
+              "    control.compute = list(config = TRUE),\n"
+              f"    control.inla = list(diagonal = {diagonal}),\n"
+              "    verbose = isTRUE(inla_verbose)"
+          )
+          if text.count(needle) != 1:
+              raise SystemExit("Expected one INLA argument block to patch")
+          path.write_text(text.replace(needle, replacement), encoding="utf-8")
+          PY
+
+      - name: Fit phenology fold one and sample posterior
+        shell: bash
+        env:
+          PHENOLOGY_DIAGONAL: ${{ matrix.diagonal }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$STATUS_DIR"
+          Rscript - <<'RS' 2>&1 | tee "$STATUS_DIR/phenology_fold1.log"
+          source("R/natural_predictive_model.R")
+          cells <- utils::read.csv(
+            "results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          cells$median_year_centered <- cells$median_year - 2024
+          cells$median_year_centered_squared <- cells$median_year_centered^2
+          environment_terms <- c(
+            v16_environment_terms(50),
+            "median_year_centered", "median_year_centered_squared"
+          )
+          fold <- 1L
+          train <- cells[
+            as.integer(cells$spatial_fold) != fold & is.finite(cells$median_DOY),
+            , drop = FALSE
+          ]
+          test <- cells[as.integer(cells$spatial_fold) == fold, , drop = FALSE]
+          basis <- v16_fold_predictors(train, test, environment_terms)
+          mesh <- v16_make_mesh(cells)$mesh
+          result <- v16_fit_fold(
+            train, test, response = "median_DOY",
+            predictor_basis = basis, mesh = mesh,
+            family = "gaussian", n_draws = 25L,
+            seed = 20260926L,
+            model = "national_environment_year_spde_phenology",
+            fold = fold, inla_verbose = TRUE
+          )
+          stopifnot(
+            nrow(result$draws) == nrow(test),
+            ncol(result$draws) == 25L,
+            all(is.finite(result$draws)),
+            all(is.finite(result$latent_mean))
+          )
+          result$log$joint_precision_diagonal <-
+            as.numeric(Sys.getenv("PHENOLOGY_DIAGONAL"))
+          utils::write.csv(
+            result$log,
+            file.path(Sys.getenv("STATUS_DIR"), "phenology_fold1_summary.csv"),
+            row.names = FALSE
+          )
+          RS
+
+      - name: Upload smoke-test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phenology-diagonal-${{ matrix.diagonal }}-${{ github.sha }}
+          path: phenology_smoke/${{ matrix.diagonal }}
+          if-no-files-found: warn
+          retention-days: 14

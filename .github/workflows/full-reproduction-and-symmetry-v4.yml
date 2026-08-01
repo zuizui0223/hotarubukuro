@@ -23,6 +23,8 @@ concurrency:
 env:
   R_VERSION: "4.5.3"
   INLA_VERSION: "25.10.19"
+  PHENOLOGY_JOINT_PRECISION_DIAGONAL: "1e-4"
+  PHENOLOGY_DIAGONAL_SMOKE_RUN: "30723361853"
   HISTORICAL_PUBLICATION_COMMIT: "bcceb7c7c909adcb5f7b69721ee5c5921ae90f2e"
   RASTER_RUN_ID: "29793112921"
   PUBLIC_CACHE: ${{ github.workspace }}/reproduction_inputs/public_environment_cache
@@ -132,6 +134,32 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ env.RASTER_RUN_ID }}
 
+      - name: Apply phenology-only INLA precision stabilization
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("R/natural_predictive_model.R")
+          text = path.read_text(encoding="utf-8")
+          needle = '  )\n  if (identical(family, "binomial")) {'
+          replacement = '''  )
+          if (identical(model, "national_environment_year_spde_phenology")) {
+            arguments$control.inla <- list(
+              diagonal = as.numeric(Sys.getenv("PHENOLOGY_JOINT_PRECISION_DIAGONAL"))
+            )
+          }
+          if (identical(family, "binomial")) {'''
+          if text.count(needle) != 1:
+              raise SystemExit(
+                  "Expected exactly one v16 INLA argument block for phenology patch"
+              )
+          path.write_text(text.replace(needle, replacement), encoding="utf-8")
+          PY
+          grep -n -A5 -B2 'PHENOLOGY_JOINT_PRECISION_DIAGONAL' \
+            R/natural_predictive_model.R
+
       - name: Reconstruct all stages and run asymmetry analysis
         shell: bash
         run: bash scripts/run_full_reproduction_action.sh
@@ -147,6 +175,10 @@ jobs:
             echo "tested_commit=${GITHUB_SHA}"
             echo "r_version=${R_VERSION}"
             echo "inla_version=${INLA_VERSION}"
+            echo "phenology_joint_precision_diagonal=${PHENOLOGY_JOINT_PRECISION_DIAGONAL}"
+            echo "phenology_diagonal_scope=national_environment_year_spde_phenology_only"
+            echo "phenology_diagonal_reason=joint_posterior_sampling_numerical_stabilization"
+            echo "phenology_diagonal_smoke_run=${PHENOLOGY_DIAGONAL_SMOKE_RUN}"
             echo "historical_prediction_commit=${HISTORICAL_PUBLICATION_COMMIT}"
             echo "raster_artifact_run=${RASTER_RUN_ID}"
             echo "strict_current_enmeval_reselection=false"

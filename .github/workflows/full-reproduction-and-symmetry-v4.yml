@@ -91,7 +91,7 @@ jobs:
             "quantreg", "sf", "terra", "FNN", "dplyr", "readr", "rgbif",
             "foreign", "ranger", "testthat", "geodata", "curl", "httr2",
             "units", "knitr", "rmarkdown", "fmesher", "MatrixModels", "sp",
-            "lifecycle", "rlang", "withr"
+            "lifecycle", "rlang", "withr", "sn"
           )
           missing <- packages[
             !vapply(packages, requireNamespace, logical(1), quietly = TRUE)

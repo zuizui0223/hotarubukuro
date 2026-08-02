@@ -44,6 +44,23 @@ results="${OUTPUT_DIR}/phenology_stabilisation_sweep.csv"
 echo "fold,diagonal,status,exit_code,elapsed_seconds" > "$results"
 setup_failed=0
 
+# Publish each row as it is measured, not only at the end.
+#
+# The sweep takes tens of minutes and its results live only inside the job until
+# the artifact upload runs. Run 30771243504 lost its runner during finalisation:
+# the upload was skipped, the logs never became downloadable, and every
+# measurement it had made was discarded. The step summary is persisted
+# server-side as it is written, so appending to it per attempt makes a lost
+# runner cost only the attempts not yet made.
+publish_row() {
+  [[ -n "${GITHUB_STEP_SUMMARY:-}" ]] || return 0
+  printf '%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
+}
+publish_row "## Phenology stabilisation sweep (streaming)"
+publish_row ""
+publish_row "| fold | diagonal | status | elapsed |"
+publish_row "|---|---|---|---:|"
+
 for fold in $FOLDS; do
   for diagonal in $LADDER; do
     log="${OUTPUT_DIR}/logs/fold${fold}_diagonal${diagonal}.log"
@@ -67,6 +84,7 @@ for fold in $FOLDS; do
     esac
     echo "${fold},${diagonal},${status},${code},$((ended - started))" >> "$results"
     echo "  -> ${status} (exit ${code}, $((ended - started))s)"
+    publish_row "| ${fold} | ${diagonal} | ${status} | $((ended - started))s |"
     tail -5 "$log"
     if [[ "$status" == "setup_error" ]]; then
       echo "  -> setup failure; the sweep cannot measure anything. Stopping." >&2

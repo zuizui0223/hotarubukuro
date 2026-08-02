@@ -19,7 +19,7 @@ on:
         description: Workflow run whose artifact should be inspected
         type: string
         required: false
-        default: "30748694176"
+        default: "30755058759"
   pull_request:
     types: [labeled]
     branches: ["main", "analysis/local-colour-state-asymmetry"]
@@ -41,7 +41,7 @@ jobs:
       - name: Download the artifact
         uses: actions/download-artifact@v4
         with:
-          run-id: ${{ inputs.run_id || '30748694176' }}
+          run-id: ${{ inputs.run_id || '30755058759' }}
           github-token: ${{ github.token }}
           path: artifact
           merge-multiple: true
@@ -59,7 +59,7 @@ jobs:
             find artifact -type f -printf '%p\t%s\n' | sort | head -200
             echo '```'
             echo
-            echo "## Stage manifest for run ${{ inputs.run_id || '30748694176' }}"
+            echo "## Stage manifest for run ${{ inputs.run_id || '30755058759' }}"
             echo
             manifest="$(find artifact -name final_stage_manifest.csv | head -1)"
             if [[ -n "$manifest" ]]; then

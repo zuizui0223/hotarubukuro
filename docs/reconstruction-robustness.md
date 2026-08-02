@@ -1,28 +1,71 @@
 # Reconstruction robustness analysis
 
-## What this is, and what it is not
+## What this is
 
-This analysis does **not** reproduce the published manuscript. It cannot: the
-published analysis inputs no longer exist anywhere, which
-`docs/established-inputs.md` establishes by search rather than assumption.
+A fully reproducible methodological reconstruction of the analysis, plus new
+exploratory analyses that were not part of the manuscript.
 
-It asks a different and answerable question:
+It is **not** an attempt to reproduce the published numbers, and it is no longer
+trying to be. The historical 1923-observation analysis population depended on
+intermediate inputs that were never archived and are currently unrecoverable.
+That was investigated exhaustively rather than assumed — see
+`docs/established-inputs.md` and the audits below — and the following were
+each measured and eliminated as explanations for the difference:
 
-> Do the manuscript's conclusions still hold when the entire pipeline is rebuilt
-> from nothing but declared, reproducible public sources?
+| candidate | verdict |
+|---|---|
+| environmental raster coverage (CHELSA, SoilGrids, WorldClim) | eliminated — no observation is excluded by an environmental variable |
+| extraction method (bilinear versus nearest) | eliminated — 0 of 54 exclusions recovered by nearest; nearest is strictly worse |
+| CRS and axis order | eliminated — both surfaces EPSG:4326, verified |
+| raster geometry and extent | eliminated — 0 exclusions out of extent |
+| bilinear NA propagation | eliminated — 0 exclusions from stencil neighbours |
 
-The analysis population is the **public reconstruction**: 1909 observations
-(955 white-like, 954 pigmented) derived from `Data_S1.csv` and the pinned
+All 54 exclusions are points whose containing cell is NA in the *Bombus*
+prediction surfaces. The one remaining uncertainty is which prediction surfaces
+the original v9/v11 workflow consumed: the reconstruction substitutes the
+surfaces committed at `bcceb7c7`, because the ENMeval tuning grid and fitted
+candidate objects were never versioned. That substitution is recorded, not
+resolved.
+
+## The canonical analysis population
+
+The **1909-observation reconstruction is the canonical analysis population** for
+this work. It is rebuilt end to end from `Data_S1.csv` and the pinned public
 CHELSA, SoilGrids, WorldClim, WorldPop, MLIT and GBIF sources, with every input
-checksummed in an immutable Release snapshot. The published analysis used 1923
-observations (966, 957). The difference arises in `R/environment_spatial.R`,
-where the analysis population is defined by `complete.cases` over the extracted
-environmental covariates, so a coverage difference in any public raster changes
-which observations survive.
+checksummed in an immutable Release snapshot. Nothing about it is provisional or
+a fallback: it is the population every analysis here is defined on.
 
-The two analyses are therefore not the same analysis, and their numbers are not
-expected to match. Treating agreement in the fourth decimal as the goal would be
-the wrong test. What is being tested is whether the *conclusions* survive.
+The published analysis is retained as **context**. The comparison asks whether
+the qualitative conclusions remain similar, not whether every published number
+is identical. Identity is neither expected nor sought.
+
+## The new biological question
+
+The manuscript's local analysis concerned pigmented isolates — pigmented cells
+among white neighbours. This work generalises that to **bidirectional local
+colour-state discordance**, using exactly the same neighbourhood definition and
+the same natural null model:
+
+- a **pigmented** focal cell among **white** neighbours;
+- a **white** focal cell among **pigmented** neighbours.
+
+Both directions are departures from the locally expected colour state. Treating
+only one of them as the signal builds a directional assumption into the
+question.
+
+The hypothesis under test is therefore:
+
+> Human-associated landscapes may increase local departures from the naturally
+> expected flower-colour state, rather than preferentially causing
+> white-to-pigmented transitions.
+
+This is directionally agnostic by construction. The human-context analyses ask
+whether anthropogenic landscape measures are associated with discordance *in
+either direction*, so a result that is symmetric and a result that is
+one-directional are distinguishable rather than conflated.
+
+These analyses are exploratory and were not pre-specified in the manuscript.
+They are reported as such.
 
 ## How the frozen audits are handled
 

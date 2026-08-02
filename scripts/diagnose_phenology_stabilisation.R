@@ -37,6 +37,18 @@ seed <- as.integer(arg_value("--seed", "20260725"))
 hb_require_stage_packages("natural_predictive_model")
 hb_load_modules("natural_predictive_model")
 
+# Exit status is the sweep's only signal, so a setup failure must not look like
+# an INLA abort. Status 2 means "this attempt never ran"; the sweep stops on it
+# rather than recording a grid of meaningless failures.
+if (!file.exists(input_cells)) {
+  message(
+    "[diagnostic] SETUP FAILURE: no cell table at ", input_cells,
+    ". The canonical snapshot has to be materialised into results/ before the ",
+    "sweep runs; restoring it into the snapshot directory is not enough."
+  )
+  quit(save = "no", status = 2L)
+}
+
 cells <- utils::read.csv(input_cells, check.names = FALSE, stringsAsFactors = FALSE)
 cells$median_year_centered <- cells$median_year - 2024
 cells$median_year_centered_squared <- cells$median_year_centered^2

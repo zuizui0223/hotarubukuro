@@ -146,6 +146,17 @@ leaves at least one fold aborting. `scripts/diagnose_phenology_stabilisation.R`
 performs a single attempt, calling the same module functions the pipeline calls,
 so the fold it fits is the fold the pipeline fits.
 
+The sweep distinguishes three outcomes, not two. Its first run (30769694286)
+reported all forty attempts as `aborted` and exited green, when in fact none of
+them had reached the model: the workflow restored the canonical snapshot without
+materialising it, so every attempt failed to open the cell table. A grid of
+setup failures is indistinguishable from a grid of genuine numerical failures
+unless the two are recorded separately, and the more dangerous of the two
+directions is the one that happened — measuring nothing while appearing to have
+measured everything. The diagnostic therefore exits with status 2 when an
+attempt never reached the model, the sweep records that as `setup_error`, stops
+immediately rather than filling the grid, and exits non-zero.
+
 What it does not change: no formula, prior, likelihood, spatial fold, draw
 count, seed, neighbourhood definition or threshold. The default is `0`, so the
 published mode is bit-for-bit the locked configuration.

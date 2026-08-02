@@ -29,6 +29,7 @@ LADDER="${LADDER:-0 1e-8 1e-7 1e-6 1e-5 1e-4 1e-3 1e-2}"
 mkdir -p "$OUTPUT_DIR" "$OUTPUT_DIR/logs"
 results="${OUTPUT_DIR}/phenology_stabilisation_sweep.csv"
 echo "fold,diagonal,status,exit_code,elapsed_seconds" > "$results"
+setup_failed=0
 
 for fold in $FOLDS; do
   for diagonal in $LADDER; do
@@ -42,14 +43,23 @@ for fold in $FOLDS; do
       --draws "$DRAWS" > "$log" 2>&1
     code=$?
     ended=$(date +%s)
-    if [[ "$code" -eq 0 ]]; then
-      status=survived
-    else
-      status=aborted
-    fi
+    # Status 2 is reserved for an attempt that never reached the model. Without
+    # this distinction a missing input file records as "aborted" and a sweep
+    # that measured nothing at all reads as a grid of genuine INLA failures —
+    # which is exactly what run 30769694286 produced.
+    case "$code" in
+      0) status=survived ;;
+      2) status=setup_error ;;
+      *) status=aborted ;;
+    esac
     echo "${fold},${diagonal},${status},${code},$((ended - started))" >> "$results"
     echo "  -> ${status} (exit ${code}, $((ended - started))s)"
     tail -5 "$log"
+    if [[ "$status" == "setup_error" ]]; then
+      echo "  -> setup failure; the sweep cannot measure anything. Stopping." >&2
+      setup_failed=1
+      break 2
+    fi
     if [[ "$status" == "survived" ]]; then
       echo "  -> smallest surviving value for fold ${fold}: ${diagonal}"
       break
@@ -60,6 +70,17 @@ done
 echo
 echo "=== phenology stabilisation sweep ==="
 cat "$results"
+
+# A sweep that measured nothing must not exit 0. The previous version reported
+# success while every attempt had failed to open its input, and the workflow
+# went green on a grid of results that described a missing file.
+if [[ "$setup_failed" -ne 0 ]]; then
+  echo >&2
+  echo "=== sweep FAILED: no attempt reached the model ===" >&2
+  echo "The cell table was not present. Materialise the canonical snapshot" >&2
+  echo "into results/ before sweeping; restoring it is not sufficient." >&2
+  exit 2
+fi
 
 echo
 echo "=== smallest surviving diagonal per fold ==="

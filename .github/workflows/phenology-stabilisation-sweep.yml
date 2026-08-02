@@ -93,6 +93,28 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
 
+      # Restoring puts the snapshot in SNAPSHOT_DIR; materialising puts the
+      # tables where the analysis code looks for them. The reconstruction driver
+      # does both, and the first version of this workflow did only the first —
+      # so every attempt in run 30769694286 failed on a missing cell table.
+      - name: Materialise the snapshot into results/
+        run: |
+          Rscript scripts/verify_canonical_snapshot.R \
+            --descriptor inputs/canonical_snapshot.json \
+            --root "$SNAPSHOT_DIR" \
+            --report-dir "$REPORT_DIR" \
+            --materialise true \
+            --mlit-cache "$HOTARUBUKURO_MLIT_CACHE" \
+            --did-cache "$HOTARUBUKURO_DID_CACHE"
+
+      - name: Confirm the sweep has its input before spending an hour on it
+        shell: bash
+        run: |
+          set -euo pipefail
+          cells=results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s "$cells"
+          echo "cell table present: $(wc -l < "$cells") lines"
+
       - name: Sweep the ladder
         shell: bash
         run: bash scripts/sweep_phenology_stabilisation.sh

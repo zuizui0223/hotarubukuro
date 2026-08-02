@@ -143,3 +143,11 @@ RS
 
 echo "=== canonical analysis complete ==="
 find results/ecological_v23_local_state_asymmetry -type f -printf '%p\t%s\n' | sort
+
+# Print the manifests as well as recording them. Two clean runs of this workflow
+# should produce identical output hashes, and that is only checkable if the
+# hashes are visible in the run log rather than only inside the artifact.
+echo "=== input manifest ==="
+cat "${REPORT_DIR}/input_manifest.csv"
+echo "=== output manifest ==="
+cat "${REPORT_DIR}/output_manifest.csv"

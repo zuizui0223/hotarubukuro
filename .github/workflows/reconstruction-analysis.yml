@@ -82,6 +82,12 @@ jobs:
         with:
           path: ${{ env.R_LIBS_USER }}
           key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          # A cold job otherwise has to refetch INLA from a mutable upstream that
+          # is periodically unavailable. A partial-key hit is safe here because
+          # scripts/setup_r_environment.R reuses INLA only on an exact pinned
+          # version match and re-verifies the version after installing.
+          restore-keys: |
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
 
       - name: Restore the declared R environment
         run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing,reporting,figures

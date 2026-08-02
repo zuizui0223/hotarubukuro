@@ -30,9 +30,36 @@ discordance_dir <- arg_value(
   "--discordance", "results/ecological_v23_local_state_asymmetry"
 )
 
+# A comparison is only a comparison if both sides came from different places.
+#
+# When the pipeline stops early it leaves the repository's committed publication
+# outputs sitting on disk, and those are the very files inputs/published_reference
+# was copied from. Reading them as "reconstructed" compares a file with itself
+# and reports every difference as exactly zero, which renders as total
+# robustness. That is the most misleading output this script could produce, so
+# the reconstructed side is only accepted when this run actually wrote it.
+run_started <- suppressWarnings(
+  as.numeric(Sys.getenv("HOTARUBUKURO_RUN_STARTED", ""))
+)
+regenerated <- function(path) {
+  if (!file.exists(path)) return(FALSE)
+  if (!isTRUE(is.finite(run_started))) return(NA)
+  as.numeric(file.info(path)$mtime) >= run_started
+}
+
+not_regenerated <- character()
 read_optional <- function(path) {
   if (!file.exists(path)) return(NULL)
   utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
+}
+# Every read of a reconstructed artifact goes through this, so a stale file can
+# never reach a verdict.
+read_reconstructed <- function(path) {
+  if (!file.exists(path)) return(NULL)
+  fresh <- regenerated(path)
+  if (isTRUE(fresh) || is.na(fresh)) return(read_optional(path))
+  not_regenerated <<- unique(c(not_regenerated, path))
+  NULL
 }
 published <- function(name) read_optional(file.path(published_dir, name))
 
@@ -80,7 +107,7 @@ band <- function(a, b, tolerance) {
 # 1. Sample size
 # ---------------------------------------------------------------------------
 published_measure <- published("pigmentation_measurement_summary.csv")
-reconstructed_measure <- read_optional(paste0(
+reconstructed_measure <- read_reconstructed(paste0(
   "results/ecological_v11_pigmentation_hurdle/",
   "pigmentation_measurement_summary.csv"
 ))
@@ -99,7 +126,7 @@ if (!is.null(published_measure) && !is.null(reconstructed_measure)) {
 }
 
 published_performance <- published("predictive_replication_model_performance.csv")
-reconstructed_performance <- read_optional(paste0(
+reconstructed_performance <- read_reconstructed(paste0(
   "results/ecological_v16_predictive_replication/",
   "predictive_replication_model_performance.csv"
 ))
@@ -174,7 +201,7 @@ if (!is.null(published_performance) && !is.null(reconstructed_performance)) {
 }
 
 published_registry <- published("final_result_registry.csv")
-reconstructed_registry <- read_optional(
+reconstructed_registry <- read_reconstructed(
   file.path(lock_dir, "final_result_registry.csv")
 )
 
@@ -233,7 +260,7 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
 # ---------------------------------------------------------------------------
 # 4. Local colour-state discordance
 # ---------------------------------------------------------------------------
-discordance <- read_optional(
+discordance <- read_reconstructed(
   file.path(discordance_dir, "local_state_asymmetry_summary.csv")
 )
 if (is.null(discordance)) {
@@ -353,6 +380,49 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
 
 comparison <- do.call(rbind, rows)
 dir.create(report_dir, recursive = TRUE, showWarnings = FALSE)
+
+# If the run did not regenerate the artifacts, there is no comparison to report.
+# Say so, loudly, instead of publishing verdicts drawn from stale files.
+if (length(not_regenerated)) {
+  reason <- paste0(
+    "The pipeline did not regenerate these artifacts during this run:\n  ",
+    paste(not_regenerated, collapse = "\n  "),
+    "\nThey are the repository's committed publication outputs, left on disk by ",
+    "a run that stopped early. Comparing them against inputs/published_reference ",
+    "would compare a file with itself and report every difference as zero, which ",
+    "reads as complete robustness. No verdicts have been issued."
+  )
+  if (!is.null(comparison) && nrow(comparison)) {
+    comparison$conclusion <- "NOT_COMPARABLE"
+    comparison$agreement <- NA_character_
+  } else {
+    comparison <- data.frame(
+      section = "comparison", quantity = "all",
+      published = NA_real_, reconstructed = NA_real_, difference = NA_real_,
+      agreement = NA_character_, conclusion = "NOT_COMPARABLE",
+      note = "the pipeline produced no reconstructed artifacts",
+      stringsAsFactors = FALSE
+    )
+  }
+  rp_write_csv_atomic(
+    comparison, file.path(report_dir, "reconstruction_vs_published.csv")
+  )
+  rp_write_lines_atomic(
+    c(
+      "# The public reconstruction versus the published analysis",
+      "",
+      "## No comparison was possible",
+      "",
+      strsplit(reason, "\n", fixed = TRUE)[[1L]]
+    ),
+    file.path(report_dir, "reconstruction_vs_published.md")
+  )
+  message(reason)
+  stop(
+    "Refusing to report a robustness verdict against artifacts this run did ",
+    "not produce.", call. = FALSE
+  )
+}
 rp_write_csv_atomic(
   comparison, file.path(report_dir, "reconstruction_vs_published.csv")
 )

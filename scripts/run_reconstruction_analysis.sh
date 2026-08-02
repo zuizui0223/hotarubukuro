@@ -114,8 +114,25 @@ cat "${REPORT_DIR}/reconstruction_vs_published.md" || true
 
 # --- Outcome -----------------------------------------------------------------
 if [[ "$pipeline_status" -ne 0 ]]; then
+  # Printed last, and printed here rather than only where it happened, because
+  # the comparison and the manifests above are long enough to push the original
+  # stage dump out of a workflow log tail.
   echo "=== reconstruction analysis FAILED: the pipeline stopped ===" >&2
-  echo "The named stage and its own logs are in the workflow log above." >&2
+  if [[ -s "${LOCK_DIR}/final_stage_manifest.csv" ]]; then
+    echo "--- stages attempted ---" >&2
+    cut -d, -f1,4 "${LOCK_DIR}/final_stage_manifest.csv" >&2
+    failed_stage="$(awk -F'","' 'NR > 1 && $4 == "FAIL" { gsub(/"/, "", $1); print $1 }' \
+      "${LOCK_DIR}/final_stage_manifest.csv" | tail -1)"
+    if [[ -n "$failed_stage" ]]; then
+      for stream in stderr stdout; do
+        log="${LOCK_DIR}/logs/${failed_stage}_${stream}.log"
+        if [[ -s "$log" ]]; then
+          echo "--- ${failed_stage} ${stream} (last 40 lines) ---" >&2
+          tail -40 "$log" >&2
+        fi
+      done
+    fi
+  fi
   exit "$pipeline_status"
 fi
 if [[ "$figures_status" -ne 0 ]]; then

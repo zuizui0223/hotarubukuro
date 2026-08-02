@@ -50,7 +50,15 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
+          # Ordered so the diagnosis is the last thing printed. The inventory is
+          # long enough to push a stage error out of a log tail otherwise.
           {
+            echo "## Reproducibility inventory"
+            echo
+            echo '```text'
+            find artifact -type f -printf '%p\t%s\n' | sort | head -200
+            echo '```'
+            echo
             echo "## Stage manifest for run ${{ inputs.run_id || '30748694176' }}"
             echo
             manifest="$(find artifact -name final_stage_manifest.csv | head -1)"
@@ -62,19 +70,14 @@ jobs:
               echo "No final_stage_manifest.csv in the artifact."
             fi
             echo
-            echo "## Stage logs"
+            echo "## Stage errors"
             echo
-            for log in $(find artifact -path '*final_analysis_pipeline/logs/*' -name '*.log' | sort); do
+            for log in $(find artifact -path '*/logs/*_stderr.log' | sort); do
               [[ -s "$log" ]] || continue
               echo "### $(basename "$log")"
               echo '```text'
-              tail -60 "$log"
+              cat "$log"
               echo '```'
               echo
             done
-            echo "## Reproducibility inventory"
-            echo
-            echo '```text'
-            find artifact -type f -printf '%p\t%s\n' | sort | head -200
-            echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"

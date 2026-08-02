@@ -12,6 +12,12 @@ source("R/reproducibility.R")
 
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
 report_dir <- arg_value("--report-dir", "reproducibility")
+# Which declared scopes to install. A workflow that never fetches raw external
+# data does not need the acquisition stack, and a workflow that never draws a
+# figure does not need the figure stack. The scopes are named here rather than
+# listing packages, so the declaration in dependencies/r-packages.csv stays the
+# single source of truth.
+scopes_argument <- arg_value("--scopes", "all")
 dir.create(report_dir, recursive = TRUE, showWarnings = FALSE)
 
 repository <- rp_cran_repository()
@@ -22,7 +28,22 @@ options(
 )
 message("[setup] pinned CRAN snapshot: ", repository)
 
-declared <- rp_declared_packages()
+all_declared <- rp_declared_packages()
+declared <- if (identical(tolower(scopes_argument), "all")) {
+  all_declared
+} else {
+  requested <- trimws(strsplit(scopes_argument, ",", fixed = TRUE)[[1L]])
+  unknown <- setdiff(requested, unique(all_declared$scope))
+  if (length(unknown)) {
+    stop(
+      "Unknown dependency scopes: ", paste(unknown, collapse = ", "),
+      ". Declared scopes: ", paste(unique(all_declared$scope), collapse = ", "),
+      call. = FALSE
+    )
+  }
+  all_declared[all_declared$scope %in% requested, , drop = FALSE]
+}
+message("[setup] scopes: ", paste(unique(declared$scope), collapse = ", "))
 cran_packages <- declared$package[declared$source == "cran"]
 
 missing <- cran_packages[
@@ -52,6 +73,15 @@ if (length(still_missing)) {
 # archive carrying the pinned version before it is installed, and the resolved
 # URL, retrieval time, and SHA-256 are recorded.
 # ---------------------------------------------------------------------------
+if (!"INLA" %in% declared$package) {
+  message("[setup] INLA is outside the requested scopes; skipping it")
+  rp_write_csv_atomic(
+    rp_environment_record(), file.path(report_dir, "r_package_versions.csv")
+  )
+  rp_write_session_record(report_dir)
+  quit(save = "no", status = 0)
+}
+
 inla <- rp_read_key_value("dependencies/inla.csv")
 target_version <- inla[["version"]]
 if (!nzchar(target_version)) {

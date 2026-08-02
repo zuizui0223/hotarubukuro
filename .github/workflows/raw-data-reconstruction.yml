@@ -8,6 +8,10 @@ name: Raw external-data reconstruction
 # are slow and occasionally unavailable. A public data server being down must
 # not turn every pull request red.
 
+# Triggering: workflow_dispatch once this workflow file is on the default
+# branch, and, before then, by adding the `run-raw-reconstruction` label to the
+# pull request.
+
 on:
   workflow_dispatch:
     inputs:
@@ -18,9 +22,12 @@ on:
         default: analysis-input-snapshot-v1
       publish:
         description: Publish the staged snapshot as a Release asset
-        type: boolean
+        type: string
         required: false
-        default: true
+        default: "true"
+  pull_request:
+    types: [labeled]
+    branches: ["main"]
 
 permissions:
   contents: write
@@ -43,6 +50,9 @@ env:
 jobs:
   reconstruct:
     name: Reconstruct and publish the analysis-input snapshot
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-raw-reconstruction'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
 
@@ -90,13 +100,13 @@ jobs:
           restore-keys: raw-sources-
 
       - name: Restore the declared R environment
-        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR"
+        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,acquisition,testing
 
       - name: Reconstruct all upstream stages and stage the snapshot
         run: bash scripts/run_raw_reconstruction.sh
 
       - name: Publish the snapshot as an immutable Release asset
-        if: ${{ inputs.publish }}
+        if: ${{ (inputs.publish || 'true') == 'true' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash

@@ -175,7 +175,7 @@ jobs:
           key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
 
       - name: Restore the declared R environment
-        run: Rscript scripts/setup_r_environment.R --report-dir reproducibility
+        run: Rscript scripts/setup_r_environment.R --report-dir reproducibility --scopes analysis,reproducibility,testing
 
       - name: Preflight the analysis environment
         run: Rscript scripts/preflight.R --scope canonical --report-dir reproducibility

@@ -9,19 +9,27 @@ name: Canonical analysis reproduction
 # contact any external scientific data service; everything it consumes is either
 # in the repository or in the checksummed snapshot.
 
+# Triggering: workflow_dispatch once this workflow file is on the default
+# branch, and, before then, by adding the `run-canonical-analysis` label to the
+# pull request. Label gating keeps an expensive numerical run deliberate instead
+# of firing on every push.
+
 on:
   workflow_dispatch:
     inputs:
       clean_run:
         description: Discard stage checkpoints and reconstruct from the snapshot
-        type: boolean
+        type: string
         required: false
-        default: true
+        default: "true"
       required_maps:
         description: Number of cross-fitted natural predictive maps
         type: string
         required: false
         default: "1000"
+  pull_request:
+    types: [labeled]
+    branches: ["main"]
 
 permissions:
   contents: read
@@ -37,11 +45,14 @@ env:
   REQUIRED_MAPS: ${{ inputs.required_maps || '1000' }}
   PREDICTIVE_SEED: "20260725"
   PSEUDOCOUNT: "0.5"
-  CLEAN_RUN: ${{ inputs.clean_run == false && 'false' || 'true' }}
+  CLEAN_RUN: ${{ inputs.clean_run || 'true' }}
 
 jobs:
   canonical:
     name: Canonical analysis
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-canonical-analysis'
     runs-on: ubuntu-24.04
     timeout-minutes: 300
 
@@ -76,7 +87,7 @@ jobs:
           key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
 
       - name: Restore the declared R environment
-        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR"
+        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing
 
       - name: Restore the canonical analysis-input snapshot
         env:

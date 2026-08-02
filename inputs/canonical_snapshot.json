@@ -1,0 +1,64 @@
+{
+  "snapshot_id": "analysis-input-snapshot-v1",
+  "release_tag": "analysis-input-snapshot-v1",
+  "asset_name": "analysis-input-snapshot-v1.tar.gz",
+  "asset_sha256": "984aae08624f171ed207f568de5b9ef330994e1615649ad1adac5aecb0271f1a",
+  "built_from_commit": "2772b9a5e01971030e465d42c66100c060ef6521",
+  "built_at_utc": "2026-08-02 01:19:32 UTC",
+  "contents": [
+    {
+      "path": "analysis_inputs/analysis_data_pigmentation_hurdle.csv",
+      "bytes": 5053875,
+      "sha256": "3916ac6b32c03e84f0de57eb8c2f4d2222c41ea0cb5f99e83662df1f8cad069f",
+      "role": "derived_checkpoint",
+      "source": "hotarubukuro two-part phenotype stage (01_phenotype)",
+      "source_url": null,
+      "retrieved_utc": "2026-08-02 01:19:32 UTC"
+    },
+    {
+      "path": "analysis_inputs/rasters/bio10_Japan_crop_30s.tif",
+      "bytes": 1707357,
+      "sha256": "7a078777aae19ce789c8c42deddb3d82a2742891105dbf710af91d2924b0656c",
+      "role": "immutable_input",
+      "source": "CHELSA 2.1 (chelsa_bio10)",
+      "source_url": "https://os.unil.cloud.switch.ch/chelsa02/chelsa/global/bioclim/bio10/1981-2010/CHELSA_bio10_1981-2010_V.2.1.tif",
+      "retrieved_utc": "2026-08-02 00:53:13 UTC"
+    },
+    {
+      "path": "analysis_inputs/rasters/bio12_Japan_crop_30s.tif",
+      "bytes": 3184073,
+      "sha256": "4bd88abc4503553e1642b2eafaf272f3f67e60d333911913f47910d12c89b5ed",
+      "role": "immutable_input",
+      "source": "CHELSA 2.1 (chelsa_bio12)",
+      "source_url": "https://os.unil.cloud.switch.ch/chelsa02/chelsa/global/bioclim/bio12/1981-2010/CHELSA_bio12_1981-2010_V.2.1.tif",
+      "retrieved_utc": "2026-08-02 00:53:21 UTC"
+    },
+    {
+      "path": "analysis_inputs/rasters/elevation_Japan_crop.tif",
+      "bytes": 952837,
+      "sha256": "0144befccb7e48973a45de37d0f5eb4dc4aebdf04a71ab52568a07db2658d36f",
+      "role": "immutable_input",
+      "source": "WorldClim 2.1 (worldclim_elevation_30s)",
+      "source_url": "https://geodata.ucdavis.edu/climate/worldclim/2_1/base/wc2.1_30s_elev.zip",
+      "retrieved_utc": "2026-08-02 01:01:09 UTC"
+    },
+    {
+      "path": "analysis_inputs/rasters/population_count_Japan_crop.tif",
+      "bytes": 3057872,
+      "sha256": "f1f44f76472849c6296f70840bfd334464c1672c9c8c5cc74b860300d29a8b45",
+      "role": "immutable_input",
+      "source": "WorldPop Global 2000-2020 1km, Japan 2020, people per cell",
+      "source_url": "https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/2020/JPN/jpn_ppp_2020_1km_Aggregated.tif",
+      "retrieved_utc": "2026-08-02 01:02:56 UTC"
+    },
+    {
+      "path": "analysis_inputs/rasters/RSDS_Japan_crop_30s.tif",
+      "bytes": 3003040,
+      "sha256": "1607627ebd6091568c4e48ad503520abaaf9a72645cc43c46cff646da8695e25",
+      "role": "immutable_input",
+      "source": "CHELSA 2.1 (chelsa_rsdsmean)",
+      "source_url": "https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_rsds_1981-2010_mean_V.2.1.tif",
+      "retrieved_utc": "2026-08-02 00:53:48 UTC"
+    }
+  ]
+}

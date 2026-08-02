@@ -40,13 +40,12 @@ DISCORDANCE_DIR="results/ecological_v23_local_state_asymmetry"
 #   1e-7  — current value.
 PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-1e-7}"
 
-# Survey mode. Off by default; see scripts/run_publication_pipeline.R.
+# This driver is canonical-only and has no survey switch, by construction.
 #
-# Every stage after 02 consumes stage 02's output, so no stage after 02 has yet
-# executed on the reconstruction. Setting this on the first run that clears
-# stage 02 makes that run report every remaining blocker instead of stopping at
-# the first, which is the difference between one CI cycle and one per blocker.
-CONTINUE_ON_FAILURE="${CONTINUE_ON_FAILURE:-false}"
+# Survey mode lives in scripts/survey_reconstruction_pipeline.sh, which does not
+# run the comparison and does not write a reproducibility report. The reference
+# reconstruction must be a run in which every stage passed in sequence, so the
+# driver that produces it cannot be asked to do anything else.
 
 export HOTARUBUKURO_MLIT_CACHE="${HOTARUBUKURO_MLIT_CACHE:-reproduction_inputs/mlit_l03_2021}"
 export HOTARUBUKURO_DID_CACHE="${HOTARUBUKURO_DID_CACHE:-reproduction_inputs/mlit_did_2015}"
@@ -99,7 +98,7 @@ run_logged run_pipeline_on_reconstruction \
     --baseline=reconstruction \
     --discordance=true \
     --phenology-diagonal="$PHENOLOGY_DIAGONAL" \
-    --continue-on-failure="$CONTINUE_ON_FAILURE" \
+    --continue-on-failure=false \
     --output="$LOCK_DIR" || pipeline_status=$?
 echo "pipeline_status=${pipeline_status}" | tee "${STATUS_DIR}/pipeline_status.txt"
 

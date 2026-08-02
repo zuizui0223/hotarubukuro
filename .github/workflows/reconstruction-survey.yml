@@ -1,0 +1,140 @@
+name: Reconstruction survey (development diagnostic)
+
+# A DEVELOPMENT DIAGNOSTIC. Not a reconstruction and not a reference.
+#
+# Every stage after 02 consumes stage 02's cross-fitted checkpoints, so no stage
+# after 02 has ever executed on the reconstruction population. Discovering their
+# failures one run at a time costs a full CI cycle each. This runs the pipeline
+# with --continue-on-failure so a single run reports the whole queue of
+# blockers.
+#
+# It is a separate workflow from reconstruction-analysis.yml on purpose, not a
+# switch on it. The canonical workflow has no continue-on-failure input at all,
+# so the reference reconstruction cannot come from a run that tolerated a
+# failing stage. This workflow correspondingly runs no comparison, builds no
+# figures, and writes no reproducibility report — and its artifact is named so
+# it cannot be mistaken for the canonical one.
+#
+# The separation is enforced in three independent places, so no single mistake
+# collapses it:
+#   1. this workflow and the canonical workflow are distinct, with distinct
+#      trigger labels and artifact names;
+#   2. run_publication_pipeline.R stamps run_mode.txt with survey or canonical;
+#   3. compare_reconstruction_to_published.R refuses to run against a directory
+#      stamped survey.
+
+on:
+  workflow_dispatch:
+    inputs:
+      phenology_diagonal:
+        description: control.inla(diagonal=) for the phenology component only
+        type: string
+        required: false
+        default: "1e-7"
+  pull_request:
+    types: [labeled]
+    branches: ["main", "analysis/local-colour-state-asymmetry"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reconstruction-survey-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
+  STATUS_DIR: ${{ github.workspace }}/reproduction_status
+  REPORT_DIR: ${{ github.workspace }}/reproducibility
+  PHENOLOGY_DIAGONAL: ${{ inputs.phenology_diagonal || '1e-7' }}
+  HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
+  HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
+
+jobs:
+  survey:
+    name: Enumerate downstream blockers (diagnostic, not a reconstruction)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-reconstruction-survey'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 480
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore the R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore the declared R environment
+        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing,reporting,figures
+
+      - name: Restore the canonical analysis-input snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
+
+      - name: Survey the pipeline
+        run: bash scripts/survey_reconstruction_pipeline.sh
+
+      - name: Publish the blocker queue
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          manifest=results/final_analysis_pipeline/final_stage_manifest.csv
+          {
+            echo "## Reconstruction survey — development diagnostic"
+            echo
+            echo "**This is not a reconstruction.** It tolerates failing stages"
+            echo "in order to list them. No comparison and no reproducibility"
+            echo "report are produced, and no result may be drawn from it."
+            echo
+            echo "- commit: \`${GITHUB_SHA}\`"
+            echo "- phenology diagonal: \`${PHENOLOGY_DIAGONAL}\`"
+            echo
+            if [[ -s "$manifest" ]]; then
+              echo "### Stage outcomes"
+              echo
+              echo '```csv'
+              cut -d, -f1,4 "$manifest"
+              echo '```'
+            else
+              echo "No stage manifest was produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the survey
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          # Named survey, never reconstruction-analysis, so the artifact cannot
+          # be mistaken for the canonical one.
+          name: reconstruction-survey-DIAGNOSTIC-${{ github.run_id }}
+          path: |
+            results/final_analysis_pipeline
+            reproduction_status
+          if-no-files-found: warn
+          retention-days: 30

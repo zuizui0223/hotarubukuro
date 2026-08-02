@@ -381,6 +381,26 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
 comparison <- do.call(rbind, rows)
 dir.create(report_dir, recursive = TRUE, showWarnings = FALSE)
 
+# A survey run is not a reference reconstruction, and no verdict may be drawn
+# from one. The freshness gate below catches the case where a stage produced
+# nothing, but a survey run can fail a late stage while every artifact this
+# script reads was regenerated — so freshness alone would let it through. The
+# run mode is checked directly for that reason.
+run_mode_path <- file.path(lock_dir, "run_mode.txt")
+if (file.exists(run_mode_path)) {
+  run_mode_lines <- readLines(run_mode_path, warn = FALSE)
+  if (any(grepl("^run_mode=survey$", run_mode_lines))) {
+    stop(
+      "Refusing to compare: ", lock_dir, " was produced by a survey run ",
+      "(--continue-on-failure). Survey runs exist to enumerate downstream ",
+      "failures during development and may contain outputs from stages whose ",
+      "upstream dependencies failed. Rerun the pipeline in canonical mode and ",
+      "compare that.",
+      call. = FALSE
+    )
+  }
+}
+
 # If the run did not regenerate the artifacts, there is no comparison to report.
 # Say so, loudly, instead of publishing verdicts drawn from stale files.
 if (length(not_regenerated)) {

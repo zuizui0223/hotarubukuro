@@ -213,20 +213,49 @@ cross-fitted checkpoints, so while stage 02 is blocked nothing downstream can be
 validated at all: stages 03 through 08 have never executed on the reconstruction
 population. Discovering their failures one per run would cost a CI cycle each.
 
-`--continue-on-failure` therefore exists on the runner. With it set, a stage
-that fails is recorded and the run continues, so one run enumerates every
-remaining blocker. It is off by default, and it never converts a failed run into
-a successful one:
+A **survey run** therefore exists, purely as a development diagnostic: it
+records a failing stage and continues, so one run enumerates the whole queue.
 
-- each stage keeps its own `PASS` or `FAIL` in `final_stage_manifest.csv`;
-- the run exits non-zero if any stage failed, so `pipeline_status` and the
-  workflow result both stay red;
-- the driver prints every failing stage's logs, not just the last one;
-- the comparison's freshness gate still refuses to issue a verdict against
-  artifacts the run did not regenerate.
+It is kept structurally separate from the canonical reconstruction rather than
+being a flag on it, because "off by default" would still leave the canonical
+workflow one input away from producing a tolerated-failure run:
 
-It is a way to see the whole queue at once, not a way to proceed on a broken
-upstream.
+| | canonical | survey |
+|---|---|---|
+| driver | `scripts/run_reconstruction_analysis.sh` | `scripts/survey_reconstruction_pipeline.sh` |
+| workflow | `reconstruction-analysis.yml` | `reconstruction-survey.yml` |
+| trigger label | `run-reconstruction-analysis` | `run-reconstruction-survey` |
+| every stage must pass in sequence | **yes** | no |
+| comparison against the manuscript | yes | **never runs** |
+| figures, reproducibility report | yes | **never written** |
+| artifact name | `reconstruction-analysis-…` | `reconstruction-survey-DIAGNOSTIC-…` |
+
+The canonical workflow has no `continue_on_failure` input at all and its driver
+passes `false` unconditionally, so **the reference reconstruction cannot come
+from a run that tolerated a failing stage.**
+
+Three independent mechanisms enforce this, so no single mistake collapses it:
+
+1. the two workflows and drivers are distinct, with distinct trigger labels and
+   artifact names;
+2. `run_publication_pipeline.R` stamps `run_mode.txt` in the output directory
+   with `canonical` or `survey`, before the run starts and unconditionally, so a
+   canonical run in a reused workspace overwrites a stale survey stamp rather
+   than inheriting it;
+3. `compare_reconstruction_to_published.R` reads that stamp and refuses outright
+   to compare a directory marked `survey`.
+
+The third matters on its own. The freshness gate catches a run whose stages
+produced nothing, but a survey run can fail a *late* stage while every artifact
+the comparison reads was regenerated — freshness alone would let that through.
+The run mode is checked directly for that reason.
+
+A survey run is never green either: each stage keeps its own `PASS` or `FAIL` in
+`final_stage_manifest.csv`, and the run exits non-zero if anything failed.
+
+**The reference reconstruction is a canonical run in which every stage passed in
+sequence.** Once the pipeline is stable, that is the run to cite, and the survey
+path plays no part in it.
 
 ## The discordance diagnostic
 

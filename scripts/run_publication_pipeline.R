@@ -52,6 +52,32 @@ continue_on_failure <- hb_as_bool(
 )
 
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Stamp what this run was, before it runs. Every reader of these outputs — the
+# comparison, the reproducibility report, a person opening the artifact — can
+# then tell a canonical run from a survey run without inferring it from whether
+# any stage happens to have failed. Written unconditionally so a canonical run
+# in a reused workspace overwrites a previous survey run's stamp rather than
+# inheriting it.
+writeLines(
+  c(
+    if (continue_on_failure) "run_mode=survey" else "run_mode=canonical",
+    paste0("continue_on_failure=", tolower(as.character(continue_on_failure))),
+    paste0("mode=", mode),
+    paste0("baseline=", baseline),
+    paste0("phenology_inla_diagonal=", phenology_diagonal),
+    paste0("started_utc=", format(Sys.time(), tz = "UTC", usetz = TRUE)),
+    if (continue_on_failure) {
+      paste(
+        "A survey run exists to enumerate downstream failures during",
+        "development. Its outputs are diagnostic. They are not a reference",
+        "reconstruction and no robustness verdict may be drawn from them."
+      )
+    }
+  ),
+  file.path(output_dir, "run_mode.txt")
+)
+
 log_dir <- file.path(output_dir, "logs")
 dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
 rscript <- file.path(R.home("bin"), "Rscript")

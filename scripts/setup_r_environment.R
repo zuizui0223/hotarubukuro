@@ -228,7 +228,14 @@ record <- data.frame(
     "archive_sha256", "retrieved_utc", "cran_snapshot", "r_version"
   ),
   value = c(
-    "INLA", target_version, as.character(utils::packageVersion("INLA")),
+    "INLA", target_version,
+    # Absent by design under --skip-inla, so this is reported rather than
+    # queried; packageVersion() errors on a package that is not installed.
+    if (requireNamespace("INLA", quietly = TRUE)) {
+      as.character(utils::packageVersion("INLA"))
+    } else {
+      "not-installed"
+    },
     resolved_url, archive_sha256, retrieved_utc, repository,
     paste(R.version$major, R.version$minor, sep = ".")
   ),
@@ -243,5 +250,9 @@ rp_write_csv_atomic(
 )
 rp_write_session_record(report_dir)
 
-message("[setup] environment restored; INLA ", target_version,
-        " from ", resolved_url)
+if (skip_inla) {
+  message("[setup] environment restored without INLA; model stages cannot run")
+} else {
+  message("[setup] environment restored; INLA ", target_version,
+          " from ", resolved_url)
+}

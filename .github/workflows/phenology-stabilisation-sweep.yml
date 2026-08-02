@@ -38,7 +38,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: phenology-sweep-${{ github.ref }}
+  # Keyed by commit, not by ref. A sweep of one commit has no reason to wait for
+  # a sweep of another, and keying by ref means a run whose runner is lost holds
+  # the group for its whole cancellation grace period while the next sweep sits
+  # pending behind it. That happened with run 30771243504.
+  group: phenology-sweep-${{ github.sha }}
   cancel-in-progress: false
 
 env:

@@ -76,7 +76,7 @@ if (length(still_missing)) {
 if (!"INLA" %in% declared$package) {
   message("[setup] INLA is outside the requested scopes; skipping it")
   rp_write_csv_atomic(
-    rp_environment_record(), file.path(report_dir, "r_package_versions.csv")
+    rp_environment_record(), file.path(report_dir, "package_versions.csv")
   )
   rp_write_session_record(report_dir)
   quit(save = "no", status = 0)
@@ -224,7 +224,7 @@ rp_write_csv_atomic(record, file.path(report_dir, "inla_resolution.csv"))
 # and checksum that a given run actually used must be visible in its log.
 print(record, row.names = FALSE)
 rp_write_csv_atomic(
-  rp_environment_record(), file.path(report_dir, "r_package_versions.csv")
+  rp_environment_record(), file.path(report_dir, "package_versions.csv")
 )
 rp_write_session_record(report_dir)
 

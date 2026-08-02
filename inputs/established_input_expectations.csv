@@ -1,0 +1,4 @@
+quantity,file,expectation,source,note
+analysis_observations,results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv,1923,"validation/audit_phenotype.R check analysis_n","Row count of the phenotype analysis table underlying every published result."
+white_observations,results/ecological_v11_pigmentation_hurdle/pigmentation_measurement_summary.csv,966,"results/final_analysis_pipeline/final_result_registry.csv result_id phenotype_white_count","Response-blind white-like count in the locked result registry."
+pigmented_observations,results/ecological_v11_pigmentation_hurdle/pigmentation_measurement_summary.csv,957,"results/final_analysis_pipeline/final_result_registry.csv result_id phenotype_pigmented_count","Response-blind pigmented count in the locked result registry."

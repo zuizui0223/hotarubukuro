@@ -145,6 +145,37 @@ The canonical workflow fails, rather than degrading, when:
 
 ## Audit notes
 
+- **The established analysis inputs are not reproducible from any declared
+  source, and this is the pipeline's one unresolved gap.** Every published
+  number rests on
+  `results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv`
+  and on the 1-km cell table derived from it. Neither was ever committed: they
+  are absent from the current repository, absent from the recorded publication
+  commit `bcceb7c7`, and absent from every release. The only reproducible route
+  to them is regeneration from `Data_S1.csv` and the pinned public rasters,
+  which is what the raw-data reconstruction workflow does — and that route does
+  not land on the published tables.
+
+  | quantity | published | reconstructed |
+  |---|---:|---:|
+  | analysis observations | 1923 | 1909 |
+  | white-like | 966 | 955 |
+  | pigmented | 957 | 954 |
+
+  The mechanism is visible in `R/environment_spatial.R`: the analysis population
+  is defined by `complete.cases` over the environmental covariates extracted at
+  each observation, so any coverage difference in a public raster silently
+  changes which observations survive. Fourteen do not.
+
+  This is reported, not worked around. `scripts/check_input_fidelity.R` states
+  the comparison in the first minute of a canonical run, and the frozen upstream
+  audit `validation/audit_phenotype.R` then refuses the run at stage 01. Neither
+  the audit nor `inputs/numerical_reference.csv` has been re-baselined against
+  the reconstructed inputs, because doing so would change published quantities
+  and that is an author decision rather than a pipeline decision. The two
+  legitimate resolutions are to archive the established analysis-input tables as
+  a snapshot component, or to re-baseline deliberately and republish the
+  affected counts.
 - **Bombus provenance.** The five species prediction surfaces are restored from
   the committed publication commit `bcceb7c7`, not regenerated. The repository
   versions neither the ENMeval tuning grid nor the fitted candidate objects that

@@ -43,6 +43,15 @@ run_logged verify_canonical_snapshot \
     --mlit-cache "$HOTARUBUKURO_MLIT_CACHE" \
     --did-cache "$HOTARUBUKURO_DID_CACHE"
 
+# --- Established-input fidelity ----------------------------------------------
+# Reported before anything is fitted, so a run against inputs that are not the
+# published ones says so in its first minute instead of looking like a crash.
+run_logged check_input_fidelity \
+  Rscript scripts/check_input_fidelity.R \
+    --expectations inputs/established_input_expectations.csv \
+    --report-dir "$REPORT_DIR" \
+    --strict false
+
 # --- Preflight ---------------------------------------------------------------
 run_logged preflight \
   Rscript scripts/preflight.R \
@@ -66,6 +75,17 @@ if [[ "$BUILD_FIGURES" == "true" ]]; then
     Rscript scripts/build_publication_figures.R
 fi
 
+# --- Numerical regression ----------------------------------------------------
+# Written non-strictly here so that the report, the manifests and the logs all
+# exist before anything aborts. The validation summary below is what turns a
+# regression failure into a failed run.
+run_logged check_numerical_regression \
+  Rscript scripts/check_numerical_regression.R \
+    --reference inputs/numerical_reference.csv \
+    --registry "${LOCK_DIR}/final_result_registry.csv" \
+    --report-dir "$REPORT_DIR" \
+    --strict false
+
 # --- Reproducibility record --------------------------------------------------
 run_logged write_reproducibility_report \
   Rscript scripts/write_reproducibility_report.R \
@@ -88,7 +108,8 @@ sections <- list(
   structural = read_optional(file.path(lock, "final_stage_manifest.csv")),
   provenance = read_optional(file.path(lock, "final_input_checksums.csv")),
   exact = read_optional(file.path(lock, "final_independent_validation.csv")),
-  claim = read_optional(file.path(lock, "final_claim_audit.csv"))
+  claim = read_optional(file.path(lock, "final_claim_audit.csv")),
+  numerical = read_optional("reproducibility/numerical_regression_report.csv")
 )
 
 rows <- list()
@@ -110,6 +131,13 @@ for (name in names(sections)) {
     next
   }
   values <- table[[status_column[[1L]]]]
+  # The numerical report carries two verdicts per row: whether the value stayed
+  # inside its tolerance, and whether the qualitative invariant still holds.
+  # Both have to count, so neither can fail quietly.
+  if ("invariant_status" %in% names(table)) {
+    invariants <- table$invariant_status
+    values <- c(values, invariants[invariants != "NONE"])
+  }
   passed <- sum(values == "PASS")
   rows[[length(rows) + 1L]] <- data.frame(
     check_class = name, checks = length(values), passed = passed,

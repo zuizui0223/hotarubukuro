@@ -42,6 +42,55 @@ if (nrow(input_manifest)) {
 }
 rp_write_manifest(output_manifest, file.path(report_dir, "output_manifest.csv"))
 rp_write_session_record(report_dir)
+rp_write_csv_atomic(
+  rp_environment_record(), file.path(report_dir, "package_versions.csv")
+)
+
+# The three records that make a completed run auditable on its own terms: the
+# machine and toolchain it ran on, every seed the analysis code sets, and the
+# checkpoints that make it restartable.
+rp_write_lines_atomic(
+  rp_workflow_environment_lines(),
+  file.path(report_dir, "workflow_environment.txt")
+)
+
+seed_registry <- rp_seed_registry()
+stage_registry_path <- file.path(report_dir, "pipeline_stage_registry.csv")
+if (file.exists(stage_registry_path)) {
+  stages <- utils::read.csv(
+    stage_registry_path, check.names = FALSE, stringsAsFactors = FALSE,
+    colClasses = "character"
+  )
+  owner <- stats::setNames(stages$stage_id, stages$generating_script)
+  seed_registry$stage_id <- unname(owner[seed_registry$script])
+  declared <- stages[!stages$seed %in% c("", "NA"), c("stage_id", "seed")]
+  seed_registry$declared_stage_seed <- unname(
+    stats::setNames(declared$seed, declared$stage_id)[seed_registry$stage_id]
+  )
+  disagreements <- with(seed_registry, which(
+    kind == "seed_argument_default" & !is.na(declared_stage_seed) &
+      value != declared_stage_seed
+  ))
+  if (length(disagreements)) {
+    stop(
+      "The stage registry and the scripts disagree about seeds:\n  ",
+      paste(with(seed_registry[disagreements, ], sprintf(
+        "%s:%d declares %s but stage %s declares %s",
+        script, line, value, stage_id, declared_stage_seed
+      )), collapse = "\n  "),
+      call. = FALSE
+    )
+  }
+} else {
+  seed_registry$stage_id <- NA_character_
+  seed_registry$declared_stage_seed <- NA_character_
+}
+rp_write_csv_atomic(seed_registry, file.path(report_dir, "seed_registry.csv"))
+
+checkpoints <- rp_checkpoint_manifest("results")
+rp_write_csv_atomic(
+  checkpoints, file.path(report_dir, "checkpoint_manifest.csv")
+)
 
 if (file.exists(dag_source)) {
   file.copy(dag_source, file.path(report_dir, "pipeline_dag.md"), overwrite = TRUE)
@@ -75,6 +124,24 @@ summary_lines <- c(
   }),
   paste0("- inputs recorded: ", nrow(input_manifest)),
   paste0("- outputs recorded: ", nrow(output_manifest)),
+  paste0("- seeds recorded: ", nrow(seed_registry)),
+  paste0("- checkpoints recorded: ", nrow(checkpoints)),
+  "",
+  "## Reproducibility class",
+  "",
+  "Two different things are called reproducibility here and they are kept apart.",
+  "",
+  "- *Bitwise*: identical bytes on a rerun. It holds for the derived tables that",
+  "  are pure functions of the immutable inputs, and every one of them is hashed",
+  "  in `output_manifest.csv`.",
+  "- *Statistical*: the same conclusion within stated numerical tolerance. It is",
+  "  what holds for the stages that draw from an INLA posterior. `INLA` is not",
+  "  bit-deterministic across runs even under a fixed seed, so those quantities",
+  "  are checked against `numerical_regression_report.csv` tolerances rather than",
+  "  against a hash.",
+  "",
+  "`pipeline_stage_registry.csv` records which class each stage belongs to in its",
+  "`deterministic` column.",
   ""
 )
 

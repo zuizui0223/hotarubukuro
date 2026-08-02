@@ -1,0 +1,151 @@
+name: Reconstruction robustness analysis
+
+# Workflow D. The PR18 analysis.
+#
+# Runs the complete locked pipeline from scratch on the public reconstruction —
+# the 1909-observation analysis population rebuilt entirely from Data_S1.csv and
+# the pinned public environmental sources — then runs the bidirectional local
+# colour-state discordance diagnostic on top of it, then compares the result
+# against the published analysis.
+#
+# This is not an attempt to reproduce the manuscript. The published analysis
+# inputs are lost (see docs/established-inputs.md), so the two analyses have
+# different observation sets and their numbers are not expected to match. The
+# question is whether the conclusions survive when everything is rebuilt from
+# reproducible public sources.
+#
+# The frozen upstream audits run with --baseline reconstruction: every
+# dataset-independent structural check is enforced exactly as in the published
+# mode, and the handful of checks that assert the published run's own row counts
+# and convergence-warning pattern are reported as not applicable rather than
+# deleted.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_figures:
+        description: Build the manuscript-facing figures
+        type: string
+        required: false
+        default: "true"
+  pull_request:
+    types: [labeled]
+    branches: ["main", "analysis/local-colour-state-asymmetry"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reconstruction-analysis-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
+  STATUS_DIR: ${{ github.workspace }}/reproduction_status
+  REPORT_DIR: ${{ github.workspace }}/reproducibility
+  BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
+  HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
+  HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
+
+jobs:
+  reconstruction:
+    name: Reconstruction analysis and robustness comparison
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-reconstruction-analysis'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 480
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore the R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+
+      - name: Restore the declared R environment
+        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing,reporting,figures
+
+      # The same immutable, checksummed snapshot the canonical workflow uses.
+      # Here it is the analysis input rather than a failed reproduction attempt.
+      - name: Restore the canonical analysis-input snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
+
+      - name: Run the reconstruction analysis
+        run: bash scripts/run_reconstruction_analysis.sh
+
+      - name: Publish the robustness comparison
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "## Reconstruction robustness analysis"
+            echo
+            echo "- commit: \`${GITHUB_SHA}\`"
+            echo
+            if [[ -s "${REPORT_DIR}/reconstruction_vs_published.md" ]]; then
+              cat "${REPORT_DIR}/reconstruction_vs_published.md"
+            else
+              echo "No comparison was produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record run provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$STATUS_DIR"
+          {
+            echo "workflow=reconstruction-analysis"
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "baseline=reconstruction"
+          } > "${STATUS_DIR}/run_provenance.txt"
+
+      - name: Upload the analysis, the comparison, and all logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconstruction-analysis-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            reproducibility
+            reproduction_status
+            results/final_analysis_pipeline
+            results/ecological_v11_pigmentation_hurdle
+            results/ecological_v15_multiscale_hotspots
+            results/ecological_v16_predictive_replication
+            results/ecological_v17_local_pair_turnover
+            results/ecological_v19_human_landscape_extremes
+            results/ecological_v20_local_white_isolates
+            results/ecological_v21_local_human_neighbourhood
+            results/ecological_v22_did_human_context
+            results/ecological_v23_local_state_asymmetry
+            manuscript/figures
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

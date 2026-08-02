@@ -1,0 +1,2 @@
+"measurement_model","mixture_model","components","largest_component_mean_gap","decision_boundary_a","confidence_cut","n","n_white","n_pigmented","n_ambiguous","n_negative_a","n_nonnegative_below_boundary","interpretation"
+"response-blind univariate Gaussian mixture of CIELAB a*","V",4,18.2653886020027,4.94454215426115,0.8,1923,966,957,124,713,254,"white-flower a* is treated as colour-measurement variation, not anthocyanin amount; the boundary is estimated without geography, environment, Bombus, H, R, or residuals"

@@ -12,6 +12,20 @@ output_dir <- hb_arg_value(
 )
 run_tests <- hb_as_bool(hb_arg_value(args, "--tests", "true"))
 
+# Which analysis the frozen upstream audits are auditing against. `published`
+# is the locked behaviour and the default. `reconstruction` keeps every
+# dataset-independent check and reports the handful of checks that assert the
+# published run's own row counts and warning pattern as not applicable; see
+# validation/audit_phenotype.R.
+baseline <- hb_arg_value(args, "--baseline", "published")
+if (!baseline %in% c("published", "reconstruction")) {
+  stop("--baseline must be published or reconstruction.", call. = FALSE)
+}
+# The bidirectional local colour-state discordance diagnostic is off by default
+# so the locked stage sequence is unchanged. It is an exploratory addition, not
+# part of the published pipeline.
+run_discordance <- hb_as_bool(hb_arg_value(args, "--discordance", "false"))
+
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 log_dir <- file.path(output_dir, "logs")
 dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
@@ -79,11 +93,13 @@ run_stage <- function(stage, script, arguments = character(),
 
 run_stage(
   "01_audit_phenotype", "validation/audit_phenotype.R",
+  c(paste0("--baseline=", baseline)),
   role = "frozen_upstream_audit"
 )
 run_stage(
   "02_audit_multiscale_context",
   "validation/audit_multiscale_hotspots.R",
+  c(paste0("--baseline=", baseline)),
   role = "frozen_upstream_audit"
 )
 
@@ -194,6 +210,23 @@ run_stage(
   "validation/audit_did_sensitivity.R",
   role = "exploratory_human_context_validation"
 )
+
+# Exploratory addition, run after the established stages and before the lock so
+# that it consumes the same cross-fitted natural presence checkpoint the locked
+# analysis produced, and so that a failure here cannot alter any published
+# quantity. It is skipped unless asked for.
+if (run_discordance) {
+  run_stage(
+    "08_run_local_state_discordance",
+    "scripts/run_local_state_asymmetry.R",
+    role = "exploratory_discordance"
+  )
+  run_stage(
+    "08_validate_local_state_discordance",
+    "validation/validate_local_state_asymmetry.R",
+    role = "exploratory_discordance_validation"
+  )
+}
 
 if (run_tests) {
   run_stage(

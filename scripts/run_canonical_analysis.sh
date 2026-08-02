@@ -62,39 +62,63 @@ run_logged preflight \
 # --- The established publication pipeline ------------------------------------
 # scripts/run_publication_pipeline.R is the authoritative stage sequence. It
 # writes results/final_analysis_pipeline/final_stage_manifest.csv as it goes, so
-# a failure is attributable to a named stage even when this driver aborts.
+# a failure is attributable to a named stage.
+#
+# A stage failure does not abort this driver. The provenance record of a failed
+# run is exactly when it is wanted, so the remaining steps still run and the
+# recorded status is what the driver finally exits with.
+pipeline_status=0
 run_logged run_publication_pipeline \
   Rscript scripts/run_publication_pipeline.R \
     --mode="$PIPELINE_MODE" \
     --tests=true \
-    --output="$LOCK_DIR"
+    --output="$LOCK_DIR" || pipeline_status=$?
+echo "pipeline_status=${pipeline_status}" | tee "${STATUS_DIR}/pipeline_status.txt"
 
 # --- Manuscript-facing figures ----------------------------------------------
-if [[ "$BUILD_FIGURES" == "true" ]]; then
+figures_status=0
+if [[ "$BUILD_FIGURES" == "true" && "$pipeline_status" -eq 0 ]]; then
   run_logged build_publication_figures \
-    Rscript scripts/build_publication_figures.R
+    Rscript scripts/build_publication_figures.R || figures_status=$?
+elif [[ "$BUILD_FIGURES" == "true" ]]; then
+  echo "=== build_publication_figures skipped: the pipeline did not complete ==="
 fi
 
 # --- Numerical regression ----------------------------------------------------
-# Written non-strictly here so that the report, the manifests and the logs all
-# exist before anything aborts. The validation summary below is what turns a
-# regression failure into a failed run.
-run_logged check_numerical_regression \
-  Rscript scripts/check_numerical_regression.R \
-    --reference inputs/numerical_reference.csv \
-    --registry "${LOCK_DIR}/final_result_registry.csv" \
-    --report-dir "$REPORT_DIR" \
-    --strict false
+# Only meaningful when this run actually regenerated the result registry. The
+# committed registry is the locked publication output, so comparing it against
+# the reference derived from it would compare a file with itself and report a
+# pass that means nothing. When the pipeline did not complete, the report is
+# still written, carrying the reason instead of a fabricated verdict.
+if [[ "$pipeline_status" -eq 0 ]]; then
+  run_logged check_numerical_regression \
+    Rscript scripts/check_numerical_regression.R \
+      --reference inputs/numerical_reference.csv \
+      --registry "${LOCK_DIR}/final_result_registry.csv" \
+      --report-dir "$REPORT_DIR" \
+      --strict false
+else
+  run_logged check_numerical_regression \
+    Rscript scripts/check_numerical_regression.R \
+      --reference inputs/numerical_reference.csv \
+      --report-dir "$REPORT_DIR" \
+      --not-run "the publication pipeline did not complete, so no registry was regenerated to compare against"
+fi
 
 # --- Reproducibility record --------------------------------------------------
+report_status=0
 run_logged write_reproducibility_report \
   Rscript scripts/write_reproducibility_report.R \
     --report-dir "$REPORT_DIR" \
     --workflow canonical-analysis \
     --inputs "${SNAPSHOT_DIR}/SNAPSHOT_MANIFEST.csv,inputs/canonical_snapshot.json,Data_S1.csv,results/ecological_v11_pigmentation_hurdle,results/ecological_v15_multiscale_hotspots" \
-    --outputs "${LOCK_DIR},results/ecological_v16_predictive_replication,results/ecological_v17_local_pair_turnover,results/ecological_v19_human_landscape_extremes,results/ecological_v20_local_white_isolates,results/ecological_v21_local_human_neighbourhood,results/ecological_v22_did_human_context,manuscript/figures"
+    --outputs "${LOCK_DIR},results/ecological_v16_predictive_replication,results/ecological_v17_local_pair_turnover,results/ecological_v19_human_landscape_extremes,results/ecological_v20_local_white_isolates,results/ecological_v21_local_human_neighbourhood,results/ecological_v22_did_human_context,manuscript/figures" \
+  || report_status=$?
 
 # --- Validation summary ------------------------------------------------------
+# Its exit status is reported at the end rather than aborting here, so the
+# manifests below are printed for a failing run as well as a passing one.
+set +e
 Rscript - <<'RS' | tee "${STATUS_DIR}/validation_summary.txt"
 source("R/reproducibility.R")
 lock <- "results/final_analysis_pipeline"
@@ -139,10 +163,19 @@ for (name in names(sections)) {
     values <- c(values, invariants[invariants != "NONE"])
   }
   passed <- sum(values == "PASS")
+  failed <- sum(values == "FAIL")
   rows[[length(rows) + 1L]] <- data.frame(
     check_class = name, checks = length(values), passed = passed,
-    failed = length(values) - passed,
-    status = if (passed == length(values)) "PASS" else "FAIL",
+    failed = failed,
+    # A check that did not run is not a check that passed. NOT_RUN is reported
+    # as its own state so a skipped comparison can never be read as a green one.
+    status = if (failed > 0L) {
+      "FAIL"
+    } else if (passed == length(values)) {
+      "PASS"
+    } else {
+      "NOT_RUN"
+    },
     stringsAsFactors = FALSE
   )
 }
@@ -153,9 +186,35 @@ if (any(summary$status == "FAIL")) {
   stop("Canonical validation reported failures.", call. = FALSE)
 }
 RS
+validation_status=$?
+set -e
 
-echo "=== canonical analysis complete ==="
+echo "=== reproducibility outputs ==="
+ls -1 "$REPORT_DIR" || true
 echo "=== input manifest ==="
-cat "${REPORT_DIR}/canonical_input_manifest.csv" | head -30
+head -30 "${REPORT_DIR}/canonical_input_manifest.csv" || true
 echo "=== output manifest ==="
-cat "${REPORT_DIR}/output_manifest.csv"
+cat "${REPORT_DIR}/output_manifest.csv" || true
+
+# --- Outcome -----------------------------------------------------------------
+# Reported in causal order, so the exit status names the root failure rather
+# than whichever later step tripped over it.
+if [[ "$pipeline_status" -ne 0 ]]; then
+  echo "=== canonical analysis FAILED: the publication pipeline stopped ===" >&2
+  echo "The named stage and its own logs are in the workflow log above, and the" >&2
+  echo "provenance record for this failed run is in ${REPORT_DIR}." >&2
+  exit "$pipeline_status"
+fi
+if [[ "$figures_status" -ne 0 ]]; then
+  echo "=== canonical analysis FAILED: figure generation ===" >&2
+  exit "$figures_status"
+fi
+if [[ "$report_status" -ne 0 ]]; then
+  echo "=== canonical analysis FAILED: the reproducibility record ===" >&2
+  exit "$report_status"
+fi
+if [[ "$validation_status" -ne 0 ]]; then
+  echo "=== canonical analysis FAILED: validation reported failures ===" >&2
+  exit "$validation_status"
+fi
+echo "=== canonical analysis complete ==="

@@ -28,6 +28,39 @@ registry_path <- arg_value(
 )
 report_dir <- arg_value("--report-dir", "reproducibility")
 strict <- hb_as_bool(arg_value("--strict", "true"))
+not_run_reason <- arg_value("--not-run", "")
+
+# A comparison that did not happen still has to leave a record, and that record
+# has to say so. Writing nothing would leave the previous run's report in place;
+# writing a passing report would claim a verification that never ran.
+if (nzchar(not_run_reason)) {
+  reference <- utils::read.csv(
+    reference_path, check.names = FALSE, stringsAsFactors = FALSE
+  )
+  report <- data.frame(
+    result_id = reference$result_id,
+    field = reference$field,
+    reference_value = as.numeric(reference$reference_value),
+    observed_value = NA_real_,
+    difference = NA_real_,
+    tolerance_kind = reference$tolerance_kind,
+    tolerance = NA_real_,
+    status = "NOT_RUN",
+    detail = not_run_reason,
+    invariant = reference$invariant,
+    invariant_status = "NONE",
+    invariant_detail = "",
+    justification = reference$justification,
+    stringsAsFactors = FALSE
+  )
+  dir.create(report_dir, recursive = TRUE, showWarnings = FALSE)
+  rp_write_csv_atomic(
+    report, file.path(report_dir, "numerical_regression_report.csv")
+  )
+  cat("Numerical regression not run: ", not_run_reason, "\n", sep = "")
+  cat(nrow(report), " comparisons recorded as NOT_RUN.\n", sep = "")
+  quit(save = "no", status = 0)
+}
 
 if (!file.exists(reference_path)) {
   stop(

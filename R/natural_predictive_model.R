@@ -231,7 +231,14 @@ v16_fit_fold <- function(train, test, response, predictor_basis, mesh,
                          family = c("binomial", "gaussian"),
                          trials = NULL, n_draws = 1000L, seed = 20260725L,
                          model = "model", fold = NA_integer_,
-                         inla_verbose = TRUE) {
+                         inla_verbose = TRUE,
+                         # Numerical stabilisation of INLA's sampler, not a
+                         # model change. A value of 0 leaves the call exactly as
+                         # it was; a positive value adds that constant to the
+                         # diagonal of the precision matrix so Cholesky
+                         # factorisation inside inla.qsample stays defined. It
+                         # alters no formula, prior, fold, or draw count.
+                         diagonal = 0) {
   family <- match.arg(family)
   train_X <- cbind(Intercept = 1, predictor_basis$train)
   test_X <- cbind(Intercept = 1, predictor_basis$test)
@@ -280,6 +287,9 @@ v16_fit_fold <- function(train, test, response, predictor_basis, mesh,
     control.compute = list(config = TRUE),
     verbose = isTRUE(inla_verbose)
   )
+  if (is.finite(diagonal) && diagonal > 0) {
+    arguments$control.inla <- list(diagonal = diagonal)
+  }
   if (family == "binomial") arguments$Ntrials <- stack_data$Ntrials
   fit_time <- system.time({
     fit <- do.call(INLA::inla, arguments)
@@ -337,6 +347,9 @@ v16_fit_fold <- function(train, test, response, predictor_basis, mesh,
       model = model, heldout_spatial_fold = fold,
       family = family, n_train = nrow(train), n_test = nrow(test),
       mesh_vertices = mesh$n, n_draws = n_draws,
+      # 0 for an unstabilised fit. Recorded per fold so the model log itself
+      # shows which components ran with a stabilised precision matrix.
+      inla_diagonal = diagonal,
       fit_elapsed_seconds = fit_time,
       sample_elapsed_seconds = sample_time,
       training_response_mean = if (family == "binomial") {
@@ -376,7 +389,7 @@ v16_crossfit_spde <- function(data, response, family,
                               fingerprint_terms = character(), trials = NULL,
                               training_eligible = NULL,
                               model = "model", n_draws = 1000L,
-                              seed = 20260725L) {
+                              seed = 20260725L, diagonal = 0) {
   required <- unique(c(
     "exact_site_id", "x_km", "y_km", "spatial_fold", response,
     environment_terms, fingerprint_terms, trials
@@ -414,7 +427,7 @@ v16_crossfit_spde <- function(data, response, family,
       mesh_objects$mesh,
       family = family, trials = trials, n_draws = n_draws,
       seed = as.integer(seed + 1000L * match(fold, folds)),
-      model = model, fold = fold
+      model = model, fold = fold, diagonal = diagonal
     )
     draws[test_index, ] <- result$draws
     latent_mean[test_index] <- result$latent_mean
@@ -434,6 +447,9 @@ v16_crossfit_spde <- function(data, response, family,
   list(
     analysis_spec_version = v16_analysis_spec_version,
     model = model,
+    # Carried on the result so the checkpoint, the provenance record and the
+    # reconstruction report all state the stabilisation this fit actually used.
+    inla_diagonal = diagonal,
     cell_id = as.character(data$exact_site_id),
     observed = as.numeric(data[[response]]),
     trials = if (!is.null(trials)) as.integer(data[[trials]]) else NULL,

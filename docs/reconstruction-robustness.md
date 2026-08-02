@@ -94,6 +94,52 @@ trouble stays isolated rather than becoming widespread, since a warning in many
 folds would undermine the cross-fitted predictions the later stages rest on.
 That requirement is what the reconstruction mode enforces.
 
+## Numerical stabilisation of the phenology sampler
+
+One deviation from the locked configuration is required to make the
+reconstruction complete, and it is recorded rather than absorbed.
+
+On the reconstruction, the phenology component of stage 02 aborts in fold 1.
+`inla.qsample` reports `Matrix is not (numerical) positive definite` from
+`GMRFLib_init_problem` and terminates the INLA process with SIGABRT before a
+single posterior draw is written, so the stage produces nothing at all. The
+phenology model is the only one carrying `median_year_centered` and its square
+alongside the SPDE field, and on this cell set that near-collinear pair leaves
+the joint precision matrix numerically singular.
+
+The pipeline therefore accepts `--phenology-diagonal`, which is passed to
+`control.inla(diagonal=)` **for that one component**. It adds a constant to the
+diagonal of the precision matrix so the Cholesky factorisation stays defined.
+
+What this is:
+
+- a property of the solver, not of the model;
+- applied to the phenology component only — the presence, intensity and both
+  common-support components are fitted exactly as before;
+- the smallest value tried, `1e-8`. A larger value is used only if a smaller one
+  is demonstrated to still abort.
+
+What it does not change: no formula, prior, likelihood, spatial fold, draw
+count, seed, neighbourhood definition or threshold. The default is `0`, so the
+published mode is bit-for-bit the locked configuration.
+
+Where the value is recorded, so a stabilised fit can never be mistaken for an
+unstabilised one:
+
+| record | field |
+|---|---|
+| `reproducibility/pipeline_stage_registry.csv` | the `invariant` column of `02_run_natural_predictive_model` |
+| `results/ecological_v16_predictive_replication/predictive_replication_model_log.csv` | `inla_diagonal`, per component and per fold |
+| `results/ecological_v16_predictive_replication/predictive_replication_component_scope.csv` | `phenology_inla_diagonal` |
+| the fitted checkpoint `.rds` | `inla_diagonal` on the result object |
+| `reproduction_status/run_provenance.txt` | `phenology_inla_diagonal` |
+| `reproducibility/reproduction_summary.md` | a *Numerical stabilisation* section, read back from the model log |
+| `predictive_replication_audit.csv` | the `INLA_numerical_stabilisation` row |
+
+The audit reports it as a `RESULT` rather than scoring it, because the correct
+value is not something an audit can assert — but a reader must never have to
+guess whether it was used.
+
 ## The discordance diagnostic
 
 On top of the rebuilt pipeline, this analysis runs the bidirectional local

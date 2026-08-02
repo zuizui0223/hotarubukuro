@@ -26,6 +26,13 @@ if (!baseline %in% c("published", "reconstruction")) {
 # part of the published pipeline.
 run_discordance <- hb_as_bool(hb_arg_value(args, "--discordance", "false"))
 
+# Numerical stabilisation for the phenology component of stage 02 only. The
+# default of 0 is the locked behaviour: no stabilisation, nothing changed. A
+# positive value is passed straight through to control.inla(diagonal=) for that
+# one component; see the comment in scripts/run_natural_predictive_model.R for
+# why the reconstruction needs it and what it does not change.
+phenology_diagonal <- hb_arg_value(args, "--phenology-diagonal", "0")
+
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 log_dir <- file.path(output_dir, "logs")
 dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
@@ -107,6 +114,7 @@ if (mode == "full") {
   run_stage(
     "02_run_natural_predictive_model",
     "scripts/run_natural_predictive_model.R",
+    c(paste0("--phenology-diagonal=", phenology_diagonal)),
     role = "confirmatory_core"
   )
 }

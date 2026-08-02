@@ -278,6 +278,28 @@ add_check(
   if (fatal_inla > 0) "critical" else "medium"
 )
 
+# Numerical stabilisation is a solver setting, not a scientific choice, so it is
+# reported rather than scored. Surfacing it here means an audit reader can never
+# mistake a stabilised fit for an unstabilised one.
+stabilised <- if ("inla_diagonal" %in% names(logs)) {
+  diagonals <- stats::aggregate(inla_diagonal ~ model, logs, function(x) max(x))
+  diagonals[diagonals$inla_diagonal > 0, , drop = FALSE]
+} else logs[0, , drop = FALSE]
+add_check(
+  "INLA_numerical_stabilisation", "RESULT",
+  if (!"inla_diagonal" %in% names(logs)) {
+    "Model log predates per-fold diagonal recording."
+  } else if (!nrow(stabilised)) {
+    "No component used a precision-matrix diagonal; every fit ran unstabilised."
+  } else paste0(
+    "components fitted with control.inla(diagonal=): ",
+    paste(stabilised$model, format(stabilised$inla_diagonal, scientific = TRUE),
+          sep = "=", collapse = ", "),
+    ". This is a solver setting; formulas, priors, folds, and draw counts are unchanged."
+  ),
+  ""
+)
+
 stability_ok <- nrow(stability) == 6L &&
   all(stability$spearman_rank_correlation >= 0.95) &&
   all(stability$top20_jaccard >= 0.75)

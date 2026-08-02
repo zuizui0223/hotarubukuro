@@ -24,6 +24,16 @@ BUILD_FIGURES="${BUILD_FIGURES:-true}"
 LOCK_DIR="results/final_analysis_pipeline"
 DISCORDANCE_DIR="results/ecological_v23_local_state_asymmetry"
 
+# Numerical stabilisation for the phenology component only.
+#
+# On the reconstruction, inla.qsample aborts that component with "Matrix is not
+# (numerical) positive definite" and takes the process down with SIGABRT before
+# a single draw is written. This adds a constant to the diagonal of the
+# precision matrix so the Cholesky factorisation stays defined. It is the
+# smallest value tried; it is not a scientific change, and the presence,
+# intensity and both common-support components are untouched.
+PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-1e-8}"
+
 export HOTARUBUKURO_MLIT_CACHE="${HOTARUBUKURO_MLIT_CACHE:-reproduction_inputs/mlit_l03_2021}"
 export HOTARUBUKURO_DID_CACHE="${HOTARUBUKURO_DID_CACHE:-reproduction_inputs/mlit_did_2015}"
 export HOTARUBUKURO_WORLDPOP_RASTER="${HOTARUBUKURO_WORLDPOP_RASTER:-${SNAPSHOT_DIR}/analysis_inputs/rasters/population_count_Japan_crop.tif}"
@@ -74,6 +84,7 @@ run_logged run_pipeline_on_reconstruction \
     --tests=true \
     --baseline=reconstruction \
     --discordance=true \
+    --phenology-diagonal="$PHENOLOGY_DIAGONAL" \
     --output="$LOCK_DIR" || pipeline_status=$?
 echo "pipeline_status=${pipeline_status}" | tee "${STATUS_DIR}/pipeline_status.txt"
 

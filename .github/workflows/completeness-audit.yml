@@ -30,6 +30,7 @@ concurrency:
 
 env:
   PUBLIC_CACHE: ${{ github.workspace }}/reproduction_inputs/public_environment_cache
+  SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
   BOMBUS_DIR: ${{ github.workspace }}/results/enmeval_aicc_reselected/predictions
   REPORT_DIR: ${{ github.workspace }}/reproducibility
   HISTORICAL_PUBLICATION_COMMIT: bcceb7c7c909adcb5f7b69721ee5c5921ae90f2e
@@ -147,6 +148,16 @@ jobs:
           done
           sha256sum "${BOMBUS_DIR}"/*.tif
 
+      # The MLIT-derived human rasters and the WorldPop layer come from the same
+      # immutable snapshot the reconstruction uses, so this audit sees exactly
+      # the raster set the reconstruction's filter saw. Substituting empty paths
+      # here would change the inputs and make the audit describe a different
+      # filter than the one in question.
+      - name: Restore the canonical analysis-input snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
+
       - name: Build the environmental input
         run: |
           mkdir -p results/environment_v3
@@ -156,18 +167,22 @@ jobs:
             --output-csv=results/environment_v3/ecological_input_v2.csv
 
       - name: Apply the complete-case filter and record it per observation
+        shell: bash
         run: |
+          set -o pipefail
+          rasters="${SNAPSHOT_DIR}/analysis_inputs/results/public_rasters/mlit_human_forest_edge_2021"
+          ls -1 "$rasters"
           Rscript scripts/run_environment_spatial.R \
             --anomaly-csv=results/environment_v3/ecological_input_v2.csv \
             --raw-colour-csv=Data_S1.csv \
             --bombus-dir="$BOMBUS_DIR" \
-            --H-raster="${PUBLIC_CACHE}/population_count_Japan_crop.tif" \
-            --R-raster="" \
+            --H-raster="${SNAPSHOT_DIR}/analysis_inputs/rasters/population_count_Japan_crop.tif" \
+            --R-raster="${rasters}/mlit_human_forest_edge_1km.tif" \
             --N-raster="${PUBLIC_CACHE}/gdd5_Japan_crop_30s.tif" \
-            --A-raster="" \
+            --A-raster="${rasters}/mlit_major_road_distance_1km.tif" \
             --output-dir=results/ecological_v9_final_public_HRNA_50km \
             --run-inla=false \
-            --author-review-confirmed=true
+            --author-review-confirmed=true 2>&1 | tee /tmp/filter.log
 
       - name: Report the exclusions
         if: always()
@@ -213,3 +228,12 @@ jobs:
             reproducibility
           if-no-files-found: warn
           retention-days: 90
+
+      # Last on purpose: the report and the upload above are long enough to push
+      # a stage error out of a workflow log tail.
+      - name: Show the filter error
+        if: failure()
+        shell: bash
+        run: |
+          echo "=== run_environment_spatial.R output (last 60 lines) ===" >&2
+          tail -60 /tmp/filter.log >&2 || echo "no captured output" >&2

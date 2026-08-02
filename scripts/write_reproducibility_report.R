@@ -37,6 +37,28 @@ output_paths <- expand_paths(outputs_argument)
 input_manifest <- rp_manifest_rows(input_paths, role = "input")
 output_manifest <- rp_manifest_rows(output_paths, role = "output")
 
+# Hashing a file does not make it this run's work. A run that stopped early
+# still finds the repository's committed results on disk, and listing them as
+# outputs would overstate what the run produced, so each row records whether the
+# file was written after the run began.
+run_started <- suppressWarnings(
+  as.numeric(Sys.getenv("HOTARUBUKURO_RUN_STARTED", ""))
+)
+if (nrow(output_manifest)) {
+  modified <- as.numeric(file.info(output_manifest$path)$mtime)
+  output_manifest$produced_in_run <- if (isTRUE(is.finite(run_started))) {
+    modified >= run_started
+  } else {
+    NA
+  }
+}
+produced_count <- if (nrow(output_manifest) &&
+                     !all(is.na(output_manifest$produced_in_run))) {
+  sum(output_manifest$produced_in_run, na.rm = TRUE)
+} else {
+  NA_integer_
+}
+
 if (nrow(input_manifest)) {
   rp_write_manifest(input_manifest, file.path(report_dir, "input_manifest.csv"))
 }
@@ -123,7 +145,14 @@ summary_lines <- c(
     "not installed"
   }),
   paste0("- inputs recorded: ", nrow(input_manifest)),
-  paste0("- outputs recorded: ", nrow(output_manifest)),
+  paste0("- outputs recorded: ", nrow(output_manifest),
+         if (is.na(produced_count)) {
+           ""
+         } else {
+           paste0(" (", produced_count, " written by this run, ",
+                  nrow(output_manifest) - produced_count,
+                  " already present before it started)")
+         }),
   paste0("- seeds recorded: ", nrow(seed_registry)),
   paste0("- checkpoints recorded: ", nrow(checkpoints)),
   "",
@@ -155,19 +184,38 @@ if (length(missing_inputs)) {
   )
 }
 
+if (!is.na(produced_count) && produced_count < nrow(output_manifest)) {
+  summary_lines <- c(
+    summary_lines,
+    "## Outputs this run did not produce",
+    "",
+    paste0(
+      "This run wrote ", produced_count, " of the ", nrow(output_manifest),
+      " declared output files. The rest were already on disk when it started — ",
+      "committed results, or artifacts of an earlier run — and are hashed here ",
+      "for completeness, not claimed as this run's work. The ",
+      "`produced_in_run` column of `output_manifest.csv` marks each one."
+    ),
+    ""
+  )
+}
+
 summary_lines <- c(
   summary_lines,
   "## Output hashes",
   "",
-  "| path | bytes | sha256 |",
-  "|---|---:|---|",
+  "| path | bytes | sha256 | produced by this run |",
+  "|---|---:|---|---|",
   if (nrow(output_manifest)) {
     paste0(
       "| `", output_manifest$path, "` | ", format(output_manifest$bytes, trim = TRUE),
-      " | `", output_manifest$sha256, "` |"
+      " | `", output_manifest$sha256, "` | ",
+      ifelse(is.na(output_manifest$produced_in_run), "unknown",
+             ifelse(output_manifest$produced_in_run, "yes", "no")),
+      " |"
     )
   } else {
-    "| _no outputs recorded_ | | |"
+    "| _no outputs recorded_ | | | |"
   },
   "",
   "## Input hashes",

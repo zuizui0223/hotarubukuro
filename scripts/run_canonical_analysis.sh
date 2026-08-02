@@ -24,6 +24,12 @@ export HOTARUBUKURO_DID_CACHE="${HOTARUBUKURO_DID_CACHE:-reproduction_inputs/mli
 export HOTARUBUKURO_WORLDPOP_RASTER="${HOTARUBUKURO_WORLDPOP_RASTER:-${SNAPSHOT_DIR}/analysis_inputs/rasters/population_count_Japan_crop.tif}"
 export HOTARUBUKURO_INPUT_ROOT="${HOTARUBUKURO_INPUT_ROOT:-${SNAPSHOT_DIR}/analysis_inputs/rasters}"
 
+# Recorded before anything runs so the provenance report can tell a file this
+# run produced from a committed file that was already on disk. Without it, a run
+# that failed at stage 01 still lists the repository's committed results as its
+# own outputs.
+export HOTARUBUKURO_RUN_STARTED="${HOTARUBUKURO_RUN_STARTED:-$(date +%s)}"
+
 mkdir -p "$STATUS_DIR" "$REPORT_DIR"
 
 run_logged() {

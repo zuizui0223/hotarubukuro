@@ -11,14 +11,14 @@ The purpose is to determine whether the apparent directional pattern exceeds the
 
 ## Reused design
 
-The diagnostic reuses the locked primary local-isolate graph without choosing a new spatial scale:
+The diagnostic reuses the locked primary local-isolate graph without choosing a new spatial scale. The configuration is read programmatically from the primary row of `v20_configuration_table()` in `R/local_pigmented_isolates.R` rather than restated here, so it cannot drift from the locked analysis:
 
 - 10-km neighbourhood radius;
 - environmental RMS-distance caliper of 1 across the four broad/within 50-km natural-environment PCs;
 - at least three eligible neighbours; and
 - the same fold-boundary setting as the locked primary event.
 
-The same event extractor is applied to the observed map and to every cross-fitted natural predictive map.
+The same event extractor is applied to the observed map and to every cross-fitted natural predictive map. A directional event requires *every* eligible neighbour to belong to the opposite state.
 
 ## Primary estimand
 
@@ -33,7 +33,13 @@ The primary asymmetry statistic is:
 log_rate_ratio = log(pigmented_in_white_rate / white_in_pigmented_rate)
 ```
 
-Positive values indicate relatively more pigmented-in-white events. The observed statistic is compared with its distribution across 1,000 natural predictive maps.
+Positive values indicate relatively more pigmented-in-white events. The observed statistic is compared with its distribution across exactly 1,000 cross-fitted natural predictive maps, using the finite-simulation correction
+
+```text
+p = (1 + number of null statistics at least as extreme) / (usable null maps + 1)
+```
+
+The summary reports the observed value, the null mean and standard deviation, the 2.5% and 97.5% null quantiles, the upper-tail, lower-tail, and two-sided Monte Carlo p-values, the observed percentile within the null distribution, and the exact number of usable natural maps. `local_state_asymmetry_null.csv` carries every per-map statistic, so all reported p-values can be recomputed independently; validation does exactly that.
 
 ## State definitions
 
@@ -61,12 +67,12 @@ This analysis is a **post hoc symmetry diagnostic**, not a pre-specified confirm
 
 Any mechanism would require field provenance, repeated population sampling, genetics, calibrated colour measurements, and direct ecological observations.
 
-## Commands
+## How it is run
+
+The diagnostic is stage 11 of the canonical analysis workflow, which starts from the immutable, checksummed analysis-input snapshot and regenerates the 1-km cell table and the 1,000 cross-fitted natural predictive maps before running it:
 
 ```bash
-Rscript scripts/run_local_state_asymmetry.R
-Rscript validation/validate_local_state_asymmetry.R
-Rscript tests/testthat.R
+gh workflow run canonical-analysis.yml --ref analysis/local-colour-state-asymmetry
 ```
 
-Generated outputs are written to `results/ecological_v23_local_state_asymmetry/` and should not be promoted into the locked claim registry until the diagnostic has been run, independently validated, and interpreted as post hoc.
+`docs/pipeline-dag.md` records the full node-by-node dependency graph, the seeds, and the failure conditions. Generated outputs are written to `results/ecological_v23_local_state_asymmetry/` and uploaded with input and output manifests carrying SHA-256 hashes. They must not be promoted into the locked claim registry until the diagnostic has been run, independently validated, and interpreted as post hoc.

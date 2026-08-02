@@ -1,7 +1,40 @@
 args <- commandArgs(trailingOnly = TRUE)
 source("R/pipeline_support.R")
+source("R/reproducibility.R")
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
 as_bool <- hb_as_bool
+
+# The stage fits five components. `--components` selects a named subset so that
+# a workflow which only needs the natural presence baseline does not have to
+# refit the intensity, phenology, and Bombus-fingerprint components as well.
+# The default is every component, so the locked stage-02 behaviour is unchanged;
+# a subset is always recorded in the component-scope metadata rather than being
+# applied silently.
+all_components <- c(
+  "national_environment_spde_presence",
+  "national_environment_spde_intensity",
+  "national_environment_year_spde_phenology",
+  "common_support_environment_spde_presence",
+  "common_support_environment_spde_bombus_presence"
+)
+requested_components <- arg_value("--components", "all")
+selected_components <- if (identical(tolower(requested_components), "all")) {
+  all_components
+} else {
+  trimws(strsplit(requested_components, ",", fixed = TRUE)[[1L]])
+}
+unknown_components <- setdiff(selected_components, all_components)
+if (length(unknown_components)) {
+  stop(
+    "Unknown --components values: ", paste(unknown_components, collapse = ", "),
+    ". Valid components: ", paste(all_components, collapse = ", "),
+    call. = FALSE
+  )
+}
+if (!length(selected_components)) {
+  stop("--components selected no model components.", call. = FALSE)
+}
+partial_scope <- !setequal(selected_components, all_components)
 
 input_observations <- arg_value(
   "--observations",
@@ -47,6 +80,12 @@ utils::write.csv(
 )
 
 run_or_load <- function(model, expression) {
+  # `expression` is a promise, so a component that was not selected is never
+  # forced and therefore never fitted.
+  if (!model %in% selected_components) {
+    message("[v16] component not selected; skipping: ", model)
+    return(NULL)
+  }
   path <- file.path(checkpoint_dir, paste0(model, "_draws", n_draws, ".rds"))
   if (!force_rerun && file.exists(path)) {
     message("[v16] loading checkpoint: ", path)
@@ -70,7 +109,9 @@ run_or_load <- function(model, expression) {
     message("[v16] checkpoint specification is stale; refitting: ", path)
   }
   result <- base::force(expression)
-  saveRDS(result, path, compress = "gzip")
+  # Written through a temporary file and renamed so an interrupted run cannot
+  # leave a truncated checkpoint that a resumed run would load as valid.
+  rp_save_rds_atomic(result, path)
   result
 }
 
@@ -146,6 +187,58 @@ all_results <- list(
   common_support_environment_spde_presence = common_reference,
   common_support_environment_spde_bombus_presence = common_fingerprint
 )
+
+fitted_components <- names(all_results)[!vapply(all_results, is.null, logical(1))]
+component_scope <- data.frame(
+  field = c(
+    "requested_components", "fitted_components", "skipped_components",
+    "component_scope", "n_predictive_draws", "random_seed", "generated_utc",
+    "commit"
+  ),
+  value = c(
+    paste(selected_components, collapse = ";"),
+    paste(fitted_components, collapse = ";"),
+    paste(setdiff(all_components, fitted_components), collapse = ";"),
+    if (partial_scope) "partial" else "complete",
+    n_draws, seed, format(Sys.time(), tz = "UTC", usetz = TRUE),
+    rp_git_commit()
+  ),
+  stringsAsFactors = FALSE
+)
+rp_write_csv_atomic(
+  component_scope,
+  file.path(output_dir, "predictive_replication_component_scope.csv")
+)
+rp_write_csv_atomic(
+  data.frame(
+    model = fitted_components,
+    n_cells = vapply(
+      all_results[fitted_components], function(x) nrow(x$draws), integer(1)
+    ),
+    n_draws = vapply(
+      all_results[fitted_components], function(x) ncol(x$draws), integer(1)
+    ),
+    checkpoint = file.path(
+      "checkpoints", paste0(fitted_components, "_draws", n_draws, ".rds")
+    ),
+    stringsAsFactors = FALSE
+  ),
+  file.path(output_dir, "predictive_replication_component_checkpoints.csv")
+)
+
+if (partial_scope) {
+  # The cross-model performance, candidate-null, and rank-sensitivity tables
+  # below are defined across all five components. They are not written for a
+  # partial scope, and the scope is recorded above so no downstream reader can
+  # mistake a subset run for the complete stage.
+  message(
+    "[v16] partial component scope: wrote checkpoints for ",
+    paste(fitted_components, collapse = ", "),
+    "; cross-model summary tables require every component and were skipped."
+  )
+  cat("v16 partial component run complete: ", output_dir, "\n", sep = "")
+  quit(save = "no", status = 0)
+}
 
 model_logs <- do.call(rbind, lapply(all_results, `[[`, "log"))
 utils::write.csv(

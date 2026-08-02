@@ -1,0 +1,11 @@
+# Single pinned CRAN snapshot for every workflow in this repository.
+#
+# Posit Package Manager serves an immutable, date-stamped view of CRAN. Pinning
+# the date pins the resolved version of every CRAN package and of every
+# transitive dependency, which is what makes a clean runner reproducible. The
+# `__linux__/noble` prefix additionally serves prebuilt Ubuntu 24.04 binaries so
+# a clean restore does not depend on compiler behaviour.
+#
+# Change this date only in a commit that also records why. Do not add a second
+# repository: a package resolved from an unpinned mirror is not reproducible.
+https://packagemanager.posit.co/cran/__linux__/noble/2026-07-01

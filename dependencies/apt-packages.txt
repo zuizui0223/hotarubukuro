@@ -1,0 +1,37 @@
+# Ubuntu 24.04 (noble) system libraries required by the declared R packages.
+# One package per line; blank lines and lines starting with # are ignored.
+# Every workflow installs exactly this list, so a missing library is a change
+# here rather than a patch inside one workflow file.
+
+# GDAL / GEOS / PROJ / udunits: sf, terra, units
+gdal-bin
+libgdal-dev
+libgeos-dev
+libproj-dev
+libudunits2-dev
+libsqlite3-dev
+
+# Transport and parsing: curl, httr2, xml2, openssl
+libcurl4-openssl-dev
+libssl-dev
+libxml2-dev
+
+# Linear programming and sparse solvers used through the INLA stack
+libglpk-dev
+
+# Text shaping and image codecs: ragg, systemfonts, figure rendering
+libfontconfig1-dev
+libharfbuzz-dev
+libfribidi-dev
+libfreetype6-dev
+libpng-dev
+libtiff5-dev
+libjpeg-dev
+
+# Runtime binaries used by the INLA shared objects and the acquisition steps
+libgomp1
+curl
+ca-certificates
+unzip
+zip
+jq

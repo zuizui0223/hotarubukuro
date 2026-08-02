@@ -1,0 +1,198 @@
+name: PR checks
+
+# Fast checks that run on every push to a pull request. They do not run any
+# expensive analysis stage; their job is to fail in minutes when the declared
+# environment, the declared dependencies, or the asymmetry logic is wrong,
+# instead of failing hours into a numerical workflow.
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-checks:
+    name: Static checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Parse every R script
+        shell: Rscript {0}
+        run: |
+          files <- list.files(
+            c("R", "scripts", "validation", "tests"),
+            pattern = "\\.R$", recursive = TRUE, full.names = TRUE
+          )
+          stopifnot(length(files) > 0L)
+          for (file in files) {
+            message("Parsing ", file)
+            parse(file, keep.source = FALSE)
+          }
+          cat("Parsed", length(files), "R files.\n")
+
+      - name: Check the workflow shell drivers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for script in scripts/*.sh; do
+            bash -n "$script"
+            echo "syntax ok: $script"
+          done
+
+      - name: Check the dependency declaration is complete and self-consistent
+        shell: Rscript {0}
+        run: |
+          source("R/pipeline_support.R")
+          source("R/reproducibility.R")
+
+          declared <- rp_declared_packages()
+          stopifnot(nrow(declared) > 0L, !anyDuplicated(declared$package))
+
+          # Every package the analysis code reaches for through `::` or through
+          # the stage package groups must be declared exactly once. This is the
+          # check that stops the pattern of discovering one missing package per
+          # failed run.
+          sources <- list.files(
+            c("R", "scripts", "validation"), pattern = "\\.R$",
+            recursive = TRUE, full.names = TRUE
+          )
+          text <- unlist(lapply(sources, readLines, warn = FALSE))
+          used <- unique(unlist(regmatches(
+            text, gregexpr("\\b[A-Za-z][A-Za-z0-9.]*(?=::)", text, perl = TRUE)
+          )))
+          base_packages <- rownames(installed.packages(priority = "base"))
+          used <- setdiff(used, c(base_packages, "chain"))
+          grouped <- unique(unlist(hb_package_groups, use.names = FALSE))
+          required <- unique(c(used, grouped))
+          undeclared <- setdiff(required, declared$package)
+          if (length(undeclared)) {
+            stop(
+              "Packages used by the pipeline but absent from ",
+              "dependencies/r-packages.csv: ",
+              paste(sort(undeclared), collapse = ", ")
+            )
+          }
+          cat("All", length(required), "referenced packages are declared.\n")
+
+          apt <- rp_read_lines_config("dependencies/apt-packages.txt")
+          stopifnot(length(apt) > 0L)
+          inla <- rp_read_key_value("dependencies/inla.csv")
+          stopifnot(
+            nzchar(inla[["version"]]),
+            any(nzchar(inla[grepl("^source_url_", names(inla))]))
+          )
+          cat("Declared", length(apt), "system libraries and INLA",
+              inla[["version"]], "\n")
+
+      - name: Check the canonical snapshot descriptor
+        shell: Rscript {0}
+        run: |
+          path <- "inputs/canonical_snapshot.json"
+          if (!file.exists(path)) {
+            cat("No snapshot descriptor yet; the canonical workflow will refuse to run.\n")
+            quit(save = "no", status = 0)
+          }
+          if (!requireNamespace("jsonlite", quietly = TRUE)) {
+            install.packages("jsonlite")
+          }
+          descriptor <- jsonlite::fromJSON(path, simplifyDataFrame = TRUE)
+          stopifnot(
+            nzchar(descriptor$release_tag),
+            nzchar(descriptor$asset_name),
+            nchar(descriptor$asset_sha256) == 64L,
+            nrow(descriptor$contents) > 0L,
+            all(nchar(descriptor$contents$sha256) == 64L)
+          )
+          cat("Snapshot descriptor declares", nrow(descriptor$contents),
+              "members for tag", descriptor$release_tag, "\n")
+
+  python-tests:
+    name: Python tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install -e ".[test]"
+      - run: python -m pytest
+
+  environment-and-unit-tests:
+    name: Environment restore, preflight, and R unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      # The cache only makes the restore faster. The restore itself is defined
+      # entirely by the pinned snapshot and dependencies/inla.csv, so a cold
+      # cache produces the same environment.
+      - name: Restore the R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+
+      - name: Restore the declared R environment
+        run: Rscript scripts/setup_r_environment.R --report-dir reproducibility
+
+      - name: Preflight the analysis environment
+        run: Rscript scripts/preflight.R --scope canonical --report-dir reproducibility
+
+      - name: Run the R unit tests
+        shell: Rscript {0}
+        run: |
+          results <- testthat::test_dir(
+            "tests/testthat", reporter = "summary", stop_on_failure = TRUE
+          )
+          invisible(results)
+
+      - name: Upload environment audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-checks-environment-${{ github.sha }}
+          path: reproducibility
+          if-no-files-found: warn
+          retention-days: 14

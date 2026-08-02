@@ -1,0 +1,11 @@
+field,value
+package,INLA
+version,25.10.19
+version_policy,pinned
+source_url_1,https://inla.r-inla-download.org/R/stable/src/contrib/INLA_25.10.19.tar.gz
+source_url_2,https://inla.r-inla-download.org/R/testing/src/contrib/INLA_25.10.19.tar.gz
+source_url_3,https://inla.r-inla-download.org/R/stable/src/contrib/Archive/INLA/INLA_25.10.19.tar.gz
+source_url_4,https://inlabru-org.r-universe.dev/src/contrib/INLA_25.10.19.tar.gz
+expected_sha256,
+retrieved_utc,
+resolved_url,

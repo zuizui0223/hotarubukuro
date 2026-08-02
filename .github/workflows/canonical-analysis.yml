@@ -1,0 +1,147 @@
+name: Canonical analysis reproduction
+
+# Workflow A. Starts from the immutable, checksummed analysis-input snapshot
+# published as a GitHub Release asset and regenerates the 1-km cell table, the
+# 1,000 cross-fitted natural predictive maps, the bidirectional local
+# colour-state asymmetry outputs, and the validation report.
+#
+# This workflow must be reliable on a clean GitHub-hosted runner. It does not
+# contact any external scientific data service; everything it consumes is either
+# in the repository or in the checksummed snapshot.
+
+on:
+  workflow_dispatch:
+    inputs:
+      clean_run:
+        description: Discard stage checkpoints and reconstruct from the snapshot
+        type: boolean
+        required: false
+        default: true
+      required_maps:
+        description: Number of cross-fitted natural predictive maps
+        type: string
+        required: false
+        default: "1000"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canonical-analysis-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
+  STATUS_DIR: ${{ github.workspace }}/reproduction_status
+  REPORT_DIR: ${{ github.workspace }}/reproducibility
+  REQUIRED_MAPS: ${{ inputs.required_maps || '1000' }}
+  PREDICTIVE_SEED: "20260725"
+  PSEUDOCOUNT: "0.5"
+  CLEAN_RUN: ${{ inputs.clean_run == false && 'false' || 'true' }}
+
+jobs:
+  canonical:
+    name: Canonical analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      # Speed only. The restore is fully determined by the pinned CRAN snapshot
+      # and dependencies/inla.csv, so an empty cache changes the run time and
+      # nothing else.
+      - name: Restore the R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+
+      - name: Restore the declared R environment
+        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR"
+
+      - name: Restore the canonical analysis-input snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
+
+      - name: Reconstruct the cell table, predictive maps, and asymmetry analysis
+        run: bash scripts/run_canonical_analysis.sh
+
+      - name: Summarise the primary result
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "## Canonical analysis reproduction"
+            echo
+            echo "- commit: \`${GITHUB_SHA}\`"
+            echo "- required natural maps: ${REQUIRED_MAPS}"
+            echo "- clean run: ${CLEAN_RUN}"
+            echo
+            if [[ -s "${STATUS_DIR}/asymmetry_primary_results.txt" ]]; then
+              echo '```text'
+              cat "${STATUS_DIR}/asymmetry_primary_results.txt"
+              echo '```'
+            else
+              echo "No asymmetry summary was produced."
+            fi
+            echo
+            if [[ -s results/ecological_v23_local_state_asymmetry/VALIDATION.md ]]; then
+              cat results/ecological_v23_local_state_asymmetry/VALIDATION.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record run provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$STATUS_DIR"
+          {
+            echo "workflow=canonical-analysis"
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "r_version=$(tr -d '[:space:]' < dependencies/r-version.txt)"
+            echo "clean_run=${CLEAN_RUN}"
+            echo "required_maps=${REQUIRED_MAPS}"
+            echo "predictive_seed=${PREDICTIVE_SEED}"
+            echo "pseudocount=${PSEUDOCOUNT}"
+          } > "${STATUS_DIR}/run_provenance.txt"
+          find results reproducibility -type f -printf '%p\t%s\n' 2>/dev/null \
+            | sort > "${STATUS_DIR}/result_inventory.tsv"
+
+      - name: Upload results, manifests, and all logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-analysis-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            reproducibility
+            reproduction_status
+            results/ecological_v15_multiscale_hotspots
+            results/ecological_v16_predictive_replication
+            results/ecological_v23_local_state_asymmetry
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

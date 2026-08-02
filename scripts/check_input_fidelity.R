@@ -86,17 +86,18 @@ if (failures > 0L) {
     "  meaning: the analysis inputs in this snapshot are not the tables the\n",
     "    published results were computed from, so the frozen upstream audits\n",
     "    in validation/ will refuse the run at stage 01.\n",
-    "  cause: the published analysis-input tables were never committed to this\n",
-    "    repository and are absent from the recorded publication commit, so the\n",
-    "    snapshot is rebuilt from Data_S1.csv and the pinned public rasters.\n",
-    "    Row inclusion is decided by complete.cases over the extracted\n",
-    "    environmental covariates, so any coverage difference in a public raster\n",
-    "    changes the analysis population.\n",
-    "  remediation: archive the established analysis-input tables as a snapshot\n",
-    "    component - see docs/established-inputs.md - or re-baseline the frozen\n",
-    "    audits and inputs/numerical_reference.csv against the reconstructed\n",
-    "    inputs. The second option changes published quantities and is an author\n",
-    "    decision, not a pipeline decision.\n"
+    "  cause: the published analysis-input tables no longer exist. They were\n",
+    "    never committed, they are absent from the recorded publication commit,\n",
+    "    from both published snapshots, and from every retained artifact, so the\n",
+    "    snapshot is rebuilt from Data_S1.csv and the pinned public rasters. Row\n",
+    "    inclusion is decided by complete.cases over the extracted environmental\n",
+    "    covariates, so any coverage difference in a public raster changes the\n",
+    "    analysis population.\n",
+    "  status: this is a recorded, searched-for loss, not a configuration\n",
+    "    mistake. docs/established-inputs.md sets out what was searched and what\n",
+    "    survives. The published quantities have deliberately not been\n",
+    "    re-baselined onto the reconstruction, so this check is expected to fail\n",
+    "    until the original tables resurface.\n"
   )
 } else {
   cat("\nThe snapshot matches the established analysis inputs.\n")

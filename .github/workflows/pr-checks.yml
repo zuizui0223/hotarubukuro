@@ -222,6 +222,14 @@ jobs:
           )
           PY
 
+      # The stage directories behind the manuscript are gone, so the committed
+      # summary artifacts are the strongest surviving provenance. Verifying them
+      # against the MD5s the publication lock recorded is what establishes that
+      # they are the published run's own output rather than a later rebuild.
+      - name: Verify the surviving published artifacts against the publication lock
+        shell: bash
+        run: python3 scripts/verify_locked_artifacts.py --report-dir reproducibility
+
       - name: Check the canonical snapshot descriptor
         shell: Rscript {0}
         run: |

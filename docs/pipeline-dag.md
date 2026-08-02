@@ -167,10 +167,20 @@ The canonical workflow fails, rather than degrading, when:
   each observation, so any coverage difference in a public raster silently
   changes which observations survive. Fourteen do not.
 
-  The resolution is to archive the established tables as a snapshot component:
-  `docs/established-inputs.md` sets out exactly what is needed and how staging
-  validates it. Until then, this is reported, not worked around.
-  `scripts/check_input_fidelity.R` states
+  The established tables cannot be archived, because they no longer exist. A
+  runner-side search of both published snapshots and the retained
+  canonical-analysis artifact found only reconstruction outputs: the table
+  recorded in the snapshot-v1 descriptor as
+  `3916ac6b…cad069f` has 1909 observations, not 1923.
+  `docs/established-inputs.md` records the search and its evidence.
+
+  What does survive is verified: all ten summary artifacts named by the
+  publication lock match the MD5s it recorded, under the CRLF normalisation git
+  applied on commit. `scripts/verify_locked_artifacts.py` runs this check in PR
+  checks, so `inputs/established_input_expectations.csv` and
+  `inputs/numerical_reference.csv` are anchored to the real publication.
+
+  This is reported, not worked around. `scripts/check_input_fidelity.R` states
   the comparison in the first minute of a canonical run, and the frozen upstream
   audit `validation/audit_phenotype.R` then refuses the run at stage 01. Neither
   the audit nor `inputs/numerical_reference.csv` has been re-baselined against

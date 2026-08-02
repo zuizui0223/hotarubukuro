@@ -25,6 +25,16 @@ SNAPSHOT_STAGING="${SNAPSHOT_STAGING:-snapshot_staging}"
 SNAPSHOT_ID="${SNAPSHOT_ID:-analysis-input-snapshot-v2}"
 DID_CACHE="${DID_CACHE:-reproduction_inputs/mlit_did_2015}"
 WORLDPOP_URL="${WORLDPOP_URL:-https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/2020/JPN/jpn_ppp_2020_1km_Aggregated.tif}"
+# Optional. When set, the established phenotype and 1-km cell tables in this
+# directory are staged as archived immutable inputs instead of the ones this run
+# regenerates, and the divergence between the two is reported. See
+# docs/established-inputs.md.
+ESTABLISHED_INPUTS="${ESTABLISHED_INPUTS:-}"
+if [[ -n "$ESTABLISHED_INPUTS" && ! -d "$ESTABLISHED_INPUTS" ]]; then
+  echo "ESTABLISHED_INPUTS is set to '${ESTABLISHED_INPUTS}' but that directory" >&2
+  echo "does not exist. See docs/established-inputs.md for the expected layout." >&2
+  exit 1
+fi
 
 mkdir -p "$STATUS_DIR" "$PUBLIC_CACHE" "$MLIT_CACHE" "$GBIF_CACHE" \
          "$BOMBUS_DIR" "$REPORT_DIR" "$DID_CACHE"
@@ -219,7 +229,8 @@ run_logged stage_canonical_snapshot \
     --snapshot-id="$SNAPSHOT_ID" \
     --descriptor=inputs/canonical_snapshot.json \
     --worldpop-url="$WORLDPOP_URL" \
-    --bombus-commit="$HISTORICAL_PUBLICATION_COMMIT"
+    --bombus-commit="$HISTORICAL_PUBLICATION_COMMIT" \
+    ${ESTABLISHED_INPUTS:+--established-inputs="$ESTABLISHED_INPUTS"}
 
 run_logged write_reproducibility_report \
   Rscript scripts/write_reproducibility_report.R \

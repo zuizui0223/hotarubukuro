@@ -93,10 +93,10 @@ if (failures > 0L) {
     "    environmental covariates, so any coverage difference in a public raster\n",
     "    changes the analysis population.\n",
     "  remediation: archive the established analysis-input tables as a snapshot\n",
-    "    component, or re-baseline the frozen audits and\n",
-    "    inputs/numerical_reference.csv against the reconstructed inputs. The\n",
-    "    second option changes published quantities and is an author decision,\n",
-    "    not a pipeline decision.\n"
+    "    component - see docs/established-inputs.md - or re-baseline the frozen\n",
+    "    audits and inputs/numerical_reference.csv against the reconstructed\n",
+    "    inputs. The second option changes published quantities and is an author\n",
+    "    decision, not a pipeline decision.\n"
   )
 } else {
   cat("\nThe snapshot matches the established analysis inputs.\n")

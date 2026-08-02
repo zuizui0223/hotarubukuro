@@ -25,6 +25,14 @@ on:
         type: string
         required: false
         default: "true"
+      established_inputs:
+        description: >-
+          Directory holding the established phenotype and 1-km cell stages. When
+          set, those tables are staged as archived immutable inputs instead of
+          the regenerated ones. See docs/established-inputs.md.
+        type: string
+        required: false
+        default: inputs/established_analysis_inputs
   pull_request:
     types: [labeled]
     branches: ["main"]
@@ -136,7 +144,28 @@ jobs:
       - name: Restore the declared R environment
         run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,acquisition,testing
 
+      # The established analysis inputs are used only if they are actually
+      # present. An absent directory is not an error here: the reconstruction
+      # still runs and still stages a snapshot, and the fidelity check in the
+      # canonical workflow reports the divergence rather than hiding it.
+      - name: Resolve the established analysis inputs
+        id: established
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="${{ inputs.established_inputs || 'inputs/established_analysis_inputs' }}"
+          if [[ -d "$candidate" ]]; then
+            echo "path=${candidate}" >> "$GITHUB_OUTPUT"
+            echo "Staging the established analysis inputs from ${candidate}."
+            find "$candidate" -type f -printf '%p\t%s\n' | sort
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "::warning::No established analysis inputs at '${candidate}'. The snapshot will carry the regenerated phenotype and cell stages, which do not equal the published tables (1909 versus 1923 observations). See docs/established-inputs.md."
+          fi
+
       - name: Reconstruct all upstream stages and stage the snapshot
+        env:
+          ESTABLISHED_INPUTS: ${{ steps.established.outputs.path }}
         run: bash scripts/run_raw_reconstruction.sh
 
       - name: Publish the snapshot as an immutable Release asset

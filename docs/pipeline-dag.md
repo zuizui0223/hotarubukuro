@@ -167,7 +167,10 @@ The canonical workflow fails, rather than degrading, when:
   each observation, so any coverage difference in a public raster silently
   changes which observations survive. Fourteen do not.
 
-  This is reported, not worked around. `scripts/check_input_fidelity.R` states
+  The resolution is to archive the established tables as a snapshot component:
+  `docs/established-inputs.md` sets out exactly what is needed and how staging
+  validates it. Until then, this is reported, not worked around.
+  `scripts/check_input_fidelity.R` states
   the comparison in the first minute of a canonical run, and the frozen upstream
   audit `validation/audit_phenotype.R` then refuses the run at stage 01. Neither
   the audit nor `inputs/numerical_reference.csv` has been re-baselined against

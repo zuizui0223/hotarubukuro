@@ -158,7 +158,7 @@ required_cell_columns <- c(
   "broad50km_pc1", "broad50km_pc2", "within50km_pc1", "within50km_pc2"
 )
 
-check_table <- function(path, required_columns, label) {
+check_table <- function(path, required_columns, label, unique_site_id = FALSE) {
   if (!file.exists(path)) {
     note_failure("missing ", label, ": ", path)
     return(NULL)
@@ -182,7 +182,11 @@ check_table <- function(path, required_columns, label) {
       note_failure(label, " has coordinates outside the Japanese study window.")
     }
   }
-  if ("exact_site_id" %in% names(table) && anyDuplicated(table$exact_site_id)) {
+  # exact_site_id is the cell key in the cell table, where it must be unique,
+  # but a site key in the observation-level phenotype table, where repeats are
+  # the normal case of several flowers recorded at one site.
+  if (unique_site_id && "exact_site_id" %in% names(table) &&
+      anyDuplicated(table$exact_site_id)) {
     note_failure(label, " has duplicate exact_site_id values.")
   }
   table
@@ -191,7 +195,9 @@ check_table <- function(path, required_columns, label) {
 observations <- check_table(
   observations_path, required_observation_columns, "phenotype analysis table"
 )
-cells <- check_table(cells_path, required_cell_columns, "1-km cell table")
+cells <- check_table(
+  cells_path, required_cell_columns, "1-km cell table", unique_site_id = TRUE
+)
 if (!is.null(cells)) {
   if (!all(cells$spatial_unit_km == 1)) {
     note_failure("the cell table is not the 1-km table.")

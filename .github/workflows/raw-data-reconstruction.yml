@@ -19,7 +19,7 @@ on:
         description: Snapshot identifier, used as the release tag and asset stem
         type: string
         required: false
-        default: analysis-input-snapshot-v1
+        default: analysis-input-snapshot-v2
       publish:
         description: Publish the staged snapshot as a Release asset
         type: string
@@ -44,7 +44,8 @@ env:
   STATUS_DIR: ${{ github.workspace }}/reproduction_status
   REPORT_DIR: ${{ github.workspace }}/reproducibility
   SNAPSHOT_STAGING: ${{ github.workspace }}/snapshot_staging
-  SNAPSHOT_ID: ${{ inputs.snapshot_id || 'analysis-input-snapshot-v1' }}
+  DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
+  SNAPSHOT_ID: ${{ inputs.snapshot_id || 'analysis-input-snapshot-v2' }}
   HISTORICAL_PUBLICATION_COMMIT: bcceb7c7c909adcb5f7b69721ee5c5921ae90f2e
 
 jobs:
@@ -127,6 +128,7 @@ jobs:
           path: |
             data/cache/rasters
             reproduction_inputs/mlit_l03_2021
+            reproduction_inputs/mlit_did_2015
             results/bombus_occurrence_phenology_cache
           key: raw-sources-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R') }}
           restore-keys: raw-sources-

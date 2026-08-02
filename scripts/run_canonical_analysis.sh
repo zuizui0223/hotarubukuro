@@ -2,33 +2,27 @@
 #
 # Canonical analysis reproduction.
 #
-# Starts from the immutable, checksummed analysis-input snapshot and regenerates
-# the 1-km cell table, the 1,000 cross-fitted natural predictive maps, the
-# bidirectional local colour-state asymmetry outputs, and the validation report.
+# Starts from the verified, materialised analysis-input snapshot and runs the
+# established publication pipeline exactly as scripts/run_publication_pipeline.R
+# defines it, then builds the manuscript-facing figures and writes the
+# provenance record.
 #
-# The stage checkpoints make a rerun resumable, and CLEAN_RUN=true forces a
-# completely fresh reconstruction from the snapshot.
+# This driver adds no analysis of its own. Stage order, model definitions,
+# fold structure, draw counts and thresholds all come from the locked runner.
 
 set -euo pipefail
 
 SNAPSHOT_DIR="${SNAPSHOT_DIR:-reproduction_inputs/snapshot}"
 STATUS_DIR="${STATUS_DIR:-reproduction_status}"
 REPORT_DIR="${REPORT_DIR:-reproducibility}"
-REQUIRED_MAPS="${REQUIRED_MAPS:-1000}"
-PREDICTIVE_SEED="${PREDICTIVE_SEED:-20260725}"
-PSEUDOCOUNT="${PSEUDOCOUNT:-0.5}"
-CLEAN_RUN="${CLEAN_RUN:-false}"
+PIPELINE_MODE="${PIPELINE_MODE:-full}"
+BUILD_FIGURES="${BUILD_FIGURES:-true}"
+LOCK_DIR="results/final_analysis_pipeline"
 
-CELLS_DIR="results/ecological_v15_multiscale_hotspots"
-PREDICTIVE_DIR="results/ecological_v16_predictive_replication"
-ASYMMETRY_DIR="results/ecological_v23_local_state_asymmetry"
-
-CELLS="${CELLS_DIR}/multiscale_hotspot_cells_1km.csv"
-PRESENCE_CHECKPOINT="${PREDICTIVE_DIR}/checkpoints/national_environment_spde_presence_draws${REQUIRED_MAPS}.rds"
-
-OBSERVATIONS="${SNAPSHOT_DIR}/analysis_inputs/analysis_data_pigmentation_hurdle.csv"
-RASTERS="${SNAPSHOT_DIR}/analysis_inputs/rasters"
-WORLDPOP="${RASTERS}/population_count_Japan_crop.tif"
+export HOTARUBUKURO_MLIT_CACHE="${HOTARUBUKURO_MLIT_CACHE:-reproduction_inputs/mlit_l03_2021}"
+export HOTARUBUKURO_DID_CACHE="${HOTARUBUKURO_DID_CACHE:-reproduction_inputs/mlit_did_2015}"
+export HOTARUBUKURO_WORLDPOP_RASTER="${HOTARUBUKURO_WORLDPOP_RASTER:-${SNAPSHOT_DIR}/analysis_inputs/rasters/population_count_Japan_crop.tif}"
+export HOTARUBUKURO_INPUT_ROOT="${HOTARUBUKURO_INPUT_ROOT:-${SNAPSHOT_DIR}/analysis_inputs/rasters}"
 
 mkdir -p "$STATUS_DIR" "$REPORT_DIR"
 
@@ -39,115 +33,101 @@ run_logged() {
   "$@" 2>&1 | tee "${STATUS_DIR}/${label}.log"
 }
 
-if [[ "$CLEAN_RUN" == "true" ]]; then
-  echo "CLEAN_RUN=true: discarding stage checkpoints before reconstruction"
-  rm -rf "$CELLS_DIR" "$PREDICTIVE_DIR" "$ASYMMETRY_DIR"
-fi
-
-# --- Snapshot ---------------------------------------------------------------
+# --- Snapshot: verify checksums, then place inputs where the runner looks ----
 run_logged verify_canonical_snapshot \
   Rscript scripts/verify_canonical_snapshot.R \
     --descriptor inputs/canonical_snapshot.json \
     --root "$SNAPSHOT_DIR" \
-    --report-dir "$REPORT_DIR"
+    --report-dir "$REPORT_DIR" \
+    --materialise true \
+    --mlit-cache "$HOTARUBUKURO_MLIT_CACHE" \
+    --did-cache "$HOTARUBUKURO_DID_CACHE"
 
-# --- Preflight --------------------------------------------------------------
+# --- Preflight ---------------------------------------------------------------
 run_logged preflight \
   Rscript scripts/preflight.R \
     --scope canonical \
     --report-dir "$REPORT_DIR" \
-    --inputs "${OBSERVATIONS},${RASTERS}/elevation_Japan_crop.tif,${RASTERS}/bio10_Japan_crop_30s.tif,${RASTERS}/bio12_Japan_crop_30s.tif,${RASTERS}/RSDS_Japan_crop_30s.tif,${WORLDPOP}"
+    --inputs "results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv,results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv,results/public_rasters/mlit_human_forest_edge_2021/mlit_human_forest_edge_1km.tif,${HOTARUBUKURO_WORLDPOP_RASTER},Data_S1.csv"
 
-# --- 1-km cell table --------------------------------------------------------
-if [[ -s "$CELLS" ]]; then
-  echo "=== resuming from existing 1-km cell table: ${CELLS} ==="
-else
-  run_logged run_multiscale_hotspots \
-    Rscript scripts/run_multiscale_hotspots.R \
-      --input="$OBSERVATIONS" \
-      --output-dir="$CELLS_DIR" \
-      --environment-cache="$RASTERS" \
-      --worldpop-raster="$WORLDPOP" \
-      --bootstrap=1000
+# --- The established publication pipeline ------------------------------------
+# scripts/run_publication_pipeline.R is the authoritative stage sequence. It
+# writes results/final_analysis_pipeline/final_stage_manifest.csv as it goes, so
+# a failure is attributable to a named stage even when this driver aborts.
+run_logged run_publication_pipeline \
+  Rscript scripts/run_publication_pipeline.R \
+    --mode="$PIPELINE_MODE" \
+    --tests=true \
+    --output="$LOCK_DIR"
+
+# --- Manuscript-facing figures ----------------------------------------------
+if [[ "$BUILD_FIGURES" == "true" ]]; then
+  run_logged build_publication_figures \
+    Rscript scripts/build_publication_figures.R
 fi
-test -s "$CELLS"
 
-# --- 1,000 cross-fitted natural predictive maps -----------------------------
-if [[ -s "$PRESENCE_CHECKPOINT" ]]; then
-  echo "=== resuming from existing presence checkpoint: ${PRESENCE_CHECKPOINT} ==="
-else
-  run_logged run_natural_predictive_model \
-    Rscript scripts/run_natural_predictive_model.R \
-      --observations="$OBSERVATIONS" \
-      --cells="$CELLS" \
-      --output="$PREDICTIVE_DIR" \
-      --components=national_environment_spde_presence \
-      --draws="$REQUIRED_MAPS" \
-      --seed="$PREDICTIVE_SEED"
-fi
-test -s "$PRESENCE_CHECKPOINT"
-
-# --- Bidirectional asymmetry diagnostic -------------------------------------
-run_logged run_local_state_asymmetry \
-  Rscript scripts/run_local_state_asymmetry.R \
-    --cells="$CELLS" \
-    --presence-checkpoint="$PRESENCE_CHECKPOINT" \
-    --required-maps="$REQUIRED_MAPS" \
-    --pseudocount="$PSEUDOCOUNT" \
-    --seed="$PREDICTIVE_SEED" \
-    --output="$ASYMMETRY_DIR"
-
-run_logged validate_local_state_asymmetry \
-  Rscript validation/validate_local_state_asymmetry.R \
-    "$ASYMMETRY_DIR" "--required-maps=${REQUIRED_MAPS}"
-
-# --- Reproducibility record -------------------------------------------------
+# --- Reproducibility record --------------------------------------------------
 run_logged write_reproducibility_report \
   Rscript scripts/write_reproducibility_report.R \
     --report-dir "$REPORT_DIR" \
     --workflow canonical-analysis \
-    --inputs "${SNAPSHOT_DIR}/SNAPSHOT_MANIFEST.csv,${OBSERVATIONS},${RASTERS},inputs/canonical_snapshot.json,Data_S1.csv" \
-    --outputs "${CELLS},${PRESENCE_CHECKPOINT},${ASYMMETRY_DIR},${PREDICTIVE_DIR}/predictive_replication_component_scope.csv"
+    --inputs "${SNAPSHOT_DIR}/SNAPSHOT_MANIFEST.csv,inputs/canonical_snapshot.json,Data_S1.csv,results/ecological_v11_pigmentation_hurdle,results/ecological_v15_multiscale_hotspots" \
+    --outputs "${LOCK_DIR},results/ecological_v16_predictive_replication,results/ecological_v17_local_pair_turnover,results/ecological_v19_human_landscape_extremes,results/ecological_v20_local_white_isolates,results/ecological_v21_local_human_neighbourhood,results/ecological_v22_did_human_context,manuscript/figures"
 
-# --- Headline numbers into the job log and the step summary -----------------
-Rscript - <<'RS' | tee "${STATUS_DIR}/asymmetry_primary_results.txt"
-directory <- "results/ecological_v23_local_state_asymmetry"
-summary <- utils::read.csv(
-  file.path(directory, "local_state_asymmetry_summary.csv"), check.names = FALSE
-)
-columns <- intersect(c(
-  "state_rule", "metric", "observed_value", "null_mean", "null_sd",
-  "lower_95", "upper_95", "upper_p", "lower_p", "two_sided_p",
-  "percentile", "n_natural_maps"
-), names(summary))
-wanted <- summary$metric %in% c(
-  "pigmented_in_white_count", "white_in_pigmented_count",
-  "pigmented_in_white_rate", "white_in_pigmented_rate", "log_rate_ratio"
-)
-print(summary[wanted, columns, drop = FALSE], row.names = FALSE)
+# --- Validation summary ------------------------------------------------------
+Rscript - <<'RS' | tee "${STATUS_DIR}/validation_summary.txt"
+source("R/reproducibility.R")
+lock <- "results/final_analysis_pipeline"
 
-null <- utils::read.csv(
-  file.path(directory, "local_state_asymmetry_null.csv"), check.names = FALSE
+read_optional <- function(path) {
+  if (!file.exists(path)) return(NULL)
+  utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
+}
+
+sections <- list(
+  structural = read_optional(file.path(lock, "final_stage_manifest.csv")),
+  provenance = read_optional(file.path(lock, "final_input_checksums.csv")),
+  exact = read_optional(file.path(lock, "final_independent_validation.csv")),
+  claim = read_optional(file.path(lock, "final_claim_audit.csv"))
 )
-opportunity <- do.call(rbind, lapply(split(null, null$state_rule), function(block) {
-  data.frame(
-    state_rule = block$state_rule[[1L]],
-    mean_eligible_pigmented_focals = mean(block$eligible_pigmented_focals),
-    mean_eligible_white_focals = mean(block$eligible_white_focals),
+
+rows <- list()
+for (name in names(sections)) {
+  table <- sections[[name]]
+  if (is.null(table)) {
+    rows[[length(rows) + 1L]] <- data.frame(
+      check_class = name, checks = 0L, passed = 0L, failed = 0L,
+      status = "ABSENT", stringsAsFactors = FALSE
+    )
+    next
+  }
+  status_column <- intersect(c("status", "result"), names(table))
+  if (!length(status_column)) {
+    rows[[length(rows) + 1L]] <- data.frame(
+      check_class = name, checks = nrow(table), passed = NA_integer_,
+      failed = NA_integer_, status = "RECORDED", stringsAsFactors = FALSE
+    )
+    next
+  }
+  values <- table[[status_column[[1L]]]]
+  passed <- sum(values == "PASS")
+  rows[[length(rows) + 1L]] <- data.frame(
+    check_class = name, checks = length(values), passed = passed,
+    failed = length(values) - passed,
+    status = if (passed == length(values)) "PASS" else "FAIL",
     stringsAsFactors = FALSE
   )
-}))
-cat("\nNull opportunity denominators\n")
-print(opportunity, row.names = FALSE)
+}
+summary <- do.call(rbind, rows)
+print(summary, row.names = FALSE)
+rp_write_csv_atomic(summary, "reproducibility/validation_summary.csv")
+if (any(summary$status == "FAIL")) {
+  stop("Canonical validation reported failures.", call. = FALSE)
+}
 RS
 
 echo "=== canonical analysis complete ==="
-find results/ecological_v23_local_state_asymmetry -type f -printf '%p\t%s\n' | sort
-
-# Print the manifests as well as recording them. Two clean runs of this workflow
-# should produce identical output hashes, and that is only checkable if the
-# hashes are visible in the run log rather than only inside the artifact.
 echo "=== input manifest ==="
-cat "${REPORT_DIR}/input_manifest.csv"
+cat "${REPORT_DIR}/canonical_input_manifest.csv" | head -30
 echo "=== output manifest ==="
 cat "${REPORT_DIR}/output_manifest.csv"

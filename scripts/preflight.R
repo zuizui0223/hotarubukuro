@@ -27,7 +27,7 @@ if (!scope %in% scope_choices) {
 
 required_scopes <- switch(
   scope,
-  canonical = c("analysis", "reproducibility", "testing"),
+  canonical = c("analysis", "reproducibility", "testing", "figures", "reporting"),
   raw = c("analysis", "reproducibility", "acquisition", "testing"),
   tests = c("reproducibility", "testing")
 )
@@ -119,6 +119,127 @@ if (!skip_inla && "analysis" %in% required_scopes) {
     paste0("inla_version: ", as.character(utils::packageVersion("INLA"))),
     ""
   )
+}
+
+# ---------------------------------------------------------------------------
+# Geospatial and figure-device smoke tests.
+#
+# sf and terra are the two packages whose system-library coupling actually
+# breaks on a runner, and the figure devices fail only when a font or raster
+# backend is missing. Exercising them here costs seconds.
+# ---------------------------------------------------------------------------
+if ("analysis" %in% required_scopes) {
+  geo <- tryCatch({
+    points <- sf::st_as_sf(
+      data.frame(longitude = c(137, 138), latitude = c(35, 36)),
+      coords = c("longitude", "latitude"), crs = 4326
+    )
+    projected <- sf::st_transform(
+      points,
+      "+proj=laea +lat_0=36 +lon_0=137 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+    )
+    stopifnot(all(is.finite(sf::st_coordinates(projected))))
+    raster <- terra::rast(
+      nrows = 10, ncols = 10, xmin = 137, xmax = 138, ymin = 35, ymax = 36,
+      crs = "EPSG:4326"
+    )
+    terra::values(raster) <- seq_len(100)
+    extracted <- terra::extract(raster, terra::vect(points), method = "bilinear")
+    stopifnot(nrow(extracted) == 2L)
+    "PASS"
+  }, error = function(error) {
+    failures <<- c(failures, paste0(
+      "sf/terra smoke test failed: ", conditionMessage(error)
+    ))
+    "FAIL"
+  })
+  audit_lines <- c(
+    audit_lines, "## Geospatial smoke test", "", paste0("status: ", geo),
+    paste0("gdal: ", terra::gdal()), paste0("proj: ", sf::sf_extSoftVersion()[["PROJ"]]),
+    ""
+  )
+}
+
+if ("figures" %in% required_scopes) {
+  figures <- tryCatch({
+    plot <- ggplot2::ggplot(
+      data.frame(x = 1:3, y = 1:3), ggplot2::aes(x = x, y = y)
+    ) + ggplot2::geom_point()
+    target <- tempfile(fileext = ".png")
+    ggplot2::ggsave(target, plot, width = 2, height = 2, dpi = 72)
+    stopifnot(file.exists(target), file.info(target)$size > 0)
+    pdf_target <- tempfile(fileext = ".pdf")
+    ggplot2::ggsave(
+      pdf_target, plot, width = 2, height = 2, device = grDevices::cairo_pdf
+    )
+    stopifnot(file.exists(pdf_target), file.info(pdf_target)$size > 0)
+    # rnaturalearth resolves medium-scale geometry from the rnaturalearthdata
+    # package rather than the network. If that package were missing the figure
+    # stage would try to download at run time.
+    japan <- rnaturalearth::ne_countries(
+      scale = "medium", country = "Japan", returnclass = "sf"
+    )
+    stopifnot(nrow(japan) >= 1L)
+    "PASS"
+  }, error = function(error) {
+    failures <<- c(failures, paste0(
+      "figure device smoke test failed: ", conditionMessage(error)
+    ))
+    "FAIL"
+  })
+  audit_lines <- c(
+    audit_lines, "## Figure device smoke test", "",
+    paste0("status: ", figures), ""
+  )
+}
+
+# ---------------------------------------------------------------------------
+# Runner resources. Recorded rather than enforced: the canonical pipeline holds
+# several 1000-draw matrices in memory and writes large checkpoints, and a
+# resource ceiling is a far more legible failure than an OOM kill hours later.
+# ---------------------------------------------------------------------------
+resource_lines <- tryCatch({
+  c(
+    utils::capture.output(
+      cat(system2("df", c("-h", "."), stdout = TRUE), sep = "\n")
+    ),
+    utils::capture.output(
+      cat(system2("free", "-h", stdout = TRUE), sep = "\n")
+    )
+  )
+}, error = function(error) paste("resource probe unavailable:", conditionMessage(error)))
+audit_lines <- c(audit_lines, "## Runner resources", "", resource_lines, "")
+
+# ---------------------------------------------------------------------------
+# Stage-registry preflight: every registered generating, validation, and audit
+# script must exist before the pipeline starts.
+# ---------------------------------------------------------------------------
+registry_path <- file.path("reproducibility", "pipeline_stage_registry.csv")
+if (file.exists(registry_path)) {
+  registry <- utils::read.csv(
+    registry_path, check.names = FALSE, stringsAsFactors = FALSE
+  )
+  scripts <- unique(unlist(
+    registry[c("generating_script", "validation_script", "audit_script")],
+    use.names = FALSE
+  ))
+  scripts <- scripts[!is.na(scripts) & nzchar(scripts)]
+  absent <- scripts[!file.exists(scripts)]
+  if (length(absent)) {
+    failures <- c(failures, paste0(
+      "stage registry references missing scripts: ",
+      paste(absent, collapse = ", ")
+    ))
+  }
+  audit_lines <- c(
+    audit_lines, "## Stage registry", "",
+    paste0("stages: ", nrow(registry)),
+    paste0("referenced scripts present: ", length(scripts) - length(absent),
+           "/", length(scripts)),
+    ""
+  )
+} else if (scope == "canonical") {
+  failures <- c(failures, paste0("stage registry not found: ", registry_path))
 }
 
 # ---------------------------------------------------------------------------

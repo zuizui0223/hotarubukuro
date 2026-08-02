@@ -1,11 +1,19 @@
 # Assemble and validate the canonical analysis-input snapshot.
 #
 # The snapshot is the versioned, immutable, checksummed boundary that the
-# canonical analysis workflow starts from. It contains only analysis-ready
-# inputs: the two-part phenotype analysis table and the four multiscale
-# environment layers plus the population layer that the 1-km cell table is
-# built from. Everything in it is validated here, before publication, so that a
-# clean canonical run can trust it.
+# canonical analysis workflow starts from. It carries every input the locked
+# publication pipeline consumes and cannot regenerate on a clean runner:
+#
+#   * the frozen two-part phenotype stage outputs;
+#   * the frozen 1-km multiscale cell context;
+#   * the MLIT-derived human-landscape rasters and the raw primary-mesh cache
+#     that the local-human-context stage re-processes;
+#   * the MLIT A16-15 Densely Inhabited District archive the DID stage uses;
+#   * the five committed Bombus prediction surfaces;
+#   * the WorldPop population raster.
+#
+# Everything is validated here, before publication, so a canonical run can trust
+# it and never needs to contact an external scientific data service.
 
 args <- commandArgs(trailingOnly = TRUE)
 source("R/pipeline_support.R")
@@ -14,128 +22,224 @@ hb_require_packages(c("terra", "digest", "jsonlite"))
 
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
 
-observations_path <- arg_value(
-  "--observations",
-  "results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv"
+results_root <- arg_value("--results-root", "results")
+raster_cache <- arg_value(
+  "--raster-cache", "reproduction_inputs/public_environment_cache"
 )
-raster_cache <- arg_value("--raster-cache", "reproduction_inputs/public_environment_cache")
-worldpop_path <- arg_value("--worldpop", file.path(raster_cache, "population_count_Japan_crop.tif"))
+worldpop_path <- arg_value(
+  "--worldpop", file.path(raster_cache, "population_count_Japan_crop.tif")
+)
+mlit_cache <- arg_value("--mlit-cache", "reproduction_inputs/mlit_l03_2021")
+did_cache <- arg_value("--did-cache", "reproduction_inputs/mlit_did_2015")
 staging <- arg_value("--staging", "snapshot_staging")
-snapshot_id <- arg_value("--snapshot-id", "analysis-input-snapshot-v1")
+snapshot_id <- arg_value("--snapshot-id", "analysis-input-snapshot-v2")
 release_tag <- arg_value("--release-tag", snapshot_id)
 asset_name <- arg_value("--asset-name", paste0(snapshot_id, ".tar.gz"))
 descriptor_path <- arg_value("--descriptor", "inputs/canonical_snapshot.json")
-download_manifest <- arg_value("--download-manifest", "data/processed/raster_download_manifest.csv")
-processed_manifest <- arg_value("--processed-manifest", "data/processed/raster_manifest.csv")
+download_manifest <- arg_value(
+  "--download-manifest", "data/processed/raster_download_manifest.csv"
+)
+processed_manifest <- arg_value(
+  "--processed-manifest", "data/processed/raster_manifest.csv"
+)
 worldpop_url <- arg_value(
   "--worldpop-url",
   "https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/2020/JPN/jpn_ppp_2020_1km_Aggregated.tif"
 )
-
-# The four environment layers the 1-km cell table decomposes at multiple scales,
-# named exactly as multiscale_environment_sources() looks them up.
-raster_layers <- c(
-  elevation = "elevation_Japan_crop.tif",
-  temperature = "bio10_Japan_crop_30s.tif",
-  precipitation = "bio12_Japan_crop_30s.tif",
-  radiation = "RSDS_Japan_crop_30s.tif"
+historical_commit <- arg_value(
+  "--bombus-commit", "bcceb7c7c909adcb5f7b69721ee5c5921ae90f2e"
 )
 
-find_one <- function(directory, filename) {
-  hits <- list.files(
-    directory, pattern = paste0("^", gsub(".", "\\.", filename, fixed = TRUE), "$"),
-    recursive = TRUE, full.names = TRUE
+failures <- character()
+note_failure <- function(...) failures <<- c(failures, paste0(...))
+
+# ---------------------------------------------------------------------------
+# Component declaration.
+#
+# Each component names a source directory or file, the path it takes inside the
+# snapshot, and where it came from. `required` components make publication fail
+# when absent; everything is checksummed either way.
+# ---------------------------------------------------------------------------
+components <- list(
+  list(
+    id = "phenotype_stage",
+    source = file.path(results_root, "ecological_v11_pigmentation_hurdle"),
+    target = "analysis_inputs/results/ecological_v11_pigmentation_hurdle",
+    role = "immutable_input",
+    provider = "hotarubukuro two-part phenotype stage (01_phenotype)",
+    url = NA_character_,
+    required = TRUE
+  ),
+  list(
+    id = "multiscale_cells",
+    source = file.path(results_root, "ecological_v15_multiscale_hotspots"),
+    target = "analysis_inputs/results/ecological_v15_multiscale_hotspots",
+    role = "immutable_input",
+    provider = "hotarubukuro multiscale 1-km cell context stage",
+    url = NA_character_,
+    required = TRUE
+  ),
+  list(
+    id = "mlit_human_rasters",
+    source = file.path(
+      results_root, "public_rasters", "mlit_human_forest_edge_2021"
+    ),
+    target = "analysis_inputs/results/public_rasters/mlit_human_forest_edge_2021",
+    role = "immutable_input",
+    provider = "MLIT National Land Numerical Information L03-b 2021, derived 1-km layers",
+    url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L03-b-2021.html",
+    required = TRUE
+  ),
+  list(
+    id = "bombus_surfaces",
+    source = file.path(results_root, "enmeval_aicc_reselected", "predictions"),
+    target = "analysis_inputs/results/enmeval_aicc_reselected/predictions",
+    role = "archived_input",
+    provider = paste0(
+      "committed Bombus prediction surfaces at ", historical_commit,
+      "; not regenerated by ENMeval reselection"
+    ),
+    url = NA_character_,
+    required = TRUE
+  ),
+  list(
+    id = "worldpop",
+    source = worldpop_path,
+    target = "analysis_inputs/rasters/population_count_Japan_crop.tif",
+    role = "immutable_input",
+    provider = "WorldPop Global 2000-2020 1km, Japan 2020, people per cell",
+    url = worldpop_url,
+    required = TRUE
+  ),
+  list(
+    id = "mlit_primary_mesh_cache",
+    source = mlit_cache,
+    target = "analysis_inputs/mlit_l03_2021",
+    role = "immutable_input",
+    provider = "MLIT National Land Numerical Information L03-b 2021 primary-mesh archives",
+    url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L03-b-2021.html",
+    required = TRUE
+  ),
+  list(
+    id = "mlit_did_archive",
+    source = did_cache,
+    target = "analysis_inputs/mlit_did_2015",
+    role = "immutable_input",
+    provider = "MLIT National Land Numerical Information A16-15 Densely Inhabited Districts",
+    url = "https://nlftp.mlit.go.jp/ksj/gml/data/A16/A16-15/A16-15_GML.zip",
+    required = TRUE
   )
-  if (length(hits) != 1L) {
-    stop(
-      "Expected exactly one '", filename, "' under ", directory,
-      "; found ", length(hits), ".", call. = FALSE
-    )
-  }
-  hits[[1L]]
-}
+)
 
 # ---------------------------------------------------------------------------
-# Validate the phenotype analysis table.
+# Structural validation of the analysis-ready tables.
 # ---------------------------------------------------------------------------
-if (!file.exists(observations_path)) {
-  stop("Missing phenotype analysis table: ", observations_path, call. = FALSE)
-}
-observations <- utils::read.csv(
-  observations_path, check.names = FALSE, stringsAsFactors = FALSE
+observations_path <- file.path(
+  results_root, "ecological_v11_pigmentation_hurdle",
+  "analysis_data_pigmentation_hurdle.csv"
 )
-# The columns the downstream 1-km cell table and neighbourhood graph are built
-# from. transition_required_columns() is the locked list; observation_id keeps
-# the phenotype record auditable back to Data_S1.csv.
+cells_path <- file.path(
+  results_root, "ecological_v15_multiscale_hotspots",
+  "multiscale_hotspot_cells_1km.csv"
+)
+
+# The locked column list the downstream stages are built from.
 required_observation_columns <- c(
   "observation_id", "exact_site_id", "longitude", "latitude", "x_km", "y_km",
   "pigmented_mixture50", "pigmented_high_confidence", "colour_a", "DOY",
   "bee_ardens", "bee_diversus", "bee_beaticola", "bee_consobrinus",
   "bee_honshuensis"
 )
-missing_columns <- setdiff(required_observation_columns, names(observations))
-if (length(missing_columns)) {
-  stop(
-    "Phenotype analysis table is missing required columns: ",
-    paste(missing_columns, collapse = ", "), call. = FALSE
-  )
-}
-if (!nrow(observations)) {
-  stop("Phenotype analysis table is empty.", call. = FALSE)
-}
-if (anyNA(observations$longitude) || anyNA(observations$latitude)) {
-  stop("Phenotype analysis table has missing coordinates.", call. = FALSE)
-}
-if (min(observations$longitude) < 122 || max(observations$longitude) > 154 ||
-    min(observations$latitude) < 24 || max(observations$latitude) > 46) {
-  stop("Phenotype coordinates fall outside the Japanese study window.",
-       call. = FALSE)
-}
-
-# ---------------------------------------------------------------------------
-# Validate the raster layers: CRS, resolution, extent, and value range.
-# ---------------------------------------------------------------------------
-raster_paths <- vapply(
-  raster_layers, function(filename) find_one(raster_cache, filename),
-  character(1)
+required_cell_columns <- c(
+  "exact_site_id", "n_pigmented", "n_observations", "n_independent_sites",
+  "longitude", "latitude", "x_km", "y_km", "spatial_fold", "spatial_unit_km",
+  "median_year", "median_DOY", "conditional_intensity_median",
+  "bombus_fingerprint_common_support",
+  "broad50km_pc1", "broad50km_pc2", "within50km_pc1", "within50km_pc2"
 )
-if (!file.exists(worldpop_path)) {
-  stop("Missing population raster: ", worldpop_path, call. = FALSE)
+
+check_table <- function(path, required_columns, label) {
+  if (!file.exists(path)) {
+    note_failure("missing ", label, ": ", path)
+    return(NULL)
+  }
+  table <- utils::read.csv(
+    path, check.names = FALSE, stringsAsFactors = FALSE
+  )
+  absent <- setdiff(required_columns, names(table))
+  if (length(absent)) {
+    note_failure(
+      label, " is missing required columns: ",
+      paste(absent, collapse = ", ")
+    )
+  }
+  if (!nrow(table)) note_failure(label, " is empty.")
+  if (all(c("longitude", "latitude") %in% names(table))) {
+    if (anyNA(table$longitude) || anyNA(table$latitude)) {
+      note_failure(label, " has missing coordinates.")
+    } else if (min(table$longitude) < 122 || max(table$longitude) > 154 ||
+               min(table$latitude) < 24 || max(table$latitude) > 46) {
+      note_failure(label, " has coordinates outside the Japanese study window.")
+    }
+  }
+  if ("exact_site_id" %in% names(table) && anyDuplicated(table$exact_site_id)) {
+    note_failure(label, " has duplicate exact_site_id values.")
+  }
+  table
 }
 
+observations <- check_table(
+  observations_path, required_observation_columns, "phenotype analysis table"
+)
+cells <- check_table(cells_path, required_cell_columns, "1-km cell table")
+if (!is.null(cells)) {
+  if (!all(cells$spatial_unit_km == 1)) {
+    note_failure("the cell table is not the 1-km table.")
+  }
+  if (any(!is.finite(cells$n_observations)) || any(cells$n_observations < 1)) {
+    note_failure("every cell must carry at least one observation.")
+  }
+  if (any(cells$n_pigmented < 0) ||
+      any(cells$n_pigmented > cells$n_observations)) {
+    note_failure("pigmented counts fall outside [0, n_observations].")
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Raster validation: CRS, resolution, extent, and finite values.
+# ---------------------------------------------------------------------------
 raster_checks <- list()
-validate_raster <- function(path, label, expect_arcsec = TRUE) {
-  layer <- terra::rast(path)
-  crs_text <- terra::crs(layer, describe = TRUE)
-  code <- paste0(crs_text$authority, ":", crs_text$code)
+validate_raster <- function(path, label, expect_epsg = "EPSG:4326",
+                            expect_arcsec = FALSE) {
+  if (!file.exists(path)) {
+    note_failure("missing raster: ", path)
+    return(invisible(FALSE))
+  }
+  layer <- tryCatch(terra::rast(path), error = function(error) NULL)
+  if (is.null(layer)) {
+    note_failure(label, " could not be opened as a raster.")
+    return(invisible(FALSE))
+  }
+  described <- terra::crs(layer, describe = TRUE)
+  code <- paste0(described$authority, ":", described$code)
   resolution <- terra::res(layer)
   extent <- as.vector(terra::ext(layer))
   values_range <- terra::minmax(layer)
-  if (!identical(code, "EPSG:4326")) {
-    stop(label, " is not on EPSG:4326 (found ", code, ").", call. = FALSE)
+  if (!is.na(expect_epsg) && !identical(code, expect_epsg)) {
+    note_failure(label, " is on ", code, " rather than ", expect_epsg, ".")
   }
   if (expect_arcsec && abs(resolution[[1L]] - 1 / 120) > 1e-6) {
-    stop(
+    note_failure(
       label, " is not on the 30 arc-second grid (resolution ",
-      signif(resolution[[1L]], 8), " degrees).", call. = FALSE
-    )
-  }
-  if (extent[[1L]] > 128 || extent[[2L]] < 143 ||
-      extent[[3L]] > 30 || extent[[4L]] < 42) {
-    stop(
-      label, " does not cover the study extent 128-143E, 30-42N (found ",
-      paste(signif(extent, 8), collapse = ", "), ").", call. = FALSE
+      signif(resolution[[1L]], 8), " degrees)."
     )
   }
   if (!all(is.finite(values_range))) {
-    stop(label, " has no finite values.", call. = FALSE)
+    note_failure(label, " has no finite values.")
   }
   raster_checks[[length(raster_checks) + 1L]] <<- data.frame(
-    layer = label,
-    crs = code,
-    resolution_degrees = resolution[[1L]],
-    ncol = terra::ncol(layer),
-    nrow = terra::nrow(layer),
+    layer = label, crs = code, resolution = resolution[[1L]],
+    ncol = terra::ncol(layer), nrow = terra::nrow(layer),
     xmin = extent[[1L]], xmax = extent[[2L]],
     ymin = extent[[3L]], ymax = extent[[4L]],
     minimum = values_range[[1L]], maximum = values_range[[2L]],
@@ -144,122 +248,172 @@ validate_raster <- function(path, label, expect_arcsec = TRUE) {
   invisible(TRUE)
 }
 
-for (name in names(raster_paths)) {
-  validate_raster(raster_paths[[name]], raster_layers[[name]])
+validate_raster(worldpop_path, "population_count_Japan_crop.tif")
+for (filename in c("mlit_human_forest_edge_1km.tif",
+                   "mlit_major_road_distance_1km.tif")) {
+  validate_raster(
+    file.path(
+      results_root, "public_rasters", "mlit_human_forest_edge_2021", filename
+    ),
+    filename, expect_epsg = NA_character_
+  )
 }
-validate_raster(worldpop_path, basename(worldpop_path), expect_arcsec = FALSE)
-raster_validation <- do.call(rbind, raster_checks)
+for (species in c("ardens", "beaticola", "consobrinus", "diversus",
+                  "honshuensis")) {
+  validate_raster(
+    file.path(
+      results_root, "enmeval_aicc_reselected", "predictions",
+      paste0(species, ".tif")
+    ),
+    paste0(species, ".tif"), expect_epsg = NA_character_
+  )
+}
+
+# The DID archive is a zip of shapefiles rather than a raster; check that it is
+# a real archive and not an HTML error page saved under a .zip name.
+did_shapefiles <- list.files(
+  did_cache, pattern = "\\.shp$", recursive = TRUE, full.names = TRUE
+)
+did_archives <- list.files(
+  did_cache, pattern = "\\.zip$", recursive = TRUE, full.names = TRUE
+)
+if (!length(did_shapefiles) && !length(did_archives)) {
+  note_failure(
+    "the MLIT DID cache at ", did_cache,
+    " contains neither a shapefile nor an archive."
+  )
+}
+for (archive in did_archives) {
+  magic <- readBin(archive, what = "raw", n = 2L)
+  if (length(magic) != 2L || magic[[1L]] != as.raw(0x50) ||
+      magic[[2L]] != as.raw(0x4b)) {
+    note_failure(
+      basename(archive),
+      " is not a zip archive; a provider error page was probably saved."
+    )
+  }
+}
+
+if (length(failures)) {
+  stop(
+    "Canonical snapshot inputs failed validation:\n  ",
+    paste(failures, collapse = "\n  "), call. = FALSE
+  )
+}
 
 # ---------------------------------------------------------------------------
 # Stage the snapshot.
 # ---------------------------------------------------------------------------
 unlink(staging, recursive = TRUE)
-dir.create(file.path(staging, "analysis_inputs", "rasters"), recursive = TRUE)
 dir.create(file.path(staging, "provenance"), recursive = TRUE)
-
-staged <- list()
-stage_file <- function(source, relative, role, source_name, source_url,
-                       retrieved_utc) {
-  destination <- file.path(staging, relative)
-  dir.create(dirname(destination), recursive = TRUE, showWarnings = FALSE)
-  if (!file.copy(source, destination, overwrite = TRUE)) {
-    stop("Could not stage ", source, call. = FALSE)
-  }
-  staged[[length(staged) + 1L]] <<- data.frame(
-    path = relative,
-    bytes = as.numeric(file.info(destination)$size),
-    sha256 = rp_sha256(destination),
-    role = role,
-    source = source_name,
-    source_url = source_url,
-    retrieved_utc = retrieved_utc,
-    stringsAsFactors = FALSE
-  )
-  invisible(destination)
-}
 
 read_optional_csv <- function(path) {
   if (!file.exists(path)) return(NULL)
   utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
 }
 downloads <- read_optional_csv(download_manifest)
-processed <- read_optional_csv(processed_manifest)
 
-# Map a prepared raster filename back to the registry row that produced it, so
-# the snapshot carries the real provider URL and retrieval time rather than a
-# local path.
-provenance_for <- function(filename) {
-  default <- list(
-    source = "unrecorded", url = NA_character_, retrieved = NA_character_
+staged <- list()
+record_staged <- function(relative, absolute, component) {
+  staged[[length(staged) + 1L]] <<- data.frame(
+    path = relative,
+    bytes = as.numeric(file.info(absolute)$size),
+    sha256 = rp_sha256(absolute),
+    role = component$role,
+    component = component$id,
+    source = component$provider,
+    source_url = component$url,
+    retrieved_utc = format(
+      file.info(absolute)$mtime, tz = "UTC", usetz = TRUE
+    ),
+    stringsAsFactors = FALSE
   )
-  if (is.null(processed)) return(default)
-  aliases <- c(
-    elevation_Japan_crop.tif = "elevation_30s.tif",
-    bio10_Japan_crop_30s.tif = "chelsa_bio10.tif",
-    bio12_Japan_crop_30s.tif = "chelsa_bio12.tif",
-    RSDS_Japan_crop_30s.tif = "chelsa_rsdsmean.tif"
-  )
-  output_name <- aliases[[filename]]
-  if (is.null(output_name)) return(default)
-  row <- processed[basename(processed$processed_path) == output_name, , drop = FALSE]
-  if (!nrow(row)) return(default)
-  source_id <- row$source_id[[1L]]
-  download_row <- if (!is.null(downloads)) {
-    downloads[downloads$source_id == source_id, , drop = FALSE]
-  } else {
-    NULL
-  }
-  list(
-    source = paste0(row$provider[[1L]], " ", row$dataset_version[[1L]],
-                    " (", source_id, ")"),
-    url = if (!is.null(download_row) && nrow(download_row)) {
-      download_row$source_url[[1L]]
-    } else {
-      NA_character_
-    },
-    retrieved = if (!is.null(download_row) && nrow(download_row)) {
-      download_row$cached_at_utc[[1L]]
-    } else {
-      NA_character_
+  invisible(NULL)
+}
+
+for (component in components) {
+  if (!file.exists(component$source)) {
+    if (isTRUE(component$required)) {
+      stop(
+        "Required snapshot component '", component$id, "' is absent: ",
+        component$source, call. = FALSE
+      )
     }
-  )
+    message("[snapshot] optional component absent: ", component$id)
+    next
+  }
+  if (dir.exists(component$source)) {
+    files <- list.files(component$source, recursive = TRUE, all.files = FALSE)
+    files <- files[!grepl("(^|/)logs/", files)]
+    if (!length(files)) {
+      stop("Snapshot component '", component$id, "' is an empty directory.",
+           call. = FALSE)
+    }
+    for (relative_file in files) {
+      source_file <- file.path(component$source, relative_file)
+      target_file <- file.path(staging, component$target, relative_file)
+      dir.create(dirname(target_file), recursive = TRUE, showWarnings = FALSE)
+      if (!file.copy(source_file, target_file, overwrite = TRUE)) {
+        stop("Could not stage ", source_file, call. = FALSE)
+      }
+      record_staged(
+        file.path(component$target, relative_file), target_file, component
+      )
+    }
+    message("[snapshot] staged ", length(files), " files for ", component$id)
+  } else {
+    target_file <- file.path(staging, component$target)
+    dir.create(dirname(target_file), recursive = TRUE, showWarnings = FALSE)
+    if (!file.copy(component$source, target_file, overwrite = TRUE)) {
+      stop("Could not stage ", component$source, call. = FALSE)
+    }
+    record_staged(component$target, target_file, component)
+    message("[snapshot] staged ", component$id)
+  }
 }
-
-stage_file(
-  observations_path, "analysis_inputs/analysis_data_pigmentation_hurdle.csv",
-  "derived_checkpoint",
-  "hotarubukuro two-part phenotype stage (01_phenotype)",
-  NA_character_, format(Sys.time(), tz = "UTC", usetz = TRUE)
-)
-for (name in names(raster_paths)) {
-  filename <- raster_layers[[name]]
-  provenance <- provenance_for(filename)
-  stage_file(
-    raster_paths[[name]], file.path("analysis_inputs/rasters", filename),
-    "immutable_input", provenance$source, provenance$url, provenance$retrieved
-  )
-}
-stage_file(
-  worldpop_path, file.path("analysis_inputs/rasters", basename(worldpop_path)),
-  "immutable_input",
-  "WorldPop Global 2000-2020 1km, Japan 2020, people per cell",
-  worldpop_url, format(file.info(worldpop_path)$mtime, tz = "UTC", usetz = TRUE)
-)
 
 for (path in c(download_manifest, processed_manifest)) {
   if (file.exists(path)) {
-    file.copy(path, file.path(staging, "provenance", basename(path)),
-              overwrite = TRUE)
+    file.copy(
+      path, file.path(staging, "provenance", basename(path)), overwrite = TRUE
+    )
   }
 }
-rp_write_csv_atomic(
-  raster_validation, file.path(staging, "provenance", "raster_validation.csv")
-)
+if (length(raster_checks)) {
+  rp_write_csv_atomic(
+    do.call(rbind, raster_checks),
+    file.path(staging, "provenance", "raster_validation.csv")
+  )
+}
 
 manifest <- do.call(rbind, staged)
 manifest <- manifest[order(manifest$path), , drop = FALSE]
 rownames(manifest) <- NULL
 rp_write_csv_atomic(manifest, file.path(staging, "SNAPSHOT_MANIFEST.csv"))
+
+# The external-source manifest records where each component came from, with the
+# retrieval detail the raster download manifest captured where it applies.
+external <- data.frame(
+  component = vapply(components, `[[`, character(1), "id"),
+  role = vapply(components, `[[`, character(1), "role"),
+  provider = vapply(components, `[[`, character(1), "provider"),
+  source_url = vapply(components, function(x) as.character(x$url), character(1)),
+  files = vapply(components, function(component) {
+    sum(startsWith(manifest$path, component$target))
+  }, integer(1)),
+  bytes = vapply(components, function(component) {
+    sum(manifest$bytes[startsWith(manifest$path, component$target)])
+  }, numeric(1)),
+  stringsAsFactors = FALSE
+)
+rp_write_csv_atomic(
+  external, file.path(staging, "provenance", "external_source_manifest.csv")
+)
+if (!is.null(downloads)) {
+  rp_write_csv_atomic(
+    downloads, file.path(staging, "provenance", "raster_download_manifest.csv")
+  )
+}
 
 rp_write_lines_atomic(
   c(
@@ -269,23 +423,33 @@ rp_write_lines_atomic(
            format(Sys.time(), tz = "UTC", usetz = TRUE), "."),
     "",
     "This archive is the immutable starting point of the canonical analysis",
-    "workflow. It contains analysis-ready inputs only:",
+    "workflow. It carries every input the locked publication pipeline consumes",
+    "and cannot regenerate on a clean runner:",
     "",
-    "- `analysis_inputs/analysis_data_pigmentation_hurdle.csv`: the two-part",
-    "  phenotype analysis table produced by the 01_phenotype stage from the",
-    "  versioned `Data_S1.csv` colour measurements.",
-    "- `analysis_inputs/rasters/`: the four environment layers that the 1-km",
-    "  cell table decomposes at 25/50/100 km, plus the WorldPop population",
-    "  layer used for population context.",
+    "- `analysis_inputs/results/ecological_v11_pigmentation_hurdle/`: the frozen",
+    "  two-part phenotype stage outputs.",
+    "- `analysis_inputs/results/ecological_v15_multiscale_hotspots/`: the frozen",
+    "  1-km multiscale cell context.",
+    "- `analysis_inputs/results/public_rasters/mlit_human_forest_edge_2021/`: the",
+    "  MLIT-derived human-landscape 1-km layers.",
+    "- `analysis_inputs/results/enmeval_aicc_reselected/predictions/`: the five",
+    "  committed Bombus prediction surfaces. These are restored, not",
+    "  regenerated; see reproducibility/reproduction_summary.md.",
+    "- `analysis_inputs/rasters/population_count_Japan_crop.tif`: the WorldPop",
+    "  population layer.",
+    "- `analysis_inputs/mlit_l03_2021/`: the raw MLIT primary-mesh archives the",
+    "  local-human-context stage re-processes.",
+    "- `analysis_inputs/mlit_did_2015/`: the MLIT A16-15 Densely Inhabited",
+    "  District archive the DID sensitivity stage uses.",
     "",
-    "`SNAPSHOT_MANIFEST.csv` records the SHA-256, byte size, provider, source",
-    "URL, and retrieval time of every member. `provenance/` carries the raster",
-    "download and preparation manifests from the raw-data reconstruction that",
-    "produced these layers.",
+    "`SNAPSHOT_MANIFEST.csv` records the SHA-256, byte size, component, provider",
+    "and source URL of every member. `provenance/` carries the raster download",
+    "and preparation manifests from the reconstruction that produced these",
+    "layers.",
     "",
-    "Downstream stages regenerate the 1-km cell table, the cross-fitted natural",
-    "predictive maps, and the local colour-state asymmetry diagnostic. Nothing",
-    "in this archive is a result; nothing in it may be edited by hand."
+    "Nothing in this archive is a result, and nothing in it may be edited by",
+    "hand. To change its contents, rerun the raw-data reconstruction workflow",
+    "with a new snapshot identifier and commit the new descriptor."
   ),
   file.path(staging, "SNAPSHOT_README.md")
 )
@@ -297,6 +461,7 @@ descriptor <- list(
   asset_sha256 = "",
   built_from_commit = rp_git_commit(),
   built_at_utc = format(Sys.time(), tz = "UTC", usetz = TRUE),
+  components = external,
   contents = manifest
 )
 dir.create(dirname(descriptor_path), recursive = TRUE, showWarnings = FALSE)
@@ -308,4 +473,5 @@ rp_write_atomic(descriptor_path, function(temporary) {
 })
 
 cat("Staged canonical snapshot at ", normalizePath(staging), "\n", sep = "")
-print(manifest[c("path", "bytes", "sha256")], row.names = FALSE)
+print(external, row.names = FALSE)
+cat("members: ", nrow(manifest), "; bytes: ", sum(manifest$bytes), "\n", sep = "")

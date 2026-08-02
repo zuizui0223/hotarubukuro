@@ -1,9 +1,13 @@
 name: Canonical analysis reproduction
 
-# Workflow A. Starts from the immutable, checksummed analysis-input snapshot
-# published as a GitHub Release asset and regenerates the 1-km cell table, the
-# 1,000 cross-fitted natural predictive maps, the bidirectional local
-# colour-state asymmetry outputs, and the validation report.
+# Canonical analysis reproduction.
+#
+# Starts from the immutable, checksummed analysis-input snapshot published as a
+# GitHub Release asset and runs the established publication pipeline exactly as
+# scripts/run_publication_pipeline.R defines it: the natural predictive model,
+# local Bombus turnover, human-landscape features, the local pigmented-isolate
+# definition, human context, the DID sensitivity, the publication lock, the
+# independent validation, the claim audit, and the manuscript figures.
 #
 # This workflow must be reliable on a clean GitHub-hosted runner. It does not
 # contact any external scientific data service; everything it consumes is either
@@ -17,16 +21,16 @@ name: Canonical analysis reproduction
 on:
   workflow_dispatch:
     inputs:
-      clean_run:
-        description: Discard stage checkpoints and reconstruct from the snapshot
+      pipeline_mode:
+        description: run_publication_pipeline.R mode (full, extensions, verify)
+        type: string
+        required: false
+        default: full
+      build_figures:
+        description: Build the manuscript figures after the pipeline
         type: string
         required: false
         default: "true"
-      required_maps:
-        description: Number of cross-fitted natural predictive maps
-        type: string
-        required: false
-        default: "1000"
   pull_request:
     types: [labeled]
     branches: ["main"]
@@ -42,10 +46,10 @@ env:
   SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
   STATUS_DIR: ${{ github.workspace }}/reproduction_status
   REPORT_DIR: ${{ github.workspace }}/reproducibility
-  REQUIRED_MAPS: ${{ inputs.required_maps || '1000' }}
-  PREDICTIVE_SEED: "20260725"
-  PSEUDOCOUNT: "0.5"
-  CLEAN_RUN: ${{ inputs.clean_run || 'true' }}
+  PIPELINE_MODE: ${{ inputs.pipeline_mode || 'full' }}
+  BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
+  HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
+  HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 
 jobs:
   canonical:
@@ -54,7 +58,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.label.name == 'run-canonical-analysis'
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 480
 
     steps:
       - uses: actions/checkout@v4
@@ -87,29 +91,14 @@ jobs:
           key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
 
       - name: Restore the declared R environment
-        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing
+        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing,figures,reporting
 
       - name: Restore the canonical analysis-input snapshot
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
 
-      # Stage checkpoints, restored only for an explicitly non-clean rerun. Each
-      # long stage writes its checkpoint through a temporary file and renames it
-      # into place, so a restored checkpoint is either complete or absent, never
-      # truncated. The default run is clean and regenerates everything; this
-      # exists so a rerun after an interruption does not have to refit models
-      # that already finished.
-      - name: Restore stage checkpoints for a resumed run
-        if: env.CLEAN_RUN != 'true'
-        uses: actions/cache@v4
-        with:
-          path: |
-            results/ecological_v15_multiscale_hotspots
-            results/ecological_v16_predictive_replication
-          key: canonical-stages-${{ hashFiles('inputs/canonical_snapshot.json', 'R/multiscale_hotspots.R', 'R/natural_predictive_model.R', 'scripts/run_multiscale_hotspots.R', 'scripts/run_natural_predictive_model.R') }}-${{ env.REQUIRED_MAPS }}-${{ env.PREDICTIVE_SEED }}
-
-      - name: Reconstruct the cell table, predictive maps, and asymmetry analysis
+      - name: Run the established publication pipeline
         run: bash scripts/run_canonical_analysis.sh
 
       - name: Summarise the primary result
@@ -121,19 +110,21 @@ jobs:
             echo "## Canonical analysis reproduction"
             echo
             echo "- commit: \`${GITHUB_SHA}\`"
-            echo "- required natural maps: ${REQUIRED_MAPS}"
-            echo "- clean run: ${CLEAN_RUN}"
+            echo "- pipeline mode: ${PIPELINE_MODE}"
             echo
-            if [[ -s "${STATUS_DIR}/asymmetry_primary_results.txt" ]]; then
+            if [[ -s "${STATUS_DIR}/validation_summary.txt" ]]; then
               echo '```text'
-              cat "${STATUS_DIR}/asymmetry_primary_results.txt"
+              cat "${STATUS_DIR}/validation_summary.txt"
               echo '```'
             else
-              echo "No asymmetry summary was produced."
+              echo "No validation summary was produced."
             fi
             echo
-            if [[ -s results/ecological_v23_local_state_asymmetry/VALIDATION.md ]]; then
-              cat results/ecological_v23_local_state_asymmetry/VALIDATION.md
+            if [[ -s results/final_analysis_pipeline/final_stage_manifest.csv ]]; then
+              echo '### Stage manifest'
+              echo '```csv'
+              cut -d, -f1,2,4 results/final_analysis_pipeline/final_stage_manifest.csv
+              echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -149,10 +140,7 @@ jobs:
             echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo "commit=${GITHUB_SHA}"
             echo "r_version=$(tr -d '[:space:]' < dependencies/r-version.txt)"
-            echo "clean_run=${CLEAN_RUN}"
-            echo "required_maps=${REQUIRED_MAPS}"
-            echo "predictive_seed=${PREDICTIVE_SEED}"
-            echo "pseudocount=${PSEUDOCOUNT}"
+            echo "pipeline_mode=${PIPELINE_MODE}"
           } > "${STATUS_DIR}/run_provenance.txt"
           find results reproducibility -type f -printf '%p\t%s\n' 2>/dev/null \
             | sort > "${STATUS_DIR}/result_inventory.tsv"
@@ -165,9 +153,14 @@ jobs:
           path: |
             reproducibility
             reproduction_status
-            results/ecological_v15_multiscale_hotspots
+            results/final_analysis_pipeline
             results/ecological_v16_predictive_replication
-            results/ecological_v23_local_state_asymmetry
+            results/ecological_v17_local_pair_turnover
+            results/ecological_v19_human_landscape_extremes
+            results/ecological_v20_local_white_isolates
+            results/ecological_v21_local_human_neighbourhood
+            results/ecological_v22_did_human_context
+            manuscript/figures
           if-no-files-found: warn
           compression-level: 6
           retention-days: 90

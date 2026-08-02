@@ -22,11 +22,12 @@ STATUS_DIR="${STATUS_DIR:?STATUS_DIR is required}"
 REPORT_DIR="${REPORT_DIR:-reproducibility}"
 HISTORICAL_PUBLICATION_COMMIT="${HISTORICAL_PUBLICATION_COMMIT:?HISTORICAL_PUBLICATION_COMMIT is required}"
 SNAPSHOT_STAGING="${SNAPSHOT_STAGING:-snapshot_staging}"
-SNAPSHOT_ID="${SNAPSHOT_ID:-analysis-input-snapshot-v1}"
+SNAPSHOT_ID="${SNAPSHOT_ID:-analysis-input-snapshot-v2}"
+DID_CACHE="${DID_CACHE:-reproduction_inputs/mlit_did_2015}"
 WORLDPOP_URL="${WORLDPOP_URL:-https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/2020/JPN/jpn_ppp_2020_1km_Aggregated.tif}"
 
 mkdir -p "$STATUS_DIR" "$PUBLIC_CACHE" "$MLIT_CACHE" "$GBIF_CACHE" \
-         "$BOMBUS_DIR" "$REPORT_DIR"
+         "$BOMBUS_DIR" "$REPORT_DIR" "$DID_CACHE"
 
 run_logged() {
   local label="$1"
@@ -108,9 +109,8 @@ find "$PUBLIC_CACHE" -maxdepth 1 -type f -name '*.tif' -printf '%f\n' \
 # fitted candidate objects, and those objects are not part of the versioned
 # repository, so a fresh AICc reselection cannot run here. The reconstruction
 # therefore uses the *Bombus* prediction surfaces committed at the recorded
-# publication commit, and records that explicitly. These surfaces do not enter
-# the environmental terms of the natural presence model or the neighbourhood
-# graph used by the asymmetry diagnostic.
+# publication commit, and records that explicitly. Which downstream stages
+# consume them is recorded in reproducibility/reproduction_summary.md.
 git fetch --no-tags origin "$HISTORICAL_PUBLICATION_COMMIT"
 for species in ardens beaticola consobrinus diversus honshuensis; do
   git show "${HISTORICAL_PUBLICATION_COMMIT}:sdm/${species}.tif" \
@@ -122,7 +122,7 @@ done
   echo "source_commit=${HISTORICAL_PUBLICATION_COMMIT}"
   echo "fresh_enmeval_reselection=false"
   echo "reason=fitted ENMeval candidate objects are not versioned in this repository"
-  echo "affects_asymmetry_graph=false"
+  echo "consumed_by=run_environment_spatial;bombus_community_fingerprint"
 } > "${STATUS_DIR}/bombus_input_mode.txt"
 sha256sum "${BOMBUS_DIR}"/*.tif > "${STATUS_DIR}/bombus_prediction_sha256.txt"
 
@@ -180,16 +180,46 @@ run_logged run_phenotype_hurdle \
     --output-dir=results/ecological_v11_pigmentation_hurdle \
     --run-inla=true
 
+# --- Frozen 1-km multiscale cell context ------------------------------------
+run_logged run_multiscale_hotspots \
+  Rscript scripts/run_multiscale_hotspots.R \
+    --input=results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+    --output-dir=results/ecological_v15_multiscale_hotspots \
+    --environment-cache="$PUBLIC_CACHE" \
+    --worldpop-raster="${PUBLIC_CACHE}/population_count_Japan_crop.tif" \
+    --bootstrap=1000
+
+# --- MLIT Densely Inhabited District archive --------------------------------
+# Fetched here so the canonical workflow never contacts MLIT. The archive is
+# validated as a real zip by the snapshot staging step before publication.
+mkdir -p "$DID_CACHE"
+if [[ ! -s "${DID_CACHE}/A16-15_GML.zip" ]]; then
+  curl --fail --location --retry 5 --retry-all-errors \
+    --connect-timeout 30 --max-time 900 \
+    "https://nlftp.mlit.go.jp/ksj/gml/data/A16/A16-15/A16-15_GML.zip" \
+    -o "${DID_CACHE}/A16-15_GML.zip"
+fi
+{
+  echo "source_url=https://nlftp.mlit.go.jp/ksj/gml/data/A16/A16-15/A16-15_GML.zip"
+  echo "retrieved_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "sha256=$(sha256sum "${DID_CACHE}/A16-15_GML.zip" | awk '{print $1}')"
+  echo "bytes=$(stat -c%s "${DID_CACHE}/A16-15_GML.zip")"
+} > "${STATUS_DIR}/did_provenance.txt"
+cat "${STATUS_DIR}/did_provenance.txt"
+
 # --- Stage the canonical analysis-input snapshot ----------------------------
 run_logged stage_canonical_snapshot \
   Rscript scripts/stage_canonical_snapshot.R \
-    --observations=results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+    --results-root=results \
     --raster-cache="$PUBLIC_CACHE" \
     --worldpop="${PUBLIC_CACHE}/population_count_Japan_crop.tif" \
+    --mlit-cache="$MLIT_CACHE" \
+    --did-cache="$DID_CACHE" \
     --staging="$SNAPSHOT_STAGING" \
     --snapshot-id="$SNAPSHOT_ID" \
     --descriptor=inputs/canonical_snapshot.json \
-    --worldpop-url="$WORLDPOP_URL"
+    --worldpop-url="$WORLDPOP_URL" \
+    --bombus-commit="$HISTORICAL_PUBLICATION_COMMIT"
 
 run_logged write_reproducibility_report \
   Rscript scripts/write_reproducibility_report.R \

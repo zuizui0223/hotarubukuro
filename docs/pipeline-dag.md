@@ -1,264 +1,159 @@
-# Analysis pipeline DAG
+# Canonical analysis pipeline DAG
 
-Every node below records its generating script, required inputs, expected
-outputs, deterministic seed, software requirements, and whether the output is an
-immutable input, a derived checkpoint, or a final result.
+The authoritative stage sequence is `scripts/run_publication_pipeline.R`. This
+document and the machine-readable
+[`reproducibility/pipeline_stage_registry.csv`](../reproducibility/pipeline_stage_registry.csv)
+describe that runner; they do not define a second pipeline. Where the two
+disagree, the runner is correct and the registry is a bug.
 
 ```text
-Data_S1.csv (raw/versioned phenotype input)
-  → environmental input preparation
+Data_S1.csv (versioned phenotype record)
+  → public raster acquisition (CHELSA, SoilGrids, WorldClim, WorldPop)
+  → MLIT land-use rasters
+  → environmental predictor extraction and PCA
   → environmental/spatial analysis table
-  → Bombus predictors
-  → two-part pigmentation models
-  ────────────── canonical analysis-input snapshot boundary ──────────────
-  → 1-km cell table
-  → 1,000 cross-fitted natural predictive maps
-  → local bidirectional asymmetry analysis
-  → validation and results artifact
+  → Bombus predicted-community inputs
+  → two-part flower-colour models
+  → 1-km multiscale cell context
+  ───────────── canonical analysis-input snapshot boundary ─────────────
+  → national natural predictive model with spatial cross-validation   (v16)
+  → local Bombus-turnover analysis                                    (v17)
+  → human-landscape features                                          (v19)
+  → locally discordant pigmentation (pigmented-isolate) definition     (v20)
+  → anthropogenic-context characterization                            (v21)
+  → DID sensitivity                                                   (v22)
+  → publication lock, independent validation, claim audit
+  → manuscript tables and figures
 ```
 
-Nodes above the boundary belong to **workflow B**
+Everything above the boundary belongs to **workflow B**
 (`.github/workflows/raw-data-reconstruction.yml`), which depends on external
-public services. Nodes below the boundary belong to **workflow A**
+public services. Everything below belongs to **workflow A**
 (`.github/workflows/canonical-analysis.yml`), which starts from the immutable,
 checksummed snapshot and must be reliable on a clean runner.
 
-## Environment (shared by every node)
+## Environment (shared by every stage)
 
-| Item | Declaration | Notes |
-|---|---|---|
-| R | `dependencies/r-version.txt` | 4.5.3, installed by `r-lib/actions/setup-r` |
-| CRAN packages | `dependencies/r-packages.csv` + `dependencies/cran-snapshot.txt` | One dated Posit Package Manager snapshot pins every version |
-| INLA | `dependencies/inla.csv` | Version pinned; candidate URLs validated as real archives declaring that version; resolved URL and SHA-256 recorded to `reproducibility/inla_resolution.csv` |
-| System libraries | `dependencies/apt-packages.txt` | Installed identically by every workflow |
-| Preflight | `scripts/preflight.R` | Loads every declared namespace and runs `INLA::inla.posterior.sample()` on a tiny model before any expensive stage |
-
-## Node table
-
-### 1. Raw/versioned phenotype input
-
-| | |
+| Item | Declaration |
 |---|---|
-| Generating script | none; committed to the repository |
-| Inputs | — |
-| Outputs | `Data_S1.csv` |
-| Seed | not applicable |
-| Software | — |
-| Class | **immutable input** |
+| R | `dependencies/r-version.txt` |
+| CRAN packages and scopes | `dependencies/r-packages.csv` |
+| CRAN resolution | `dependencies/cran-snapshot.txt` (one dated Posit Package Manager snapshot) |
+| INLA | `dependencies/inla.csv` (version, candidate sources, recorded resolved URL and SHA-256) |
+| System libraries | `dependencies/apt-packages.txt` |
+| Preflight | `scripts/preflight.R` |
 
-Author-reviewed colour measurements, source identifiers, image hashes, and QC
-fields. The raw photographs are not redistributable; `Data_S1.csv` is the
-versioned phenotype record.
+## Stages
 
-### 2. Public raster acquisition
+The per-stage inputs, outputs, package groups, seeds, determinism, output class
+and invariant are recorded in `reproducibility/pipeline_stage_registry.csv`.
+The narrative below covers what the table cannot.
 
-| | |
-|---|---|
-| Generating script | `scripts/download_rasters.R` then `scripts/prepare_rasters.R` |
-| Inputs | `config/raster_sources.csv`, `config/pipeline.yml` |
-| Outputs | `data/cache/rasters/`, `data/processed/rasters/`, `data/processed/raster_download_manifest.csv`, `data/processed/raster_manifest.csv` |
-| Seed | not applicable |
-| Software | terra, sf, yaml, digest, GDAL/GEOS/PROJ |
-| Class | **immutable input** (recorded URL, retrieval time, SHA-256 per source) |
+### Snapshot inputs (stages `00_*`)
 
-CHELSA v2.1 climatologies and WorldClim 2.1 elevation are pinned by URL;
-SoilGrids 2.0 layers are fetched through the WCS coverage identifiers named in
-the registry and masked by valid bulk-density cells. Sources materialised as
-study-area subsets record the checksum actually produced together with the
-source URL, bounding box, and code hashes, because GDAL versions may differ
-byte-for-byte while producing identical raster values.
+The snapshot carries the frozen phenotype stage, the frozen 1-km cell context,
+the MLIT-derived human rasters, the raw MLIT primary-mesh cache, the MLIT
+A16-15 DID archive, the five Bombus prediction surfaces, and the WorldPop
+layer. `scripts/verify_canonical_snapshot.R` rehashes every member against
+`inputs/canonical_snapshot.json` and then materialises them into the paths the
+locked runner expects. That materialisation step is what replaced the pipeline's
+former dependence on one developer machine's directory layout.
 
-### 3. Environmental input preparation
+### `02_run_natural_predictive_model`
 
-| | |
-|---|---|
-| Generating script | `scripts/build_environment_input.R` |
-| Inputs | `Data_S1.csv`, prepared rasters (18 layers) |
-| Outputs | `results/environment_v3/ecological_input_v2.csv` |
-| Seed | not applicable (deterministic extraction and PCA with fixed sign convention) |
-| Software | terra, jsonlite |
-| Class | **derived checkpoint** |
+Five components — national presence, national intensity, national
+year-plus-phenology, common-support presence, and common-support Bombus
+presence — each cross-fitted over five response-blind 100-km spatial folds with
+1,000 predictive draws. Seed `20260725`; the binomial replicate draw uses
+`seed + 1` per fold.
 
-### 4. Human-landscape rasters
+All five are required. The audit
+(`validation/audit_natural_predictive_model.R`) checks for exactly these five
+models with five folds each, and `validation/validate_local_pigmented_isolates.R`
+loads the presence, intensity **and phenology** draw checkpoints to build the
+auxiliary facet profile behind `local_isolate_natural_null_summary.csv`, which
+is a required publication artifact. The phenology component therefore cannot be
+dropped from the canonical DAG.
 
-| | |
-|---|---|
-| Generating script | `scripts/build_human_raster.R` |
-| Inputs | `Data_S1.csv`, MLIT National Land Numerical Information L03-b 2021 |
-| Outputs | `results/public_rasters/mlit_human_forest_edge_2021/*.tif` |
-| Seed | not applicable |
-| Software | terra, foreign, ranger |
-| Class | **derived checkpoint** |
+`--components` exists so a partial rerun can refit one component; the canonical
+workflow does not pass it, so all five are fitted and the selection is recorded
+in `predictive_replication_component_scope.csv`.
 
-### 5. Bombus predictors
+### `05_run_local_human_context` and `05_run_did_sensitivity`
 
-| | |
-|---|---|
-| Generating scripts | `scripts/fetch_bombus_occurrences.R`, `scripts/select_enmeval_models.R`, `scripts/run_natural_biotic_covariates.R` |
-| Inputs | GBIF occurrences for five *Bombus* species, prepared rasters, `results/ecological_v9_final_public_HRNA_50km/analysis_data.csv` |
-| Outputs | `results/bombus_occurrence_phenology_cache/`, `results/enmeval_aicc_reselected/predictions/*.tif`, `results/ecological_v10_final_mechanism_HRNA/analysis_data_mechanism_v3.csv` |
-| Seed | ENMeval partition seed set in `scripts/select_enmeval_models.R`; occurrence download date recorded in the cache manifest |
-| Software | rgbif, ENMeval, maxnet, terra, sf, FNN, dplyr, readr |
-| Class | **derived checkpoint** |
+These two stages read raw MLIT products rather than only the derived rasters:
+the local-human-context stage re-processes the L03-b primary-mesh archives to
+separate seven land-use classes, and the DID stage rasterises the A16-15
+Densely Inhabited District polygons. Both caches ship inside the snapshot and
+are addressed through `HOTARUBUKURO_MLIT_CACHE` and `HOTARUBUKURO_DID_CACHE`, so
+neither stage contacts MLIT during a canonical run.
 
-### 6. Environmental/spatial analysis table
+### `07_build_publication_figures`
 
-| | |
-|---|---|
-| Generating script | `scripts/run_environment_spatial.R` |
-| Inputs | `results/environment_v3/ecological_input_v2.csv`, `Data_S1.csv`, Bombus prediction surfaces, H/R/N/A rasters |
-| Outputs | `results/ecological_v9_final_public_HRNA_50km/analysis_data.csv` |
-| Seed | spatial-block assignment is deterministic (50-km blocks, 5 folds, 136.5°E cut) |
-| Software | sf, terra, mgcv, INLA |
-| Class | **derived checkpoint** |
+`rnaturalearth::ne_countries(scale = "medium")` resolves from the
+`rnaturalearthdata` package rather than the network. That package is declared
+explicitly; without it the figure stage would attempt a download mid-run.
 
-Projected coordinates use the analysis CRS
-`+proj=laea +lat_0=36 +lon_0=137 +datum=WGS84 +units=m`, divided by 1000 to give
-`x_km`/`y_km`. Downstream stages re-derive and check this projection.
+## Determinism
 
-### 7. Two-part pigmentation models
+Distinguish two properties.
 
-| | |
-|---|---|
-| Generating script | `scripts/run_phenotype_hurdle.R` |
-| Inputs | `results/ecological_v10_final_mechanism_HRNA/analysis_data_mechanism_v3.csv` |
-| Outputs | `results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv` and the hurdle fixed-effect, hyperparameter, and collinearity tables |
-| Seed | INLA inference is deterministic given the input; mixture classification uses `mclust` with a fixed confidence cut of 0.8 |
-| Software | INLA, mclust, mgcv, qgam, quantreg, sf, terra |
-| Class | **derived checkpoint** |
+**Bitwise reproducible.** The frozen snapshot inputs, and every table derived
+from them by deterministic code. Two clean runs produce identical SHA-256
+hashes.
 
-### 8. Canonical analysis-input snapshot
+**Statistically reproducible only.** Anything downstream of
+`INLA::inla.posterior.sample()`. The sampling call is seeded and
+single-threaded, but the INLA fit preceding it is not bit-deterministic across
+runs, so the draw matrices differ slightly between runs. Two independent clean
+runs of the previous canonical configuration produced a bit-identical 1-km cell
+table and bit-identical observed statistics, while Monte Carlo p-values computed
+against the draws moved in the third decimal (0.2018 versus 0.2138).
 
-| | |
-|---|---|
-| Generating scripts | `scripts/stage_canonical_snapshot.R`, `scripts/canonical_snapshot.sh publish` |
-| Inputs | node 7 output; the four multiscale environment layers and the WorldPop layer from node 2 |
-| Outputs | GitHub Release asset named in `inputs/canonical_snapshot.json`, plus `SNAPSHOT_MANIFEST.csv` inside the archive |
-| Seed | not applicable |
-| Software | terra, digest, jsonlite |
-| Class | **immutable input for workflow A** |
+Consequences:
 
-The archive is a deterministic tar (sorted members, fixed mtime and ownership).
-Its SHA-256 and every member SHA-256 are committed to
-`inputs/canonical_snapshot.json`. Workflow A refuses to run if the descriptor is
-missing or a checksum does not match. The snapshot is a Release asset rather
-than an Actions artifact or cache, so it does not expire and is not tied to a
-run.
+- report Monte Carlo p-values from draw-based stages to two decimals;
+- numerical regression checks on draw-derived quantities use tolerances rather
+  than equality, recorded in `reproducibility/numerical_regression_report.csv`;
+- a `.rds` checkpoint hash is not a determinism check — the v16 checkpoints also
+  store per-fold wall-clock timings.
 
-### 9. 1-km cell table
+The random-forest null draws in `04_run_human_landscape_features` and the
+permutation nulls in the v20/v21/v22 stages are likewise seeded per run but
+compared on tolerance.
 
-| | |
-|---|---|
-| Generating script | `scripts/run_multiscale_hotspots.R` |
-| Inputs | `analysis_data_pigmentation_hurdle.csv`, `elevation_Japan_crop.tif`, `bio10_Japan_crop_30s.tif`, `bio12_Japan_crop_30s.tif`, `RSDS_Japan_crop_30s.tif`, `population_count_Japan_crop.tif` (all from the snapshot) |
-| Outputs | `results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv` and the environment-context, provenance, and contrast tables |
-| Seed | bootstrap resampling uses 1000 replicates with the stage's fixed seed |
-| Software | INLA, mgcv, sf, terra |
-| Class | **derived checkpoint** |
+## Restartability
 
-Each observed 1-km cell carries a 50-km neighbourhood mean and a
-cell-minus-neighbourhood deviation for the four environment layers, summarised
-by two response-blind principal components per scale
-(`broad50km_pc1`, `broad50km_pc2`, `within50km_pc1`, `within50km_pc2`). These
-four columns define the environmental distance used by the locked neighbourhood
-graph.
-
-### 10. 1,000 cross-fitted natural predictive maps
-
-| | |
-|---|---|
-| Generating script | `scripts/run_natural_predictive_model.R --components=national_environment_spde_presence --draws=1000 --seed=20260725` |
-| Inputs | `analysis_data_pigmentation_hurdle.csv`, `multiscale_hotspot_cells_1km.csv` |
-| Outputs | `results/ecological_v16_predictive_replication/checkpoints/national_environment_spde_presence_draws1000.rds`, `predictive_replication_component_scope.csv`, `predictive_replication_component_checkpoints.csv` |
-| Seed | `20260725` for `INLA::inla.posterior.sample()`; `seed + 1` for the binomial replicate draw, set per fold inside `v16_fit_fold()` |
-| Software | INLA (with `sn` reached through `inla.posterior.sample`), Matrix, sf, terra |
-| Class | **derived checkpoint** |
-
-Five response-blind 100-km spatial folds; the SPDE field is constrained to zero
-mean at fold-specific training locations; predictions are drawn from INLA's
-projected APredictor at held-out cells with observed trial counts fixed. The
-checkpoint is written through a temporary file and renamed, so a resumed run
-never loads a truncated draw matrix.
-
-`--components` selects which of the five stage-02 components to fit. The
-canonical analysis workflow fits only the natural presence baseline, which is
-the model the asymmetry diagnostic compares against; the selection is recorded
-in `predictive_replication_component_scope.csv`. The raw reconstruction workflow
-fits all five.
-
-**Reproducibility of this node is statistical, not bit-level.** Two independent
-clean canonical runs produced a bit-identical 1-km cell table
-(`sha256 0967d289…`) and bit-identical *observed* statistics, but different
-predictive draw matrices. The posterior sampling call is seeded and
-single-threaded; the INLA *fit* that precedes it is not bit-deterministic across
-runs, so the sampled draws differ slightly. The effect on the diagnostic is
-third-decimal: across runs 30726934878 and 30727117525 the primary two-sided
-Monte Carlo p moved from 0.2018 to 0.2138 and the null mean log rate ratio from
-−0.677 to −0.671, with identical conclusions. Report Monte Carlo p-values from
-this stage to two decimal places, and do not treat a `.rds` checkpoint hash as a
-determinism check — the checkpoint also stores per-fold wall-clock timings.
-
-### 11. Local bidirectional asymmetry analysis
-
-| | |
-|---|---|
-| Generating script | `scripts/run_local_state_asymmetry.R --required-maps=1000 --pseudocount=0.5` |
-| Inputs | `multiscale_hotspot_cells_1km.csv`, `national_environment_spde_presence_draws1000.rds` |
-| Outputs | `results/ecological_v23_local_state_asymmetry/local_state_asymmetry_{rules,summary,null,candidates,metadata}.csv`, `README.md` |
-| Seed | none introduced; the diagnostic is a deterministic function of the cell table and the predictive draws. Upstream seeds are recorded in the metadata |
-| Software | base R, sf (CRS check) |
-| Class | **final result** |
-
-The neighbourhood graph is read programmatically from the primary row of
-`v20_configuration_table()` in `R/local_pigmented_isolates.R` (10-km radius,
-environmental RMS-distance caliper 1, at least 3 neighbours, the locked
-fold-boundary setting). Both event directions are extracted on that identical
-graph. The primary statistic is
-`log(pigmented_in_white_rate / white_in_pigmented_rate)` with a 0.5 pseudocount
-on both the numerator and the two-pseudocount denominator, compared against the
-same statistic on each of the 1,000 natural predictive maps using
-`p = (1 + number at least as extreme) / (usable maps + 1)`.
-
-### 12. Validation and results artifact
-
-| | |
-|---|---|
-| Generating scripts | `validation/validate_local_state_asymmetry.R`, `scripts/write_reproducibility_report.R` |
-| Inputs | the node 11 outputs |
-| Outputs | `local_state_asymmetry_validation.csv`, `VALIDATION.md`, `reproducibility/{input_manifest.csv,output_manifest.csv,sessionInfo.txt,dependency_audit.txt,pipeline_dag.md,reproduction_summary.md}` |
-| Seed | not applicable |
-| Software | base R, digest |
-| Class | **final result** |
-
-Validation recomputes every reported Monte Carlo statistic from the per-map null
-table, checks the opportunity normalisation identity, checks that the state
-definitions never overlap, checks that the recorded locked configuration
-reproduces the primary row of `v20_configuration_table()`, and checks the post
-hoc label and claim ceiling.
+`scripts/run_natural_predictive_model.R` writes each component checkpoint
+through a temporary file and renames it into place, so a checkpoint on disk is
+either complete or absent, never truncated. It reloads a checkpoint only when
+the recorded `analysis_spec_version`, model name and draw count all match the
+requested configuration, and refits otherwise; file existence alone is never
+treated as proof of validity.
 
 ## Failure conditions
 
 The canonical workflow fails, rather than degrading, when:
 
-- fewer than 1,000 predictive maps are available;
-- cell identifiers are duplicated or cannot be aligned one-to-one with the
-  predictive checkpoint;
-- checkpoint trial counts or observed counts disagree with the cell table;
-- any predictive count falls outside `[0, n_observations]` or is not an integer;
-- the stored projected coordinates disagree with the analysis CRS;
-- a locked environmental column is missing or non-finite;
-- the locked primary configuration is not present exactly once;
-- a snapshot checksum does not match `inputs/canonical_snapshot.json`;
-- a declared namespace fails to load, or the INLA posterior-sampling smoke test
-  fails.
+- the snapshot descriptor is missing, or any member checksum does not match;
+- a required column, CRS, extent or value range in a snapshot input is wrong;
+- a declared namespace fails to load, or the INLA posterior-sampling, sf/terra,
+  or figure-device smoke tests fail;
+- the stage registry references a script that does not exist;
+- any stage in `run_publication_pipeline.R` returns non-zero;
+- any independent validation or claim-audit row is not `PASS`.
 
 ## Audit notes
 
-- `docs/data-sources/public-environment-sources.md` describes the population
-  layer as the WorldPop "unconstrained/unadjusted" product but links to the
+- **Bombus provenance.** The five species prediction surfaces are restored from
+  the committed publication commit `bcceb7c7`, not regenerated. The repository
+  versions neither the ENMeval tuning grid nor the fitted candidate objects that
+  `scripts/select_enmeval_models.R` reads, so AICc reselection cannot run from
+  this repository alone. They are treated as archived immutable inputs. See
+  `reproducibility/reproduction_summary.md`.
+- **WorldPop naming.** `docs/data-sources/public-environment-sources.md`
+  describes the population layer as "unconstrained/unadjusted" but links the
   `Global_2000_2020_1km_UNadj` directory. The reconstruction uses
   `Global_2000_2020_1km/2020/JPN/jpn_ppp_2020_1km_Aggregated.tif`, the
   unadjusted product, and records that exact URL in the snapshot manifest. The
-  population columns are not used by the asymmetry graph, which depends only on
-  `n_pigmented`, `n_observations`, `x_km`, `y_km`, `spatial_fold`, and the four
-  environmental principal components.
+  documentation contradicts itself and should be corrected.

@@ -20,15 +20,32 @@ base_features_path <- arg_value(
     "landscape_cell_features.csv"
   )
 )
-worldpop_raster <- arg_value("--worldpop-raster", "")
-mlit_dir <- arg_value(
-  "--mlit-dir", "results/public_rasters/mlit_human_forest_edge_2021"
+worldpop_raster <- arg_value(
+  "--worldpop-raster", Sys.getenv("HOTARUBUKURO_WORLDPOP_RASTER", "")
 )
+mlit_dir <- arg_value(
+  "--mlit-dir",
+  Sys.getenv(
+    "HOTARUBUKURO_MLIT_DIR",
+    "results/public_rasters/mlit_human_forest_edge_2021"
+  )
+)
+# The default cache location was written for a Windows development machine.
+# USERPROFILE is unset elsewhere, which resolved to an unwritable absolute path
+# and made this stage depend on one author's filesystem. Honour an explicit
+# argument first, then an environment variable, then a repository-relative
+# default that works on any runner.
 mlit_cache <- arg_value(
   "--mlit-cache",
-  file.path(
-    Sys.getenv("USERPROFILE"), ".cache", "hotarubukuro",
-    "mlit_l03_2021"
+  Sys.getenv(
+    "HOTARUBUKURO_MLIT_CACHE",
+    if (nzchar(Sys.getenv("USERPROFILE"))) {
+      file.path(
+        Sys.getenv("USERPROFILE"), ".cache", "hotarubukuro", "mlit_l03_2021"
+      )
+    } else {
+      file.path("reproduction_inputs", "mlit_l03_2021")
+    }
   )
 )
 checkpoint_root <- arg_value(
@@ -68,9 +85,43 @@ if (!nzchar(worldpop_raster)) {
   )
   worldpop_raster <- population_provenance$raster_path[1L]
 }
+# The provenance table records the absolute path the cell table was built from,
+# which is meaningless on a different machine. Fall back to the same file name
+# under the declared input roots before giving up, so a clean runner does not
+# need the author's directory layout.
 if (!file.exists(worldpop_raster)) {
-  stop("WorldPop raster is unavailable: ", worldpop_raster,
-       call. = FALSE)
+  search_roots <- c(
+    Sys.getenv("HOTARUBUKURO_INPUT_ROOT", ""),
+    "reproduction_inputs/snapshot/analysis_inputs/rasters",
+    "reproduction_inputs/public_environment_cache",
+    "results/public_rasters"
+  )
+  search_roots <- search_roots[nzchar(search_roots) & dir.exists(search_roots)]
+  candidates <- unlist(lapply(search_roots, function(root) {
+    list.files(
+      root, pattern = paste0("^", basename(worldpop_raster), "$"),
+      recursive = TRUE, full.names = TRUE
+    )
+  }), use.names = FALSE)
+  if (length(candidates)) {
+    message(
+      "[v21] recorded WorldPop path is not present on this machine; ",
+      "resolved '", basename(worldpop_raster), "' to ", candidates[[1L]]
+    )
+    worldpop_raster <- candidates[[1L]]
+  }
+}
+if (!file.exists(worldpop_raster)) {
+  stop(
+    "WorldPop raster is unavailable: ", worldpop_raster, ".\n",
+    "  expected: the population raster recorded in ",
+    "multiscale_population_provenance.csv, or a file of the same name under ",
+    "one of the declared input roots.\n",
+    "  remediation: pass --worldpop-raster, set ",
+    "HOTARUBUKURO_WORLDPOP_RASTER, or restore the canonical analysis-input ",
+    "snapshot, which carries this raster.",
+    call. = FALSE
+  )
 }
 
 manifest <- utils::read.csv(

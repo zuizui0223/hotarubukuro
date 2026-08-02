@@ -36,3 +36,8 @@ cowplot,cran,figures,Publication figures
 patchwork,cran,figures,Publication figures
 scales,cran,figures,Publication figures
 rnaturalearth,cran,figures,Base map layers for publication figures
+rnaturalearthdata,cran,figures,Offline medium-scale country geometry served to rnaturalearth::ne_countries
+ragg,cran,figures,Raster device used by ggplot2::ggsave for the 600-dpi review copies
+systemfonts,cran,figures,Font resolution required by the figure devices
+mnormt,cran,analysis,Multivariate normal support reached through sn during INLA posterior sampling
+numDeriv,cran,analysis,Numerical derivatives reached through sn during INLA posterior sampling

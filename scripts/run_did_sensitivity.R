@@ -24,11 +24,21 @@ template_path <- arg_value(
     "mlit_human_forest_edge_1km.tif"
   )
 )
+# As in the local-human-context stage, the original default resolved through
+# USERPROFILE and therefore only existed on one development machine. Seeding
+# this directory from the canonical snapshot is what lets the stage run without
+# contacting MLIT during a canonical reproduction.
 did_cache <- arg_value(
   "--did-cache",
-  file.path(
-    Sys.getenv("USERPROFILE"), ".cache", "hotarubukuro",
-    "mlit_did_2015"
+  Sys.getenv(
+    "HOTARUBUKURO_DID_CACHE",
+    if (nzchar(Sys.getenv("USERPROFILE"))) {
+      file.path(
+        Sys.getenv("USERPROFILE"), ".cache", "hotarubukuro", "mlit_did_2015"
+      )
+    } else {
+      file.path("reproduction_inputs", "mlit_did_2015")
+    }
   )
 )
 output_dir <- arg_value(

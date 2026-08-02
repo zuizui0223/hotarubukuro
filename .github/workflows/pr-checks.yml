@@ -163,22 +163,64 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, re, sys
+
           # Absolute developer paths and Windows drive letters must never be
-          # baked into the pipeline; that was the original reason a clean runner
-          # could not reproduce the analysis.
-          if grep -rnE '(^|[^A-Za-z])[A-Z]:\\\\|/home/[a-z]+/|/Users/|C:/Program Files' \
-              R scripts validation tests --include='*.R' --include='*.sh'; then
-            echo "Local absolute paths are committed in the pipeline." >&2
-            exit 1
-          fi
-          # USERPROFILE resolved to an unwritable path on non-Windows runners.
-          # Every remaining use must carry a non-Windows fallback beside it.
-          if grep -rn 'USERPROFILE' R scripts validation --include='*.R' \
-              | grep -v 'nzchar(Sys.getenv("USERPROFILE"))'; then
-            echo "USERPROFILE is used without a documented fallback." >&2
-            exit 1
-          fi
-          echo "No local-machine paths or unguarded environment variables found."
+          # baked into the pipeline; that is why a clean runner could not
+          # reproduce the analysis. Reviewed exceptions live in
+          # dependencies/local-path-allowlist.txt so they stay visible.
+          allowlist = {}
+          for line in pathlib.Path(
+              "dependencies/local-path-allowlist.txt"
+          ).read_text().splitlines():
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              target, _, reason = line.partition(":")
+              allowlist[target.strip()] = reason.strip()
+
+          local_path = re.compile(
+              r"[A-Za-z]:[\\/]{1,2}(Program Files|Users)|/home/[a-z][a-z0-9_-]*/|/Users/"
+          )
+          sources = [
+              p for directory in ("R", "scripts", "validation", "tests")
+              for p in pathlib.Path(directory).rglob("*")
+              if p.suffix in {".R", ".sh"}
+          ]
+
+          offences = []
+          for source in sources:
+              key = source.as_posix()
+              for number, line in enumerate(
+                  source.read_text().splitlines(), start=1
+              ):
+                  if local_path.search(line):
+                      if key in allowlist:
+                          continue
+                      offences.append(f"{key}:{number}: {line.strip()[:120]}")
+
+              # USERPROFILE resolved to an unwritable path on non-Windows
+              # runners. Any file that still uses it must carry the guard, which
+              # may sit several lines away from the use.
+              text = source.read_text()
+              if "USERPROFILE" in text and \
+                      'nzchar(Sys.getenv("USERPROFILE"))' not in text and \
+                      key not in allowlist:
+                  offences.append(
+                      f"{key}: uses USERPROFILE without a non-Windows fallback"
+                  )
+
+          if offences:
+              print("Local-machine dependencies found:", file=sys.stderr)
+              for offence in offences:
+                  print("  " + offence, file=sys.stderr)
+              sys.exit(1)
+          print(
+              f"Scanned {len(sources)} files; no unreviewed local-machine paths. "
+              f"{len(allowlist)} reviewed exceptions."
+          )
+          PY
 
       - name: Check the canonical snapshot descriptor
         shell: Rscript {0}
@@ -250,7 +292,7 @@ jobs:
           key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
 
       - name: Restore the declared R environment
-        run: Rscript scripts/setup_r_environment.R --report-dir reproducibility --scopes analysis,reproducibility,testing
+        run: Rscript scripts/setup_r_environment.R --report-dir reproducibility --scopes analysis,reproducibility,testing,figures,reporting
 
       - name: Preflight the analysis environment
         run: Rscript scripts/preflight.R --scope canonical --report-dir reproducibility

@@ -18,6 +18,13 @@ report_dir <- arg_value("--report-dir", "reproducibility")
 # listing packages, so the declaration in dependencies/r-packages.csv stays the
 # single source of truth.
 scopes_argument <- arg_value("--scopes", "all")
+# INLA is required by every modelling stage and by nothing else. A diagnostic
+# that only inspects the analysis-population filter runs entirely upstream of
+# any model, so it can be provisioned without INLA — which matters because the
+# INLA download host is a mutable third-party service that is periodically
+# unavailable, and an outage there should not block a diagnostic that does not
+# use it. Any workflow that fits a model must leave this at its default.
+skip_inla <- hb_as_bool(arg_value("--skip-inla", "false"))
 dir.create(report_dir, recursive = TRUE, showWarnings = FALSE)
 
 repository <- rp_cran_repository()
@@ -154,7 +161,13 @@ resolved_url <- NA_character_
 archive_sha256 <- NA_character_
 retrieved_utc <- NA_character_
 
-if (identical(installed_version, target_version)) {
+if (skip_inla) {
+  message(
+    "[setup] --skip-inla: INLA is not being installed. This environment can ",
+    "only run stages that fit no model."
+  )
+  resolved_url <- "skipped"
+} else if (identical(installed_version, target_version)) {
   message("[setup] INLA ", target_version, " already present; reusing it")
   resolved_url <- "already-installed"
 } else {
@@ -196,15 +209,17 @@ if (identical(installed_version, target_version)) {
   utils::install.packages(archive, repos = NULL, type = "source")
 }
 
-if (!requireNamespace("INLA", quietly = TRUE)) {
-  stop("INLA is not loadable after installation.", call. = FALSE)
-}
-if (!identical(as.character(utils::packageVersion("INLA")), target_version)) {
-  stop(
-    "Installed INLA ", as.character(utils::packageVersion("INLA")),
-    " does not match the pinned version ", target_version, ".",
-    call. = FALSE
-  )
+if (!skip_inla) {
+  if (!requireNamespace("INLA", quietly = TRUE)) {
+    stop("INLA is not loadable after installation.", call. = FALSE)
+  }
+  if (!identical(as.character(utils::packageVersion("INLA")), target_version)) {
+    stop(
+      "Installed INLA ", as.character(utils::packageVersion("INLA")),
+      " does not match the pinned version ", target_version, ".",
+      call. = FALSE
+    )
+  }
 }
 
 record <- data.frame(

@@ -186,6 +186,18 @@ the model the asymmetry diagnostic compares against; the selection is recorded
 in `predictive_replication_component_scope.csv`. The raw reconstruction workflow
 fits all five.
 
+**Reproducibility of this node is statistical, not bit-level.** Two independent
+clean canonical runs produced a bit-identical 1-km cell table
+(`sha256 0967d289…`) and bit-identical *observed* statistics, but different
+predictive draw matrices. The posterior sampling call is seeded and
+single-threaded; the INLA *fit* that precedes it is not bit-deterministic across
+runs, so the sampled draws differ slightly. The effect on the diagnostic is
+third-decimal: across runs 30726934878 and 30727117525 the primary two-sided
+Monte Carlo p moved from 0.2018 to 0.2138 and the null mean log rate ratio from
+−0.677 to −0.671, with identical conclusions. Report Monte Carlo p-values from
+this stage to two decimal places, and do not treat a `.rds` checkpoint hash as a
+determinism check — the checkpoint also stores per-fold wall-clock timings.
+
 ### 11. Local bidirectional asymmetry analysis
 
 | | |

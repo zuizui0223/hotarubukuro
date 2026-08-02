@@ -162,7 +162,13 @@ report_failures <- function() {
   for (entry in failed_stages) {
     message("")
     message("--- ", entry$stage, " ---")
-    if (file.exists(entry$stderr_path)) {
+    # Not every recorded failure has a log: the publication lock fails in-process
+    # rather than through run_stage, so its entry carries NA. file.exists(NA)
+    # raises "invalid 'file' argument", which would take down the very summary a
+    # survey run exists to produce — and the lock failing is the ordinary case in
+    # a survey run, since it reads the outputs of stages that may not have run.
+    if (!is.na(entry$stderr_path) && nzchar(entry$stderr_path) &&
+        file.exists(entry$stderr_path)) {
       text <- readLines(entry$stderr_path, warn = FALSE)
       text <- text[nzchar(trimws(text))]
       if (length(text)) {

@@ -2,6 +2,25 @@ source(testthat::test_path("../../R/pipeline_support.R"))
 repo_root <- testthat::test_path("../..")
 hb_load_modules("final_registry", root = repo_root)
 
+# The locked result registry reads adopted stage outputs. Most of them are
+# versioned under results/, but the stage-05 DID candidate detail table is not,
+# so these two tests can only run in a checkout that also carries a completed
+# pipeline run. Skipping with an explicit reason keeps the check active wherever
+# the artifacts exist instead of quietly passing when they do not.
+skip_without_locked_artifacts <- function() {
+  required <- file.path(
+    repo_root, "results", "ecological_v22_did_human_context",
+    "did_candidate_details.csv"
+  )
+  testthat::skip_if_not(
+    file.exists(required),
+    paste(
+      "Locked stage-05 artifact", required,
+      "is not versioned; run the publication pipeline before these checks."
+    )
+  )
+}
+
 testthat::test_that("publication interface exposes ordered paper stages", {
   stages <- hb_publication_stage_registry()
   testthat::expect_identical(
@@ -46,6 +65,7 @@ testthat::test_that("final exclusions block circular or causal claims", {
 })
 
 testthat::test_that("final result registry has locked analysis tiers", {
+  skip_without_locked_artifacts()
   results <- final_result_registry(
     testthat::test_path("../..")
   )
@@ -70,6 +90,7 @@ testthat::test_that("final result registry has locked analysis tiers", {
 })
 
 testthat::test_that("claim registry preserves causal ceilings", {
+  skip_without_locked_artifacts()
   results <- final_result_registry(
     testthat::test_path("../..")
   )

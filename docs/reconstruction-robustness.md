@@ -123,13 +123,28 @@ The escalation record, so the choice is evidence rather than preference:
 | value | outcome |
 |---|---|
 | `0` | aborts at phenology fold 1 (run 30755431516) |
-| `1e-8` | fold 1 completes; aborts at fold 2, sampler seed 20462725 (run 30769056060) |
-| `1e-7` | current value |
+| `1e-8` | aborts at fold 2, sampler seed 20462725 — fold 1 survived (run 30769056060) |
+| `1e-7` | aborts at fold 1, sampler seed 20461725 (run 30769361233) |
 
 Each abort is identified by the sampler seed the failing `inla.qsample`
 subprocess reports, which is `20260725 + 200000 + 1000 × fold`. The fold loop
-now echoes that seed and prints a per-fold completion line, so which fold
-survived is read off the log rather than reconstructed.
+echoes that seed and prints a per-fold completion line, so which fold survived
+is read off the log rather than reconstructed.
+
+Those three rows say something the first two on their own did not: **the
+response is not monotone in the value.** A larger diagonal moved the failure
+back to an earlier fold. So the value cannot be chosen by rerunning the whole
+pipeline one guess at a time — that measures one cell of the table per twelve
+minutes and, worse, invites reading "got further" as "closer to correct".
+
+The value is therefore chosen from a measurement over the whole grid.
+`scripts/sweep_phenology_stabilisation.sh` walks the ladder upward per fold and
+stops at the first value that fold survives, running every attempt in its own
+process because the abort is a SIGABRT that kills the R session. The binding
+value for the pipeline is the largest of the per-fold minima: any smaller value
+leaves at least one fold aborting. `scripts/diagnose_phenology_stabilisation.R`
+performs a single attempt, calling the same module functions the pipeline calls,
+so the fold it fits is the fold the pipeline fits.
 
 What it does not change: no formula, prior, likelihood, spatial fold, draw
 count, seed, neighbourhood definition or threshold. The default is `0`, so the

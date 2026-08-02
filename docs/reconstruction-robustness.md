@@ -172,6 +172,21 @@ goes undetected. The 20-draw grid duly recorded fold 2 as surviving at diagonal
 `0`, while the pipeline had aborted at fold 2 with a *larger* diagonal. The
 draw count is now pinned to the analysis value and a smaller one is refused.
 
+**No value may be adopted from a partial grid.** The selection rule is *the
+smallest value for which all five folds complete*, and a truncated grid cannot
+answer that: a value whose measured cells all survived may still have an
+unmeasured fold that aborts, and a smaller usable value may simply not have been
+reached yet. Truncation is a real mode — run 30771243504 lost its runner
+mid-sweep — so the sweep counts its rows against folds × values and exits 4 if
+they disagree, rather than leaving the judgement to whoever reads the table. The
+ladder is fixed and is not extended past the measured range in search of a
+value; if none of the measured values survives every fold, the conclusion is
+that diagonal stabilisation alone is insufficient.
+
+The sweep's exit status carries the outcome: `0` complete grid with a usable
+value, `2` nothing reached the model, `3` complete grid with no usable value,
+`4` partial grid.
+
 **It does not assume monotonicity.** An earlier version stopped at the first
 value each fold survived. The pipeline pair above rules that out: a larger
 diagonal changes the fitted hyperparameter configurations themselves, so it

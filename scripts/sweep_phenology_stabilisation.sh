@@ -24,6 +24,14 @@
 #
 # This fits no analysis output and writes into its own directory. It is a
 # diagnostic, not a stage of the pipeline.
+#
+# Exit status:
+#   0  the grid is complete and at least one value survived every fold
+#   2  an attempt never reached the model; nothing was measured
+#   3  the grid is complete and no value survived every fold — the diagonal is
+#      not a sufficient remedy, and the ladder must not be extended past the
+#      measured range in search of one
+#   4  the grid is partial; no value may be adopted from it
 
 set -uo pipefail
 
@@ -110,7 +118,27 @@ if [[ "$setup_failed" -ne 0 ]]; then
 fi
 
 n_folds=$(echo $FOLDS | wc -w)
+n_values=$(echo $LADDER | wc -w)
+expected=$(( n_folds * n_values ))
+measured=$(( $(wc -l < "$results") - 1 ))
 
+# No value may be adopted from a partial grid.
+#
+# The selection rule is "the smallest value for which all five folds complete",
+# and that is not a question a partial grid can answer: a value whose measured
+# cells all survived may still have an unmeasured fold that aborts, and a
+# smaller value may be usable but not yet reached. Run 30771243504 lost its
+# runner mid-sweep, so truncation is a real mode and not a hypothetical one.
+if [[ "$measured" -ne "$expected" ]]; then
+  echo >&2
+  echo "=== sweep INCOMPLETE: ${measured} of ${expected} attempts ===" >&2
+  echo "The grid is partial, so no value may be adopted from it. Rerun the" >&2
+  echo "sweep; the rows already measured are in the step summary." >&2
+  exit 4
+fi
+
+echo
+echo "grid complete: ${measured} of ${expected} attempts measured"
 echo
 echo "=== survival by value, across all ${n_folds} folds ==="
 # A value is usable by the pipeline only if every fold survives it. Reporting

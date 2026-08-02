@@ -184,6 +184,18 @@ jobs:
             --run-inla=false \
             --author-review-confirmed=true 2>&1 | tee /tmp/filter.log
 
+      # The completeness audit showed every exclusion is Bombus_W. This measures
+      # the extraction itself on the same fixed surfaces and coordinates.
+      - name: Audit the Bombus extraction implementation
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript scripts/audit_bombus_extraction.R \
+            --observations Data_S1.csv \
+            --bombus-dir "$BOMBUS_DIR" \
+            --output-dir results/bombus_extraction_audit 2>&1 | tee /tmp/extraction.log
+
       - name: Report the exclusions
         if: always()
         shell: bash
@@ -223,6 +235,7 @@ jobs:
         with:
           name: completeness-audit-${{ github.run_id }}
           path: |
+            results/bombus_extraction_audit
             results/ecological_v9_final_public_HRNA_50km
             results/environment_v3
             reproducibility
@@ -237,3 +250,14 @@ jobs:
         run: |
           echo "=== run_environment_spatial.R output (last 60 lines) ===" >&2
           tail -60 /tmp/filter.log >&2 || echo "no captured output" >&2
+
+      - name: Show the extraction diagnosis
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          echo "=== raster geometry and extraction diagnosis ==="
+          cat results/bombus_extraction_audit/raster_geometry.csv 2>/dev/null
+          echo
+          cat results/bombus_extraction_audit/extraction_diagnosis.csv 2>/dev/null \
+            || tail -40 /tmp/extraction.log

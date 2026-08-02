@@ -52,6 +52,23 @@ run_stage <- function(stage, script, arguments = character(),
   )
   write_manifest()
   if (!identical(status, 0L)) {
+    # Surface the stage's own output here. The logs are uploaded as artifacts,
+    # but a failure has to be diagnosable from the workflow log alone, which is
+    # the only channel available when the artifact cannot be downloaded.
+    for (entry in list(
+      list(label = "stdout", path = stdout_path, lines = 60L),
+      list(label = "stderr", path = stderr_path, lines = 200L)
+    )) {
+      if (!file.exists(entry$path)) next
+      text <- readLines(entry$path, warn = FALSE)
+      if (!length(text)) next
+      message(
+        "----- ", stage, " ", entry$label, " (last ",
+        min(length(text), entry$lines), " of ", length(text), " lines) -----"
+      )
+      message(paste(utils::tail(text, entry$lines), collapse = "\n"))
+    }
+    message("----- end of ", stage, " logs -----")
     stop(
       "Final pipeline stage failed: ", stage,
       ". See ", stderr_path, call. = FALSE

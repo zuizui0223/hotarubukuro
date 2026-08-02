@@ -3,8 +3,9 @@ name: Repository checks
 on:
   push:
     branches: ["main"]
+  # Includes the stacked-PR base branch; see .github/workflows/pr-checks.yml.
   pull_request:
-    branches: ["main"]
+    branches: ["main", "analysis/local-colour-state-asymmetry"]
 
 permissions:
   contents: read

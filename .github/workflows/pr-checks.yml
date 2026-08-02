@@ -6,8 +6,11 @@ name: PR checks
 # instead of failing hours into the canonical numerical workflow.
 
 on:
+  # A pull request stacked on another pull request's branch still needs these
+  # checks. Without the second base branch here, a stacked PR reports no CI at
+  # all, which reads as "nothing to check" rather than "nothing was checked".
   pull_request:
-    branches: ["main"]
+    branches: ["main", "analysis/local-colour-state-asymmetry"]
   push:
     branches: ["main"]
   workflow_dispatch:

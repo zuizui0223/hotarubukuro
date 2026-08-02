@@ -51,20 +51,31 @@ publish() {
     "${api}/repos/${repository}/releases/tags/${tag}" | jq -r '.id // empty')"
 
   if [[ -z "$release_id" ]]; then
-    echo "Creating release ${tag}"
-    release_id="$(curl -sS -X POST \
+    # A pull_request run has GITHUB_SHA pointing at the ephemeral merge commit,
+    # which is not a sensible release target. Prefer the head branch.
+    local target="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-${GITHUB_SHA:-}}}"
+    echo "Creating release ${tag} targeting ${target}"
+    local create_status
+    create_status="$(curl -sS -w '%{http_code}' -o /tmp/snapshot-release.json -X POST \
       -H "Authorization: Bearer ${GITHUB_TOKEN}" \
       -H "Accept: application/vnd.github+json" \
       "${api}/repos/${repository}/releases" \
-      -d "$(jq -n --arg tag "$tag" --arg sha "${GITHUB_SHA:-}" '{
+      -d "$(jq -n --arg tag "$tag" --arg target "$target" '{
              tag_name: $tag,
-             target_commitish: $sha,
+             target_commitish: $target,
              name: $tag,
              body: "Immutable analysis-input snapshot for the canonical analysis workflow. Contents and per-file SHA-256 hashes are recorded in SNAPSHOT_MANIFEST.csv inside the archive and in inputs/canonical_snapshot.json in the repository.",
              draft: false,
              prerelease: false
-           }')" | jq -r '.id // empty')"
-    [[ -n "$release_id" ]] || die "Could not create release ${tag}. Check that the workflow has contents: write permission."
+           }')")"
+    echo "release create HTTP ${create_status}"
+    # The exact response is what tells a reader whether this is a permission
+    # policy, a protected tag, or a malformed target. Never summarise it away.
+    cat /tmp/snapshot-release.json
+    release_id="$(jq -r '.id // empty' /tmp/snapshot-release.json)"
+    if [[ -z "$release_id" ]]; then
+      die "Could not create release ${tag}: HTTP ${create_status}. See the response body above; it is the authoritative reason."
+    fi
   fi
 
   local existing

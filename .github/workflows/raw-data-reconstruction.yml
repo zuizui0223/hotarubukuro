@@ -61,6 +61,38 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Probe release-write access before spending half an hour rebuilding the
+      # inputs. A draft release is created under a throwaway tag and deleted
+      # immediately; the exact API response is printed either way, so a policy
+      # refusal is diagnosable in the first minute rather than at the end.
+      - name: Probe release publication access
+        id: publish_probe
+        if: ${{ (inputs.publish || 'true') == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          probe_tag="snapshot-publish-probe-${GITHUB_RUN_ID}"
+          status="$(curl -sS -w '%{http_code}' -o /tmp/probe.json -X POST \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases" \
+            -d "{\"tag_name\":\"${probe_tag}\",\"target_commitish\":\"${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}\",\"name\":\"${probe_tag}\",\"body\":\"Transient permission probe; deleted immediately.\",\"draft\":true}")"
+          echo "probe HTTP ${status}"
+          cat /tmp/probe.json
+          probe_id="$(jq -r '.id // empty' /tmp/probe.json)"
+          if [[ -n "$probe_id" ]]; then
+            curl -sS -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/${probe_id}" >/dev/null
+            echo "can_publish=true" >> "$GITHUB_OUTPUT"
+            echo "Release publication is permitted for this run."
+          else
+            echo "can_publish=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Release publication is not permitted for this run; HTTP ${status}. The reconstruction will continue and upload the staged snapshot, and the job will fail at the end with this reason."
+          fi
+
       - name: Read the pinned R version
         id: rversion
         shell: bash
@@ -106,7 +138,7 @@ jobs:
         run: bash scripts/run_raw_reconstruction.sh
 
       - name: Publish the snapshot as an immutable Release asset
-        if: ${{ (inputs.publish || 'true') == 'true' }}
+        if: ${{ (inputs.publish || 'true') == 'true' && steps.publish_probe.outputs.can_publish == 'true' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
@@ -137,6 +169,16 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "=== inputs/canonical_snapshot.json ==="
           cat inputs/canonical_snapshot.json
+
+      - name: Fail when publication was refused
+        if: ${{ (inputs.publish || 'true') == 'true' && steps.publish_probe.outputs.can_publish != 'true' }}
+        shell: bash
+        run: |
+          echo "The reconstruction completed and the staged snapshot is uploaded as an" >&2
+          echo "artifact, but this run could not publish it as a Release asset. The exact" >&2
+          echo "API response is in the 'Probe release publication access' step above." >&2
+          echo "Do not substitute another input source; grant release-write access and rerun." >&2
+          exit 1
 
       - name: Record run provenance
         if: always()

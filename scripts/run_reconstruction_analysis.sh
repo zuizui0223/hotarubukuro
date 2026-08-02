@@ -29,10 +29,16 @@ DISCORDANCE_DIR="results/ecological_v23_local_state_asymmetry"
 # On the reconstruction, inla.qsample aborts that component with "Matrix is not
 # (numerical) positive definite" and takes the process down with SIGABRT before
 # a single draw is written. This adds a constant to the diagonal of the
-# precision matrix so the Cholesky factorisation stays defined. It is the
-# smallest value tried; it is not a scientific change, and the presence,
-# intensity and both common-support components are untouched.
-PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-1e-8}"
+# precision matrix so the Cholesky factorisation stays defined. It is not a
+# scientific change, and the presence, intensity and both common-support
+# components are untouched.
+#
+# Escalation record, smallest first:
+#   0     — aborts at fold 1 (run 30755431516).
+#   1e-8  — fold 1 completes; aborts at fold 2, sampler seed 20462725
+#           (run 30769056060).
+#   1e-7  — current value.
+PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-1e-7}"
 
 export HOTARUBUKURO_MLIT_CACHE="${HOTARUBUKURO_MLIT_CACHE:-reproduction_inputs/mlit_l03_2021}"
 export HOTARUBUKURO_DID_CACHE="${HOTARUBUKURO_DID_CACHE:-reproduction_inputs/mlit_did_2015}"

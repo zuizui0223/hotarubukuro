@@ -116,8 +116,20 @@ What this is:
 - a property of the solver, not of the model;
 - applied to the phenology component only — the presence, intensity and both
   common-support components are fitted exactly as before;
-- the smallest value tried, `1e-8`. A larger value is used only if a smaller one
-  is demonstrated to still abort.
+- escalated from the smallest value upward, and only on a measured failure.
+
+The escalation record, so the choice is evidence rather than preference:
+
+| value | outcome |
+|---|---|
+| `0` | aborts at phenology fold 1 (run 30755431516) |
+| `1e-8` | fold 1 completes; aborts at fold 2, sampler seed 20462725 (run 30769056060) |
+| `1e-7` | current value |
+
+Each abort is identified by the sampler seed the failing `inla.qsample`
+subprocess reports, which is `20260725 + 200000 + 1000 × fold`. The fold loop
+now echoes that seed and prints a per-fold completion line, so which fold
+survived is read off the log rather than reconstructed.
 
 What it does not change: no formula, prior, likelihood, spatial fold, draw
 count, seed, neighbourhood definition or threshold. The default is `0`, so the

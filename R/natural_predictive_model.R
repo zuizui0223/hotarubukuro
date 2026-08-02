@@ -418,17 +418,28 @@ v16_crossfit_spde <- function(data, response, family,
     basis <- v16_fold_predictors(
       train, test, environment_terms, fingerprint_terms
     )
+    fold_seed <- as.integer(seed + 1000L * match(fold, folds))
+    # The sampler seed is echoed because an INLA abort inside inla.qsample
+    # reports only the seed of the subprocess it spawned. Without this, telling
+    # which fold died means reconstructing the seed arithmetic by hand.
     message(
       "[v16] ", model, " fold ", fold, ": train=", nrow(train),
-      ", test=", nrow(test), ", draws=", n_draws
+      ", test=", nrow(test), ", draws=", n_draws,
+      ", sampler seed=", fold_seed,
+      if (is.finite(diagonal) && diagonal > 0) {
+        paste0(", diagonal=", format(diagonal, scientific = TRUE))
+      } else ""
     )
     result <- v16_fit_fold(
       train, test, response, basis,
       mesh_objects$mesh,
       family = family, trials = trials, n_draws = n_draws,
-      seed = as.integer(seed + 1000L * match(fold, folds)),
+      seed = fold_seed,
       model = model, fold = fold, diagonal = diagonal
     )
+    # Printed only once the fold's draws exist, so a fold that aborted mid-sample
+    # is distinguishable from one that finished.
+    message("[v16] ", model, " fold ", fold, ": complete")
     draws[test_index, ] <- result$draws
     latent_mean[test_index] <- result$latent_mean
     logs[[length(logs) + 1L]] <- result$log

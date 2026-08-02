@@ -94,6 +94,21 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
 
+      # Stage checkpoints, restored only for an explicitly non-clean rerun. Each
+      # long stage writes its checkpoint through a temporary file and renames it
+      # into place, so a restored checkpoint is either complete or absent, never
+      # truncated. The default run is clean and regenerates everything; this
+      # exists so a rerun after an interruption does not have to refit models
+      # that already finished.
+      - name: Restore stage checkpoints for a resumed run
+        if: env.CLEAN_RUN != 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            results/ecological_v15_multiscale_hotspots
+            results/ecological_v16_predictive_replication
+          key: canonical-stages-${{ hashFiles('inputs/canonical_snapshot.json', 'R/multiscale_hotspots.R', 'R/natural_predictive_model.R', 'scripts/run_multiscale_hotspots.R', 'scripts/run_natural_predictive_model.R') }}-${{ env.REQUIRED_MAPS }}-${{ env.PREDICTIVE_SEED }}
+
       - name: Reconstruct the cell table, predictive maps, and asymmetry analysis
         run: bash scripts/run_canonical_analysis.sh
 

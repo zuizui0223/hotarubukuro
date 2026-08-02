@@ -40,6 +40,14 @@ DISCORDANCE_DIR="results/ecological_v23_local_state_asymmetry"
 #   1e-7  — current value.
 PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-1e-7}"
 
+# Survey mode. Off by default; see scripts/run_publication_pipeline.R.
+#
+# Every stage after 02 consumes stage 02's output, so no stage after 02 has yet
+# executed on the reconstruction. Setting this on the first run that clears
+# stage 02 makes that run report every remaining blocker instead of stopping at
+# the first, which is the difference between one CI cycle and one per blocker.
+CONTINUE_ON_FAILURE="${CONTINUE_ON_FAILURE:-false}"
+
 export HOTARUBUKURO_MLIT_CACHE="${HOTARUBUKURO_MLIT_CACHE:-reproduction_inputs/mlit_l03_2021}"
 export HOTARUBUKURO_DID_CACHE="${HOTARUBUKURO_DID_CACHE:-reproduction_inputs/mlit_did_2015}"
 export HOTARUBUKURO_WORLDPOP_RASTER="${HOTARUBUKURO_WORLDPOP_RASTER:-${SNAPSHOT_DIR}/analysis_inputs/rasters/population_count_Japan_crop.tif}"
@@ -91,6 +99,7 @@ run_logged run_pipeline_on_reconstruction \
     --baseline=reconstruction \
     --discordance=true \
     --phenology-diagonal="$PHENOLOGY_DIAGONAL" \
+    --continue-on-failure="$CONTINUE_ON_FAILURE" \
     --output="$LOCK_DIR" || pipeline_status=$?
 echo "pipeline_status=${pipeline_status}" | tee "${STATUS_DIR}/pipeline_status.txt"
 
@@ -138,9 +147,12 @@ if [[ "$pipeline_status" -ne 0 ]]; then
   if [[ -s "${LOCK_DIR}/final_stage_manifest.csv" ]]; then
     echo "--- stages attempted ---" >&2
     cut -d, -f1,4 "${LOCK_DIR}/final_stage_manifest.csv" >&2
-    failed_stage="$(awk -F'","' 'NR > 1 && $4 == "FAIL" { gsub(/"/, "", $1); print $1 }' \
-      "${LOCK_DIR}/final_stage_manifest.csv" | tail -1)"
-    if [[ -n "$failed_stage" ]]; then
+    # Every failing stage, not just the last. In survey mode there is more than
+    # one, and the point of that mode is to see all of them in a single run.
+    failed_stages="$(awk -F'","' 'NR > 1 && $4 == "FAIL" { gsub(/"/, "", $1); print $1 }' \
+      "${LOCK_DIR}/final_stage_manifest.csv")"
+    echo "--- stages that failed: $(echo "$failed_stages" | tr '\n' ' ') ---" >&2
+    for failed_stage in $failed_stages; do
       for stream in stderr stdout; do
         log="${LOCK_DIR}/logs/${failed_stage}_${stream}.log"
         if [[ -s "$log" ]]; then
@@ -148,7 +160,7 @@ if [[ "$pipeline_status" -ne 0 ]]; then
           tail -40 "$log" >&2
         fi
       done
-    fi
+    done
   fi
   exit "$pipeline_status"
 fi

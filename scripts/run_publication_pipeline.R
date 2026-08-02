@@ -33,6 +33,24 @@ run_discordance <- hb_as_bool(hb_arg_value(args, "--discordance", "false"))
 # why the reconstruction needs it and what it does not change.
 phenology_diagonal <- hb_arg_value(args, "--phenology-diagonal", "0")
 
+# Survey mode: record a stage failure and keep going, instead of stopping.
+#
+# Default false, so the locked behaviour — stop at the first failing stage — is
+# unchanged, and a normal run still cannot proceed on a broken upstream.
+#
+# It exists because every stage after 02 consumes stage 02's output, so none of
+# them has ever executed on the reconstruction. Discovering their failures one
+# per run costs a full CI cycle each. With this on, the first run that clears
+# stage 02 reports every remaining blocker at once.
+#
+# It never converts failure into success: each stage keeps its own PASS or FAIL
+# in the manifest, the run still exits non-zero if anything failed, and the
+# comparison's freshness gate still refuses a verdict on artifacts the run did
+# not regenerate.
+continue_on_failure <- hb_as_bool(
+  hb_arg_value(args, "--continue-on-failure", "false")
+)
+
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 log_dir <- file.path(output_dir, "logs")
 dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
@@ -40,6 +58,7 @@ rscript <- file.path(R.home("bin"), "Rscript")
 if (.Platform$file.sep == "\\") rscript <- paste0(rscript, ".exe")
 
 stage_rows <- list()
+failed_stages <- list()
 write_manifest <- function() {
   if (!length(stage_rows)) return(invisible(NULL))
   utils::write.csv(
@@ -90,12 +109,47 @@ run_stage <- function(stage, script, arguments = character(),
       message(paste(utils::tail(text, entry$lines), collapse = "\n"))
     }
     message("----- end of ", stage, " logs -----")
-    stop(
-      "Final pipeline stage failed: ", stage,
-      ". See ", stderr_path, call. = FALSE
+    failed_stages[[length(failed_stages) + 1L]] <<- list(
+      stage = stage, stderr_path = stderr_path
     )
+    if (!continue_on_failure) {
+      stop(
+        "Final pipeline stage failed: ", stage,
+        ". See ", stderr_path, call. = FALSE
+      )
+    }
+    message(
+      "[final] --continue-on-failure is set; recording the failure and ",
+      "continuing so that this run reports every remaining blocker."
+    )
+    return(invisible(FALSE))
   }
   invisible(TRUE)
+}
+
+# Printed last so a survey run ends with the list of what to fix, rather than
+# with whichever stage happened to run last.
+report_failures <- function() {
+  if (!length(failed_stages)) return(invisible(NULL))
+  message("")
+  message("===== stages that failed in this run =====")
+  for (entry in failed_stages) {
+    message("")
+    message("--- ", entry$stage, " ---")
+    if (file.exists(entry$stderr_path)) {
+      text <- readLines(entry$stderr_path, warn = FALSE)
+      text <- text[nzchar(trimws(text))]
+      if (length(text)) {
+        message(paste(utils::tail(text, 15L), collapse = "\n"))
+      }
+    }
+  }
+  message("")
+  message(
+    "===== ", length(failed_stages), " stage(s) failed; the pipeline did not ",
+    "complete ====="
+  )
+  invisible(NULL)
 }
 
 run_stage(
@@ -243,7 +297,23 @@ if (run_tests) {
   )
 }
 
-final_write_lock(".", output_dir)
+# Not a run_stage, so in survey mode it needs its own guard: it reads the
+# outputs of the stages above, and a survey run is precisely the case where some
+# of those are absent.
+if (continue_on_failure) {
+  lock_result <- try(final_write_lock(".", output_dir), silent = TRUE)
+  if (inherits(lock_result, "try-error")) {
+    message(
+      "[final] the publication lock could not be written: ",
+      conditionMessage(attr(lock_result, "condition"))
+    )
+    failed_stages[[length(failed_stages) + 1L]] <- list(
+      stage = "06_write_publication_lock", stderr_path = NA_character_
+    )
+  }
+} else {
+  final_write_lock(".", output_dir)
+}
 run_stage(
   "06_validate_publication_lock",
   "validation/validate_publication_pipeline.R",
@@ -258,6 +328,14 @@ run_stage(
 )
 
 write_manifest()
+
+if (length(failed_stages)) {
+  report_failures()
+  # A survey run that reached the end is still a failed run. Exiting non-zero
+  # keeps that fact in the driver's pipeline_status and in the workflow result.
+  quit(save = "no", status = 1L)
+}
+
 cat(
   "Final analysis pipeline completed in mode '", mode,
   "': ", normalizePath(output_dir), "\n", sep = ""

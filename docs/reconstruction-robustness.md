@@ -202,6 +202,32 @@ The audit reports it as a `RESULT` rather than scoring it, because the correct
 value is not something an audit can assert — but a reader must never have to
 guess whether it was used.
 
+## Getting to one complete run
+
+The objective is a single end-to-end execution on GitHub Actions from
+reproducible public inputs — not agreement with the published numbers. The
+comparison is qualitative context and runs afterwards.
+
+The pipeline is a serial chain and every stage after 02 consumes stage 02's
+cross-fitted checkpoints, so while stage 02 is blocked nothing downstream can be
+validated at all: stages 03 through 08 have never executed on the reconstruction
+population. Discovering their failures one per run would cost a CI cycle each.
+
+`--continue-on-failure` therefore exists on the runner. With it set, a stage
+that fails is recorded and the run continues, so one run enumerates every
+remaining blocker. It is off by default, and it never converts a failed run into
+a successful one:
+
+- each stage keeps its own `PASS` or `FAIL` in `final_stage_manifest.csv`;
+- the run exits non-zero if any stage failed, so `pipeline_status` and the
+  workflow result both stay red;
+- the driver prints every failing stage's logs, not just the last one;
+- the comparison's freshness gate still refuses to issue a verdict against
+  artifacts the run did not regenerate.
+
+It is a way to see the whole queue at once, not a way to proceed on a broken
+upstream.
+
 ## The discordance diagnostic
 
 On top of the rebuilt pipeline, this analysis runs the bidirectional local

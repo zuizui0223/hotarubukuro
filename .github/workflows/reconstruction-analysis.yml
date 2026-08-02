@@ -28,6 +28,14 @@ on:
         type: string
         required: false
         default: "true"
+      continue_on_failure:
+        description: >-
+          Record a stage failure and keep going, so one run reports every
+          remaining blocker. Never turns a failed run green; the run still
+          exits non-zero and no comparison verdict is issued.
+        type: string
+        required: false
+        default: "false"
       phenology_diagonal:
         description: >-
           control.inla(diagonal=) for the phenology component only. Numerical
@@ -52,6 +60,7 @@ env:
   REPORT_DIR: ${{ github.workspace }}/reproducibility
   BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
   PHENOLOGY_DIAGONAL: ${{ inputs.phenology_diagonal || '1e-7' }}
+  CONTINUE_ON_FAILURE: ${{ inputs.continue_on_failure || 'false' }}
   HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
   HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 
@@ -142,6 +151,7 @@ jobs:
             # A solver setting, recorded alongside the run so a stabilised fit
             # is never mistaken for an unstabilised one.
             echo "phenology_inla_diagonal=${PHENOLOGY_DIAGONAL}"
+            echo "continue_on_failure=${CONTINUE_ON_FAILURE}"
           } > "${STATUS_DIR}/run_provenance.txt"
 
       - name: Upload the analysis, the comparison, and all logs

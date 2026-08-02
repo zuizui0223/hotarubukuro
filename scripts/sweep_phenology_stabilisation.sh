@@ -8,10 +8,19 @@
 # status, which is the only reliable signal: a surviving attempt exits 0, an
 # aborted one exits non-zero after R fails to reopen the sampler's RNG file.
 #
-# For each fold the ladder is walked from the smallest value upward and stops at
-# the first value that survives. That is exactly the rule the stabilisation is
-# meant to follow — the smallest value that allows the model to complete — and
-# it makes the answer a measurement rather than a guess.
+# The whole grid is measured — every fold at every value, with no early exit.
+#
+# An earlier version stopped at the first value each fold survived, which
+# assumes the response is monotone in the value. It is not. At 1000 draws the
+# pipeline cleared fold 1 with 1e-8 and aborted on it with 1e-7: a larger
+# diagonal changes the fitted hyperparameter configurations themselves, so it
+# changes which precision matrices get factorised rather than simply making all
+# of them better conditioned. "Smallest value that works for this fold" is
+# therefore not a quantity that can be found by walking upward and stopping.
+#
+# What the pipeline needs is one value that survives every fold at once, so
+# that is what the summary reports: the smallest value in the ladder whose
+# whole column survived.
 #
 # This fits no analysis output and writes into its own directory. It is a
 # diagnostic, not a stage of the pipeline.
@@ -20,7 +29,11 @@ set -uo pipefail
 
 CELLS="${CELLS:-results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv}"
 OUTPUT_DIR="${OUTPUT_DIR:-results/phenology_stabilisation_diagnostic}"
-DRAWS="${DRAWS:-20}"
+# The analysis draw count, not a cost knob — see the comment in
+# scripts/diagnose_phenology_stabilisation.R. Fewer draws leave low-weight
+# posterior configurations unvisited and report survival the pipeline does not
+# reproduce.
+DRAWS="${DRAWS:-1000}"
 FOLDS="${FOLDS:-1 2 3 4 5}"
 # Ascending. 0 is included so the unstabilised behaviour of every fold is
 # measured rather than assumed from the two folds a pipeline run reached.
@@ -60,10 +73,6 @@ for fold in $FOLDS; do
       setup_failed=1
       break 2
     fi
-    if [[ "$status" == "survived" ]]; then
-      echo "  -> smallest surviving value for fold ${fold}: ${diagonal}"
-      break
-    fi
   done
 done
 
@@ -82,18 +91,34 @@ if [[ "$setup_failed" -ne 0 ]]; then
   exit 2
 fi
 
-echo
-echo "=== smallest surviving diagonal per fold ==="
-# The binding value for the pipeline is the largest of the per-fold minima: any
-# smaller value leaves at least one fold aborting.
-awk -F, 'NR > 1 && $3 == "survived" && !seen[$1]++ { print "fold " $1 ": " $2 }' \
-  "$results"
-awk -F, 'NR > 1 && $3 == "survived" && !seen[$1]++ { print $2 }' "$results" \
-  | sort -g | tail -1 \
-  | sed 's/^/binding value for all measured folds: /'
+n_folds=$(echo $FOLDS | wc -w)
 
-missing=$(awk -F, 'NR > 1 { seen[$1] = seen[$1] || ($3 == "survived") }
-  END { for (f in seen) if (!seen[f]) printf "%s ", f }' "$results")
-if [[ -n "${missing// /}" ]]; then
-  echo "folds with no surviving value in the ladder: ${missing}"
+echo
+echo "=== survival by value, across all ${n_folds} folds ==="
+# A value is usable by the pipeline only if every fold survives it. Reporting
+# per-value totals rather than per-fold minima avoids the monotonicity
+# assumption entirely: it reads the answer straight off the grid.
+awk -F, -v n="$n_folds" '
+  NR > 1 && $3 == "survived" { survived[$2]++ }
+  NR > 1 { seen[$2] = 1 }
+  END {
+    for (d in seen) {
+      printf "%s\t%d/%d folds%s\n", d, survived[d] + 0, n,
+        (survived[d] + 0 == n ? "\tUSABLE" : "")
+    }
+  }' "$results" | sort -g
+
+usable=$(awk -F, -v n="$n_folds" '
+  NR > 1 && $3 == "survived" { survived[$2]++ }
+  END { for (d in survived) if (survived[d] == n) print d }' "$results" \
+  | sort -g | head -1)
+
+echo
+if [[ -n "$usable" ]]; then
+  echo "smallest value surviving every fold: ${usable}"
+else
+  echo "=== no value in the ladder survives every fold ===" >&2
+  echo "The diagonal is not a sufficient remedy at these values. Report the" >&2
+  echo "grid rather than escalating past the measured range." >&2
+  exit 3
 fi

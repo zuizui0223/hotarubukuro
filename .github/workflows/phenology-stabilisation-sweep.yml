@@ -9,9 +9,10 @@ name: Phenology stabilisation sweep
 # value, so the value has to be chosen from a measurement over every fold rather
 # than from the first run that happens to get further.
 #
-# This walks the ladder from the smallest value upward, per fold, in a separate
-# process per attempt — the abort is a SIGABRT that kills the R session — and
-# stops at the first value each fold survives. It fits no analysis output.
+# This measures the whole grid — every fold at every value, at the analysis draw
+# count — in a separate process per attempt, because the abort is a SIGABRT that
+# kills the R session. It reports the smallest value whose whole column
+# survived, which is what the pipeline needs. It fits no analysis output.
 
 on:
   workflow_dispatch:
@@ -22,10 +23,13 @@ on:
         required: false
         default: "0 1e-8 1e-7 1e-6 1e-5 1e-4 1e-3 1e-2"
       draws:
-        description: Draws per attempt (the factorisation fails once, regardless)
+        description: >-
+          Draws per attempt. Must be the analysis count. Fewer draws leave
+          low-weight posterior configurations unvisited and report survival the
+          pipeline does not reproduce.
         type: string
         required: false
-        default: "20"
+        default: "1000"
   pull_request:
     types: [labeled]
     branches: ["main", "analysis/local-colour-state-asymmetry"]
@@ -41,7 +45,7 @@ env:
   SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
   REPORT_DIR: ${{ github.workspace }}/reproducibility
   LADDER: ${{ inputs.ladder || '0 1e-8 1e-7 1e-6 1e-5 1e-4 1e-3 1e-2' }}
-  DRAWS: ${{ inputs.draws || '20' }}
+  DRAWS: ${{ inputs.draws || '1000' }}
   HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
   HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 

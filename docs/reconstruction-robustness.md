@@ -138,24 +138,48 @@ pipeline one guess at a time — that measures one cell of the table per twelve
 minutes and, worse, invites reading "got further" as "closer to correct".
 
 The value is therefore chosen from a measurement over the whole grid.
-`scripts/sweep_phenology_stabilisation.sh` walks the ladder upward per fold and
-stops at the first value that fold survives, running every attempt in its own
-process because the abort is a SIGABRT that kills the R session. The binding
-value for the pipeline is the largest of the per-fold minima: any smaller value
-leaves at least one fold aborting. `scripts/diagnose_phenology_stabilisation.R`
+`scripts/sweep_phenology_stabilisation.sh` measures the whole grid — every fold
+at every value — running each attempt in its own process because the abort is a
+SIGABRT that kills the R session. `scripts/diagnose_phenology_stabilisation.R`
 performs a single attempt, calling the same module functions the pipeline calls,
 so the fold it fits is the fold the pipeline fits.
 
-The sweep distinguishes three outcomes, not two. Its first run (30769694286)
-reported all forty attempts as `aborted` and exited green, when in fact none of
-them had reached the model: the workflow restored the canonical snapshot without
-materialising it, so every attempt failed to open the cell table. A grid of
-setup failures is indistinguishable from a grid of genuine numerical failures
-unless the two are recorded separately, and the more dangerous of the two
-directions is the one that happened — measuring nothing while appearing to have
-measured everything. The diagnostic therefore exits with status 2 when an
-attempt never reached the model, the sweep records that as `setup_error`, stops
-immediately rather than filling the grid, and exits non-zero.
+Two properties of the sweep were learned by getting them wrong, and both are
+worth stating because both produced confident-looking numbers that were not
+measurements of the model.
+
+**It must record setup failures separately.** The first run (30769694286)
+reported all forty attempts as `aborted` and exited green. None had reached the
+model: the workflow restored the canonical snapshot without materialising it, so
+every attempt failed to open the cell table in four seconds — against the forty
+a real fit takes. A grid of setup failures is indistinguishable from a grid of
+genuine numerical failures unless the two are recorded apart, and the dangerous
+direction is the one that occurred: measuring nothing while appearing to have
+measured everything. The diagnostic now exits with status 2 when an attempt
+never reached the model, and the sweep records `setup_error`, stops rather than
+filling the grid, and exits non-zero.
+
+**It must use the analysis draw count.** The second run (30770591247) swept at
+20 draws on the reasoning that the factorisation fails once regardless of how
+many draws are requested. That reasoning is wrong.
+`inla.posterior.sample` allocates draws across the stored hyperparameter
+configurations by weight and calls `inla.qsample` once per configuration. The
+failing call in run 30769361233 carried a count of 4 out of 1000 — a
+configuration holding about 0.4% of the posterior weight, whose expected
+allocation at 20 draws is 0.08. At a reduced draw count such a configuration is
+never visited, its precision matrix is never factorised, and an indefinite Q
+goes undetected. The 20-draw grid duly recorded fold 2 as surviving at diagonal
+`0`, while the pipeline had aborted at fold 2 with a *larger* diagonal. The
+draw count is now pinned to the analysis value and a smaller one is refused.
+
+**It does not assume monotonicity.** An earlier version stopped at the first
+value each fold survived. The pipeline pair above rules that out: a larger
+diagonal changes the fitted hyperparameter configurations themselves, so it
+changes which precision matrices are factorised rather than simply conditioning
+all of them better. The sweep therefore reports, per value, how many folds
+survived it, and the answer is the smallest value whose whole column survived —
+which is also exactly what the pipeline needs, since it must run every fold with
+one value.
 
 What it does not change: no formula, prior, likelihood, spatial fold, draw
 count, seed, neighbourhood definition or threshold. The default is `0`, so the

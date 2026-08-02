@@ -28,10 +28,29 @@ input_cells <- arg_value(
 )
 target_fold <- as.integer(arg_value("--fold", "1"))
 diagonal <- as.numeric(arg_value("--diagonal", "0"))
-# The failure is in the Cholesky factorisation of the stored configuration, which
-# happens once regardless of how many draws are requested. A small count is
-# therefore a faithful test of the same code path at a fraction of the cost.
-n_draws <- as.integer(arg_value("--draws", "20"))
+# The draw count must be the analysis draw count. It is not a cost knob.
+#
+# inla.posterior.sample allocates its draws across the stored hyperparameter
+# configurations by weight and calls inla.qsample once per configuration, with
+# that configuration's allocation. The failing call in run 30769361233 carried a
+# count of 4 out of 1000 — a configuration holding about 0.4% of the posterior
+# weight. At 20 draws its expected allocation is 0.08, so it is never visited,
+# its precision matrix is never factorised, and an indefinite Q goes undetected.
+#
+# A sweep at a reduced draw count therefore reports survival that the real stage
+# does not reproduce. Run 30770591247 did exactly that: it recorded fold 2 as
+# surviving at diagonal 0, while the pipeline aborted at fold 2 with a larger
+# diagonal. The default is the analysis value for that reason.
+n_draws <- as.integer(arg_value("--draws", "1000"))
+if (!is.finite(n_draws) || n_draws < 1000L) {
+  message(
+    "[diagnostic] SETUP FAILURE: --draws=", n_draws, " is below the analysis ",
+    "draw count of 1000. Fewer draws leave low-weight posterior ",
+    "configurations unvisited, so survival here would not imply survival in ",
+    "the pipeline."
+  )
+  quit(save = "no", status = 2L)
+}
 seed <- as.integer(arg_value("--seed", "20260725"))
 
 hb_require_stage_packages("natural_predictive_model")

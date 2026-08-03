@@ -1,31 +1,27 @@
-name: Reconstruction robustness analysis
+name: Public reconstruction
 
-# Workflow D. The PR18 analysis.
+# Produces the PUBLIC RECONSTRUCTION. This is NOT the paper's analysis.
 #
-# Runs the complete locked pipeline from scratch on the public reconstruction —
-# the 1909-observation analysis population rebuilt entirely from Data_S1.csv and
-# the pinned public environmental sources — then runs the bidirectional local
-# colour-state discordance diagnostic on top of it, then compares the result
-# against the published analysis.
+# The published manuscript analysis is canonical and is computed on 1,923
+# observations. This workflow runs the same locked pipeline on an analysis
+# population rebuilt entirely from Data_S1.csv and the pinned public sources,
+# which contains 1,909 observations. The published analysis-input tables are
+# lost (docs/established-inputs.md), so the published analysis cannot be
+# re-executed from source; this is the closest reproducible approximation and
+# is never a substitute for it.
 #
-# This is not an attempt to reproduce the manuscript. The published analysis
-# inputs are lost (see docs/established-inputs.md), so the two analyses have
-# different observation sets and their numbers are not expected to match. The
-# question is whether the conclusions survive when everything is rebuilt from
-# reproducible public sources.
+# The comparison it produces is descriptive: published value, reconstructed
+# value, difference. No robust/differs verdict is issued, because the two sides
+# are computed on different observation sets.
 #
 # The frozen upstream audits run with --baseline reconstruction: every
 # dataset-independent structural check is enforced exactly as in the published
-# mode, and the handful of checks that assert the published run's own row counts
-# and convergence-warning pattern are reported as not applicable rather than
+# mode, and the few checks that assert the published run's own row counts and
+# convergence-warning pattern are reported as not applicable rather than
 # deleted.
 #
-# This workflow is canonical-only. Every stage must pass in sequence; there is
-# no continue-on-failure input and the driver passes false unconditionally. The
-# reference reconstruction is a run of this workflow and nothing else. Survey
-# runs, which tolerate a failing stage in order to enumerate blockers during
-# development, live in reconstruction-survey.yml and produce no comparison and
-# no reproducibility report.
+# Known limitation: stage 02's phenology component does not currently complete
+# on this population. See docs/public-reconstruction.md.
 
 on:
   workflow_dispatch:
@@ -35,21 +31,6 @@ on:
         type: string
         required: false
         default: "true"
-      phenology_num_threads:
-        description: >-
-          INLA num.threads for the phenology fit only. A numerical
-          reproducibility setting, not a model change. Empty leaves INLA's
-          default.
-        type: string
-        required: false
-        default: "1:1"
-      phenology_diagonal:
-        description: >-
-          control.inla(diagonal=) for the phenology component only. Numerical
-          stabilisation of INLA's sampler, not a model change. 0 disables it.
-        type: string
-        required: false
-        default: "0"
   pull_request:
     types: [labeled]
     branches: ["main", "analysis/local-colour-state-asymmetry"]
@@ -66,8 +47,6 @@ env:
   STATUS_DIR: ${{ github.workspace }}/reproduction_status
   REPORT_DIR: ${{ github.workspace }}/reproducibility
   BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
-  PHENOLOGY_DIAGONAL: ${{ inputs.phenology_diagonal || '0' }}
-  PHENOLOGY_NUM_THREADS: ${{ inputs.phenology_num_threads || '1:1' }}
   HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
   HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 
@@ -155,10 +134,6 @@ jobs:
             echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo "commit=${GITHUB_SHA}"
             echo "baseline=reconstruction"
-            # A solver setting, recorded alongside the run so a stabilised fit
-            # is never mistaken for an unstabilised one.
-            echo "phenology_inla_diagonal=${PHENOLOGY_DIAGONAL}"
-            echo "phenology_inla_num_threads=${PHENOLOGY_NUM_THREADS}"
             echo "run_mode=canonical"
           } > "${STATUS_DIR}/run_provenance.txt"
 
@@ -179,7 +154,6 @@ jobs:
             results/ecological_v20_local_white_isolates
             results/ecological_v21_local_human_neighbourhood
             results/ecological_v22_did_human_context
-            results/ecological_v23_local_state_asymmetry
             manuscript/figures
           if-no-files-found: warn
           compression-level: 6

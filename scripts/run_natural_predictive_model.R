@@ -51,54 +51,6 @@ n_draws <- as.integer(arg_value("--draws", "1000"))
 force_rerun <- as_bool(arg_value("--force", "false"))
 seed <- as.integer(arg_value("--seed", "20260725"))
 
-# Numerical stabilisation for the phenology component only.
-#
-# On the public reconstruction, inla.qsample aborts in that component with
-# "Matrix is not (numerical) positive definite" (GMRFLib_init_problem), taking
-# the INLA process down with SIGABRT before any draw is written. The phenology
-# model is the only one carrying both median_year_centered and its square
-# alongside the SPDE, and that near-collinear pair can leave the joint precision
-# matrix numerically singular.
-#
-# --phenology-diagonal adds a constant to the diagonal of the precision matrix
-# so the Cholesky factorisation stays defined. It is a property of the solver,
-# not of the model: no formula, prior, fold, draw count or threshold changes,
-# and the presence and intensity components are untouched. The value used is
-# recorded on the checkpoint, in the component-scope metadata and in the run
-# provenance, so a stabilised fit is never mistaken for an unstabilised one.
-phenology_diagonal <- as.numeric(arg_value("--phenology-diagonal", "0"))
-if (!is.finite(phenology_diagonal) || phenology_diagonal < 0) {
-  stop("--phenology-diagonal must be a non-negative number.", call. = FALSE)
-}
-
-# Numerical reproducibility for the phenology component only.
-#
-# The diagonal above was measured across five folds and eight values and does
-# not work: no value lets all five folds complete, survival showed no structure
-# along the value axis, and the same fold and value gave opposite outcomes on
-# two runs. See reproducibility/phenology_stabilisation_grid.csv.
-#
-# That last property is the one this setting addresses. INLA's inference stage
-# is multi-threaded by default, so the set of stored hyperparameter
-# configurations can differ between runs of identical inputs; inla.qsample then
-# factorises whichever were stored, and a borderline matrix succeeds or fails by
-# chance. Pinning the thread count makes the configurations — and therefore the
-# outcome — a function of the inputs.
-#
-# It is a reproducibility setting, not a scientific one. No formula, prior,
-# likelihood, fold, draw count, seed, diagonal, threshold or downstream
-# definition changes, and the presence, intensity and both common-support
-# components keep INLA's default threading. Empty means unset, which is the
-# locked behaviour.
-phenology_num_threads <- arg_value("--phenology-num-threads", "")
-if (nzchar(phenology_num_threads) &&
-    !grepl("^[0-9]+(:[0-9]+)?$", phenology_num_threads)) {
-  stop(
-    "--phenology-num-threads must be empty, an integer, or INLA's A:B form.",
-    call. = FALSE
-  )
-}
-
 if (!is.finite(n_draws) || n_draws < 100L) {
   stop("--draws must be at least 100.", call. = FALSE)
 }
@@ -127,7 +79,7 @@ utils::write.csv(
   row.names = FALSE
 )
 
-run_or_load <- function(model, expression, diagonal = 0, num_threads = "") {
+run_or_load <- function(model, expression) {
   # `expression` is a promise, so a component that was not selected is never
   # forced and therefore never fitted.
   if (!model %in% selected_components) {
@@ -143,32 +95,6 @@ run_or_load <- function(model, expression, diagonal = 0, num_threads = "") {
       identical(
         result$analysis_spec_version, "v16.4_apredictor_projection"
       )
-    # A checkpoint fitted under a different numerical stabilisation is a
-    # different fit. Checkpoints written before the setting existed carry no
-    # field and are treated as unstabilised, which is what they were.
-    checkpoint_diagonal <- if (is.null(result$inla_diagonal)) {
-      0
-    } else as.numeric(result$inla_diagonal)
-    # Threading is part of what makes a fit reproducible, so a checkpoint
-    # fitted under different threading is a different fit for the same reason a
-    # different diagonal is.
-    checkpoint_threads <- if (is.null(result$inla_num_threads)) {
-      "default"
-    } else as.character(result$inla_num_threads)
-    requested_threads <- if (!nzchar(as.character(num_threads))) {
-      "default"
-    } else as.character(num_threads)
-    if (!isTRUE(all.equal(checkpoint_diagonal, as.numeric(diagonal))) ||
-        !identical(checkpoint_threads, requested_threads)) {
-      message(
-        "[v16] checkpoint was fitted with diagonal=", checkpoint_diagonal,
-        ", num.threads=", checkpoint_threads,
-        " but this run requests diagonal=", diagonal,
-        ", num.threads=", requested_threads, "; refitting: ", path
-      )
-      compatible_previous_component <- FALSE
-      result$analysis_spec_version <- NA_character_
-    }
     if ((identical(
       result$analysis_spec_version, v16_analysis_spec_version
     ) || compatible_previous_component) &&
@@ -223,12 +149,8 @@ national_phenology <- run_or_load(
     ),
     training_eligible = is.finite(cells$median_DOY),
     model = "national_environment_year_spde_phenology",
-    n_draws = n_draws, seed = seed + 200000L,
-    diagonal = phenology_diagonal,
-    num_threads = phenology_num_threads
-  ),
-  diagonal = phenology_diagonal,
-  num_threads = phenology_num_threads
+    n_draws = n_draws, seed = seed + 200000L
+  )
 )
 
 common <- cells[
@@ -271,7 +193,7 @@ component_scope <- data.frame(
   field = c(
     "requested_components", "fitted_components", "skipped_components",
     "component_scope", "n_predictive_draws", "random_seed", "generated_utc",
-    "commit", "phenology_inla_diagonal", "phenology_inla_num_threads"
+    "commit"
   ),
   value = c(
     paste(selected_components, collapse = ";"),
@@ -279,9 +201,7 @@ component_scope <- data.frame(
     paste(setdiff(all_components, fitted_components), collapse = ";"),
     if (partial_scope) "partial" else "complete",
     n_draws, seed, format(Sys.time(), tz = "UTC", usetz = TRUE),
-    rp_git_commit(),
-    format(phenology_diagonal, scientific = TRUE),
-    if (nzchar(phenology_num_threads)) phenology_num_threads else "default"
+    rp_git_commit()
   ),
   stringsAsFactors = FALSE
 )

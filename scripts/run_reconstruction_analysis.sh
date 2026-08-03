@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 #
-# The reconstruction robustness analysis.
+# Build the PUBLIC RECONSTRUCTION. This is not the paper's analysis.
 #
-# Runs the complete locked pipeline on the public reconstruction, adds the
-# bidirectional local colour-state discordance diagnostic, and compares the
-# result against the published analysis.
-#
-# The difference from scripts/run_canonical_analysis.sh is what is being
-# claimed. The canonical driver claims to reproduce the published analysis and
-# stops when its inputs are not the published ones. This driver claims nothing
-# of the sort: it declares the reconstruction as its analysis population and
-# asks whether the conclusions survive on it.
+# The published manuscript analysis is canonical, on 1,923 observations. This
+# driver runs the same locked pipeline on the population rebuilt from public
+# sources, which has 1,909, and then describes the two side by side. It issues
+# no robustness verdict: the two are different observation sets by
+# construction, because the published analysis-input tables are lost.
 #
 # It adds no model, formula, fold, threshold or draw count of its own. Stage
-# order and model definitions all come from the locked runner.
+# order and model definitions all come from the locked runner. Every stage must
+# pass in sequence.
 
 set -euo pipefail
 
@@ -22,42 +19,7 @@ STATUS_DIR="${STATUS_DIR:-reproduction_status}"
 REPORT_DIR="${REPORT_DIR:-reproducibility}"
 BUILD_FIGURES="${BUILD_FIGURES:-true}"
 LOCK_DIR="results/final_analysis_pipeline"
-DISCORDANCE_DIR="results/ecological_v23_local_state_asymmetry"
 
-# Numerical stabilisation for the phenology component only. Default 0: OFF,
-# because it was measured across the full grid and it does not work.
-#
-# Run 30793913721 measured five folds by eight values from 0 to 1e-2, one CI job
-# per cell, at the analysis draw count. Every column contains at least one
-# abort, so no value lets all five folds complete; survival was 10 of 39 cells
-# with no structure along the value axis; and the same cell gave opposite
-# outcomes in two runs (fold 1 at 1e-7 survived in one, aborted in another),
-# so the result is not even a function of (fold, diagonal).
-#
-# The flag is kept because the machinery is recorded and auditable, but no value
-# is justified by the measurement, so none is set. See the grid in
-# docs/reconstruction-robustness.md.
-PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-0}"
-# Numerical reproducibility for the phenology component only, explicit and
-# identical in the canonical and survey drivers.
-#
-# INLA's inference stage is multi-threaded by default, so the stored
-# hyperparameter configurations can differ between runs of identical inputs.
-# inla.qsample factorises whichever were stored, which is why the same fold at
-# the same diagonal survived on one run and aborted on another. Pinning the
-# thread count makes the configurations a function of the inputs. It is a
-# reproducibility setting, not a scientific one: no formula, prior, fold, draw
-# count, seed, diagonal, threshold or downstream definition changes, and no
-# other component is affected. The sampling call was already single-threaded;
-# this covers the fit, which was not.
-PHENOLOGY_NUM_THREADS="${PHENOLOGY_NUM_THREADS:-1:1}"
-
-# This driver is canonical-only and has no survey switch, by construction.
-#
-# Survey mode lives in scripts/survey_reconstruction_pipeline.sh, which does not
-# run the comparison and does not write a reproducibility report. The reference
-# reconstruction must be a run in which every stage passed in sequence, so the
-# driver that produces it cannot be asked to do anything else.
 
 export HOTARUBUKURO_MLIT_CACHE="${HOTARUBUKURO_MLIT_CACHE:-reproduction_inputs/mlit_l03_2021}"
 export HOTARUBUKURO_DID_CACHE="${HOTARUBUKURO_DID_CACHE:-reproduction_inputs/mlit_did_2015}"
@@ -108,10 +70,6 @@ run_logged run_pipeline_on_reconstruction \
     --mode=full \
     --tests=true \
     --baseline=reconstruction \
-    --discordance=true \
-    --phenology-diagonal="$PHENOLOGY_DIAGONAL" \
-    --phenology-num-threads="$PHENOLOGY_NUM_THREADS" \
-    --continue-on-failure=false \
     --output="$LOCK_DIR" || pipeline_status=$?
 echo "pipeline_status=${pipeline_status}" | tee "${STATUS_DIR}/pipeline_status.txt"
 
@@ -132,7 +90,6 @@ run_logged compare_reconstruction_to_published \
   Rscript scripts/compare_reconstruction_to_published.R \
     --published inputs/published_reference \
     --lock "$LOCK_DIR" \
-    --discordance "$DISCORDANCE_DIR" \
     --report-dir "$REPORT_DIR" || comparison_status=$?
 
 # --- Reproducibility record --------------------------------------------------
@@ -142,7 +99,7 @@ run_logged write_reproducibility_report \
     --report-dir "$REPORT_DIR" \
     --workflow reconstruction-analysis \
     --inputs "${SNAPSHOT_DIR}/SNAPSHOT_MANIFEST.csv,inputs/canonical_snapshot.json,inputs/published_reference,Data_S1.csv" \
-    --outputs "${LOCK_DIR},${DISCORDANCE_DIR},results/ecological_v16_predictive_replication,results/ecological_v17_local_pair_turnover,results/ecological_v19_human_landscape_extremes,results/ecological_v20_local_white_isolates,results/ecological_v21_local_human_neighbourhood,results/ecological_v22_did_human_context,manuscript/figures" \
+    --outputs "${LOCK_DIR},results/ecological_v16_predictive_replication,results/ecological_v17_local_pair_turnover,results/ecological_v19_human_landscape_extremes,results/ecological_v20_local_white_isolates,results/ecological_v21_local_human_neighbourhood,results/ecological_v22_did_human_context,manuscript/figures" \
   || report_status=$?
 
 echo "=== reproducibility outputs ==="

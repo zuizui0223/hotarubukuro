@@ -1,22 +1,19 @@
-# Compare the public reconstruction against the published analysis.
+# Describe the public reconstruction alongside the published analysis.
 #
-# This is not a reproduction check. The published analysis inputs are lost, so
-# the two analyses are computed from different observation sets and their
-# numbers are not expected to match. The question is narrower and more useful:
-# do the qualitative conclusions survive when the whole pipeline is rebuilt from
-# nothing but declared, reproducible public sources?
+# NOT a reproduction check and NOT a robustness test. The published analysis is
+# computed on 1,923 observations; the public reconstruction is computed on 1,909
+# because the published analysis-input tables are lost and the population is
+# rebuilt from public sources (see docs/established-inputs.md). The two are
+# therefore different analysis populations by construction.
 #
-# Each comparison therefore carries two verdicts:
+# This script reports, per quantity: the published number, the reconstructed
+# number, their difference, and the relative difference. It issues no verdict —
+# no robust/differs, no pass/fail, no threshold. Whether a difference matters is
+# a scientific judgement for the reader, not something a script can settle from
+# two numbers computed on different data.
 #
-#   agreement  - whether the reconstructed value is close to the published one,
-#                on a scale stated per quantity. Informative, not decisive.
-#   conclusion - whether the thing the manuscript actually claims still holds:
-#                the sign of an effect, which side of a significance threshold a
-#                test falls on, whether a discrimination measure stays useful.
-#                This is what "robust" and "differs" refer to.
-#
-# A quantity with no published counterpart is reported as `new_analysis` rather
-# than being silently dropped or scored.
+# A quantity present in only one of the two is reported with the other side
+# blank rather than being dropped or scored.
 
 args <- commandArgs(trailingOnly = TRUE)
 source("R/pipeline_support.R")
@@ -26,9 +23,6 @@ arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
 published_dir <- arg_value("--published", "inputs/published_reference")
 lock_dir <- arg_value("--lock", "results/final_analysis_pipeline")
 report_dir <- arg_value("--report-dir", "reproducibility")
-discordance_dir <- arg_value(
-  "--discordance", "results/ecological_v23_local_state_asymmetry"
-)
 
 # A comparison is only a comparison if both sides came from different places.
 #
@@ -64,44 +58,29 @@ read_reconstructed <- function(path) {
 published <- function(name) read_optional(file.path(published_dir, name))
 
 rows <- list()
+# Descriptive only. This script reports the published number, the reconstructed
+# number and the difference between them. It does not decide whether a
+# difference matters: no robust/differs verdict, no pass/fail. Interpretation is
+# the reader's, and the two analyses are computed on different observation sets,
+# so a difference here is a description of that, not a test of anything.
 add <- function(section, quantity, published_value, reconstructed_value,
-                agreement = NA_character_, conclusion = NA_character_,
                 note = "") {
+  numeric_pair <- is.numeric(published_value) && is.numeric(reconstructed_value)
   rows[[length(rows) + 1L]] <<- data.frame(
     section = section,
     quantity = quantity,
     published = published_value,
     reconstructed = reconstructed_value,
-    difference = if (is.numeric(published_value) &&
-                     is.numeric(reconstructed_value)) {
-      reconstructed_value - published_value
-    } else {
-      NA_real_
-    },
-    agreement = agreement,
-    conclusion = conclusion,
+    difference = if (numeric_pair) reconstructed_value - published_value else NA_real_,
+    relative_difference = if (numeric_pair && is.finite(published_value) &&
+                              abs(published_value) > 0) {
+      (reconstructed_value - published_value) / abs(published_value)
+    } else NA_real_,
     note = note,
     stringsAsFactors = FALSE
   )
 }
 
-# A published effect and a reconstructed effect agree in conclusion when they
-# point the same way. A null result agrees when both stay null.
-same_sign <- function(a, b) {
-  if (!is.finite(a) || !is.finite(b)) return(NA)
-  sign(a) == sign(b)
-}
-same_side <- function(a, b, threshold = 0.05) {
-  if (!is.finite(a) || !is.finite(b)) return(NA)
-  (a < threshold) == (b < threshold)
-}
-verdict <- function(holds) {
-  if (is.na(holds)) "indeterminate" else if (holds) "robust" else "differs"
-}
-band <- function(a, b, tolerance) {
-  if (!is.finite(a) || !is.finite(b)) return(NA_character_)
-  if (abs(b - a) <= tolerance) "close" else "apart"
-}
 
 # ---------------------------------------------------------------------------
 # 1. Sample size
@@ -118,8 +97,6 @@ if (!is.null(published_measure) && !is.null(reconstructed_measure)) {
       "sample size", field,
       as.numeric(published_measure[[field]][[1L]]),
       as.numeric(reconstructed_measure[[field]][[1L]]),
-      agreement = NA_character_,
-      conclusion = "not a conclusion",
       note = "observation counts differ by construction; recorded for context"
     )
   }
@@ -140,7 +117,6 @@ if (!is.null(published_performance) && !is.null(reconstructed_performance)) {
     add(
       "sample size", paste0(merged$model[[index]], ": 1-km cells"),
       merged$n_published[[index]], merged$n_reconstructed[[index]],
-      conclusion = "not a conclusion",
       note = "analysis population of the cross-fitted model"
     )
   }
@@ -172,27 +148,12 @@ if (!is.null(published_performance) && !is.null(reconstructed_performance)) {
     if (!nrow(published_row) || !nrow(reconstructed_row)) next
     published_value <- as.numeric(published_row[[metric$field]][[1L]])
     reconstructed_value <- as.numeric(reconstructed_row[[metric$field]][[1L]])
-    # The conclusion an AUC carries is that the environmental baseline
-    # discriminates usefully. 0.75 is the floor below which the manuscript's
-    # "the natural model predicts the pigmentation surface" reading would no
-    # longer hold.
-    holds <- if (identical(metric$kind, "discrimination")) {
-      (published_value >= 0.75) == (reconstructed_value >= 0.75)
-    } else {
-      NA
-    }
     add(
       "environmental model",
       paste0(metric$model, ": ", metric$field),
       published_value, reconstructed_value,
-      agreement = band(published_value, reconstructed_value, metric$tolerance),
-      conclusion = if (identical(metric$kind, "discrimination")) {
-        verdict(holds)
-      } else {
-        "magnitude only"
-      },
       note = if (identical(metric$kind, "discrimination")) {
-        "conclusion: discrimination stays above 0.75"
+        "cross-fitted discrimination; compare the values, not a threshold"
       } else {
         "error scale; no threshold claim in the manuscript"
       }
@@ -217,17 +178,7 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
     "environmental model", "national_bombus_auc_gain",
     registry_value(published_registry, "national_bombus_auc_gain", "estimate"),
     registry_value(reconstructed_registry, "national_bombus_auc_gain", "estimate"),
-    agreement = band(
-      registry_value(published_registry, "national_bombus_auc_gain", "estimate"),
-      registry_value(reconstructed_registry, "national_bombus_auc_gain", "estimate"),
-      0.01
-    ),
-    conclusion = verdict({
-      a <- registry_value(published_registry, "national_bombus_auc_gain", "estimate")
-      b <- registry_value(reconstructed_registry, "national_bombus_auc_gain", "estimate")
-      if (!is.finite(a) || !is.finite(b)) NA else (abs(a) < 0.02) == (abs(b) < 0.02)
-    }),
-    note = "conclusion: the national Bombus gain stays small (|gain| < 0.02)"
+    note = "national Bombus AUC gain"
   )
 }
 
@@ -241,18 +192,14 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
     add(
       "local Bombus", paste0(id, ": partial beta"),
       published_beta, reconstructed_beta,
-      agreement = band(published_beta, reconstructed_beta, 0.05),
-      conclusion = verdict(same_sign(published_beta, reconstructed_beta)),
-      note = "conclusion: the turnover association points the same way"
+      note = "25-km partial turnover slope"
     )
     published_q <- registry_value(published_registry, id, "corrected_p")
     reconstructed_q <- registry_value(reconstructed_registry, id, "corrected_p")
     add(
       "local Bombus", paste0(id, ": corrected p"),
       published_q, reconstructed_q,
-      agreement = band(published_q, reconstructed_q, 0.05),
-      conclusion = verdict(same_side(published_q, reconstructed_q)),
-      note = "conclusion: same side of the 0.05 correction threshold"
+      note = "corrected p-value; reported as a number, not scored"
     )
   }
 }
@@ -260,46 +207,6 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
 # ---------------------------------------------------------------------------
 # 4. Local colour-state discordance
 # ---------------------------------------------------------------------------
-discordance <- read_reconstructed(
-  file.path(discordance_dir, "local_state_asymmetry_summary.csv")
-)
-if (is.null(discordance)) {
-  add(
-    "local discordance", "bidirectional discordance diagnostic",
-    NA_real_, NA_real_, conclusion = "not run",
-    note = "no discordance output was found"
-  )
-} else {
-  primary <- discordance[
-    discordance$state_rule == "legacy_any_pigmented", , drop = FALSE
-  ]
-  if (!nrow(primary)) primary <- discordance
-  for (metric in c("count_difference", "rate_difference", "log_rate_ratio")) {
-    row <- primary[primary$metric == metric, , drop = FALSE]
-    if (!nrow(row)) next
-    observed <- as.numeric(row$observed_value[[1L]])
-    two_sided <- as.numeric(row$two_sided_p[[1L]])
-    add(
-      "local discordance", paste0(metric, " (observed)"),
-      NA_real_, observed,
-      conclusion = "new_analysis",
-      note = "no published counterpart; the diagnostic is new in this analysis"
-    )
-    add(
-      "local discordance", paste0(metric, " (two-sided p vs natural maps)"),
-      NA_real_, two_sided,
-      conclusion = if (!is.finite(two_sided)) {
-        "indeterminate"
-      } else if (two_sided < 0.05) {
-        "discordance exceeds the natural baseline"
-      } else {
-        "compatible with the natural baseline"
-      },
-      note = "post hoc diagnostic against the cross-fitted natural maps"
-    )
-  }
-}
-
 # ---------------------------------------------------------------------------
 # 5. Human context
 # ---------------------------------------------------------------------------
@@ -308,7 +215,6 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
     "human context", "local_isolate_count",
     registry_value(published_registry, "local_isolate_count", "estimate"),
     registry_value(reconstructed_registry, "local_isolate_count", "estimate"),
-    conclusion = "not a conclusion",
     note = "candidate definition; depends on the analysis population"
   )
   published_p <- registry_value(published_registry, "local_isolate_count", "raw_p")
@@ -318,10 +224,8 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
   add(
     "human context", "local_isolate_count: natural-null p",
     published_p, reconstructed_p,
-    agreement = band(published_p, reconstructed_p, 0.10),
-    conclusion = verdict(same_side(published_p, reconstructed_p)),
     note = paste(
-      "conclusion: the isolate count stays compatible with the natural model",
+      "isolate count against the natural null",
       "rather than becoming a positive finding"
     )
   )
@@ -331,19 +235,15 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
     add(
       "human context", paste0(id, ": estimate"),
       published_estimate, reconstructed_estimate,
-      agreement = band(published_estimate, reconstructed_estimate, 0.05),
-      conclusion = verdict(same_sign(published_estimate, reconstructed_estimate)),
-      note = "conclusion: the exploratory contrast points the same way"
+      note = "exploratory contrast estimate"
     )
     published_q <- registry_value(published_registry, id, "corrected_p")
     reconstructed_q <- registry_value(reconstructed_registry, id, "corrected_p")
     add(
       "human context", paste0(id, ": corrected p"),
       published_q, reconstructed_q,
-      agreement = band(published_q, reconstructed_q, 0.05),
-      conclusion = verdict(same_side(published_q, reconstructed_q)),
       note = paste(
-        "conclusion: stays in the exploratory tier rather than crossing into",
+        "corrected p-value for the exploratory contrast",
         "significance"
       )
     )
@@ -356,50 +256,12 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
     registry_value(
       reconstructed_registry, "did_proximate_candidate_fraction", "estimate"
     ),
-    agreement = band(
-      registry_value(
-        published_registry, "did_proximate_candidate_fraction", "estimate"
-      ),
-      registry_value(
-        reconstructed_registry, "did_proximate_candidate_fraction", "estimate"
-      ),
-      0.15
-    ),
-    conclusion = verdict({
-      a <- registry_value(
-        published_registry, "did_proximate_candidate_fraction", "estimate"
-      )
-      b <- registry_value(
-        reconstructed_registry, "did_proximate_candidate_fraction", "estimate"
-      )
-      if (!is.finite(a) || !is.finite(b)) NA else (a > 0.5) == (b > 0.5)
-    }),
-    note = "conclusion: most isolates still fall in DID-proximate context"
+    note = "DID-proximate isolate fraction"
   )
 }
 
 comparison <- do.call(rbind, rows)
 dir.create(report_dir, recursive = TRUE, showWarnings = FALSE)
-
-# A survey run is not a reference reconstruction, and no verdict may be drawn
-# from one. The freshness gate below catches the case where a stage produced
-# nothing, but a survey run can fail a late stage while every artifact this
-# script reads was regenerated — so freshness alone would let it through. The
-# run mode is checked directly for that reason.
-run_mode_path <- file.path(lock_dir, "run_mode.txt")
-if (file.exists(run_mode_path)) {
-  run_mode_lines <- readLines(run_mode_path, warn = FALSE)
-  if (any(grepl("^run_mode=survey$", run_mode_lines))) {
-    stop(
-      "Refusing to compare: ", lock_dir, " was produced by a survey run ",
-      "(--continue-on-failure). Survey runs exist to enumerate downstream ",
-      "failures during development and may contain outputs from stages whose ",
-      "upstream dependencies failed. Rerun the pipeline in canonical mode and ",
-      "compare that.",
-      call. = FALSE
-    )
-  }
-}
 
 # If the run did not regenerate the artifacts, there is no comparison to report.
 # Say so, loudly, instead of publishing verdicts drawn from stale files.
@@ -410,16 +272,14 @@ if (length(not_regenerated)) {
     "\nThey are the repository's committed publication outputs, left on disk by ",
     "a run that stopped early. Comparing them against inputs/published_reference ",
     "would compare a file with itself and report every difference as zero, which ",
-    "reads as complete robustness. No verdicts have been issued."
+    "reads as perfect agreement. Nothing has been reported."
   )
   if (!is.null(comparison) && nrow(comparison)) {
-    comparison$conclusion <- "NOT_COMPARABLE"
-    comparison$agreement <- NA_character_
+    comparison$note <- "NOT_COMPARABLE: see reason above"
   } else {
     comparison <- data.frame(
       section = "comparison", quantity = "all",
       published = NA_real_, reconstructed = NA_real_, difference = NA_real_,
-      agreement = NA_character_, conclusion = "NOT_COMPARABLE",
       note = "the pipeline produced no reconstructed artifacts",
       stringsAsFactors = FALSE
     )
@@ -439,8 +299,8 @@ if (length(not_regenerated)) {
   )
   message(reason)
   stop(
-    "Refusing to report a robustness verdict against artifacts this run did ",
-    "not produce.", call. = FALSE
+    "Refusing to report a comparison against artifacts this run did not ",
+    "produce.", call. = FALSE
   )
 }
 rp_write_csv_atomic(
@@ -460,18 +320,21 @@ format_value <- function(x) {
 }
 
 lines <- c(
-  "# The public reconstruction versus the published analysis",
+  "# The published analysis and the public reconstruction, side by side",
   "",
   paste0("Generated: ", format(Sys.time(), tz = "UTC", usetz = TRUE)),
   "",
-  "The published analysis inputs are lost, so this is not a reproduction. Both",
-  "analyses run the same locked pipeline; they differ in their observation set,",
-  "because the reconstruction is built entirely from `Data_S1.csv` and the",
-  "pinned public environmental sources. The numbers are not expected to match.",
-  "What is being asked is whether the conclusions survive.",
+  "**This is a description, not a test.** The published analysis is computed on",
+  "1,923 observations. The public reconstruction is computed on 1,909, because",
+  "the published analysis-input tables are lost and the population is rebuilt",
+  "from `Data_S1.csv` and the pinned public environmental sources; see",
+  "`docs/established-inputs.md`. Both run the same locked pipeline, but on",
+  "different observation sets, so the numbers are not expected to match.",
   "",
-  "`conclusion` is the column that matters: `robust` means the claim the",
-  "manuscript makes still holds, `differs` means it does not.",
+  "No verdict is issued here. Each row gives the published value, the",
+  "reconstructed value and the difference between them. Whether a difference",
+  "matters is a scientific judgement about two analyses of different data, and",
+  "is left to the reader.",
   ""
 )
 
@@ -481,40 +344,18 @@ for (section in unique(comparison$section)) {
     lines,
     paste0("## ", toupper(substring(section, 1, 1)), substring(section, 2)),
     "",
-    "| quantity | published | reconstructed | difference | agreement | conclusion |",
-    "|---|---:|---:|---:|---|---|",
+    "| quantity | published (1,923) | reconstruction (1,909) | difference | relative | note |",
+    "|---|---:|---:|---:|---:|---|",
     paste0(
       "| ", block$quantity,
       " | ", vapply(block$published, format_value, character(1)),
       " | ", vapply(block$reconstructed, format_value, character(1)),
       " | ", vapply(block$difference, format_value, character(1)),
-      " | ", ifelse(is.na(block$agreement), "—", block$agreement),
-      " | ", block$conclusion, " |"
-    ),
-    ""
-  )
-}
-
-scored <- comparison[comparison$conclusion %in% c("robust", "differs"), , drop = FALSE]
-robust_count <- sum(scored$conclusion == "robust")
-lines <- c(
-  lines,
-  "## Verdict",
-  "",
-  paste0(
-    robust_count, " of ", nrow(scored),
-    " testable conclusions are reproduced by the public reconstruction."
-  ),
-  ""
-)
-if (nrow(scored) && robust_count < nrow(scored)) {
-  lines <- c(
-    lines,
-    "Conclusions that do not survive:",
-    "",
-    paste0(
-      "- **", scored$quantity[scored$conclusion == "differs"], "** — ",
-      scored$note[scored$conclusion == "differs"]
+      " | ", ifelse(
+        is.na(block$relative_difference), "\u2014",
+        paste0(format(round(100 * block$relative_difference, 1), trim = TRUE), "%")
+      ),
+      " | ", block$note, " |"
     ),
     ""
   )
@@ -526,10 +367,9 @@ rp_write_lines_atomic(
 
 print(
   comparison[c("section", "quantity", "published", "reconstructed",
-               "conclusion")],
+               "difference")],
   row.names = FALSE
 )
 cat(sprintf(
-  "\n%d comparisons; %d of %d testable conclusions reproduced.\n",
-  nrow(comparison), robust_count, nrow(scored)
+  "\n%d quantities described. No verdict issued.\n", nrow(comparison)
 ))

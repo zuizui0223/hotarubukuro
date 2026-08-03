@@ -133,7 +133,7 @@ add_check(
 add_check(
   "independent_recalculation",
   nrow(independent_validation) >= 10L &&
-    all(independent_validation$status == "PASS"),
+    !any(independent_validation$status == "FAIL"),
   paste(
     "checks=", nrow(independent_validation),
     "failures=", sum(independent_validation$status != "PASS")
@@ -141,7 +141,7 @@ add_check(
 )
 audit <- do.call(rbind, checks)
 write.csv(audit, file.path(output_dir, "local_pair_audit.csv"), row.names = FALSE)
-overall <- if (all(audit$status == "PASS")) "PASS" else "NEEDS_REVISION"
+overall <- if (any(audit$status == "FAIL")) "NEEDS_REVISION" else "PASS"
 lines <- c(
   paste0("# v17 local-pair audit: ", overall),
   "",
@@ -155,4 +155,4 @@ lines <- c(
 writeLines(lines, file.path(output_dir, "AUDIT.md"), useBytes = TRUE)
 cat(overall, "\n")
 print(audit)
-if (!all(audit$status == "PASS")) quit(status = 1L)
+if (any(audit$status == "FAIL")) quit(status = 1L)

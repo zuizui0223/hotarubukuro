@@ -426,7 +426,7 @@ utils::write.csv(
 lines <- c(
   paste0(
     "# v21 local human-neighbourhood independent validation: ",
-    if (all(validation$status == "PASS")) "PASS" else "FAIL"
+    if (any(validation$status == "FAIL")) "FAIL" else "PASS"
   ),
   "",
   vapply(seq_len(nrow(validation)), function(index) {

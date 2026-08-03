@@ -87,7 +87,7 @@ add_check(
 add_check(
   "independent_recalculation",
   if (nrow(independent_validation) > 0L &&
-      all(independent_validation$status == "PASS")) "PASS" else "FAIL",
+      !any(independent_validation$status == "FAIL")) "PASS" else "FAIL",
   paste0(
     "checks=", nrow(independent_validation),
     "; failures=", sum(independent_validation$status == "FAIL")

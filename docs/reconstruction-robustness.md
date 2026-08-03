@@ -169,8 +169,39 @@ An incomplete replication exits 4 and supports no conclusion at all. Requiring
 identical draw ranges under a fixed seed is the stronger test: completion alone
 would still permit run-to-run variation.
 
-If completion fails under one thread, that is the answer — threading was not
-sufficient — and not a cue to start changing the model.
+**Measured: threading was not sufficient.** Run 30808021689, `num.threads=1:1`,
+diagonal `0`, five folds × three repeats
+(`reproducibility/phenology_threading_check.csv`):
+
+| fold | completed | distinct draw ranges among the survivors |
+|---|---|---|
+| 1 | 3/3 | 2 |
+| 2 | 3/3 | 3 |
+| 3 | 1/3 | 1 |
+| 4 | **0/3** | — |
+| 5 | 3/3 | 3 |
+
+Both requirements fail, and they fail separately.
+
+*Completion*: folds 3 and 4 still abort, fold 4 in every repeat. A canonical run
+needs all five folds in one pass, so this does not deliver a complete run.
+
+*Determinism*: **no fold produced identical draws across its repeats.** Even
+where all three completed, the posterior draw ranges differ. Pinning INLA's
+inference threads therefore did not make the fit a function of its inputs, which
+was the mechanism this setting was meant to remove. Something outside INLA's own
+thread count — plausibly the BLAS thread pool, which `num.threads` does not
+govern — is still varying between runs.
+
+It did help completion substantially: 10 of 15 attempts (67%) against 26% across
+the whole diagonal grid and 2 of 5 at diagonal `0` under default threading. Help
+is not sufficiency, and the ~0.1%-per-attempt arithmetic for a five-fold pass is
+improved but not solved: fold 4 completed zero times out of three.
+
+The setting is retained — it is recorded, it is a genuine improvement, and
+reverting it would discard the one thing measured to help — but it does not
+unblock the reconstruction on its own. Per the authorisation under which it was
+made, work stops here rather than proceeding to model changes.
 
 Where the setting is recorded: `inla_num_threads` per fold in
 `predictive_replication_model_log.csv`, `phenology_inla_num_threads` per run in

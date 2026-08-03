@@ -51,7 +51,13 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.label.name == 'run-phenology-sweep'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # A cell is setup plus one fold fit: measured cells finish in 20 to 110
+    # seconds, so 15 minutes is already an order of magnitude of headroom. The
+    # limit exists to fail a hung cell fast rather than to bound a slow one —
+    # in run 30793913721 a single wedged cell held the aggregate for an hour
+    # while the other 39 sat finished. A cell that hits this is recorded as
+    # missing and re-run on its own, which costs minutes.
+    timeout-minutes: 15
     strategy:
       # Every cell is measured. A cell that aborts is a result, not a reason to
       # stop the others, and the selection rule needs the whole grid.

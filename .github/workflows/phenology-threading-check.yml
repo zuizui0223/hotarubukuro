@@ -32,6 +32,14 @@ on:
         type: string
         required: false
         default: "3"
+      blas_threads:
+        description: >-
+          BLAS/OpenMP thread limit. INLA's num.threads does not govern the BLAS
+          thread pool, and pinning num.threads alone left the fit varying
+          between runs of identical inputs. Set 0 to leave the BLAS unpinned.
+        type: string
+        required: false
+        default: "1"
   pull_request:
     types: [labeled]
     branches: ["main", "analysis/local-colour-state-asymmetry"]
@@ -47,6 +55,7 @@ env:
   SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
   REPORT_DIR: ${{ github.workspace }}/reproducibility
   NUM_THREADS: ${{ inputs.num_threads || '1:1' }}
+  BLAS_THREADS: ${{ inputs.blas_threads || '1' }}
   HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
   HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 
@@ -120,6 +129,19 @@ jobs:
 
       - name: Measure this repeat
         shell: bash
+        # Pinning the BLAS thread pool. INLA's num.threads covers its own
+        # scheduler but not the BLAS underneath it, and run 30808021689 showed
+        # the fit still varying run to run with num.threads pinned. These are
+        # process-level, which is why the experiment lives here: this job fits
+        # the phenology component and nothing else, so the scope is still
+        # phenology-only. Applying it to the whole pipeline would be
+        # process-wide and is a separate decision.
+        env:
+          OMP_NUM_THREADS: ${{ inputs.blas_threads || '1' }}
+          OPENBLAS_NUM_THREADS: ${{ inputs.blas_threads || '1' }}
+          MKL_NUM_THREADS: ${{ inputs.blas_threads || '1' }}
+          VECLIB_MAXIMUM_THREADS: ${{ inputs.blas_threads || '1' }}
+          GOTO_NUM_THREADS: ${{ inputs.blas_threads || '1' }}
         run: |
           # -e off: an abort is the outcome this cell records, so it must not
           # kill the step before the row is written.
@@ -195,7 +217,7 @@ jobs:
           {
             echo "## Phenology threading replication"
             echo
-            echo "- \`num.threads\`: \`${NUM_THREADS}\`, diagonal \`0\`"
+            echo "- \`num.threads\`: \`${NUM_THREADS}\`, BLAS threads: \`${BLAS_THREADS}\`, diagonal \`0\`"
             echo
             echo '```text'
             cat replication.txt 2>/dev/null || echo "no replication produced"

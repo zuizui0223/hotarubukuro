@@ -111,6 +111,23 @@ fold_seed <- as.integer(
   (seed + 200000L) + 1000L * match(target_fold, folds)
 )
 
+# Which BLAS, and what thread limits it can see. INLA's num.threads does not
+# govern the BLAS thread pool, so if the fit still varies between runs of
+# identical inputs after num.threads is pinned, this is where to look. Recorded
+# rather than assumed: the implementation differs between runners and images.
+cat(
+  "[diagnostic] BLAS: ", tryCatch(
+    as.character(utils::sessionInfo()$BLAS), error = function(e) "unknown"
+  ), "\n",
+  "[diagnostic] thread environment: ",
+  paste(vapply(
+    c("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+      "VECLIB_MAXIMUM_THREADS", "GOTO_NUM_THREADS"),
+    function(v) paste0(v, "=", Sys.getenv(v, "<unset>")), character(1)
+  ), collapse = " "), "\n",
+  sep = ""
+)
+
 cat(
   "[diagnostic] phenology fold ", target_fold,
   ": train=", nrow(train), ", test=", nrow(test),

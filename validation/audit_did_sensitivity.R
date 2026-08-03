@@ -1,6 +1,7 @@
 args <- commandArgs(trailingOnly = TRUE)
-output_dir <- if (length(args)) {
-  args[[1L]]
+positional <- args[!startsWith(args, "--")]
+output_dir <- if (length(positional)) {
+  positional[[1L]]
 } else {
   "results/ecological_v22_did_human_context"
 }
@@ -18,6 +19,40 @@ add_check <- function(claim, passed, evidence) {
     evidence = evidence,
     stringsAsFactors = FALSE
   )
+}
+
+# See validation/audit_phenotype.R. The assertions below that name a published
+# value -- a candidate count, a specific cell -- are statements about the
+# published run, not about the analysis being correct. Under
+# --baseline reconstruction they are reported as not_applicable carrying the
+# observed value; under --baseline published they are enforced unchanged.
+baseline_argument <- grep("^--baseline=", args, value = TRUE)
+baseline <- if (length(baseline_argument)) {
+  sub("^--baseline=", "", baseline_argument[[1L]])
+} else {
+  "published"
+}
+if (!baseline %in% c("published", "reconstruction")) {
+  stop(
+    "--baseline must be 'published' or 'reconstruction'; got '", baseline, "'.",
+    call. = FALSE
+  )
+}
+add_not_applicable <- function(name, detail) {
+  checks[[length(checks) + 1L]] <<- data.frame(
+    claim = name, status = "not_applicable",
+    evidence = as.character(detail), stringsAsFactors = FALSE
+  )
+}
+add_published_finding <- function(name, passed, detail) {
+  if (identical(baseline, "published")) {
+    add_check(name, passed, detail)
+  } else {
+    add_not_applicable(name, paste0(
+      detail,
+      ";reason=the reconstruction defines its own analysis population"
+    ))
+  }
 }
 
 summary <- read_output("did_contrast_summary.csv")
@@ -59,10 +94,10 @@ outside_class <- composition[
 ]
 joint <- candidates[candidates$joint_q10_did_proximity_spike, ]
 
-add_check(
+add_published_finding(
   "Fixed local-isolate population",
   nrow(candidates) == 16L,
-  paste("16 v20/v21 candidates retained:", nrow(candidates))
+  paste("v20/v21 candidates retained:", nrow(candidates))
 )
 add_check(
   "DID and population were post-selection features",
@@ -123,8 +158,8 @@ add_check(
     urban_class$null_mean_fraction &&
     urban_class$maxT_FWER_p >= 0.05,
   sprintf(
-    "observed=%d/16 (%.3f); null fraction=%.3f; FWER p=%.4f",
-    urban_class$observed_candidate_count,
+    "observed=%d/%d (%.3f); null fraction=%.3f; FWER p=%.4f",
+    urban_class$observed_candidate_count, nrow(candidates),
     urban_class$observed_candidate_fraction,
     urban_class$null_mean_fraction,
     urban_class$maxT_FWER_p
@@ -142,7 +177,7 @@ add_check(
     "; observed candidates=", outside_class$observed_candidate_count
   )
 )
-add_check(
+add_published_finding(
   "Only one q10 plus DID-spike follow-up candidate",
   nrow(joint) == 1L &&
     joint$exact_site_id == "cell-1km--108_-147",
@@ -151,7 +186,7 @@ add_check(
     if (nrow(joint)) paste("cell=", joint$exact_site_id) else ""
   )
 )
-add_check(
+add_published_finding(
   # The early-flowering half of this claim has been withdrawn with the
   # phenology component; the dark-tail half is unchanged.
   "Convergent candidate lacks a dark predictive tail",
@@ -181,7 +216,7 @@ add_check(
 )
 add_check(
   "Independent validation complete",
-  all(validation$status == "PASS"),
+  !any(validation$status == "FAIL"),
   paste(sum(validation$status == "PASS"), "checks passed")
 )
 audit <- do.call(rbind, checks)
@@ -237,8 +272,13 @@ lines <- c(
 writeLines(
   lines, file.path(output_dir, "AUDIT.md"), useBytes = TRUE
 )
-if (any(audit$status != "PASS")) {
-  print(audit[audit$status != "PASS", , drop = FALSE])
+skipped <- audit[audit$status == "not_applicable", , drop = FALSE]
+if (any(audit$status == "FAIL")) {
+  print(audit[audit$status == "FAIL", , drop = FALSE])
   stop("v22 claim audit failed.", call. = FALSE)
+}
+if (nrow(skipped)) {
+  cat("v22 claims not applicable under --baseline ", baseline, ":\n", sep = "")
+  print(skipped)
 }
 cat("v22 claim audit passed ", nrow(audit), " checks.\n")

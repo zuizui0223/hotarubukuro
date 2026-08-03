@@ -1,9 +1,37 @@
 args <- commandArgs(trailingOnly = TRUE)
-output_dir <- if (length(args)) {
-  args[[1L]]
+positional <- args[!startsWith(args, "--")]
+output_dir <- if (length(positional)) {
+  positional[[1L]]
 } else {
   "results/ecological_v19_human_landscape_extremes"
 }
+
+# See validation/audit_phenotype.R for the reasoning, and
+# validation/audit_multiscale_hotspots.R for the same treatment of this same
+# constant. Two checks here assert 1,307 feature rows, which is the number of
+# 1-km cells the published 1,923 observations aggregate into. That is a
+# statement about one historical run, not about the analysis being correct, so
+# under --baseline reconstruction it is reported as not_applicable with the
+# observed count beside the published one.
+#
+# Every dataset-independent part of both checks is still enforced in both
+# modes: `cell_grain` still requires one unique row per cell, and
+# `landscape_join_coverage` still requires the join audit's complete-feature
+# count to equal the independently recomputed complete-cases count. Only the
+# population-size assertion is set aside, and never silently.
+baseline_argument <- grep("^--baseline=", args, value = TRUE)
+baseline <- if (length(baseline_argument)) {
+  sub("^--baseline=", "", baseline_argument[[1L]])
+} else {
+  "published"
+}
+if (!baseline %in% c("published", "reconstruction")) {
+  stop(
+    "--baseline must be 'published' or 'reconstruction'; got '", baseline, "'.",
+    call. = FALSE
+  )
+}
+published_cell_count <- 1307L
 
 read_output <- function(name) {
   utils::read.csv(
@@ -23,6 +51,19 @@ add_check <- function(check, passed, detail) {
   checks[[length(checks) + 1L]] <<- data.frame(
     check = check, status = if (isTRUE(passed)) "PASS" else "FAIL",
     detail = detail, stringsAsFactors = FALSE
+  )
+}
+add_not_applicable <- function(check, detail) {
+  checks[[length(checks) + 1L]] <<- data.frame(
+    check = check, status = "not_applicable",
+    detail = as.character(detail), stringsAsFactors = FALSE
+  )
+}
+population_detail <- function(observed) {
+  paste0(
+    "observed=", observed, ";published=", published_cell_count,
+    ";difference=", observed - published_cell_count,
+    ";reason=the reconstruction defines its own analysis population"
   )
 }
 
@@ -45,10 +86,19 @@ exclude_boundary <- "exclude_mlit_primary_mesh_boundary" %in%
   metadata_value[["exclude_mlit_primary_mesh_boundary"]] == "TRUE"
 
 add_check(
-  "cell_grain",
-  nrow(features) == 1307L && !anyDuplicated(features$exact_site_id),
+  "cell_grain_unique",
+  !anyDuplicated(features$exact_site_id),
   paste("rows=", nrow(features), "unique=", length(unique(features$exact_site_id)))
 )
+if (identical(baseline, "published")) {
+  add_check(
+    "cell_grain_population",
+    nrow(features) == published_cell_count,
+    paste("rows=", nrow(features))
+  )
+} else {
+  add_not_applicable("cell_grain_population", population_detail(nrow(features)))
+}
 rank_columns <- grep("_rank$", names(features), value = TRUE)
 rank_values <- unlist(features[rank_columns], use.names = FALSE)
 add_check(
@@ -57,34 +107,33 @@ add_check(
         rank_values[is.finite(rank_values)] <= 1),
   paste("range=", paste(range(rank_values, na.rm = TRUE), collapse = " to "))
 )
+expected_complete <- stats::complete.cases(
+  features[, unique(c(
+    definitions$feature,
+    "local_population_rank", "regional_population_rank",
+    "forest_human_edge_rank", "forest_cover_rank", "managed_land_rank",
+    "road_remoteness_rank", "mountainness_rank"
+  )), drop = FALSE]
+)
+if (exclude_boundary) {
+  expected_complete <- expected_complete &
+    !(features$primary_mesh_boundary %in% TRUE)
+}
+joined_cells <- join_audit$value[
+  join_audit$metric == "n_analysis_cells_joined"
+]
+complete_cells <- join_audit$value[
+  join_audit$metric == "n_analysis_cells_complete_features"
+]
+# The dataset-independent half: the join must cover every feature row, and the
+# audit's complete-feature count must equal the count recomputed here from the
+# feature table itself. Both are enforced in either baseline.
 add_check(
   "landscape_join_coverage",
-  {
-    expected_complete <- stats::complete.cases(
-      features[, unique(c(
-        definitions$feature,
-        "local_population_rank", "regional_population_rank",
-        "forest_human_edge_rank", "forest_cover_rank", "managed_land_rank",
-        "road_remoteness_rank", "mountainness_rank"
-      )), drop = FALSE]
-    )
-    if (exclude_boundary) {
-      expected_complete <- expected_complete &
-        !(features$primary_mesh_boundary %in% TRUE)
-    }
-    join_audit$value[join_audit$metric == "n_analysis_cells_joined"] ==
-      1307 &&
-      join_audit$value[
-        join_audit$metric == "n_analysis_cells_complete_features"
-      ] == sum(expected_complete)
-  },
+  joined_cells == nrow(features) && complete_cells == sum(expected_complete),
   paste(
-    "joined=",
-    join_audit$value[join_audit$metric == "n_analysis_cells_joined"],
-    "complete=",
-    join_audit$value[
-      join_audit$metric == "n_analysis_cells_complete_features"
-    ]
+    "joined=", joined_cells, "rows=", nrow(features),
+    "complete=", complete_cells, "recomputed=", sum(expected_complete)
   )
 )
 add_check(
@@ -312,8 +361,21 @@ utils::write.csv(
   validation, file.path(output_dir, "landscape_independent_validation.csv"),
   row.names = FALSE
 )
-if (any(validation$status != "PASS")) {
-  print(validation[validation$status != "PASS", ])
+failed <- validation[validation$status == "FAIL", , drop = FALSE]
+skipped <- validation[validation$status == "not_applicable", , drop = FALSE]
+if (nrow(failed)) {
+  print(failed)
   stop("v19 independent validation failed.", call. = FALSE)
 }
-cat("v19 independent validation passed: ", nrow(validation), " checks\n")
+if (nrow(skipped)) {
+  # Reported, never folded into the pass count: a not_applicable check is its
+  # own state and is not evidence that anything was verified.
+  cat(
+    "v19 checks not applicable under --baseline ", baseline, ":\n", sep = ""
+  )
+  print(skipped)
+}
+cat(
+  "v19 independent validation passed: ", sum(validation$status == "PASS"),
+  " checks (", nrow(skipped), " not applicable)\n", sep = ""
+)

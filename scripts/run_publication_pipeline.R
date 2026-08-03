@@ -160,6 +160,7 @@ if (mode == "full") {
 run_stage(
   "04_validate_human_landscape_features",
   "validation/validate_human_landscape_features.R",
+  c(paste0("--baseline=", baseline)),
   role = "feature_engineering_validation"
 )
 run_stage(
@@ -196,11 +197,13 @@ if (mode %in% c("extensions", "full")) {
 run_stage(
   "05_validate_local_human_context",
   "validation/validate_local_human_context.R",
+  c(paste0("--baseline=", baseline)),
   role = "exploratory_human_context_validation"
 )
 run_stage(
   "05_audit_local_human_context",
   "validation/audit_local_human_context.R",
+  c(paste0("--baseline=", baseline)),
   role = "exploratory_human_context_validation"
 )
 
@@ -214,11 +217,13 @@ if (mode %in% c("extensions", "full")) {
 run_stage(
   "05_validate_did_sensitivity",
   "validation/validate_did_sensitivity.R",
+  c(paste0("--baseline=", baseline)),
   role = "exploratory_human_context_validation"
 )
 run_stage(
   "05_audit_did_sensitivity",
   "validation/audit_did_sensitivity.R",
+  c(paste0("--baseline=", baseline)),
   role = "exploratory_human_context_validation"
 )
 
@@ -239,7 +244,7 @@ run_stage(
 run_stage(
   "06_audit_publication_claims",
   "validation/audit_publication_claims.R",
-  c(paste0("--output=", output_dir)),
+  c(paste0("--output=", output_dir), paste0("--baseline=", baseline)),
   role = "final_claim_audit"
 )
 

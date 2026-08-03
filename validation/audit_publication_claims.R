@@ -18,6 +18,40 @@ add_check <- function(claim, passed, evidence) {
   )
 }
 
+# See validation/audit_phenotype.R. The assertions below that name a published
+# value -- a candidate count, a specific cell -- are statements about the
+# published run, not about the analysis being correct. Under
+# --baseline reconstruction they are reported as not_applicable carrying the
+# observed value; under --baseline published they are enforced unchanged.
+baseline_argument <- grep("^--baseline=", args, value = TRUE)
+baseline <- if (length(baseline_argument)) {
+  sub("^--baseline=", "", baseline_argument[[1L]])
+} else {
+  "published"
+}
+if (!baseline %in% c("published", "reconstruction")) {
+  stop(
+    "--baseline must be 'published' or 'reconstruction'; got '", baseline, "'.",
+    call. = FALSE
+  )
+}
+add_not_applicable <- function(name, detail) {
+  checks[[length(checks) + 1L]] <<- data.frame(
+    claim = name, status = "not_applicable",
+    evidence = as.character(detail), stringsAsFactors = FALSE
+  )
+}
+add_published_finding <- function(name, passed, detail) {
+  if (identical(baseline, "published")) {
+    add_check(name, passed, detail)
+  } else {
+    add_not_applicable(name, paste0(
+      detail,
+      ";reason=the reconstruction defines its own analysis population"
+    ))
+  }
+}
+
 results <- read_output("final_result_registry.csv")
 claims <- read_output("final_claim_registry.csv")
 exclusions <- read_output("final_exclusion_registry.csv")
@@ -119,7 +153,7 @@ add_check(
     min(v21_quality$maxT_FWER_p)
   )
 )
-add_check(
+add_published_finding(
   # The early-flowering half of this claim has been withdrawn with the
   # phenology component; the dark-tail half is unchanged.
   "Only one human-context follow-up cell and no dark-tail convergence",
@@ -152,7 +186,7 @@ add_check(
 )
 add_check(
   "Independent final validation complete",
-  all(validation$status == "PASS"),
+  !any(validation$status == "FAIL"),
   paste(sum(validation$status == "PASS"), "checks passed")
 )
 add_check(
@@ -170,10 +204,16 @@ utils::write.csv(
   audit, file.path(output_dir, "final_claim_audit.csv"),
   row.names = FALSE
 )
-overall <- if (all(audit$status == "PASS")) {
-  "LOCKED"
-} else {
+# A not_applicable claim is its own state: it is never counted as a pass, and
+# it never locks the pipeline. Under --baseline reconstruction the lock states
+# that every applicable claim held, not that the published claims were
+# reproduced.
+overall <- if (any(audit$status == "FAIL")) {
   "NEEDS_REVISION"
+} else if (any(audit$status == "not_applicable")) {
+  "LOCKED_WITH_NOT_APPLICABLE"
+} else {
+  "LOCKED"
 }
 writeLines(
   c(
@@ -217,9 +257,17 @@ writeLines(
   file.path(output_dir, "AUDIT.md"),
   useBytes = TRUE
 )
-if (overall != "LOCKED") {
-  print(audit[audit$status != "PASS", , drop = FALSE])
+if (any(audit$status == "FAIL")) {
+  print(audit[audit$status == "FAIL", , drop = FALSE])
   stop("Final claim audit failed.", call. = FALSE)
 }
-cat("Final analysis claim audit: LOCKED (",
-    nrow(audit), " checks).\n", sep = "")
+skipped <- audit[audit$status == "not_applicable", , drop = FALSE]
+if (nrow(skipped)) {
+  cat(
+    "Final claims not applicable under --baseline ", baseline, ":\n", sep = ""
+  )
+  print(skipped)
+}
+cat("Final analysis claim audit: ", overall, " (",
+    sum(audit$status == "PASS"), " passed, ",
+    nrow(skipped), " not applicable).\n", sep = "")

@@ -1,9 +1,35 @@
 args <- commandArgs(trailingOnly = TRUE)
-output_dir <- if (length(args)) {
-  args[[1L]]
+positional <- args[!startsWith(args, "--")]
+output_dir <- if (length(positional)) {
+  positional[[1L]]
 } else {
   "results/ecological_v22_did_human_context"
 }
+
+# See validation/audit_phenotype.R and validation/validate_local_human_context.R.
+# Two published-run constants appear here: 1,307 cells and 16 candidates. Under
+# --baseline reconstruction they are reported as not_applicable with the
+# observed value; under --baseline published they are enforced unchanged.
+#
+# The structural checks conjoined with them stay enforced in both modes. In
+# particular `candidate_selector_unchanged` keeps its `setequal` assertion that
+# v22's candidate set is exactly v21's — that is the check that actually
+# guarantees the DID sensitivity analysis did not reselect candidates, and it
+# is independent of how many there are.
+baseline_argument <- grep("^--baseline=", args, value = TRUE)
+baseline <- if (length(baseline_argument)) {
+  sub("^--baseline=", "", baseline_argument[[1L]])
+} else {
+  "published"
+}
+if (!baseline %in% c("published", "reconstruction")) {
+  stop(
+    "--baseline must be 'published' or 'reconstruction'; got '", baseline, "'.",
+    call. = FALSE
+  )
+}
+published_cell_count <- 1307L
+published_candidate_count <- 16L
 
 read_output <- function(name) {
   utils::read.csv(
@@ -28,6 +54,23 @@ add_check <- function(check, passed, detail) {
     detail = detail,
     stringsAsFactors = FALSE
   )
+}
+add_not_applicable <- function(check, detail) {
+  checks[[length(checks) + 1L]] <<- data.frame(
+    check = check, status = "not_applicable",
+    detail = as.character(detail), stringsAsFactors = FALSE
+  )
+}
+add_published_count <- function(check, observed, published) {
+  if (identical(baseline, "published")) {
+    add_check(check, observed == published, paste("observed=", observed))
+  } else {
+    add_not_applicable(check, paste0(
+      "observed=", observed, ";published=", published,
+      ";difference=", observed - published,
+      ";reason=the reconstruction defines its own analysis population"
+    ))
+  }
 }
 
 context <- read_output("did_cell_context.csv")
@@ -81,11 +124,13 @@ add_check(
 )
 add_check(
   "cell_context_completeness",
-  nrow(context) == 1307L &&
-    !anyDuplicated(context$exact_site_id) &&
+  !anyDuplicated(context$exact_site_id) &&
     all(stats::complete.cases(context)) &&
     all(context$did_distance_km >= 0),
   paste("cells=", nrow(context))
+)
+add_published_count(
+  "cell_context_population", nrow(context), published_cell_count
 )
 add_check(
   "context_class_partition",
@@ -111,9 +156,11 @@ v21_primary <- v21_details[
 ]
 add_check(
   "candidate_selector_unchanged",
-  nrow(candidates) == 16L &&
-    setequal(candidates$exact_site_id, v21_primary$exact_site_id),
+  setequal(candidates$exact_site_id, v21_primary$exact_site_id),
   paste("v22=", nrow(candidates), "v21=", nrow(v21_primary))
+)
+add_published_count(
+  "candidate_count", nrow(candidates), published_candidate_count
 )
 add_check(
   "candidate_local_support",
@@ -267,9 +314,17 @@ writeLines(
   file.path(output_dir, "VALIDATION.md"),
   useBytes = TRUE
 )
-if (any(validation$status != "PASS")) {
-  print(validation[validation$status != "PASS", , drop = FALSE])
+failed <- validation[validation$status == "FAIL", , drop = FALSE]
+skipped <- validation[validation$status == "not_applicable", , drop = FALSE]
+if (nrow(failed)) {
+  print(failed)
   stop("v22 independent validation failed.", call. = FALSE)
 }
-cat("v22 independent validation passed ",
-    nrow(validation), " checks.\n")
+if (nrow(skipped)) {
+  cat("v22 checks not applicable under --baseline ", baseline, ":\n", sep = "")
+  print(skipped)
+}
+cat(
+  "v22 independent validation passed ", sum(validation$status == "PASS"),
+  " checks (", nrow(skipped), " not applicable).\n", sep = ""
+)

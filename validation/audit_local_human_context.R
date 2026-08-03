@@ -1,6 +1,7 @@
 args <- commandArgs(trailingOnly = TRUE)
-output_dir <- if (length(args)) {
-  args[[1L]]
+positional <- args[!startsWith(args, "--")]
+output_dir <- if (length(positional)) {
+  positional[[1L]]
 } else {
   "results/ecological_v21_local_human_neighbourhood"
 }
@@ -32,6 +33,40 @@ add_check <- function(check, passed, detail) {
     stringsAsFactors = FALSE
   )
 }
+
+# See validation/audit_phenotype.R. The assertions below that name a published
+# value -- a candidate count, a specific cell -- are statements about the
+# published run, not about the analysis being correct. Under
+# --baseline reconstruction they are reported as not_applicable carrying the
+# observed value; under --baseline published they are enforced unchanged.
+baseline_argument <- grep("^--baseline=", args, value = TRUE)
+baseline <- if (length(baseline_argument)) {
+  sub("^--baseline=", "", baseline_argument[[1L]])
+} else {
+  "published"
+}
+if (!baseline %in% c("published", "reconstruction")) {
+  stop(
+    "--baseline must be 'published' or 'reconstruction'; got '", baseline, "'.",
+    call. = FALSE
+  )
+}
+add_not_applicable <- function(name, detail) {
+  checks[[length(checks) + 1L]] <<- data.frame(
+    check = name, status = "not_applicable",
+    detail = as.character(detail), stringsAsFactors = FALSE
+  )
+}
+add_published_finding <- function(name, passed, detail) {
+  if (identical(baseline, "published")) {
+    add_check(name, passed, detail)
+  } else {
+    add_not_applicable(name, paste0(
+      detail,
+      ";reason=the reconstruction defines its own analysis population"
+    ))
+  }
+}
 primary <- "primary_10km_env1_all_white"
 primary_summary <- summary[
   summary$configuration == primary, , drop = FALSE
@@ -45,18 +80,24 @@ feature <- function(name, configuration = primary) {
 
 add_check(
   "independent_validation",
-  all(validation$status == "PASS"),
+  !any(validation$status == "FAIL"),
   paste("checks=", nrow(validation))
 )
 primary_support <- support[support$configuration == primary, ]
+# The structural half: no requested candidate was dropped. Enforced always.
 add_check(
   "all_primary_candidates_retained",
-  primary_support$observed_requested_cases == 16L &&
-    primary_support$observed_usable_cases == 16L,
+  primary_support$observed_usable_cases ==
+    primary_support$observed_requested_cases,
   paste(
     "usable=", primary_support$observed_usable_cases,
     "of", primary_support$observed_requested_cases
   )
+)
+add_published_finding(
+  "primary_candidate_count",
+  primary_support$observed_requested_cases == 16L,
+  paste("observed=", primary_support$observed_requested_cases)
 )
 primary_global <- global[global$configuration == primary, ]
 add_check(
@@ -219,7 +260,7 @@ utils::write.csv(
 lines <- c(
   paste0(
     "# v21 local human-neighbourhood claim audit: ",
-    if (all(audit$status == "PASS")) "PASS" else "FAIL"
+    if (any(audit$status == "FAIL")) "FAIL" else "PASS"
   ),
   "",
   vapply(seq_len(nrow(audit)), function(index) {
@@ -230,8 +271,13 @@ lines <- c(
   }, character(1))
 )
 writeLines(lines, file.path(output_dir, "AUDIT.md"), useBytes = TRUE)
-if (any(audit$status != "PASS")) {
-  print(audit[audit$status != "PASS", ])
+skipped <- audit[audit$status == "not_applicable", , drop = FALSE]
+if (any(audit$status == "FAIL")) {
+  print(audit[audit$status == "FAIL", ])
   stop("v21 claim audit failed.", call. = FALSE)
+}
+if (nrow(skipped)) {
+  cat("v21 claims not applicable under --baseline ", baseline, ":\n", sep = "")
+  print(skipped)
 }
 cat("v21 claim audit passed: ", nrow(audit), " checks\n")

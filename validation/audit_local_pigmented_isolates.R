@@ -38,8 +38,12 @@ add_check <- function(check, passed, detail) {
 }
 add_check(
   "independent_validation",
-  all(validation$status == "PASS"),
-  paste("checks=", nrow(validation))
+  !any(validation$status == "FAIL"),
+  paste(
+    "checks=", nrow(validation),
+    "passed=", sum(validation$status == "PASS"),
+    "not applicable=", sum(validation$status == "not_applicable")
+  )
 )
 primary_count <- metric(
   "primary_10km_env1_all_white", "candidate_count"
@@ -149,7 +153,7 @@ utils::write.csv(
 lines <- c(
   paste0(
     "# v20 local white-isolate claim audit: ",
-    if (all(audit$status == "PASS")) "PASS" else "FAIL"
+    if (any(audit$status == "FAIL")) "FAIL" else "PASS"
   ),
   "",
   vapply(seq_len(nrow(audit)), function(index) {

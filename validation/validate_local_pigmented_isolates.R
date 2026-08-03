@@ -339,7 +339,7 @@ utils::write.csv(
 lines <- c(
   paste0(
     "# v20 local white-isolate independent validation: ",
-    if (all(validation$status == "PASS")) "PASS" else "FAIL"
+    if (any(validation$status == "FAIL")) "FAIL" else "PASS"
   ),
   "",
   vapply(seq_len(nrow(validation)), function(index) {

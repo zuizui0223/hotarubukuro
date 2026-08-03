@@ -115,7 +115,12 @@ jobs:
         id: measure
         shell: bash
         run: |
-          set -o pipefail
+          # -e must be off. GitHub runs `shell: bash` with `-eo pipefail`, so an
+          # aborting Rscript would kill this step before the result row is
+          # written — and an abort is the very outcome this cell exists to
+          # record. With -e on, every aborted cell silently vanished from the
+          # grid instead of being measured as aborted.
+          set +e
           mkdir -p sweep-cell
           started=$(date +%s)
           # The analysis draw count. Not a cost knob: inla.posterior.sample
@@ -127,7 +132,9 @@ jobs:
             --fold "${{ matrix.fold }}" \
             --diagonal "${{ matrix.diagonal }}" \
             --draws 1000 2>&1 | tee sweep-cell/attempt.log
-          code=$?
+          # Rscript's status, not tee's. Without pipefail $? is tee's, which is
+          # always 0 and would record every cell as survived.
+          code=${PIPESTATUS[0]}
           ended=$(date +%s)
           case "$code" in
             0) status=survived ;;

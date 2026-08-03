@@ -13,6 +13,11 @@ source("R/candidate_null_tools.R")
 source("R/local_pigmented_isolates.R")
 source("R/local_state_asymmetry.R")
 
+# Declared like every other stage script. sf is used for the analysis-CRS
+# deviation check below; without this the stage would fail there, deep in a
+# geometry call, rather than here with the package named.
+hb_require_packages(c("sf"))
+
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
 
 cells_path <- arg_value(

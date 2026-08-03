@@ -1,35 +1,29 @@
 name: Phenology stabilisation sweep
 
-# A diagnostic, not part of any analysis.
+# A DEVELOPMENT DIAGNOSTIC. Fits no analysis output.
 #
 # The phenology component of stage 02 aborts inside inla.qsample with "Matrix is
-# not (numerical) positive definite". Measuring one diagonal value per pipeline
-# run is slow and, as two rounds showed, misleading: 1e-8 cleared fold 1 and
-# aborted at fold 2, 1e-7 aborted at fold 1. The response is not monotone in the
-# value, so the value has to be chosen from a measurement over every fold rather
-# than from the first run that happens to get further.
+# not (numerical) positive definite". The question is the smallest
+# control.inla(diagonal=) for which all five folds complete — and it has to be
+# read off a measured grid, because the response is not monotone in the value:
+# the pipeline cleared fold 1 at 1e-8 and aborted on it at 1e-7.
 #
-# This measures the whole grid — every fold at every value, at the analysis draw
-# count — in a separate process per attempt, because the abort is a SIGABRT that
-# kills the R session. It reports the smallest value whose whole column
-# survived, which is what the pipeline needs. It fits no analysis output.
+# One job per cell, not one job for the grid.
+#
+# The grid was first run as a single job of 40 sequential attempts. That job was
+# lost to runner failure twice — run 30771243504 at 17 minutes and run
+# 30772489489 at 70 — and both times every measurement went with it. Streaming
+# rows into the step summary did not help: the summary is published when a step
+# completes, and the step never completed, so both runs ended with an empty
+# summary, no artifact, and 404 logs.
+#
+# Splitting the grid across a matrix makes a lost runner cost one cell instead
+# of forty, and drops wall-clock time from over an hour to roughly the cost of a
+# single attempt plus setup. Each cell uploads its own one-line result; the
+# aggregate job assembles them and applies the selection rule.
 
 on:
   workflow_dispatch:
-    inputs:
-      ladder:
-        description: Diagonal values to try, ascending, space separated
-        type: string
-        required: false
-        default: "0 1e-8 1e-7 1e-6 1e-5 1e-4 1e-3 1e-2"
-      draws:
-        description: >-
-          Draws per attempt. Must be the analysis count. Fewer draws leave
-          low-weight posterior configurations unvisited and report survival the
-          pipeline does not reproduce.
-        type: string
-        required: false
-        default: "1000"
   pull_request:
     types: [labeled]
     branches: ["main", "analysis/local-colour-state-asymmetry"]
@@ -38,29 +32,34 @@ permissions:
   contents: read
 
 concurrency:
-  # Keyed by commit, not by ref. A sweep of one commit has no reason to wait for
-  # a sweep of another, and keying by ref means a run whose runner is lost holds
-  # the group for its whole cancellation grace period while the next sweep sits
-  # pending behind it. That happened with run 30771243504.
+  # Keyed by commit, not ref: a sweep of one commit has no reason to wait for a
+  # sweep of another, and a run whose runner is lost holds its group for the
+  # whole cancellation grace period.
   group: phenology-sweep-${{ github.sha }}
   cancel-in-progress: false
 
 env:
   SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
   REPORT_DIR: ${{ github.workspace }}/reproducibility
-  LADDER: ${{ inputs.ladder || '0 1e-8 1e-7 1e-6 1e-5 1e-4 1e-3 1e-2' }}
-  DRAWS: ${{ inputs.draws || '1000' }}
   HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
   HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 
 jobs:
-  sweep:
-    name: Measure the smallest surviving diagonal per fold
+  cell:
+    name: fold ${{ matrix.fold }} diagonal ${{ matrix.diagonal }}
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.label.name == 'run-phenology-sweep'
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 60
+    strategy:
+      # Every cell is measured. A cell that aborts is a result, not a reason to
+      # stop the others, and the selection rule needs the whole grid.
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        fold: [1, 2, 3, 4, 5]
+        diagonal: ["0", "1e-8", "1e-7", "1e-6", "1e-5", "1e-4", "1e-3", "1e-2"]
 
     steps:
       - uses: actions/checkout@v4
@@ -94,17 +93,14 @@ jobs:
       - name: Restore the declared R environment
         run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility
 
-      # The same immutable snapshot the reconstruction uses, so the sweep
-      # measures the cells the pipeline actually fits.
       - name: Restore the canonical analysis-input snapshot
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
 
-      # Restoring puts the snapshot in SNAPSHOT_DIR; materialising puts the
-      # tables where the analysis code looks for them. The reconstruction driver
-      # does both, and the first version of this workflow did only the first —
-      # so every attempt in run 30769694286 failed on a missing cell table.
+      # Restoring places the snapshot in SNAPSHOT_DIR; materialising places the
+      # tables where the analysis code looks. Both are needed — omitting the
+      # second made every attempt in run 30769694286 fail on a missing file.
       - name: Materialise the snapshot into results/
         run: |
           Rscript scripts/verify_canonical_snapshot.R \
@@ -115,43 +111,96 @@ jobs:
             --mlit-cache "$HOTARUBUKURO_MLIT_CACHE" \
             --did-cache "$HOTARUBUKURO_DID_CACHE"
 
-      - name: Confirm the sweep has its input before spending an hour on it
+      - name: Measure this cell
+        id: measure
         shell: bash
         run: |
-          set -euo pipefail
-          cells=results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
-          test -s "$cells"
-          echo "cell table present: $(wc -l < "$cells") lines"
+          set -o pipefail
+          mkdir -p sweep-cell
+          started=$(date +%s)
+          # The analysis draw count. Not a cost knob: inla.posterior.sample
+          # allocates draws across stored hyperparameter configurations and
+          # calls qsample per configuration, so a reduced count leaves
+          # low-weight configurations unvisited and reports survival the
+          # pipeline does not reproduce.
+          Rscript scripts/diagnose_phenology_stabilisation.R \
+            --fold "${{ matrix.fold }}" \
+            --diagonal "${{ matrix.diagonal }}" \
+            --draws 1000 2>&1 | tee sweep-cell/attempt.log
+          code=$?
+          ended=$(date +%s)
+          case "$code" in
+            0) status=survived ;;
+            2) status=setup_error ;;
+            *) status=aborted ;;
+          esac
+          # Zero-padded fold keeps the assembled grid in fold order.
+          printf '%s,%s,%s,%s,%s\n' \
+            "${{ matrix.fold }}" "${{ matrix.diagonal }}" "$status" "$code" \
+            "$((ended - started))" \
+            > "sweep-cell/cell_$(printf '%02d' ${{ matrix.fold }})_${{ matrix.diagonal }}.csv"
+          echo "fold ${{ matrix.fold }} diagonal ${{ matrix.diagonal }}: ${status} (exit ${code}, $((ended - started))s)"
+          {
+            echo "### fold ${{ matrix.fold }}, diagonal ${{ matrix.diagonal }}"
+            echo
+            echo "\`${status}\` — exit ${code}, $((ended - started))s"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # The cell's own outcome must not fail the job; the grid needs it.
+          exit 0
 
-      - name: Sweep the ladder
+      - name: Upload this cell
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-cell-f${{ matrix.fold }}-d${{ matrix.diagonal }}
+          path: sweep-cell
+          if-no-files-found: warn
+          retention-days: 30
+
+  grid:
+    name: Assemble the grid and apply the selection rule
+    needs: cell
+    # Runs even if some cells failed to report, so a partial grid is diagnosed
+    # as partial rather than silently never assembled.
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download every cell
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sweep-cell-*
+          path: sweep-cells
+          merge-multiple: true
+
+      - name: Assemble and select
+        id: select
         shell: bash
-        run: bash scripts/sweep_phenology_stabilisation.sh
+        run: bash scripts/summarise_phenology_sweep.sh sweep-cells | tee grid.txt
 
-      - name: Publish the sweep
+      - name: Publish the grid
         if: always()
         shell: bash
         run: |
           set +e
-          results=results/phenology_stabilisation_diagnostic/phenology_stabilisation_sweep.csv
           {
-            echo "## Phenology stabilisation sweep"
+            echo "## Phenology stabilisation grid"
             echo
-            echo "Ladder: \`${LADDER}\`"
-            echo
-            if [[ -s "$results" ]]; then
-              echo '```csv'
-              cat "$results"
-              echo '```'
-            else
-              echo "No sweep results were produced."
-            fi
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo '```text'
+            cat grid.txt 2>/dev/null || echo "no grid produced"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload the sweep
+      - name: Upload the grid
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phenology-stabilisation-sweep-${{ github.run_id }}
-          path: results/phenology_stabilisation_diagnostic
+          name: phenology-stabilisation-grid-${{ github.run_id }}
+          path: |
+            results/phenology_stabilisation_diagnostic
+            grid.txt
           if-no-files-found: warn
           retention-days: 90

@@ -172,6 +172,17 @@ goes undetected. The 20-draw grid duly recorded fold 2 as surviving at diagonal
 `0`, while the pipeline had aborted at fold 2 with a *larger* diagonal. The
 draw count is now pinned to the analysis value and a smaller one is refused.
 
+**The grid is measured one CI job per cell.** It was first run as a single job
+of 40 sequential attempts, and that job was lost to runner failure twice — run
+30771243504 at 17 minutes, run 30772489489 at 70 — taking every measurement
+with it both times. Streaming rows into the step summary was tried as a
+mitigation and does not work: the summary is published when a *step* completes,
+and the step never completed, so both runs ended with an empty summary, no
+artifact, and 404 logs. A matrix job per cell makes a lost runner cost one cell
+instead of forty, and drops wall-clock time from over an hour to about the cost
+of one attempt. `scripts/summarise_phenology_sweep.sh` assembles the per-cell
+results and applies the selection rule.
+
 **No value may be adopted from a partial grid.** The selection rule is *the
 smallest value for which all five folds complete*, and a truncated grid cannot
 answer that: a value whose measured cells all survived may still have an

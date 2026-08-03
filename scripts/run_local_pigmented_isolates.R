@@ -52,24 +52,14 @@ intensity <- v18_align_result(
   )),
   cells, "intensity"
 )
-phenology <- v18_align_result(
-  readRDS(file.path(
-    checkpoint_root,
-    "national_environment_year_spde_phenology_draws1000.rds"
-  )),
-  cells, "phenology"
-)
-auxiliary_profile <- v18_profile(
-  cells, presence, phenology, intensity
-)
+auxiliary_profile <- v18_profile(cells, presence, intensity)
 auxiliary_definitions <- data.frame(
-  feature = c("early_tail_depth", "dark_tail_depth"),
-  role = c("phenology_surprise", "pigmented_intensity_surprise"),
-  hypothesis_direction = c("greater", "greater"),
+  feature = "dark_tail_depth",
+  role = "pigmented_intensity_surprise",
+  hypothesis_direction = "greater",
   stringsAsFactors = FALSE
 )
 auxiliary_features <- data.frame(
-  early_tail_depth = auxiliary_profile$early_tail_depth,
   dark_tail_depth = auxiliary_profile$dark_tail_depth,
   stringsAsFactors = FALSE
 )
@@ -235,37 +225,20 @@ auxiliary_summary <- v19_contrast_summary(
   "primary_local_white_isolate"
 )
 auxiliary_case_control <- data.frame(
-  facet = c(
-    "early_tail_q10", "dark_tail_q10", "both_early_and_dark_q10"
+  facet = "dark_tail_q10",
+  case_count = sum(
+    auxiliary_profile$dark_tail_10[observed_pairs$case_index],
+    na.rm = TRUE
   ),
-  case_count = c(
-    sum(auxiliary_profile$early_tail_10[observed_pairs$case_index],
-        na.rm = TRUE),
-    sum(auxiliary_profile$dark_tail_10[observed_pairs$case_index],
-        na.rm = TRUE),
-    sum(
-      auxiliary_profile$early_tail_10[observed_pairs$case_index] &
-        auxiliary_profile$dark_tail_10[observed_pairs$case_index],
-      na.rm = TRUE
-    )
-  ),
-  control_count = c(
-    sum(auxiliary_profile$early_tail_10[observed_pairs$control_index],
-        na.rm = TRUE),
-    sum(auxiliary_profile$dark_tail_10[observed_pairs$control_index],
-        na.rm = TRUE),
-    sum(
-      auxiliary_profile$early_tail_10[observed_pairs$control_index] &
-        auxiliary_profile$dark_tail_10[observed_pairs$control_index],
-      na.rm = TRUE
-    )
+  control_count = sum(
+    auxiliary_profile$dark_tail_10[observed_pairs$control_index],
+    na.rm = TRUE
   ),
   n_pairs = nrow(observed_pairs),
   stringsAsFactors = FALSE
 )
 candidate_auxiliary <- auxiliary_profile[, c(
-  "exact_site_id", "early_predictive_q", "early_tail_depth",
-  "dark_predictive_q", "dark_tail_depth", "early_tail_10",
+  "exact_site_id", "dark_predictive_q", "dark_tail_depth",
   "dark_tail_10", "convergence_count"
 )]
 candidate_table <- v20_candidate_table(
@@ -376,8 +349,8 @@ metadata <- data.frame(
     ),
     "population, land use, road access, and mountain context are held out",
     paste(
-      "early flowering and pigmented-only darkness are held-out predictive",
-      "tail diagnostics; neither selects local-isolate candidates"
+      "pigmented-only darkness is a held-out predictive tail diagnostic;",
+      "it neither selects nor ranks local-isolate candidates"
     ),
     "false",
     paste(
@@ -407,15 +380,15 @@ readme <- c(
     "maps with observed trial counts fixed. Cross-fold predictions form an",
     "independent out-of-fold mosaic, and a same-fold-only definition is retained",
     "as a boundary sensitivity analysis. Population, land use, road access,",
-    "phenology, and intensity do not define local-isolate cases."
+    "and intensity do not define local-isolate cases."
   ),
   "",
   paste(
     "Observed isolates are then matched to locally non-isolated pigmented cells",
     "on geography, environment, natural pigmentation expectation, observation",
     "effort, and local sampling support. Landscape contrasts remain diagnostic",
-    "and do not identify introduction, escape, or provenance. Early-flowering",
-    "and pigmented-only darkness tails are evaluated after candidate selection."
+    "and do not identify introduction, escape, or provenance. The",
+    "pigmented-only darkness tail is evaluated after candidate selection."
   )
 )
 writeLines(readme, file.path(output_dir, "README.md"), useBytes = TRUE)

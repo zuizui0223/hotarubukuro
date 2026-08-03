@@ -125,14 +125,16 @@ if (!is.null(published_performance) && !is.null(reconstructed_performance)) {
 # ---------------------------------------------------------------------------
 # 2. Environmental model
 # ---------------------------------------------------------------------------
+# The published reference also carries a `national_environment_year_spde_phenology`
+# row. That component has been withdrawn, so the reconstruction produces no
+# counterpart and the loop below skips the model outright; the withdrawal is
+# described in docs/public-reconstruction.md rather than shown as a difference.
 if (!is.null(published_performance) && !is.null(reconstructed_performance)) {
   metrics <- list(
     list(model = "national_environment_spde_presence", field = "AUC",
          tolerance = 0.05, kind = "discrimination"),
     list(model = "national_environment_spde_intensity", field = "RMSE",
          tolerance = 0.10, kind = "error"),
-    list(model = "national_environment_year_spde_phenology", field = "RMSE",
-         tolerance = 2.0, kind = "error"),
     list(model = "common_support_environment_spde_presence", field = "AUC",
          tolerance = 0.05, kind = "discrimination"),
     list(model = "common_support_environment_spde_bombus_presence",

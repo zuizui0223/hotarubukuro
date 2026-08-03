@@ -419,8 +419,7 @@ if (file.exists(v20_candidates_path)) {
   )
   auxiliary_columns <- intersect(
     c(
-      "exact_site_id", "early_predictive_q", "dark_predictive_q",
-      "early_tail_10", "dark_tail_10"
+      "exact_site_id", "dark_predictive_q", "dark_tail_10"
     ),
     names(v20_candidates)
   )

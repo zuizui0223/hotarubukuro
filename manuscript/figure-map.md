@@ -55,7 +55,7 @@ are compared.
   expected under the natural model, and did several human-origin proxies
   converge?
 - **Panels:** candidate locations; count/fraction replicated-natural-map
-  checks; population and DID contrasts; candidate-level early/dark tail tests.
+  checks; population and DID contrasts; candidate-level dark tail test.
 - **Sources:** `local_isolate_candidates.csv`,
   `local_isolate_natural_null.csv`,
   `human_neighbourhood_population_scale_summary.csv`,

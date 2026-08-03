@@ -84,15 +84,48 @@ Two mechanisms prevent it:
 - `reproducibility/output_manifest.csv` carries `produced_in_run` per file, so a
   hashed file that predates the run is never presented as the run's work.
 
-## Known limitation: stage 02 does not complete on the reconstruction
+## Withdrawn: the phenology component of stage 02
 
-The phenology component of the cross-fitted model aborts inside INLA's
-`inla.qsample` with a non-positive-definite precision matrix, and the failure is
-not deterministic — the same fold and settings succeed on one run and abort on
-another. It is tracked separately as an INLA numerical-stability issue and is
-not part of this pull request.
+The published analysis fitted a fifth cross-fitted component,
+`national_environment_year_spde_phenology`, alongside national presence,
+national intensity, common-support presence and common-support *Bombus*
+presence. It has been withdrawn.
 
-Consequently the reconstruction does not currently run to completion, and the
-descriptive comparison above cannot be populated end to end. That is stated
-here rather than worked around: the freshness gate refuses to emit a comparison
-built from artifacts a run did not produce.
+It aborts inside INLA's `inla.qsample` with a non-positive-definite precision
+matrix, and the failure is not deterministic: the same fold and settings
+complete on one run and abort on another. Two measured interventions did not
+fix it. A 5 × 8 `control.inla(diagonal=)` grid produced no value at which all
+five folds complete (10 of 39 measured cells survived, with no monotone
+structure, and the same cell gave opposite outcomes across runs). Pinning
+`num.threads = 1:1` raised completion to 10 of 15, and pinning the BLAS threads
+as well changed nothing — but fold 4 completed 0 times out of 6 in both. The
+measurement records and the fold-4 conditioning diagnostic are on the
+`diagnostic/phenology-inla-instability` branch.
+
+The conditioning diagnostic rules out the collinearity explanation that was
+written into earlier comments here: the fold-4 design matrix is full rank (7 of
+7), its condition number is 1.36–1.50 across folds, its minimum singular value
+is 25–27, and |r| between `median_year_centered` and its quadratic term is at
+most 0.022. The instability is numerical in INLA's sampler, not a degenerate
+design.
+
+Early flowering was an auxiliary post-selection facet, not part of the main
+analysis, so the component is withdrawn rather than patched. Withdrawing it
+does not change which cells are local-isolate candidates:
+
+- candidate selection (`v16_presence_scores`, `v20_local_profile`) reads
+  presence draws and observed counts only;
+- case-control matching (`v18_match_options(cells, presence$latent_mean)`) reads
+  presence only;
+- every use of the phenology-derived facet occurred strictly after both.
+
+What was withdrawn with it: the `early_phenology_surprise` null-comparison
+metric, the `early_predictive_q` / `early_tail_10` / `early_tail_depth`
+auxiliary columns and the claims conditioned on them, the early-flowering
+series in Figure 4d, and the phenology-specific stabilisation, threading, sweep
+and diagnostic workflows.
+
+What was **not** touched: the frozen upstream `early_phenology_surprise_v15`
+column in the v15 cell table, which is retained unchanged and unrecomputed but
+is no longer used for selection, scoring or any claim; and the presence,
+intensity, *Bombus*, local-isolate and human-context analyses.

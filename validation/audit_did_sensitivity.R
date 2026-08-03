@@ -152,15 +152,13 @@ add_check(
   )
 )
 add_check(
-  "Convergent candidate lacks early or dark predictive tail",
+  # The early-flowering half of this claim has been withdrawn with the
+  # phenology component; the dark-tail half is unchanged.
+  "Convergent candidate lacks a dark predictive tail",
   nrow(joint) == 1L &&
-    joint$early_predictive_q > 0.10 &&
     joint$dark_predictive_q > 0.10,
   if (nrow(joint)) {
-    sprintf(
-      "early q=%.3f; dark q=%.3f",
-      joint$early_predictive_q, joint$dark_predictive_q
-    )
+    sprintf("dark q=%.3f", joint$dark_predictive_q)
   } else {
     "joint candidate absent"
   }
@@ -228,8 +226,8 @@ lines <- c(
   paste(
     "This is a convergent local settlement-context tendency, not evidence",
     "of planting, garden escape, horticultural provenance, or introgression.",
-    "The one strongest convergent cell was neither an early nor a dark",
-    "predictive-tail observation."
+    "The one strongest convergent cell was not a dark predictive-tail",
+    "observation."
   ),
   "",
   paste0(

@@ -62,7 +62,6 @@ add_check(
 expected_models <- c(
   "national_environment_spde_presence",
   "national_environment_spde_intensity",
-  "national_environment_year_spde_phenology",
   "common_support_environment_spde_presence",
   "common_support_environment_spde_bombus_presence"
 )
@@ -168,9 +167,7 @@ specification_ok <- identical(
   "v16.5_centered_observation_year"
 ) && all(manifest$checkpoint_analysis_spec_version %in% c(
   "v16.4_apredictor_projection", "v16.5_centered_observation_year"
-)) && all(manifest$checkpoint_analysis_spec_version[
-  manifest$model == "national_environment_year_spde_phenology"
-] == "v16.5_centered_observation_year")
+))
 add_check(
   "analysis_specification_version",
   if (isTRUE(specification_ok)) "PASS" else "FAIL",
@@ -340,14 +337,14 @@ pigmented_null <- null[
 ]
 significant_facets <- pigmented_null[
   pigmented_null$metric %in% c(
-    "mean_population_context", "mean_early_phenology_surprise",
+    "mean_population_context",
     "mean_intensity_surprise", "mean_local_colour_isolation",
     "isolated_candidate_fraction_25km"
   ) & pigmented_null$BH_q < 0.05,
 ]
 significant_facets_global <- pigmented_null[
   pigmented_null$metric %in% c(
-    "mean_population_context", "mean_early_phenology_surprise",
+    "mean_population_context",
     "mean_intensity_surprise", "mean_local_colour_isolation",
     "isolated_candidate_fraction_25km"
   ) & pigmented_null$BH_q_global < 0.05,

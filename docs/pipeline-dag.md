@@ -61,22 +61,29 @@ former dependence on one developer machine's directory layout.
 
 ### `02_run_natural_predictive_model`
 
-Five components — national presence, national intensity, national
-year-plus-phenology, common-support presence, and common-support Bombus
-presence — each cross-fitted over five response-blind 100-km spatial folds with
-1,000 predictive draws. Seed `20260725`; the binomial replicate draw uses
-`seed + 1` per fold.
+Four components — national presence, national intensity, common-support
+presence, and common-support Bombus presence — each cross-fitted over five
+response-blind 100-km spatial folds with 1,000 predictive draws. Seed
+`20260725`; the binomial replicate draw uses `seed + 1` per fold.
 
-All five are required. The audit
-(`validation/audit_natural_predictive_model.R`) checks for exactly these five
+All four are required. The audit
+(`validation/audit_natural_predictive_model.R`) checks for exactly these four
 models with five folds each, and `validation/validate_local_pigmented_isolates.R`
-loads the presence, intensity **and phenology** draw checkpoints to build the
-auxiliary facet profile behind `local_isolate_natural_null_summary.csv`, which
-is a required publication artifact. The phenology component therefore cannot be
-dropped from the canonical DAG.
+loads the presence and intensity draw checkpoints to build the auxiliary facet
+profile behind `local_isolate_natural_null_summary.csv`, which is a required
+publication artifact.
+
+A fifth component, `national_environment_year_spde_phenology`, was previously
+fitted here. It has been withdrawn: `inla.qsample` aborts on a non-positive-definite
+precision matrix inside `inla.posterior.sample`, and fold 4 never completed in
+any measured configuration. The instability is tracked on the
+`diagnostic/phenology-inla-instability` branch. Removing it does not change
+local-isolate candidates — candidate selection and case-control matching read
+presence draws only, and every use of the phenology-derived facet came strictly
+after both.
 
 `--components` exists so a partial rerun can refit one component; the canonical
-workflow does not pass it, so all five are fitted and the selection is recorded
+workflow does not pass it, so all four are fitted and the selection is recorded
 in `predictive_replication_component_scope.csv`.
 
 ### `05_run_local_human_context` and `05_run_did_sensitivity`

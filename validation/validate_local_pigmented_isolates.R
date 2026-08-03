@@ -275,13 +275,6 @@ presence <- v18_align_result(
   )),
   cells, "presence"
 )
-phenology <- v18_align_result(
-  readRDS(file.path(
-    checkpoint_root,
-    "national_environment_year_spde_phenology_draws1000.rds"
-  )),
-  cells, "phenology"
-)
 intensity <- v18_align_result(
   readRDS(file.path(
     checkpoint_root,
@@ -289,13 +282,8 @@ intensity <- v18_align_result(
   )),
   cells, "intensity"
 )
-auxiliary_profile <- v18_profile(
-  cells, presence, phenology, intensity
-)
+auxiliary_profile <- v18_profile(cells, presence, intensity)
 auxiliary_observed <- c(
-  early_tail_depth = v18_pair_metric(
-    pairs, auxiliary_profile$early_tail_depth
-  ),
   dark_tail_depth = v18_pair_metric(
     pairs, auxiliary_profile$dark_tail_depth
   )
@@ -335,7 +323,7 @@ add_check(
         fixed = TRUE) &&
     grepl("neither selects", metadata_value[["auxiliary_facet_role"]],
           fixed = TRUE),
-  "human, land-use, early, and dark facets do not select candidates"
+  "human, land-use, and dark facets do not select candidates"
 )
 add_check(
   "no_residual_response",

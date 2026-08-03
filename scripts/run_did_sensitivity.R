@@ -248,7 +248,7 @@ if (file.exists(v21_followup_path)) {
   )
   auxiliary <- intersect(
     c(
-      "exact_site_id", "early_predictive_q", "dark_predictive_q",
+      "exact_site_id", "dark_predictive_q",
       "settlement_density_score_local_spike",
       "human_activity_consensus_score_local_spike"
     ),

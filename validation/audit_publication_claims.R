@@ -120,15 +120,15 @@ add_check(
   )
 )
 add_check(
-  "Only one human-context follow-up cell and no early-dark convergence",
+  # The early-flowering half of this claim has been withdrawn with the
+  # phenology component; the dark-tail half is unchanged.
+  "Only one human-context follow-up cell and no dark-tail convergence",
   nrow(joint) == 1L &&
-    joint$early_predictive_q > 0.10 &&
     joint$dark_predictive_q > 0.10,
   if (nrow(joint) == 1L) {
     sprintf(
-      "%s; early q=%.3f; dark q=%.3f",
-      joint$exact_site_id, joint$early_predictive_q,
-      joint$dark_predictive_q
+      "%s; dark q=%.3f",
+      joint$exact_site_id, joint$dark_predictive_q
     )
   } else {
     paste("joint cells=", nrow(joint))

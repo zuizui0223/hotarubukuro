@@ -177,27 +177,18 @@ testthat::test_that("candidate null reapplies tiers without held-out facet leaka
     cell_id = cells$exact_site_id,
     draws = matrix(rnorm(n * B), n, B), latent_mean = rep(0, n)
   )
-  phenology <- list(
-    cell_id = cells$exact_site_id,
-    draws = matrix(rnorm(n * B, 147, 5), n, B),
-    latent_mean = rep(147, n)
-  )
-  result <- v16_candidate_null(presence, cells, intensity, phenology)
+  result <- v16_candidate_null(presence, cells, intensity)
   intensity_shifted_draws <- intensity
   intensity_shifted_draws$draws <- intensity$draws + 1000
-  phenology_shifted_draws <- phenology
-  phenology_shifted_draws$draws <- phenology$draws + 1000
-  shifted <- v16_candidate_null(
-    presence, cells, intensity_shifted_draws, phenology_shifted_draws
-  )
+  shifted <- v16_candidate_null(presence, cells, intensity_shifted_draws)
   testthat::expect_true(nrow(result$summary) > 20)
   testthat::expect_true(all(result$summary$n_null_draws > 0))
   testthat::expect_true(all(result$scores$model == "test"))
-  testthat::expect_equal(length(result$observed_early_surprise), n)
   testthat::expect_true(any(grepl("_tier_gradient$", result$summary$metric)))
-  facet_rows <- result$summary$metric %in% c(
-    "mean_early_phenology_surprise", "mean_intensity_surprise"
+  testthat::expect_false(
+    any(grepl("early", result$summary$metric, fixed = TRUE))
   )
+  facet_rows <- result$summary$metric == "mean_intensity_surprise"
   testthat::expect_equal(
     result$summary[facet_rows, ], shifted$summary[facet_rows, ]
   )

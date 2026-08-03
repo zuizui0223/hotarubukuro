@@ -233,24 +233,12 @@ add_check(
         "common-support eligible cells; AUC uncertainty is material")
 )
 
-early_adjusted <- facets[
-  facets$direction == "unexpected_pigmented" &
-    facets$facet == "early_phenology_surprise_v15", , drop = FALSE
-]
-raw_early <- facets[
-  facets$direction == "unexpected_pigmented" & facets$facet == "median_DOY",
-  , drop = FALSE
-]
-add_check(
-  "horticulture_phenology_confounding", "RESULT",
-  paste(
-    "raw DOY minimum q =", signif(min(raw_early$BH_q), 3),
-    "; environment-space-year adjusted early score minimum q =",
-    signif(min(early_adjusted$BH_q), 3)
-  )
-)
+# The early-flowering evaluation has been withdrawn with the phenology
+# component. The frozen upstream `early_phenology_surprise_v15` column is
+# retained in the v15 cell table unchanged, but it is no longer audited,
+# scored, or used in any claim.
 
-tier_a <- evidence$n_cells[evidence$followup_tier == "A_convergent_replicated"]
+tier_a <-evidence$n_cells[evidence$followup_tier == "A_convergent_replicated"]
 if (!length(tier_a)) tier_a <- 0L
 add_check(
   "horticulture_convergent_evidence", "RESULT",

@@ -365,8 +365,9 @@ Densely Inhabited District (DID) polygons was a separate sensitivity analysis.
 The identical post-selection contrasts were calculated for candidate sets from
 every natural map. Directional Monte Carlo p-values followed pre-specified
 human-exposure directions, and maxT controlled familywise error within each
-feature family. Early flowering and dark pigmented intensity were evaluated
-only as held-out follow-up facets.
+feature family. Dark pigmented intensity was evaluated only as a held-out
+follow-up facet. Flowering date was not modelled and was not evaluated as a
+facet.
 
 Because all flowers originated from hiking-activity records, candidate and
 comparison cells already shared a trail-access sampling condition. Population,
@@ -475,11 +476,11 @@ Nine of 16 candidates (0.5625) were classified as DID-proximate with high
 population, compared with a natural-map mean candidate fraction of 0.313
 (raw p=0.082; maxT p=0.117). Built-up fraction and settlement composites
 pointed in the same direction but no land-use, road, interface, population, or
-DID family passed its corrected threshold. Early-flowering and unusually dark
-pigmented colour did not converge: their primary case–control contrasts were
-not positive relative to the replicated baseline. One leading joint candidate
-combined an unexpected-pigmentation tail with local DID proximity, but was
-neither unusually early nor unusually dark (Figure 4c,d).
+DID family passed its corrected threshold. Unusually dark pigmented colour did
+not converge: its primary case–control contrast was not positive relative to
+the replicated baseline. One leading joint candidate combined an
+unexpected-pigmentation tail with local DID proximity, but was not unusually
+dark (Figure 4c,d).
 
 ## 4 | Discussion
 
@@ -600,9 +601,9 @@ results may therefore reflect a small biological association, restricted
 predictor range created by route sampling, incomplete human proxies, or no
 association; the current data cannot distinguish these explanations.
 
-Dark colour and early flowering also failed to converge on the leading
-human-context candidate. This absence of multilateral convergence makes a
-strong horticultural interpretation less, not more, defensible. Conversely, it
+Dark colour also failed to converge on the leading human-context candidate.
+This absence of multilateral convergence makes a strong horticultural
+interpretation less, not more, defensible. Conversely, it
 does not prove natural origin. Planting histories, repeated site visits,
 voucher specimens, nearby population surveys, and assignment of candidates
 against wild populations and commercial cultivars are required to test
@@ -968,7 +969,7 @@ The human-context analysis used a different event extractor. A focal cell was
 selected using only observed pigmentation state, response-blind proximity,
 environmental similarity, and sampling support. The same rule was applied to
 every natural predictive map before population, land use, roads, DID proximity,
-flowering date, or conditional intensity were inspected. Candidate count and
+or conditional intensity were inspected. Candidate count and
 fraction were predictive model checks. Only after the candidate and its
 environment-similar white neighbourhood had been fixed were human-context
 contrasts calculated. Each contrast was repeated for candidates generated from
@@ -981,7 +982,7 @@ described as human-associated, avoids regression of one fitted residual on a
 second predictor set, and gives the horticultural hypothesis an explicit
 failure condition. The observed isolate count and fraction were compatible
 with the natural baseline, no human family passed corrected significance, and
-early flowering and unusually dark colour did not converge. Consequently,
+unusually dark colour did not converge. Consequently,
 Appendix C supports candidate prioritization only.
 
 ## Tables
@@ -1052,7 +1053,7 @@ species, not abundance or visitation.
 environment-similar white neighbours. (b) Observed candidate count and fraction
 relative to 1,000 replicated natural maps. (c) Population-scale and
 densely-inhabited-district (DID) contrasts with natural-map 95% intervals; no
-familywise maxT test passed 0.05. (d) Candidate-level early-flowering and
-dark-colour predictive-tail checks; neither met the pre-specified q=0.10
-criterion. Candidate locations are follow-up priorities, not horticultural
-provenance assignments.
+familywise maxT test passed 0.05. (d) Candidate-level dark-colour
+predictive-tail check; no candidate met the pre-specified q=0.10 criterion.
+Candidate locations are follow-up priorities, not horticultural provenance
+assignments.

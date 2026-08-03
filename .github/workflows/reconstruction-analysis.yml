@@ -20,8 +20,10 @@ name: Public reconstruction
 # convergence-warning pattern are reported as not applicable rather than
 # deleted.
 #
-# Known limitation: stage 02's phenology component does not currently complete
-# on this population. See docs/public-reconstruction.md.
+# Stage 02 fits four cross-fitted components. A fifth, the phenology component,
+# has been withdrawn: it aborts inside INLA's sampler and fold 4 never
+# completed in any measured configuration. Withdrawing it does not change
+# local-isolate candidates. See docs/public-reconstruction.md.
 
 on:
   workflow_dispatch:

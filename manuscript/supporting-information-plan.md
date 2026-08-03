@@ -67,7 +67,7 @@ or caveat needed to evaluate a main claim may exist only in S1.
 - isolate definition, matching settings, candidate table, count/fraction
   reference distributions, and membership sensitivity;
 - WorldPop, MLIT land-use, road/interface, and DID contrasts;
-- early-flowering and dark-colour follow-up facets;
+- the dark-colour follow-up facet;
 - raw and maxT-adjusted probabilities with feature-family definitions.
 
 ### Reproduction and validation

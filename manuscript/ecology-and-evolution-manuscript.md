@@ -366,8 +366,8 @@ The identical post-selection contrasts were calculated for candidate sets from
 every natural map. Directional Monte Carlo p-values followed pre-specified
 human-exposure directions, and maxT controlled familywise error within each
 feature family. Dark pigmented intensity was evaluated only as a held-out
-follow-up facet. Flowering date was not modelled and was not evaluated as a
-facet.
+follow-up facet. Flowering date entered this stage neither as a selection
+variable nor as a follow-up facet.
 
 Because all flowers originated from hiking-activity records, candidate and
 comparison cells already shared a trail-access sampling condition. Population,

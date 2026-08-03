@@ -233,9 +233,15 @@ On the reconstruction, the phenology component of stage 02 aborts in fold 1.
 `inla.qsample` reports `Matrix is not (numerical) positive definite` from
 `GMRFLib_init_problem` and terminates the INLA process with SIGABRT before a
 single posterior draw is written, so the stage produces nothing at all. The
-phenology model is the only one carrying `median_year_centered` and its square
-alongside the SPDE field, and on this cell set that near-collinear pair leaves
-the joint precision matrix numerically singular.
+cause is **not** collinearity between `median_year_centered` and its square.
+That was assumed throughout the earlier attempts and has since been measured to
+be false: in all five folds the fixed-effects design is full rank, condition
+numbers run 1.36–1.50, minimum singular values 25–27, and the linear and
+quadratic year terms are effectively orthogonal (|r| ≤ 0.022), because the year
+is centred at 2024 on a near-symmetric distribution. See
+`reproducibility/phenology_fold_conditioning.csv`. The failure lies in the joint
+latent precision that `GMRFLib_init_problem` factorises, and its source is not
+established.
 
 The pipeline therefore accepts `--phenology-diagonal`, which is passed to
 `control.inla(diagonal=)` **for that one component**. It adds a constant to the

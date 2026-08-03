@@ -55,10 +55,17 @@ seed <- as.integer(arg_value("--seed", "20260725"))
 #
 # On the public reconstruction, inla.qsample aborts in that component with
 # "Matrix is not (numerical) positive definite" (GMRFLib_init_problem), taking
-# the INLA process down with SIGABRT before any draw is written. The phenology
-# model is the only one carrying both median_year_centered and its square
-# alongside the SPDE, and that near-collinear pair can leave the joint precision
-# matrix numerically singular.
+# the INLA process down with SIGABRT before any draw is written.
+#
+# The cause is NOT collinearity between median_year_centered and its square.
+# That was assumed here for a long time and has since been measured to be
+# false: in all five folds the fixed-effects design is full rank, condition
+# numbers run 1.36 to 1.50, minimum singular values 25 to 27, and the linear
+# and quadratic year terms are effectively orthogonal (|r| <= 0.022), because
+# the year is centred at 2024 on a near-symmetric distribution. See
+# reproducibility/phenology_fold_conditioning.csv. The failure is in the joint
+# latent precision that GMRFLib_init_problem factorises, not in the fixed
+# effects, and its source is not established.
 #
 # --phenology-diagonal adds a constant to the diagonal of the precision matrix
 # so the Cholesky factorisation stays defined. It is a property of the solver,

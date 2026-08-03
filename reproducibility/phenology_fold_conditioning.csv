@@ -1,0 +1,6 @@
+fold,n_train,var_year_centered,var_year_centered_squared,cor_linear_quadratic,design_rank,condition_number,min_singular_value
+1,1013,0.5750,0.23,-0.0009,7,1.50,24.9745
+2,1070,0.6034,0.23,0.0221,7,1.43,26.6021
+3,1030,0.5818,0.23,0.0064,7,1.39,26.5608
+4,1046,0.5892,0.23,0.0113,7,1.38,26.2248
+5,1025,0.5956,0.23,0.0176,7,1.36,26.7350

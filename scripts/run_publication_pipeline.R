@@ -187,6 +187,26 @@ run_stage(
   role = "candidate_definition_validation"
 )
 
+# The directional local event above ("a pigmented cell among white
+# neighbours") assumes which direction is the signal. This stage replays the
+# same locked neighbourhood graph and the same natural null without that
+# assumption, so the directional and direction-agnostic answers can be read
+# side by side. It is a post hoc symmetry diagnostic, not a pre-specified test,
+# and it selects no candidates: the human-context stages below continue to read
+# the directional candidate set only.
+if (mode %in% c("extensions", "full")) {
+  run_stage(
+    "04_run_local_state_asymmetry",
+    "scripts/run_local_state_asymmetry.R",
+    role = "post_hoc_symmetry_diagnostic"
+  )
+}
+run_stage(
+  "04_validate_local_state_asymmetry",
+  "validation/validate_local_state_asymmetry.R",
+  role = "post_hoc_symmetry_diagnostic_validation"
+)
+
 if (mode %in% c("extensions", "full")) {
   run_stage(
     "05_run_local_human_context",

@@ -94,7 +94,66 @@ trouble stays isolated rather than becoming widespread, since a warning in many
 folds would undermine the cross-fitted predictions the later stages rest on.
 That requirement is what the reconstruction mode enforces.
 
-## Numerical stabilisation of the phenology sampler
+## Numerical stabilisation of the phenology sampler — measured, and it does not work
+
+**Result: diagonal stabilisation alone is insufficient, and the abort is not
+deterministic.** No value is in use; `--phenology-diagonal` defaults to `0`.
+
+The full grid, five folds by eight values, measured one CI job per cell at the
+analysis draw count of 1000 (run 30793913721). `OK` is a completed fit with
+1000 posterior draws; `.` is the SIGABRT in `inla.qsample`; `?` is the one cell
+lost to a runner shutdown.
+
+| fold | 0 | 1e-8 | 1e-7 | 1e-6 | 1e-5 | 1e-4 | 1e-3 | 1e-2 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | . | OK | . | . | OK | . | . | . |
+| 2 | OK | . | OK | . | . | . | . | . |
+| 3 | OK | . | . | OK | . | OK | ? | . |
+| 4 | . | OK | . | . | . | . | OK | . |
+| 5 | . | . | OK | . | . | . | . | . |
+
+Three things follow, and none of them is "use a bigger value".
+
+**No value survives every fold.** All eight columns contain at least one
+confirmed abort. The single missing cell cannot change that: its column,
+`1e-3`, already holds three confirmed aborts. So the selection rule returns
+nothing, and it would return nothing even from a complete grid.
+
+**The diagonal has no systematic effect.** Survival is 10 of 39 cells, 25.6%,
+scattered with no structure along the value axis. `1e-2`, the largest value
+tried, is the *only* column with no survivors at all. Nothing here behaves like
+a stabilisation parameter.
+
+**The outcome is not reproducible.** Fold 1 at `1e-7` survived in 37 s in run
+30793653311 and aborted in 64 s in run 30793913721 — same fold, same value, same
+draw count, same sampler seed, same code. Whether the Cholesky succeeds is
+therefore not a function of `(fold, diagonal)`.
+
+That last point is what makes retrying useless rather than merely slow. A
+canonical run needs all five folds to complete in one pass. At the observed
+per-cell rate that is roughly 0.26<sup>5</sup> ≈ 0.1% per attempt.
+
+The three pipeline observations all agree with the grid — fold 1 aborts at `0`,
+survives `1e-8`, aborts at `1e-7` — which is evidence that the standalone
+diagnostic faithfully reproduces the in-pipeline fit. Given the non-determinism,
+that agreement is partly luck, and it is reported as consistency rather than as
+confirmation.
+
+### What this rules out, and what it leaves
+
+Ruled out: that the phenology component fails for want of a larger diagonal.
+Measured across four orders of magnitude, it does not.
+
+Left open: why the same fit succeeds or fails across runs. The INLA inference
+stage runs multi-threaded — its own logs report "Efficiency using 4 threads" —
+so the set of stored hyperparameter configurations can differ between runs even
+under a fixed seed, and `inla.qsample` factorises whichever configurations were
+stored. That would make the failure a property of thread scheduling rather than
+of the model. It is a hypothesis, not a finding; testing it means changing
+`num.threads`, which is a model-configuration change beyond the stabilisation
+that was authorised, so it has not been done.
+
+## Numerical stabilisation of the phenology sampler: mechanism and provenance
 
 One deviation from the locked configuration is required to make the
 reconstruction complete, and it is recorded rather than absorbed.

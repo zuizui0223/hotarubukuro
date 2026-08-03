@@ -29,7 +29,7 @@ SNAPSHOT_DIR="${SNAPSHOT_DIR:-reproduction_inputs/snapshot}"
 STATUS_DIR="${STATUS_DIR:-reproduction_status}"
 REPORT_DIR="${REPORT_DIR:-reproducibility}"
 LOCK_DIR="results/final_analysis_pipeline"
-PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-1e-7}"
+PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-0}"
 
 export HOTARUBUKURO_MLIT_CACHE="${HOTARUBUKURO_MLIT_CACHE:-reproduction_inputs/mlit_l03_2021}"
 export HOTARUBUKURO_DID_CACHE="${HOTARUBUKURO_DID_CACHE:-reproduction_inputs/mlit_did_2015}"

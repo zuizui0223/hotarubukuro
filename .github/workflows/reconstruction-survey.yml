@@ -30,7 +30,7 @@ on:
         description: control.inla(diagonal=) for the phenology component only
         type: string
         required: false
-        default: "1e-7"
+        default: "0"
   pull_request:
     types: [labeled]
     branches: ["main", "analysis/local-colour-state-asymmetry"]
@@ -46,7 +46,7 @@ env:
   SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
   STATUS_DIR: ${{ github.workspace }}/reproduction_status
   REPORT_DIR: ${{ github.workspace }}/reproducibility
-  PHENOLOGY_DIAGONAL: ${{ inputs.phenology_diagonal || '1e-7' }}
+  PHENOLOGY_DIAGONAL: ${{ inputs.phenology_diagonal || '0' }}
   HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
   HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 

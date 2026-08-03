@@ -24,21 +24,20 @@ BUILD_FIGURES="${BUILD_FIGURES:-true}"
 LOCK_DIR="results/final_analysis_pipeline"
 DISCORDANCE_DIR="results/ecological_v23_local_state_asymmetry"
 
-# Numerical stabilisation for the phenology component only.
+# Numerical stabilisation for the phenology component only. Default 0: OFF,
+# because it was measured across the full grid and it does not work.
 #
-# On the reconstruction, inla.qsample aborts that component with "Matrix is not
-# (numerical) positive definite" and takes the process down with SIGABRT before
-# a single draw is written. This adds a constant to the diagonal of the
-# precision matrix so the Cholesky factorisation stays defined. It is not a
-# scientific change, and the presence, intensity and both common-support
-# components are untouched.
+# Run 30793913721 measured five folds by eight values from 0 to 1e-2, one CI job
+# per cell, at the analysis draw count. Every column contains at least one
+# abort, so no value lets all five folds complete; survival was 10 of 39 cells
+# with no structure along the value axis; and the same cell gave opposite
+# outcomes in two runs (fold 1 at 1e-7 survived in one, aborted in another),
+# so the result is not even a function of (fold, diagonal).
 #
-# Escalation record, smallest first:
-#   0     — aborts at fold 1 (run 30755431516).
-#   1e-8  — fold 1 completes; aborts at fold 2, sampler seed 20462725
-#           (run 30769056060).
-#   1e-7  — current value.
-PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-1e-7}"
+# The flag is kept because the machinery is recorded and auditable, but no value
+# is justified by the measurement, so none is set. See the grid in
+# docs/reconstruction-robustness.md.
+PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-0}"
 
 # This driver is canonical-only and has no survey switch, by construction.
 #

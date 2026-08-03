@@ -41,7 +41,7 @@ on:
           stabilisation of INLA's sampler, not a model change. 0 disables it.
         type: string
         required: false
-        default: "1e-7"
+        default: "0"
   pull_request:
     types: [labeled]
     branches: ["main", "analysis/local-colour-state-asymmetry"]
@@ -58,7 +58,7 @@ env:
   STATUS_DIR: ${{ github.workspace }}/reproduction_status
   REPORT_DIR: ${{ github.workspace }}/reproducibility
   BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
-  PHENOLOGY_DIAGONAL: ${{ inputs.phenology_diagonal || '1e-7' }}
+  PHENOLOGY_DIAGONAL: ${{ inputs.phenology_diagonal || '0' }}
   HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
   HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 

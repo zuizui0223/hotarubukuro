@@ -1,0 +1,209 @@
+name: Phenology threading replication
+
+# A DEVELOPMENT DIAGNOSTIC. Fits no analysis output.
+#
+# Does pinning INLA's thread count make the phenology component reproducible?
+#
+# The measured diagonal grid (reproducibility/phenology_stabilisation_grid.csv)
+# showed no value lets all five folds complete, survival scattered with no
+# structure along the value axis, and — decisively — the same fold at the same
+# value surviving on one run and aborting on another. INLA's inference stage is
+# multi-threaded by default, so the stored hyperparameter configurations can
+# differ between runs of identical inputs, and inla.qsample factorises whichever
+# were stored.
+#
+# This runs each fold several times with the thread count pinned and asks
+# whether the repeats agree. Succeeding once is not the question: the default
+# threading already succeeded about a quarter of the time by chance.
+#
+# One job per (fold, repeat), for the same reason the diagonal grid is one job
+# per cell: a lost runner costs one cell rather than the whole replication.
+
+on:
+  workflow_dispatch:
+    inputs:
+      num_threads:
+        description: INLA num.threads for the phenology fit (INLA's A:B form)
+        type: string
+        required: false
+        default: "1:1"
+      repeats:
+        description: Repeats per fold
+        type: string
+        required: false
+        default: "3"
+  pull_request:
+    types: [labeled]
+    branches: ["main", "analysis/local-colour-state-asymmetry"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phenology-threading-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
+  REPORT_DIR: ${{ github.workspace }}/reproducibility
+  NUM_THREADS: ${{ inputs.num_threads || '1:1' }}
+  HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
+  HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
+
+jobs:
+  cell:
+    name: fold ${{ matrix.fold }} repeat ${{ matrix.repeat }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-phenology-threading'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        fold: [1, 2, 3, 4, 5]
+        repeat: [1, 2, 3]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore the R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore the declared R environment
+        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility
+
+      - name: Restore the canonical analysis-input snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
+
+      - name: Materialise the snapshot into results/
+        run: |
+          Rscript scripts/verify_canonical_snapshot.R \
+            --descriptor inputs/canonical_snapshot.json \
+            --root "$SNAPSHOT_DIR" \
+            --report-dir "$REPORT_DIR" \
+            --materialise true \
+            --mlit-cache "$HOTARUBUKURO_MLIT_CACHE" \
+            --did-cache "$HOTARUBUKURO_DID_CACHE"
+
+      - name: Confirm the input is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+
+      - name: Measure this repeat
+        shell: bash
+        run: |
+          # -e off: an abort is the outcome this cell records, so it must not
+          # kill the step before the row is written.
+          set +e
+          mkdir -p threading-cell
+          started=$(date +%s)
+          # Diagonal 0 on purpose. The diagonal was measured and does not work;
+          # this isolates threading as the only thing that changed.
+          Rscript scripts/diagnose_phenology_stabilisation.R \
+            --fold "${{ matrix.fold }}" \
+            --diagonal 0 \
+            --num-threads "$NUM_THREADS" \
+            --draws 1000 2>&1 | tee threading-cell/attempt.log
+          code=${PIPESTATUS[0]}
+          ended=$(date +%s)
+          case "$code" in
+            0) status=survived ;;
+            2) status=setup_error ;;
+            *) status=aborted ;;
+          esac
+          # The draw range is the determinism evidence: under a fixed seed and a
+          # pinned thread count, repeats of a fold should produce identical
+          # draws, not merely both complete.
+          range=$(sed -n 's/.*draw_range=\([^ ]*\).*/\1/p' threading-cell/attempt.log | tail -1)
+          [[ -n "$range" ]] || range=none
+          printf '%s,%s,%s,%s,%s,%s\n' \
+            "${{ matrix.fold }}" "${{ matrix.repeat }}" "$status" "$code" \
+            "$((ended - started))" "$range" \
+            > "threading-cell/cell_$(printf '%02d' ${{ matrix.fold }})_${{ matrix.repeat }}.csv"
+          echo "fold ${{ matrix.fold }} repeat ${{ matrix.repeat }}: ${status} (exit ${code}, $((ended - started))s, range ${range})"
+          exit 0
+
+      - name: Upload this repeat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: threading-cell-f${{ matrix.fold }}-r${{ matrix.repeat }}
+          path: threading-cell
+          if-no-files-found: warn
+          retention-days: 30
+
+  replication:
+    name: Did pinning the thread count make it reproducible?
+    needs: cell
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download every repeat
+        uses: actions/download-artifact@v4
+        with:
+          pattern: threading-cell-*
+          path: threading-cells
+          merge-multiple: true
+
+      - name: Assemble and decide
+        shell: bash
+        run: bash scripts/summarise_phenology_threading.sh threading-cells | tee replication.txt
+
+      - name: Publish the verdict
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "## Phenology threading replication"
+            echo
+            echo "- \`num.threads\`: \`${NUM_THREADS}\`, diagonal \`0\`"
+            echo
+            echo '```text'
+            cat replication.txt 2>/dev/null || echo "no replication produced"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the replication
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phenology-threading-check-${{ github.run_id }}
+          path: |
+            results/phenology_threading_check
+            replication.txt
+          if-no-files-found: warn
+          retention-days: 90

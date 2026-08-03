@@ -30,6 +30,19 @@ STATUS_DIR="${STATUS_DIR:-reproduction_status}"
 REPORT_DIR="${REPORT_DIR:-reproducibility}"
 LOCK_DIR="results/final_analysis_pipeline"
 PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-0}"
+# Numerical reproducibility for the phenology component only, explicit and
+# identical in the canonical and survey drivers.
+#
+# INLA's inference stage is multi-threaded by default, so the stored
+# hyperparameter configurations can differ between runs of identical inputs.
+# inla.qsample factorises whichever were stored, which is why the same fold at
+# the same diagonal survived on one run and aborted on another. Pinning the
+# thread count makes the configurations a function of the inputs. It is a
+# reproducibility setting, not a scientific one: no formula, prior, fold, draw
+# count, seed, diagonal, threshold or downstream definition changes, and no
+# other component is affected. The sampling call was already single-threaded;
+# this covers the fit, which was not.
+PHENOLOGY_NUM_THREADS="${PHENOLOGY_NUM_THREADS:-1:1}"
 
 export HOTARUBUKURO_MLIT_CACHE="${HOTARUBUKURO_MLIT_CACHE:-reproduction_inputs/mlit_l03_2021}"
 export HOTARUBUKURO_DID_CACHE="${HOTARUBUKURO_DID_CACHE:-reproduction_inputs/mlit_did_2015}"
@@ -69,6 +82,7 @@ run_logged survey_pipeline \
     --baseline=reconstruction \
     --discordance=true \
     --phenology-diagonal="$PHENOLOGY_DIAGONAL" \
+    --phenology-num-threads="$PHENOLOGY_NUM_THREADS" \
     --continue-on-failure=true \
     --output="$LOCK_DIR" || pipeline_status=$?
 

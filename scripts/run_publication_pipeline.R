@@ -33,6 +33,14 @@ run_discordance <- hb_as_bool(hb_arg_value(args, "--discordance", "false"))
 # why the reconstruction needs it and what it does not change.
 phenology_diagonal <- hb_arg_value(args, "--phenology-diagonal", "0")
 
+# Numerical reproducibility for the phenology component of stage 02 only.
+# Empty is the locked behaviour: INLA chooses its own thread count. A value
+# pins the inference stage so the stored hyperparameter configurations, and
+# therefore whether inla.qsample can factorise them, are a function of the
+# inputs rather than of thread scheduling. See the comment in
+# scripts/run_natural_predictive_model.R.
+phenology_num_threads <- hb_arg_value(args, "--phenology-num-threads", "")
+
 # Survey mode: record a stage failure and keep going, instead of stopping.
 #
 # Default false, so the locked behaviour — stop at the first failing stage — is
@@ -66,6 +74,10 @@ writeLines(
     paste0("mode=", mode),
     paste0("baseline=", baseline),
     paste0("phenology_inla_diagonal=", phenology_diagonal),
+    paste0(
+      "phenology_inla_num_threads=",
+      if (nzchar(phenology_num_threads)) phenology_num_threads else "default"
+    ),
     paste0("started_utc=", format(Sys.time(), tz = "UTC", usetz = TRUE)),
     if (continue_on_failure) {
       paste(
@@ -200,7 +212,10 @@ if (mode == "full") {
   run_stage(
     "02_run_natural_predictive_model",
     "scripts/run_natural_predictive_model.R",
-    c(paste0("--phenology-diagonal=", phenology_diagonal)),
+    c(
+      paste0("--phenology-diagonal=", phenology_diagonal),
+      paste0("--phenology-num-threads=", phenology_num_threads)
+    ),
     role = "confirmatory_core"
   )
 }

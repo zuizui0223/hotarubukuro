@@ -41,6 +41,15 @@ diagonal <- as.numeric(arg_value("--diagonal", "0"))
 # does not reproduce. Run 30770591247 did exactly that: it recorded fold 2 as
 # surviving at diagonal 0, while the pipeline aborted at fold 2 with a larger
 # diagonal. The default is the analysis value for that reason.
+# INLA thread count for the inference stage. Empty leaves INLA's default, which
+# is what the non-reproducible grid was measured under. A value pins it so the
+# stored hyperparameter configurations are a function of the inputs.
+num_threads <- arg_value("--num-threads", "")
+if (nzchar(num_threads) && !grepl("^[0-9]+(:[0-9]+)?$", num_threads)) {
+  message("[diagnostic] SETUP FAILURE: --num-threads must be an integer or A:B.")
+  quit(save = "no", status = 2L)
+}
+
 n_draws <- as.integer(arg_value("--draws", "1000"))
 if (!is.finite(n_draws) || n_draws < 1000L) {
   message(
@@ -106,7 +115,8 @@ cat(
   "[diagnostic] phenology fold ", target_fold,
   ": train=", nrow(train), ", test=", nrow(test),
   ", draws=", n_draws, ", sampler seed=", fold_seed,
-  ", diagonal=", format(diagonal, scientific = TRUE), "\n",
+  ", diagonal=", format(diagonal, scientific = TRUE),
+  ", num.threads=", if (nzchar(num_threads)) num_threads else "default", "\n",
   sep = ""
 )
 
@@ -115,7 +125,8 @@ elapsed <- system.time({
     train, test, response, basis, mesh_objects$mesh,
     family = "gaussian", trials = NULL, n_draws = n_draws,
     seed = fold_seed, model = "national_environment_year_spde_phenology",
-    fold = target_fold, inla_verbose = FALSE, diagonal = diagonal
+    fold = target_fold, inla_verbose = FALSE, diagonal = diagonal,
+    num_threads = if (nzchar(num_threads)) num_threads else NULL
   )
 })[["elapsed"]]
 
@@ -126,6 +137,7 @@ if (any(!is.finite(result$draws))) {
 cat(
   "[diagnostic] SURVIVED fold=", target_fold,
   " diagonal=", format(diagonal, scientific = TRUE),
+  " num.threads=", if (nzchar(num_threads)) num_threads else "default",
   " elapsed=", round(elapsed, 1), "s",
   " draw_range=", paste(round(range(result$draws), 3), collapse = ".."),
   "\n", sep = ""

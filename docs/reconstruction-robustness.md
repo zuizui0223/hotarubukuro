@@ -139,6 +139,46 @@ diagnostic faithfully reproduces the in-pipeline fit. Given the non-determinism,
 that agreement is partly luck, and it is reported as consistency rather than as
 confirmation.
 
+### Pinning INLA's thread count
+
+The non-determinism above is what the second setting addresses.
+`--phenology-num-threads` pins INLA's thread count for the phenology
+**inference** stage; both reconstruction drivers set it explicitly to `1:1`,
+and it is empty — INLA's default — everywhere else. The sampling call was
+already single-threaded (`inla.posterior.sample(..., num.threads = 1)`); the
+fit was not, and the fit is what determines which hyperparameter
+configurations get stored for `inla.qsample` to factorise.
+
+It is a reproducibility setting, not a scientific one. No formula, prior,
+likelihood, spatial fold, draw count, seed, diagonal, threshold or downstream
+definition changes, and the presence, intensity and both common-support
+components keep INLA's default threading.
+
+**Succeeding once would not settle it.** Default threading already succeeded
+about a quarter of the time by chance, so a single green run is not evidence.
+`.github/workflows/phenology-threading-check.yml` therefore runs every fold
+three times and `scripts/summarise_phenology_threading.sh` requires two
+distinct things:
+
+| requirement | how it is tested | failure means |
+|---|---|---|
+| completion | every fold completes in every repeat | exit 3 — threading was not sufficient |
+| determinism | every repeat of a fold produced the *same* posterior draw range | exit 5 — completion is reproducible, the draws are not |
+
+An incomplete replication exits 4 and supports no conclusion at all. Requiring
+identical draw ranges under a fixed seed is the stronger test: completion alone
+would still permit run-to-run variation.
+
+If completion fails under one thread, that is the answer — threading was not
+sufficient — and not a cue to start changing the model.
+
+Where the setting is recorded: `inla_num_threads` per fold in
+`predictive_replication_model_log.csv`, `phenology_inla_num_threads` per run in
+`predictive_replication_component_scope.csv`, `run_mode.txt` and
+`run_provenance.txt`, and the `02_run_natural_predictive_model` row of the stage
+registry. A checkpoint fitted under different threading is refitted rather than
+reused, for the same reason one fitted under a different diagonal is.
+
 ### What this rules out, and what it leaves
 
 Ruled out: that the phenology component fails for want of a larger diagonal.

@@ -35,6 +35,14 @@ on:
         type: string
         required: false
         default: "true"
+      phenology_num_threads:
+        description: >-
+          INLA num.threads for the phenology fit only. A numerical
+          reproducibility setting, not a model change. Empty leaves INLA's
+          default.
+        type: string
+        required: false
+        default: "1:1"
       phenology_diagonal:
         description: >-
           control.inla(diagonal=) for the phenology component only. Numerical
@@ -59,6 +67,7 @@ env:
   REPORT_DIR: ${{ github.workspace }}/reproducibility
   BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
   PHENOLOGY_DIAGONAL: ${{ inputs.phenology_diagonal || '0' }}
+  PHENOLOGY_NUM_THREADS: ${{ inputs.phenology_num_threads || '1:1' }}
   HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
   HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 
@@ -149,6 +158,7 @@ jobs:
             # A solver setting, recorded alongside the run so a stabilised fit
             # is never mistaken for an unstabilised one.
             echo "phenology_inla_diagonal=${PHENOLOGY_DIAGONAL}"
+            echo "phenology_inla_num_threads=${PHENOLOGY_NUM_THREADS}"
             echo "run_mode=canonical"
           } > "${STATUS_DIR}/run_provenance.txt"
 

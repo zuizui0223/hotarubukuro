@@ -26,6 +26,14 @@ name: Reconstruction survey (development diagnostic)
 on:
   workflow_dispatch:
     inputs:
+      phenology_num_threads:
+        description: >-
+          INLA num.threads for the phenology fit only. A numerical
+          reproducibility setting, not a model change. Empty leaves INLA's
+          default.
+        type: string
+        required: false
+        default: "1:1"
       phenology_diagonal:
         description: control.inla(diagonal=) for the phenology component only
         type: string
@@ -47,6 +55,7 @@ env:
   STATUS_DIR: ${{ github.workspace }}/reproduction_status
   REPORT_DIR: ${{ github.workspace }}/reproducibility
   PHENOLOGY_DIAGONAL: ${{ inputs.phenology_diagonal || '0' }}
+  PHENOLOGY_NUM_THREADS: ${{ inputs.phenology_num_threads || '1:1' }}
   HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
   HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
 
@@ -114,6 +123,7 @@ jobs:
             echo
             echo "- commit: \`${GITHUB_SHA}\`"
             echo "- phenology diagonal: \`${PHENOLOGY_DIAGONAL}\`"
+            echo "- phenology num.threads: \`${PHENOLOGY_NUM_THREADS}\`"
             echo
             if [[ -s "$manifest" ]]; then
               echo "### Stage outcomes"

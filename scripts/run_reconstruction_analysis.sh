@@ -38,6 +38,19 @@ DISCORDANCE_DIR="results/ecological_v23_local_state_asymmetry"
 # is justified by the measurement, so none is set. See the grid in
 # docs/reconstruction-robustness.md.
 PHENOLOGY_DIAGONAL="${PHENOLOGY_DIAGONAL:-0}"
+# Numerical reproducibility for the phenology component only, explicit and
+# identical in the canonical and survey drivers.
+#
+# INLA's inference stage is multi-threaded by default, so the stored
+# hyperparameter configurations can differ between runs of identical inputs.
+# inla.qsample factorises whichever were stored, which is why the same fold at
+# the same diagonal survived on one run and aborted on another. Pinning the
+# thread count makes the configurations a function of the inputs. It is a
+# reproducibility setting, not a scientific one: no formula, prior, fold, draw
+# count, seed, diagonal, threshold or downstream definition changes, and no
+# other component is affected. The sampling call was already single-threaded;
+# this covers the fit, which was not.
+PHENOLOGY_NUM_THREADS="${PHENOLOGY_NUM_THREADS:-1:1}"
 
 # This driver is canonical-only and has no survey switch, by construction.
 #
@@ -97,6 +110,7 @@ run_logged run_pipeline_on_reconstruction \
     --baseline=reconstruction \
     --discordance=true \
     --phenology-diagonal="$PHENOLOGY_DIAGONAL" \
+    --phenology-num-threads="$PHENOLOGY_NUM_THREADS" \
     --continue-on-failure=false \
     --output="$LOCK_DIR" || pipeline_status=$?
 echo "pipeline_status=${pipeline_status}" | tee "${STATUS_DIR}/pipeline_status.txt"

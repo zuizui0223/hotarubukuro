@@ -238,7 +238,16 @@ v16_fit_fold <- function(train, test, response, predictor_basis, mesh,
                          # diagonal of the precision matrix so Cholesky
                          # factorisation inside inla.qsample stays defined. It
                          # alters no formula, prior, fold, or draw count.
-                         diagonal = 0) {
+                         diagonal = 0,
+                         # Numerical reproducibility, not a model change. NULL
+                         # leaves INLA's default thread count, which is the
+                         # locked behaviour. A value pins the inference stage so
+                         # the stored hyperparameter configurations — and hence
+                         # the precision matrices inla.qsample later factorises
+                         # — are the same on every run of the same inputs. The
+                         # sampling call below is already pinned to one thread;
+                         # this covers the fit, which was not.
+                         num_threads = NULL) {
   family <- match.arg(family)
   train_X <- cbind(Intercept = 1, predictor_basis$train)
   test_X <- cbind(Intercept = 1, predictor_basis$test)
@@ -289,6 +298,9 @@ v16_fit_fold <- function(train, test, response, predictor_basis, mesh,
   )
   if (is.finite(diagonal) && diagonal > 0) {
     arguments$control.inla <- list(diagonal = diagonal)
+  }
+  if (!is.null(num_threads) && nzchar(as.character(num_threads))) {
+    arguments$num.threads <- as.character(num_threads)
   }
   if (family == "binomial") arguments$Ntrials <- stack_data$Ntrials
   fit_time <- system.time({
@@ -350,6 +362,13 @@ v16_fit_fold <- function(train, test, response, predictor_basis, mesh,
       # 0 for an unstabilised fit. Recorded per fold so the model log itself
       # shows which components ran with a stabilised precision matrix.
       inla_diagonal = diagonal,
+      # "default" when INLA chose its own thread count. Recorded per fold so a
+      # run whose configurations are reproducible is distinguishable from one
+      # whose are not.
+      inla_num_threads = if (is.null(num_threads) ||
+                             !nzchar(as.character(num_threads))) {
+        "default"
+      } else as.character(num_threads),
       fit_elapsed_seconds = fit_time,
       sample_elapsed_seconds = sample_time,
       training_response_mean = if (family == "binomial") {
@@ -389,7 +408,8 @@ v16_crossfit_spde <- function(data, response, family,
                               fingerprint_terms = character(), trials = NULL,
                               training_eligible = NULL,
                               model = "model", n_draws = 1000L,
-                              seed = 20260725L, diagonal = 0) {
+                              seed = 20260725L, diagonal = 0,
+                              num_threads = NULL) {
   required <- unique(c(
     "exact_site_id", "x_km", "y_km", "spatial_fold", response,
     environment_terms, fingerprint_terms, trials
@@ -428,6 +448,9 @@ v16_crossfit_spde <- function(data, response, family,
       ", sampler seed=", fold_seed,
       if (is.finite(diagonal) && diagonal > 0) {
         paste0(", diagonal=", format(diagonal, scientific = TRUE))
+      } else "",
+      if (!is.null(num_threads) && nzchar(as.character(num_threads))) {
+        paste0(", num.threads=", num_threads)
       } else ""
     )
     result <- v16_fit_fold(
@@ -435,7 +458,8 @@ v16_crossfit_spde <- function(data, response, family,
       mesh_objects$mesh,
       family = family, trials = trials, n_draws = n_draws,
       seed = fold_seed,
-      model = model, fold = fold, diagonal = diagonal
+      model = model, fold = fold, diagonal = diagonal,
+      num_threads = num_threads
     )
     # Printed only once the fold's draws exist, so a fold that aborted mid-sample
     # is distinguishable from one that finished.
@@ -461,6 +485,10 @@ v16_crossfit_spde <- function(data, response, family,
     # Carried on the result so the checkpoint, the provenance record and the
     # reconstruction report all state the stabilisation this fit actually used.
     inla_diagonal = diagonal,
+    inla_num_threads = if (is.null(num_threads) ||
+                           !nzchar(as.character(num_threads))) {
+      "default"
+    } else as.character(num_threads),
     cell_id = as.character(data$exact_site_id),
     observed = as.numeric(data[[response]]),
     trials = if (!is.null(trials)) as.integer(data[[trials]]) else NULL,

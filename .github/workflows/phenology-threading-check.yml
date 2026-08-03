@@ -164,7 +164,12 @@ jobs:
   replication:
     name: Did pinning the thread count make it reproducible?
     needs: cell
-    if: always()
+    # always() so an incomplete replication is diagnosed as incomplete, but
+    # gated on this workflow's own trigger so it does not run — and fail — on
+    # unrelated label events.
+    if: >-
+      always() && (github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-phenology-threading')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 

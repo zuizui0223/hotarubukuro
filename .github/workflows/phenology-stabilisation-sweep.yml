@@ -173,9 +173,13 @@ jobs:
   grid:
     name: Assemble the grid and apply the selection rule
     needs: cell
-    # Runs even if some cells failed to report, so a partial grid is diagnosed
-    # as partial rather than silently never assembled.
-    if: always()
+    # always() so a partial grid is diagnosed as partial rather than never
+    # assembled — but still gated on this workflow's own trigger. Without the
+    # gate the aggregate runs on every unrelated label event, finds no cell
+    # artifacts, and fails with an empty grid.
+    if: >-
+      always() && (github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-phenology-sweep')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 

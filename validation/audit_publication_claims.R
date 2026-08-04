@@ -18,11 +18,10 @@ add_check <- function(claim, passed, evidence) {
   )
 }
 
-# See validation/audit_phenotype.R. The assertions below that name a published
-# value -- a candidate count, a specific cell -- are statements about the
-# published run, not about the analysis being correct. Under
-# --baseline reconstruction they are reported as not_applicable carrying the
-# observed value; under --baseline published they are enforced unchanged.
+# Published-mode claims are locked to the 1,923-observation analysis. Under the
+# reconstruction baseline, inferential claims are reported as results rather
+# than used as software gates. Structural and causal-ceiling checks remain
+# PASS/FAIL in both modes.
 baseline_argument <- grep("^--baseline=", args, value = TRUE)
 baseline <- if (length(baseline_argument)) {
   sub("^--baseline=", "", baseline_argument[[1L]])
@@ -51,10 +50,6 @@ add_published_finding <- function(name, passed, detail) {
     ))
   }
 }
-
-# Inferential claims are reported as RESULT under --baseline reconstruction and
-# enforced under --baseline published; see validation/audit_local_pigmented_isolates.R
-# for the reasoning. Code and metadata properties stay PASS/FAIL in both modes.
 add_claim <- function(name, passed, detail) {
   if (identical(baseline, "published")) {
     add_check(name, passed, detail)
@@ -93,7 +88,11 @@ v22_candidates <- utils::read.csv(
 )
 
 get_result <- function(id) {
-  results[results$result_id == id, , drop = FALSE]
+  row <- results[results$result_id == id, , drop = FALSE]
+  if (nrow(row) != 1L) {
+    stop("Expected one final result row for ", id, call. = FALSE)
+  }
+  row
 }
 local_presence <- get_result("local_bombus_presence")
 local_intensity <- get_result("local_bombus_intensity")
@@ -113,9 +112,7 @@ add_check(
     "phenotype_white_count", "phenotype_pigmented_count",
     "national_intensity_rmse"
   ) %in% results$result_id) &&
-    any(grepl(
-      "all-flower continuous", exclusions$excluded_item
-    )),
+    any(grepl("all-flower continuous", exclusions$excluded_item)),
   "pigmentation presence and pigmented-only intensity retained"
 )
 add_claim(
@@ -173,11 +170,8 @@ add_claim(
   )
 )
 add_published_finding(
-  # The early-flowering half of this claim has been withdrawn with the
-  # phenology component; the dark-tail half is unchanged.
   "Only one human-context follow-up cell and no dark-tail convergence",
-  nrow(joint) == 1L &&
-    joint$dark_predictive_q > 0.10,
+  nrow(joint) == 1L && joint$dark_predictive_q > 0.10,
   if (nrow(joint) == 1L) {
     sprintf(
       "%s; dark q=%.3f",
@@ -199,8 +193,7 @@ add_check(
   claims$status[
     claims$claim_id == "C7_horticultural_origin"
   ] == "not_demonstrated" &&
-    metadata_value[["horticultural_origin_claim"]] ==
-      "not demonstrated",
+    metadata_value[["horticultural_origin_claim"]] == "not demonstrated",
   "field history and genetic evidence remain required"
 )
 add_check(
@@ -223,10 +216,6 @@ utils::write.csv(
   audit, file.path(output_dir, "final_claim_audit.csv"),
   row.names = FALSE
 )
-# A not_applicable claim is its own state: it is never counted as a pass, and
-# it never locks the pipeline. Under --baseline reconstruction the lock states
-# that every applicable claim held, not that the published claims were
-# reproduced.
 overall <- if (any(audit$status == "FAIL")) {
   "NEEDS_REVISION"
 } else if (any(audit$status %in% c("not_applicable", "RESULT"))) {
@@ -234,6 +223,81 @@ overall <- if (any(audit$status == "FAIL")) {
 } else {
   "LOCKED"
 }
+
+presence_supported <- local_presence$estimate > 0 &&
+  local_presence$corrected_p < 0.05
+intensity_supported <- local_intensity$estimate > 0 &&
+  local_intensity$corrected_p < 0.05
+bombus_sentence <- if (presence_supported && intensity_supported) {
+  sprintf(
+    paste(
+      "Planned local mechanism: 25-km Bombus fingerprint turnover",
+      "was positively associated with both pigmentation-share turnover",
+      "(beta %.3f, q %.3f) and pigmented-only intensity turnover",
+      "(beta %.3f, q %.3f)."
+    ),
+    local_presence$estimate, local_presence$corrected_p,
+    local_intensity$estimate, local_intensity$corrected_p
+  )
+} else if (presence_supported || intensity_supported) {
+  sprintf(
+    paste(
+      "Planned local mechanism: the 25-km correspondence was supported",
+      "for %s only. Presence beta %.3f (q %.3f); intensity beta %.3f",
+      "(q %.3f)."
+    ),
+    if (presence_supported) "pigmentation share" else "pigmented-only intensity",
+    local_presence$estimate, local_presence$corrected_p,
+    local_intensity$estimate, local_intensity$corrected_p
+  )
+} else {
+  sprintf(
+    paste(
+      "Planned local mechanism: neither 25-km turnover response met the",
+      "corrected threshold. Presence beta %.3f (q %.3f); intensity beta",
+      "%.3f (q %.3f)."
+    ),
+    local_presence$estimate, local_presence$corrected_p,
+    local_intensity$estimate, local_intensity$corrected_p
+  )
+}
+
+isolate_sentence <- sprintf(
+  paste(
+    "Local-isolate check: %d candidates; count p %.3f; candidate fraction",
+    "%.4f with p %.3f. These are natural-map predictive checks, not",
+    "horticultural assignments."
+  ),
+  as.integer(round(isolate_count$estimate)), isolate_count$raw_p,
+  isolate_fraction$estimate, isolate_fraction$raw_p
+)
+
+human_p <- c(
+  population = population$corrected_p,
+  did_alignment = did$corrected_p,
+  did_class = urban$corrected_p
+)
+human_sentence <- if (any(human_p <= 0.05)) {
+  sprintf(
+    paste(
+      "Exploratory human context: corrected p-values were %.3f for 5-km",
+      "population, %.3f for DID alignment, and %.3f for the DID-proximate",
+      "candidate fraction; at least one familywise threshold was crossed,",
+      "without identifying provenance."
+    ),
+    population$corrected_p, did$corrected_p, urban$corrected_p
+  )
+} else {
+  sprintf(
+    paste(
+      "Exploratory human context: 5-km population, DID alignment, and the",
+      "DID-proximate candidate fraction did not pass their familywise",
+      "thresholds (corrected p %.3f, %.3f, and %.3f)."
+    ),
+    population$corrected_p, did$corrected_p, urban$corrected_p
+  )
+}
+
 writeLines(
   c(
     paste0("# Final analysis claim audit: ", overall),
@@ -243,25 +307,11 @@ writeLines(
       "nationwide environment-plus-SPDE natural predictive replication."
     ),
     "",
-    sprintf(
-      paste(
-        "Planned local mechanism: 25-km Bombus fingerprint turnover",
-        "was associated with pigmentation-presence turnover",
-        "(beta %.3f, q %.3f) and pigmented-only intensity turnover",
-        "(beta %.3f, q %.3f)."
-      ),
-      local_presence$estimate, local_presence$corrected_p,
-      local_intensity$estimate, local_intensity$corrected_p
-    ),
+    bombus_sentence,
     "",
-    sprintf(
-      paste(
-        "Exploratory human context: 5-km population and DID alignment",
-        "were directional but not family-wise significant",
-        "(corrected p %.3f and %.3f)."
-      ),
-      population$corrected_p, did$corrected_p
-    ),
+    isolate_sentence,
+    "",
+    human_sentence,
     "",
     paste(
       "No causal pollinator effect, planting, horticultural origin,",
@@ -280,16 +330,18 @@ if (any(audit$status == "FAIL")) {
   print(audit[audit$status == "FAIL", , drop = FALSE])
   stop("Final claim audit failed.", call. = FALSE)
 }
-skipped <- audit[
+reported <- audit[
   audit$status %in% c("not_applicable", "RESULT"), , drop = FALSE
 ]
-if (nrow(skipped)) {
+if (nrow(reported)) {
   cat(
     "Final claims reported rather than enforced under --baseline ",
     baseline, " (never counted as passes):\n", sep = ""
   )
-  print(skipped)
+  print(reported)
 }
-cat("Final analysis claim audit: ", overall, " (",
-    sum(audit$status == "PASS"), " passed, ",
-    nrow(skipped), " not applicable).\n", sep = "")
+cat(
+  "Final analysis claim audit: ", overall, " (",
+  sum(audit$status == "PASS"), " passed, ",
+  nrow(reported), " reported).\n", sep = ""
+)

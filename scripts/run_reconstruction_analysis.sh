@@ -36,6 +36,82 @@ run_logged() {
   "$@" 2>&1 | tee "${STATUS_DIR}/${label}.log"
 }
 
+# Print a compact, analysis-neutral signature on both success and failure. The
+# purpose is to separate three possibilities on repeated runs of one commit:
+# different INLA checkpoints, identical checkpoints with different downstream
+# artifacts, or bit-level differences that leave candidates and reported
+# statistics unchanged. This changes no model input or analysis output.
+print_reconstruction_signature() (
+  set +e
+  local v16="results/ecological_v16_predictive_replication"
+  local v20="results/ecological_v20_local_white_isolates"
+
+  echo "=== reconstruction run signature ==="
+  echo "commit=${GITHUB_SHA:-unknown}"
+  echo "run_id=${GITHUB_RUN_ID:-unknown}"
+
+  echo "--- SHA256: predictive checkpoints and v20 artifacts ---"
+  find \
+    "${v16}/checkpoints" \
+    "${v20}" \
+    -maxdepth 1 -type f \
+    \( -name '*.rds' -o -name 'local_isolate_candidates.csv' \
+       -o -name 'local_isolate_natural_null.csv' \
+       -o -name 'local_isolate_natural_null_summary.csv' \
+       -o -name 'local_isolate_observed_pairs.csv' \
+       -o -name 'local_isolate_independent_validation.csv' \) \
+    -print0 2>/dev/null | sort -z | xargs -0 -r sha256sum
+
+  echo "--- v20 validation table ---"
+  cat "${v20}/local_isolate_independent_validation.csv" 2>/dev/null \
+    || echo "not produced"
+
+  echo "--- candidate and primary-null signature ---"
+  Rscript - <<'RS'
+read_optional <- function(path) {
+  if (!file.exists(path)) return(NULL)
+  utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
+}
+v20 <- "results/ecological_v20_local_white_isolates"
+candidates <- read_optional(file.path(v20, "local_isolate_candidates.csv"))
+summary <- read_optional(file.path(v20, "local_isolate_natural_null_summary.csv"))
+registry <- read_optional(
+  "results/final_analysis_pipeline/final_result_registry.csv"
+)
+if (is.null(candidates)) {
+  cat("candidate_table=not_produced\n")
+} else {
+  ids <- sort(as.character(candidates$exact_site_id))
+  cat("candidate_count=", length(ids), "\n", sep = "")
+  cat("candidate_ids=", paste(ids, collapse = "|"), "\n", sep = "")
+}
+if (is.null(summary)) {
+  cat("primary_null_summary=not_produced\n")
+} else {
+  rows <- summary[
+    summary$configuration == "primary_10km_env1_all_white" &
+      summary$metric %in% c("candidate_count", "candidate_fraction"),
+    , drop = FALSE
+  ]
+  if (nrow(rows)) {
+    print(rows, row.names = FALSE)
+  } else {
+    cat("primary_null_rows=absent\n")
+  }
+}
+if (!is.null(registry)) {
+  rows <- registry[
+    registry$result_id %in% c("local_isolate_count", "local_isolate_fraction"),
+    , drop = FALSE
+  ]
+  if (nrow(rows)) {
+    cat("--- final registry isolate rows ---\n")
+    print(rows, row.names = FALSE)
+  }
+}
+RS
+)
+
 # --- Snapshot: verify checksums, then place inputs where the runner looks ----
 run_logged verify_canonical_snapshot \
   Rscript scripts/verify_canonical_snapshot.R \
@@ -107,6 +183,9 @@ ls -1 "$REPORT_DIR" || true
 echo "=== robustness comparison ==="
 cat "${REPORT_DIR}/reconstruction_vs_published.md" || true
 
+# Always leave the scientific and bit-level signature at the end of the job log.
+print_reconstruction_signature
+
 # --- Outcome -----------------------------------------------------------------
 if [[ "$pipeline_status" -ne 0 ]]; then
   # Printed last, and printed here rather than only where it happened, because
@@ -125,8 +204,8 @@ if [[ "$pipeline_status" -ne 0 ]]; then
       for stream in stderr stdout; do
         log="${LOCK_DIR}/logs/${failed_stage}_${stream}.log"
         if [[ -s "$log" ]]; then
-          echo "--- ${failed_stage} ${stream} (last 40 lines) ---" >&2
-          tail -40 "$log" >&2
+          echo "--- ${failed_stage} ${stream} (complete log) ---" >&2
+          cat "$log" >&2
         fi
       done
     done

@@ -42,6 +42,18 @@ close_enough <- function(x, y, tolerance = 1e-9) {
     all((is.na(x) & is.na(y)) |
           (is.finite(x) & is.finite(y) & abs(x - y) <= tolerance))
 }
+# Monte Carlo probabilities are integer tail counts divided by B + 1. The
+# generating calculation compares full-precision in-memory values; this
+# independent validation reads those values back from CSV. If a simulated value
+# and the observed threshold differ only below the CSV serialization precision,
+# both can read back as the same number and one `>=` tie changes sides. That can
+# alter a recomputed probability by exactly one draw, but never more. Accept one
+# Monte Carlo step plus floating-point epsilon while continuing to require the
+# underlying observed contrasts themselves to agree at 1e-9.
+monte_carlo_close <- function(x, y, n_draws) {
+  tolerance <- 1 / (as.numeric(n_draws) + 1) + 1e-12
+  close_enough(x, y, tolerance = tolerance)
+}
 finite_max <- function(value) {
   value <- value[is.finite(value)]
   if (length(value)) max(value) else NA_real_
@@ -175,12 +187,6 @@ add_check(
 # `cases <- which(candidate[, draw] & analysis_support)`, where analysis_support
 # is complete.cases over *all* the DID features. A candidate missing any one
 # feature is therefore dropped from every feature, listwise.
-#
-# Recomputing with `na.rm = TRUE` per feature instead would drop that candidate
-# only where its own value is NA and keep it everywhere else, which silently
-# averages over a different case set. The two agree only when every candidate is
-# complete; they diverge the moment one is not, and then this check reports a
-# mismatch that is an artefact of the recomputation rather than of the runner.
 contrast_support <- stats::complete.cases(
   candidates[, summary$feature, drop = FALSE]
 )
@@ -208,9 +214,7 @@ fwer <- vapply(seq_len(nrow(summary)), function(index) {
   (1 + sum(null_max >= observed_z[index])) /
     (length(null_max) + 1)
 }, numeric(1))
-# On mismatch, say which feature and by how much. "features= 5" is true and
-# useless; a recomputation check that fails has to name the divergence, because
-# the artifact holding the numbers is not always reachable.
+
 mismatch_detail <- function(recomputed, reported, label) {
   difference <- abs(recomputed - reported)
   worst <- which.max(ifelse(is.finite(difference), difference, -Inf))
@@ -231,15 +235,23 @@ add_check(
   close_enough(
     observed, summary$observed_focal_minus_white_neighbour
   ) &&
-    close_enough(raw_p, summary$directional_or_two_sided_p),
-  mismatch_detail(
-    observed, summary$observed_focal_minus_white_neighbour, "contrast"
+    monte_carlo_close(
+      raw_p, summary$directional_or_two_sided_p, summary$n_null_draws
+    ),
+  paste(
+    mismatch_detail(
+      observed, summary$observed_focal_minus_white_neighbour, "contrast"
+    ),
+    "; Monte Carlo p tolerance=one of B+1 tail counts"
   )
 )
 add_check(
   "contrast_maxT_statistics",
-  close_enough(fwer, summary$maxT_FWER_p),
-  mismatch_detail(fwer, summary$maxT_FWER_p, "maxT p")
+  monte_carlo_close(fwer, summary$maxT_FWER_p, summary$n_null_draws),
+  paste(
+    mismatch_detail(fwer, summary$maxT_FWER_p, "maxT p"),
+    "; tolerance=one of B+1 tail counts"
+  )
 )
 add_check(
   "natural_map_replication",
@@ -261,7 +273,9 @@ convergence_p <- vapply(seq_len(nrow(convergence)), function(index) {
 }, numeric(1))
 add_check(
   "convergence_statistics",
-  close_enough(convergence_p, convergence$empirical_p),
+  monte_carlo_close(
+    convergence_p, convergence$empirical_p, convergence$n_null_draws
+  ),
   paste("tests=", nrow(convergence))
 )
 add_check(
@@ -273,13 +287,13 @@ add_check(
     "observed count=", sum(composition$observed_candidate_count)
   )
 )
-add_check(
+# One joint q10 follow-up cell is a published numerical finding, not a
+# structural property of the method. Enforce it only for the published baseline;
+# under reconstruction report the actual value without turning a different
+# result into a software failure.
+add_published_count(
   "single_joint_q10_followup",
-  sum(candidates$joint_q10_did_proximity_spike) == 1L,
-  paste(
-    "joint candidates=",
-    sum(candidates$joint_q10_did_proximity_spike)
-  )
+  sum(candidates$joint_q10_did_proximity_spike), 1L
 )
 add_check(
   "collinearity_disclosed",
@@ -316,11 +330,7 @@ add_check(
   grepl(
     "not planting", metadata_value[["causal_claim_ceiling"]],
     fixed = TRUE
-  ) &&
-    grepl(
-      "not planting", metadata_value[["causal_claim_ceiling"]],
-      fixed = TRUE
-    ),
+  ),
   metadata_value[["causal_claim_ceiling"]]
 )
 validation <- do.call(rbind, checks)

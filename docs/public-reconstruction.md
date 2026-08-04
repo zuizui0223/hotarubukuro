@@ -141,16 +141,22 @@ the same natural null counting a white cell among pigmented neighbours as the
 same kind of departure, so the assumed direction can be checked rather than
 taken for granted. It selects no candidates and ranks none.
 
-**Flowering-date check (S2).** Each candidate's median observation
-day-of-year minus the mean of its environment-similar neighbours under the same
-locked graph; negative means the candidate flowers earlier. The matched
-non-isolated pigmented controls carry the same statistic, so the candidate
-values have a reference. Two neighbour sets are reported and never merged:
-every environment-similar neighbour, and the subset sharing the focal cell's
-median observation year. A candidate with no same-year neighbour is reported as
-NA, never back-filled from the unrestricted set.
+**Flowering-date check (S2).** S2 fits no model and uses no significance test.
+Observation-level records are first aggregated to one median day-of-year for
+each 1-km cell and literal calendar year. For every year in which a fixed focal
+cell and at least one of its locked environment-similar neighbours were both
+observed, the focal cell-year median DOY is subtracted from the median only in
+the stated direction:
 
-S2 fits no model. It is arithmetic on the frozen cell table and the locked
-graph; the withdrawn national phenology component is not restored. Flowering
-date is used for no candidate selection, no ranking, and no claim in the
-manuscript.
+`focal cell-year median DOY - median(neighbour-cell DOYs in the same year)`.
+
+Negative values therefore mean earlier flowering. A focal cell with more than
+one shared year is summarized by the median of its year-specific differences.
+A focal cell with no literal shared calendar year is reported as NA and is never
+back-filled from the unrestricted comparison. The all-neighbour cell-level
+contrast is retained only as a separate descriptive row. Matched non-isolated
+pigmented controls are processed identically.
+
+The withdrawn national phenology component is not restored. Flowering date is
+used for no candidate selection, no ranking, no human-context family and no main
+claim.

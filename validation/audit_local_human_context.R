@@ -130,7 +130,7 @@ add_claim(
 settlement <- feature("settlement_density_score")
 built <- feature("built_up_fraction_rank")
 primary_population <- feature("local_population_rank")
-add_check(
+add_claim(
   "weak_settlement_direction_not_confirmatory",
   settlement$observed_focal_minus_white_neighbour > 0 &&
     settlement$directional_or_two_sided_p > 0.05 &&
@@ -146,7 +146,7 @@ add_check(
   )
 )
 consensus <- feature("human_activity_consensus_score")
-add_check(
+add_claim(
   "human_consensus_not_supported",
   consensus$directional_or_two_sided_p > 0.05 &&
     consensus$maxT_FWER_p > 0.05,
@@ -166,7 +166,7 @@ population_25 <- population[
   population$feature == "population_25km_rank", ]
 population_50 <- population[
   population$feature == "population_50km_rank", ]
-add_check(
+add_claim(
   "localized_population_pattern_is_suggestive_not_confirmatory",
   population_5$directional_or_two_sided_p < 0.05 &&
     population_10$directional_or_two_sided_p < 0.05 &&
@@ -188,7 +188,7 @@ scale25_population <- feature(
 scale25_consensus <- feature(
   "human_activity_consensus_score", "scale_25km_env1_white90"
 )
-add_check(
+add_claim(
   "scale25_population_signal_is_sensitivity_only",
   scale25_population$directional_or_two_sided_p < 0.05 &&
     scale25_population$maxT_FWER_p > 0.05 &&
@@ -209,7 +209,7 @@ settlement_spike <- convergence[
 joint_consensus <- convergence[
   convergence$spike_feature == "human_activity_consensus_score" &
     convergence$metric == "candidate_q10_human_spike_count", ]
-add_check(
+add_claim(
   "exploratory_spike_signal_below_corrected_threshold",
   settlement_spike$empirical_p < 0.05 &&
     settlement_spike$BH_q > 0.05 &&
@@ -223,7 +223,7 @@ add_check(
     "FWER=", round(joint_consensus$maxT_FWER_p, 4)
   )
 )
-add_check(
+add_claim(
   "one_convergent_followup_not_population_claim",
   sum(followup$joint_q10_consensus_spike %in% TRUE) == 1L,
   paste(
@@ -231,7 +231,7 @@ add_check(
     sum(followup$joint_q10_consensus_spike %in% TRUE)
   )
 )
-add_check(
+add_claim(
   "sampling_environment_controls_null",
   all(quality$maxT_FWER_p > 0.05),
   paste(
@@ -245,7 +245,7 @@ candidate_golf <- prevalence$primary_focal_nonzero_fraction[
 candidate_road <- prevalence$primary_focal_nonzero_fraction[
   prevalence$feature == "road_land_fraction"
 ]
-add_check(
+add_claim(
   "no_direct_golf_or_road_land_convergence",
   candidate_golf == 0 && candidate_road == 0,
   paste(

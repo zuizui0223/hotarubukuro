@@ -188,6 +188,47 @@ run_stage(
   role = "candidate_definition_validation"
 )
 
+# --- Supplementary: the same local event without assuming a direction --------
+# The main analysis above is directional: a pigmented cell among white
+# neighbours. This replays the same locked neighbourhood graph and the same
+# natural null counting a white cell among pigmented neighbours as the same
+# kind of departure, so the direction the main analysis assumes can be checked
+# rather than taken for granted.
+#
+# Supplementary throughout. It selects no candidates and ranks none: the
+# human-context stages below continue to read the directional candidate set,
+# and no main claim depends on it.
+if (mode %in% c("extensions", "full")) {
+  run_stage(
+    "S1_run_direction_check",
+    "scripts/run_local_state_asymmetry.R",
+    role = "supplementary_direction_check"
+  )
+}
+run_stage(
+  "S1_validate_direction_check",
+  "validation/validate_local_state_asymmetry.R",
+  role = "supplementary_direction_check_validation"
+)
+
+# --- Supplementary: local flowering-date difference --------------------------
+# Runs after the candidate set is fixed and describes it; contributes nothing
+# to it. Arithmetic on the frozen cell table and the locked neighbourhood
+# graph -- no model, and the withdrawn national phenology component stays
+# withdrawn. Flowering date reaches no selection, no ranking and no main claim.
+if (mode %in% c("extensions", "full")) {
+  run_stage(
+    "S2_run_candidate_doy_check",
+    "scripts/run_candidate_doy_check.R",
+    role = "supplementary_flowering_date_check"
+  )
+}
+run_stage(
+  "S2_validate_candidate_doy_check",
+  "validation/validate_candidate_doy_check.R",
+  role = "supplementary_flowering_date_check_validation"
+)
+
 if (mode %in% c("extensions", "full")) {
   run_stage(
     "05_run_local_human_context",

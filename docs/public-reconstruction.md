@@ -129,3 +129,28 @@ What was **not** touched: the frozen upstream `early_phenology_surprise_v15`
 column in the v15 cell table, which is retained unchanged and unrecomputed but
 is no longer used for selection, scoring or any claim; and the presence,
 intensity, *Bombus*, local-isolate and human-context analyses.
+
+## The two supplementary analyses
+
+Both run after the candidate set is fixed, and neither contributes to it.
+
+**Direction check (S1).** The main local event is directional: a pigmented cell
+among white neighbours. Treating only that direction as the signal builds the
+answer into the question. S1 replays the same locked neighbourhood graph and
+the same natural null counting a white cell among pigmented neighbours as the
+same kind of departure, so the assumed direction can be checked rather than
+taken for granted. It selects no candidates and ranks none.
+
+**Flowering-date check (S2).** Each candidate's median observation
+day-of-year minus the mean of its environment-similar neighbours under the same
+locked graph; negative means the candidate flowers earlier. The matched
+non-isolated pigmented controls carry the same statistic, so the candidate
+values have a reference. Two neighbour sets are reported and never merged:
+every environment-similar neighbour, and the subset sharing the focal cell's
+median observation year. A candidate with no same-year neighbour is reported as
+NA, never back-filled from the unrestricted set.
+
+S2 fits no model. It is arithmetic on the frozen cell table and the locked
+graph; the withdrawn national phenology component is not restored. Flowering
+date is used for no candidate selection, no ranking, and no claim in the
+manuscript.

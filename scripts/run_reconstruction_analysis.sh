@@ -99,7 +99,7 @@ run_logged write_reproducibility_report \
     --report-dir "$REPORT_DIR" \
     --workflow reconstruction-analysis \
     --inputs "${SNAPSHOT_DIR}/SNAPSHOT_MANIFEST.csv,inputs/canonical_snapshot.json,inputs/published_reference,Data_S1.csv" \
-    --outputs "${LOCK_DIR},results/ecological_v16_predictive_replication,results/ecological_v17_local_pair_turnover,results/ecological_v19_human_landscape_extremes,results/ecological_v20_local_white_isolates,results/ecological_v21_local_human_neighbourhood,results/ecological_v22_did_human_context,manuscript/figures" \
+    --outputs "${LOCK_DIR},results/ecological_v23_local_state_asymmetry,results/ecological_v24_candidate_doy_check,results/ecological_v16_predictive_replication,results/ecological_v17_local_pair_turnover,results/ecological_v19_human_landscape_extremes,results/ecological_v20_local_white_isolates,results/ecological_v21_local_human_neighbourhood,results/ecological_v22_did_human_context,manuscript/figures" \
   || report_status=$?
 
 echo "=== reproducibility outputs ==="

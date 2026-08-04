@@ -154,6 +154,8 @@ jobs:
             results/ecological_v17_local_pair_turnover
             results/ecological_v19_human_landscape_extremes
             results/ecological_v20_local_white_isolates
+            results/ecological_v23_local_state_asymmetry
+            results/ecological_v24_candidate_doy_check
             results/ecological_v21_local_human_neighbourhood
             results/ecological_v22_did_human_context
             manuscript/figures

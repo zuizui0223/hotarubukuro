@@ -214,21 +214,57 @@ if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
 # ---------------------------------------------------------------------------
 if (!is.null(published_registry) && !is.null(reconstructed_registry)) {
   add(
-    "human context", "local_isolate_count",
+    "local isolates", "local_isolate_count",
     registry_value(published_registry, "local_isolate_count", "estimate"),
     registry_value(reconstructed_registry, "local_isolate_count", "estimate"),
     note = "candidate definition; depends on the analysis population"
   )
-  published_p <- registry_value(published_registry, "local_isolate_count", "raw_p")
-  reconstructed_p <- registry_value(
-    reconstructed_registry, "local_isolate_count", "raw_p"
+  # The count, the fraction, each one's 1,000-map null mean, and each one's
+  # natural-null p. The fraction is the scale-free form of the same event, so
+  # reporting only the count would hide a difference that arises because the
+  # two runs have different numbers of eligible cells.
+  add(
+    "local isolates", "local_isolate_count: natural-null mean",
+    registry_value(published_registry, "local_isolate_count", "null_reference"),
+    registry_value(
+      reconstructed_registry, "local_isolate_count", "null_reference"
+    ),
+    note = "mean candidate count across 1,000 replicated natural maps"
   )
   add(
-    "human context", "local_isolate_count: natural-null p",
-    published_p, reconstructed_p,
+    "local isolates", "local_isolate_count: natural-null p",
+    registry_value(published_registry, "local_isolate_count", "raw_p"),
+    registry_value(reconstructed_registry, "local_isolate_count", "raw_p"),
     note = paste(
       "isolate count against the natural null",
       "rather than becoming a positive finding"
+    )
+  )
+  add(
+    "local isolates", "local_isolate_fraction",
+    registry_value(published_registry, "local_isolate_fraction", "estimate"),
+    registry_value(
+      reconstructed_registry, "local_isolate_fraction", "estimate"
+    ),
+    note = "candidates as a fraction of eligible pigmented cells"
+  )
+  add(
+    "local isolates", "local_isolate_fraction: natural-null mean",
+    registry_value(
+      published_registry, "local_isolate_fraction", "null_reference"
+    ),
+    registry_value(
+      reconstructed_registry, "local_isolate_fraction", "null_reference"
+    ),
+    note = "mean candidate fraction across 1,000 replicated natural maps"
+  )
+  add(
+    "local isolates", "local_isolate_fraction: natural-null p",
+    registry_value(published_registry, "local_isolate_fraction", "raw_p"),
+    registry_value(reconstructed_registry, "local_isolate_fraction", "raw_p"),
+    note = paste(
+      "the fraction is the scale-free form of the same event;",
+      "read it beside the count rather than instead of it"
     )
   )
   for (id in c("local_population_5km", "local_population_did_alignment")) {

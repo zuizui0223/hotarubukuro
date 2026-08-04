@@ -68,6 +68,12 @@ or caveat needed to evaluate a main claim may exist only in S1.
   reference distributions, and membership sensitivity;
 - WorldPop, MLIT land-use, road/interface, and DID contrasts;
 - the dark-colour follow-up facet;
+- the direction check: white-flowered focal cells among pigmented neighbours,
+  under the same neighbourhood definition and natural null as the main
+  pigmented-among-white event;
+- the local flowering-date check: candidate minus environment-similar
+  neighbour day-of-year, reported for all neighbours and for the same-year
+  subset, with matched controls as reference and no model fitted;
 - raw and maxT-adjusted probabilities with feature-family definitions.
 
 ### Reproduction and validation

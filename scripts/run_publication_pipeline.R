@@ -184,6 +184,7 @@ run_stage(
 run_stage(
   "04_audit_local_pigmented_isolates",
   "validation/audit_local_pigmented_isolates.R",
+  c(paste0("--baseline=", baseline)),
   role = "candidate_definition_validation"
 )
 

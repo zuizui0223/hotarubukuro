@@ -67,6 +67,25 @@ add_published_finding <- function(name, passed, detail) {
     ))
   }
 }
+
+# Inferential claims are reported as RESULT under --baseline reconstruction and
+# enforced under --baseline published; see validation/audit_local_pigmented_isolates.R
+# for the reasoning. Code and metadata properties stay PASS/FAIL in both modes.
+add_claim <- function(name, passed, detail) {
+  if (identical(baseline, "published")) {
+    add_check(name, passed, detail)
+  } else {
+    checks[[length(checks) + 1L]] <<- data.frame(
+      check = name,
+      status = "RESULT",
+      detail = paste0(
+        detail, "; published-mode verdict would be ",
+        if (isTRUE(passed)) "PASS" else "FAIL"
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+}
 primary <- "primary_10km_env1_all_white"
 primary_summary <- summary[
   summary$configuration == primary, , drop = FALSE
@@ -100,7 +119,7 @@ add_published_finding(
   paste("observed=", primary_support$observed_requested_cases)
 )
 primary_global <- global[global$configuration == primary, ]
-add_check(
+add_claim(
   "primary_multivariate_human_null",
   primary_global$empirical_p > 0.05,
   paste(
@@ -271,13 +290,18 @@ lines <- c(
   }, character(1))
 )
 writeLines(lines, file.path(output_dir, "AUDIT.md"), useBytes = TRUE)
-skipped <- audit[audit$status == "not_applicable", , drop = FALSE]
+skipped <- audit[
+  audit$status %in% c("not_applicable", "RESULT"), , drop = FALSE
+]
 if (any(audit$status == "FAIL")) {
   print(audit[audit$status == "FAIL", ])
   stop("v21 claim audit failed.", call. = FALSE)
 }
 if (nrow(skipped)) {
-  cat("v21 claims not applicable under --baseline ", baseline, ":\n", sep = "")
+  cat(
+    "v21 claims reported rather than enforced under --baseline ",
+    baseline, ":\n", sep = ""
+  )
   print(skipped)
 }
 cat("v21 claim audit passed: ", nrow(audit), " checks\n")

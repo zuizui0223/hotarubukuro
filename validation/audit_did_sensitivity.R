@@ -55,6 +55,25 @@ add_published_finding <- function(name, passed, detail) {
   }
 }
 
+# Inferential claims are reported as RESULT under --baseline reconstruction and
+# enforced under --baseline published; see validation/audit_local_pigmented_isolates.R
+# for the reasoning. Code and metadata properties stay PASS/FAIL in both modes.
+add_claim <- function(name, passed, detail) {
+  if (identical(baseline, "published")) {
+    add_check(name, passed, detail)
+  } else {
+    checks[[length(checks) + 1L]] <<- data.frame(
+      claim = name,
+      status = "RESULT",
+      evidence = paste0(
+        detail, "; published-mode verdict would be ",
+        if (isTRUE(passed)) "PASS" else "FAIL"
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+}
+
 summary <- read_output("did_contrast_summary.csv")
 convergence <- read_output("did_convergence_summary.csv")
 composition <- read_output("did_context_composition_summary.csv")
@@ -107,7 +126,7 @@ add_check(
   ),
   metadata_value[["candidate_selector"]]
 )
-add_check(
+add_claim(
   "Population-DID alignment is directional but not corrected-significant",
   aligned$directional_or_two_sided_p < 0.05 &&
     aligned$maxT_FWER_p >= 0.05,
@@ -116,7 +135,7 @@ add_check(
     aligned$directional_or_two_sided_p, aligned$maxT_FWER_p
   )
 )
-add_check(
+add_claim(
   "DID proximity alone is weaker",
   proximity$directional_or_two_sided_p >= 0.05 &&
     proximity$maxT_FWER_p >= 0.05,
@@ -134,7 +153,7 @@ aligned_input_rho <- max(abs(collinearity$spearman_rho[
        collinearity$feature_1 %in%
          c("did_proximity_rank", "population_5km_rank"))
 ]))
-add_check(
+add_claim(
   "Population-DID composite is not an independent effect",
   aligned_input_rho > 0.95,
   sprintf(
@@ -142,7 +161,7 @@ add_check(
     aligned_input_rho
   )
 )
-add_check(
+add_claim(
   "DID-proximity local spikes exceed natural-map expectation only raw",
   did_spike$empirical_p < 0.05 &&
     did_spike$maxT_FWER_p >= 0.05,
@@ -152,7 +171,7 @@ add_check(
     did_spike$empirical_p, did_spike$maxT_FWER_p
   )
 )
-add_check(
+add_claim(
   "Urban-context enrichment remains sensitivity-level",
   urban_class$observed_candidate_fraction >
     urban_class$null_mean_fraction &&
@@ -165,7 +184,7 @@ add_check(
     urban_class$maxT_FWER_p
   )
 )
-add_check(
+add_claim(
   "DID-outside populated class is too sparse for inference",
   sum(
     context$human_context_class == "populated_beyond_did"
@@ -198,7 +217,7 @@ add_published_finding(
     "joint candidate absent"
   }
 )
-add_check(
+add_claim(
   "Sampling and environmental balance controls remain null",
   all(quality$maxT_FWER_p >= 0.05),
   paste(
@@ -229,7 +248,9 @@ lines <- c(
   "# v22 claim audit",
   "",
   paste(
-    "All", sum(audit$status == "PASS"), "claim checks passed."
+    sum(audit$status == "PASS"), "claim checks passed;",
+    sum(audit$status %in% c("not_applicable", "RESULT")),
+    "reported rather than enforced."
   ),
   "",
   sprintf(
@@ -272,13 +293,18 @@ lines <- c(
 writeLines(
   lines, file.path(output_dir, "AUDIT.md"), useBytes = TRUE
 )
-skipped <- audit[audit$status == "not_applicable", , drop = FALSE]
+skipped <- audit[
+  audit$status %in% c("not_applicable", "RESULT"), , drop = FALSE
+]
 if (any(audit$status == "FAIL")) {
   print(audit[audit$status == "FAIL", , drop = FALSE])
   stop("v22 claim audit failed.", call. = FALSE)
 }
 if (nrow(skipped)) {
-  cat("v22 claims not applicable under --baseline ", baseline, ":\n", sep = "")
+  cat(
+    "v22 claims reported rather than enforced under --baseline ",
+    baseline, ":\n", sep = ""
+  )
   print(skipped)
 }
 cat("v22 claim audit passed ", nrow(audit), " checks.\n")

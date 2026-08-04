@@ -52,6 +52,25 @@ add_published_finding <- function(name, passed, detail) {
   }
 }
 
+# Inferential claims are reported as RESULT under --baseline reconstruction and
+# enforced under --baseline published; see validation/audit_local_pigmented_isolates.R
+# for the reasoning. Code and metadata properties stay PASS/FAIL in both modes.
+add_claim <- function(name, passed, detail) {
+  if (identical(baseline, "published")) {
+    add_check(name, passed, detail)
+  } else {
+    checks[[length(checks) + 1L]] <<- data.frame(
+      claim = name,
+      status = "RESULT",
+      evidence = paste0(
+        detail, "; published-mode verdict would be ",
+        if (isTRUE(passed)) "PASS" else "FAIL"
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+}
+
 results <- read_output("final_result_registry.csv")
 claims <- read_output("final_claim_registry.csv")
 exclusions <- read_output("final_exclusion_registry.csv")
@@ -99,12 +118,12 @@ add_check(
     )),
   "pigmentation presence and pigmented-only intensity retained"
 )
-add_check(
+add_claim(
   "National Bombus gain remains small",
   abs(national_bombus$estimate) < 0.02,
   sprintf("mean AUC change=%.4f", national_bombus$estimate)
 )
-add_check(
+add_claim(
   "Local Bombus turnover is supported in both hurdle stages",
   local_presence$corrected_p < 0.05 &&
     local_intensity$corrected_p < 0.05,
@@ -126,7 +145,7 @@ add_check(
     claims$claim_id == "C4_local_bombus_turnover"
   ]
 )
-add_check(
+add_claim(
   "Primary local isolates are not excessive under the natural model",
   isolate_count$raw_p > 0.05 && isolate_fraction$raw_p > 0.05,
   sprintf(
@@ -135,7 +154,7 @@ add_check(
     isolate_fraction$estimate, isolate_fraction$raw_p
   )
 )
-add_check(
+add_claim(
   "Human-context directions remain exploratory",
   all(c(
     population$corrected_p, did$corrected_p, urban$corrected_p
@@ -145,7 +164,7 @@ add_check(
     population$corrected_p, did$corrected_p, urban$corrected_p
   )
 )
-add_check(
+add_claim(
   "Sampling and environmental controls remain null",
   all(v21_quality$maxT_FWER_p >= 0.05),
   sprintf(
@@ -210,8 +229,8 @@ utils::write.csv(
 # reproduced.
 overall <- if (any(audit$status == "FAIL")) {
   "NEEDS_REVISION"
-} else if (any(audit$status == "not_applicable")) {
-  "LOCKED_WITH_NOT_APPLICABLE"
+} else if (any(audit$status %in% c("not_applicable", "RESULT"))) {
+  "LOCKED_WITH_REPORTED_CLAIMS"
 } else {
   "LOCKED"
 }
@@ -261,10 +280,13 @@ if (any(audit$status == "FAIL")) {
   print(audit[audit$status == "FAIL", , drop = FALSE])
   stop("Final claim audit failed.", call. = FALSE)
 }
-skipped <- audit[audit$status == "not_applicable", , drop = FALSE]
+skipped <- audit[
+  audit$status %in% c("not_applicable", "RESULT"), , drop = FALSE
+]
 if (nrow(skipped)) {
   cat(
-    "Final claims not applicable under --baseline ", baseline, ":\n", sep = ""
+    "Final claims reported rather than enforced under --baseline ",
+    baseline, " (never counted as passes):\n", sep = ""
   )
   print(skipped)
 }

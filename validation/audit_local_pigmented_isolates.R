@@ -1,8 +1,40 @@
 args <- commandArgs(trailingOnly = TRUE)
-output_dir <- if (length(args)) {
-  args[[1L]]
+positional <- args[!startsWith(args, "--")]
+output_dir <- if (length(positional)) {
+  positional[[1L]]
 } else {
   "results/ecological_v20_local_white_isolates"
+}
+
+# Two kinds of check live in this file, and they behave differently once the
+# baseline is the public reconstruction rather than the published run.
+#
+# Code and metadata properties -- the claim ceiling, the independent validation
+# having no failures -- are properties of the analysis, not of the data. They
+# are enforced as PASS/FAIL in both modes and are never relaxed.
+#
+# Inferential claims -- "the local event is not excessive", "the human
+# composites are not supported" -- are answers the analysis gives about a
+# particular observation set. The reconstruction is a different observation set
+# and may answer differently; that is information, not a defect. Under
+# --baseline reconstruction they are reported as RESULT with their observed
+# values, following the RESULT convention already used in
+# validation/audit_natural_predictive_model.R. Under --baseline published they
+# are enforced exactly as before.
+#
+# A RESULT is never counted as a pass and never gates the pipeline. It is the
+# reconstruction reporting what it found.
+baseline_argument <- grep("^--baseline=", args, value = TRUE)
+baseline <- if (length(baseline_argument)) {
+  sub("^--baseline=", "", baseline_argument[[1L]])
+} else {
+  "published"
+}
+if (!baseline %in% c("published", "reconstruction")) {
+  stop(
+    "--baseline must be 'published' or 'reconstruction'; got '", baseline, "'.",
+    call. = FALSE
+  )
 }
 read_output <- function(name) {
   utils::read.csv(
@@ -36,6 +68,21 @@ add_check <- function(check, passed, detail) {
     stringsAsFactors = FALSE
   )
 }
+add_claim <- function(check, passed, detail) {
+  if (identical(baseline, "published")) {
+    add_check(check, passed, detail)
+  } else {
+    checks[[length(checks) + 1L]] <<- data.frame(
+      check = check,
+      status = "RESULT",
+      detail = paste0(
+        detail, "; published-mode verdict would be ",
+        if (isTRUE(passed)) "PASS" else "FAIL"
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+}
 add_check(
   "independent_validation",
   !any(validation$status == "FAIL"),
@@ -51,7 +98,7 @@ primary_count <- metric(
 primary_fraction <- metric(
   "primary_10km_env1_all_white", "candidate_fraction"
 )
-add_check(
+add_claim(
   "primary_local_event_not_excessive",
   primary_count$empirical_p > 0.05 &&
     primary_fraction$empirical_p > 0.05,
@@ -64,7 +111,7 @@ add_check(
 fold_count <- metric(
   "fold_restricted_10km_env1_all_white", "candidate_count"
 )
-add_check(
+add_claim(
   "fold_boundary_count_stability",
   fold_count$observed_value == primary_count$observed_value,
   paste(
@@ -73,7 +120,7 @@ add_check(
   )
 )
 scale_25 <- metric("scale_25km_env1_white90", "candidate_fraction")
-add_check(
+add_claim(
   "scale_specific_25km_signal_disclosed",
   scale_25$empirical_p < 0.05,
   paste(
@@ -87,7 +134,7 @@ joint_q10 <- metric(
 joint_q05 <- metric(
   "primary_10km_env1_all_white", "joint_candidate_q05_count"
 )
-add_check(
+add_claim(
   "no_joint_natural_tail_support",
   joint_q10$empirical_p > 0.05 &&
     joint_q05$observed_value == 0,
@@ -97,7 +144,7 @@ add_check(
     "q05 count=", joint_q05$observed_value
   )
 )
-add_check(
+add_claim(
   "human_landscape_global_null",
   global$empirical_p > 0.05,
   paste(
@@ -110,7 +157,7 @@ human_features <- c(
   "satoyama_interface_score"
 )
 human <- landscape[landscape$feature %in% human_features, ]
-add_check(
+add_claim(
   "human_composites_not_supported",
   nrow(human) == length(human_features) &&
     all(human$maxT_FWER_p > 0.05),
@@ -121,8 +168,8 @@ add_check(
     collapse = "; "
   )
 )
-add_check(
-  "early_dark_convergence_not_supported",
+add_claim(
+  "dark_convergence_not_supported",
   all(auxiliary$maxT_FWER_p > 0.05) &&
     all(auxiliary_counts$case_count == 0),
   paste(
@@ -132,7 +179,7 @@ add_check(
     collapse = "; "
   )
 )
-add_check(
+add_claim(
   "small_matched_sample_disclosed",
   nrow(pairs) < nrow(candidates),
   paste("matched=", nrow(pairs), "of candidates=", nrow(candidates))
@@ -164,8 +211,19 @@ lines <- c(
   }, character(1))
 )
 writeLines(lines, file.path(output_dir, "AUDIT.md"), useBytes = TRUE)
-if (any(audit$status != "PASS")) {
-  print(audit[audit$status != "PASS", ])
+reported <- audit[audit$status == "RESULT", , drop = FALSE]
+if (any(audit$status == "FAIL")) {
+  print(audit[audit$status == "FAIL", ])
   stop("v20 audit failed.", call. = FALSE)
 }
-cat("v20 claim audit passed: ", nrow(audit), " checks\n")
+if (nrow(reported)) {
+  cat(
+    "v20 claims reported as RESULT under --baseline ", baseline,
+    " (not passes):\n", sep = ""
+  )
+  print(reported)
+}
+cat(
+  "v20 claim audit: ", sum(audit$status == "PASS"), " passed, ",
+  nrow(reported), " reported as RESULT\n", sep = ""
+)

@@ -171,11 +171,23 @@ add_check(
   )
 )
 
+# Mirror the runner's case selection exactly. `v21_local_contrasts` takes
+# `cases <- which(candidate[, draw] & analysis_support)`, where analysis_support
+# is complete.cases over *all* the DID features. A candidate missing any one
+# feature is therefore dropped from every feature, listwise.
+#
+# Recomputing with `na.rm = TRUE` per feature instead would drop that candidate
+# only where its own value is NA and keep it everywhere else, which silently
+# averages over a different case set. The two agree only when every candidate is
+# complete; they diverge the moment one is not, and then this check reports a
+# mismatch that is an artefact of the recomputation rather than of the runner.
+contrast_support <- stats::complete.cases(
+  candidates[, summary$feature, drop = FALSE]
+)
 observed <- vapply(summary$feature, function(feature) {
-  mean(
-    candidates[[paste0(feature, "_focal_minus_white")]],
-    na.rm = TRUE
-  )
+  value <- candidates[[paste0(feature, "_focal_minus_white")]][contrast_support]
+  value <- value[is.finite(value)]
+  if (length(value)) mean(value) else NA_real_
 }, numeric(1))
 raw_p <- vapply(seq_len(nrow(summary)), function(index) {
   simulated <- null[[summary$feature[index]]]
@@ -196,18 +208,38 @@ fwer <- vapply(seq_len(nrow(summary)), function(index) {
   (1 + sum(null_max >= observed_z[index])) /
     (length(null_max) + 1)
 }, numeric(1))
+# On mismatch, say which feature and by how much. "features= 5" is true and
+# useless; a recomputation check that fails has to name the divergence, because
+# the artifact holding the numbers is not always reachable.
+mismatch_detail <- function(recomputed, reported, label) {
+  difference <- abs(recomputed - reported)
+  worst <- which.max(ifelse(is.finite(difference), difference, -Inf))
+  if (!length(worst) || !is.finite(difference[worst])) {
+    return(paste("features=", nrow(summary)))
+  }
+  paste0(
+    "features=", nrow(summary),
+    "; usable candidates=", sum(contrast_support), " of ", nrow(candidates),
+    "; largest ", label, " gap at ", summary$feature[worst],
+    ": recomputed=", signif(recomputed[worst], 8),
+    " reported=", signif(reported[worst], 8),
+    " difference=", signif(difference[worst], 3)
+  )
+}
 add_check(
   "contrast_statistics",
   close_enough(
     observed, summary$observed_focal_minus_white_neighbour
   ) &&
     close_enough(raw_p, summary$directional_or_two_sided_p),
-  paste("features=", nrow(summary))
+  mismatch_detail(
+    observed, summary$observed_focal_minus_white_neighbour, "contrast"
+  )
 )
 add_check(
   "contrast_maxT_statistics",
   close_enough(fwer, summary$maxT_FWER_p),
-  paste("features=", nrow(summary))
+  mismatch_detail(fwer, summary$maxT_FWER_p, "maxT p")
 )
 add_check(
   "natural_map_replication",

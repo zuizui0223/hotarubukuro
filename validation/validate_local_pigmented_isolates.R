@@ -232,14 +232,32 @@ add_check(
   paste("features=", nrow(landscape_summary))
 )
 
+# The generating function v19_global_landscape_test uses only null draws for
+# which all raw landscape contrasts are finite. A simulated map can yield no
+# matched pair and therefore one all-NA contrast row; retaining that row in
+# colMeans/cov makes this validator fail even though the generated statistic is
+# well defined. Reproduce the same declared complete-case estimand explicitly.
 raw_features <- v19_rf_predictors()
-simulated <- as.matrix(landscape_null[, raw_features, drop = FALSE])
+simulated_all <- as.matrix(
+  landscape_null[, raw_features, drop = FALSE]
+)
+complete_null <- stats::complete.cases(simulated_all)
+simulated <- simulated_all[complete_null, , drop = FALSE]
+add_check(
+  "landscape_global_complete_null_support",
+  nrow(simulated) == landscape_global$n_null_draws && nrow(simulated) > 1L,
+  paste(
+    "complete=", nrow(simulated),
+    "of", nrow(simulated_all),
+    "reported=", landscape_global$n_null_draws
+  )
+)
 center <- colMeans(simulated)
 covariance <- stats::cov(simulated)
 eigenvalue <- eigen(
   covariance, symmetric = TRUE, only.values = TRUE
 )$values
-ridge <- max(max(eigenvalue) * 1e-6, 1e-8)
+ridge <- max(max(eigenvalue, na.rm = TRUE) * 1e-6, 1e-8)
 inverse <- solve(covariance + diag(ridge, ncol(covariance)))
 simulated_centered <- sweep(simulated, 2, center, "-")
 simulated_distance <- rowSums(
@@ -259,10 +277,12 @@ observed_global_p <- (
 add_check(
   "landscape_global_statistics",
   close_enough(observed_distance, landscape_global$observed_value) &&
-    close_enough(observed_global_p, landscape_global$empirical_p),
+    close_enough(observed_global_p, landscape_global$empirical_p) &&
+    close_enough(ridge, landscape_global$covariance_ridge),
   paste(
     "Mahalanobis=", round(observed_distance, 4),
-    "p=", round(observed_global_p, 4)
+    "p=", round(observed_global_p, 4),
+    "complete null draws=", nrow(simulated)
   )
 )
 

@@ -1,31 +1,24 @@
-v24_analysis_spec_version <- "v24.0_candidate_local_doy_difference"
+v24_analysis_spec_version <- "v24.1_exact_year_local_doy_difference"
 
 # Supplementary early-flowering check, in the lightest form that answers the
 # question at all.
 #
-# It asks one thing: is a local-isolate candidate's typical flowering date
-# earlier than that of the environment-similar cells around it? It answers with
-# arithmetic on the cell table and the locked neighbourhood graph. There is no
-# model here — no INLA, no SPDE, no predictive draws, no fitted phenology
-# surface. The national phenology component was withdrawn because it does not
-# complete (docs/public-reconstruction.md) and is deliberately not restored.
+# It asks one thing: is a fixed local-isolate candidate earlier than the
+# environment-similar cells around it? No model is fitted: no INLA, no SPDE, no
+# predictive phenology surface and no p-value. The result feeds nothing and is
+# never used for candidate selection, ranking or a main claim.
 #
-# The result feeds nothing. It is not used to select candidates, not used to
-# rank them, and not the basis of any claim in the manuscript. Candidate
-# selection and matching happen upstream from presence draws alone and are
-# already fixed before this runs.
+# Two descriptions are kept separate:
 #
-# Two neighbour sets are reported side by side, never merged:
+#   all neighbours  focal cell median DOY minus the median of the locked
+#                   neighbours' cell-level median DOYs;
+#   exact same year focal-year median DOY minus the median of neighbour-cell
+#                   DOYs observed in that same calendar year, calculated once
+#                   per shared year and then summarized across shared years.
 #
-#   all      every environment-similar neighbour in the locked graph
-#   同年     the subset whose median observation year equals the focal cell's
-#
-# Reporting both makes the cost of the year restriction visible. Restricting to
-# the same year removes the between-year phenological shift that would
-# otherwise contaminate the difference, but it also shrinks the comparison set,
-# sometimes to nothing. A candidate with no same-year neighbour is reported
-# with NA and a neighbour count of zero, never dropped and never back-filled
-# from the unrestricted set.
+# The second definition deliberately uses the observation table rather than a
+# cell's `median_year`. A median year can equal a year in which that cell was not
+# observed, so equality of two median years is not evidence of temporal overlap.
 
 v24_require_columns <- function(data, required, label) {
   missing <- setdiff(required, names(data))
@@ -38,103 +31,178 @@ v24_require_columns <- function(data, required, label) {
   invisible(TRUE)
 }
 
-# One focal cell against its neighbours. `neighbour_index` is the locked
-# graph's neighbour list for this cell, so the environment-similarity and
-# distance rules are exactly the ones the candidate definition used.
-v24_local_doy_difference <- function(focal_index, neighbour_index,
-                                     median_doy, median_year,
-                                     same_year_only = FALSE) {
-  if (!length(neighbour_index)) {
-    return(c(difference = NA_real_, n_neighbours = 0, neighbour_doy = NA_real_))
-  }
-  keep <- neighbour_index
-  if (same_year_only) {
-    keep <- keep[
-      is.finite(median_year[keep]) &
-        is.finite(median_year[focal_index]) &
-        median_year[keep] == median_year[focal_index]
-    ]
-  }
-  keep <- keep[is.finite(median_doy[keep])]
-  if (!length(keep) || !is.finite(median_doy[focal_index])) {
-    return(c(
-      difference = NA_real_, n_neighbours = length(keep),
-      neighbour_doy = if (length(keep)) mean(median_doy[keep]) else NA_real_
-    ))
-  }
-  neighbour_doy <- mean(median_doy[keep])
-  c(
-    # Negative means the focal cell flowers earlier than its neighbours.
-    difference = median_doy[focal_index] - neighbour_doy,
-    n_neighbours = length(keep),
-    neighbour_doy = neighbour_doy
-  )
+v24_cell_id <- function(x_km, y_km) {
+  paste0("cell-1km-", floor(as.numeric(x_km)), "_", floor(as.numeric(y_km)))
 }
 
-# `focal_index` is a set of row positions in `cells`: the candidates, or the
-# matched controls. `role` labels which, so the two land in one table and can
-# be read against each other without a second run.
-v24_doy_difference_table <- function(cells, graph, focal_index, role) {
+# One row per observed 1-km cell and actual calendar year. Each cell-year first
+# receives its own median DOY, preventing cells with many photographs from
+# dominating the neighbour comparison.
+v24_cell_year_table <- function(observations) {
   v24_require_columns(
-    cells, c("exact_site_id", "median_DOY", "median_year"), "cells"
+    observations, c("x_km", "y_km", "DOY", "year"), "observations"
   )
-  median_doy <- as.numeric(cells$median_DOY)
-  median_year <- as.numeric(cells$median_year)
-  if (!length(focal_index)) {
+  observations$cell_id_v24 <- v24_cell_id(
+    observations$x_km, observations$y_km
+  )
+  observations$DOY <- as.numeric(observations$DOY)
+  observations$year <- as.integer(round(as.numeric(observations$year)))
+  observations <- observations[
+    is.finite(observations$DOY) & is.finite(observations$year), , drop = FALSE
+  ]
+  if (!nrow(observations)) {
     return(data.frame(
-      analysis_spec_version = character(), role = character(),
-      exact_site_id = character(), median_DOY = numeric(),
-      median_year = numeric(),
-      all_neighbour_doy = numeric(), all_neighbour_difference = numeric(),
-      all_n_neighbours = integer(),
-      same_year_neighbour_doy = numeric(),
-      same_year_difference = numeric(), same_year_n_neighbours = integer(),
-      stringsAsFactors = FALSE
+      exact_site_id = character(), year = integer(), median_DOY = numeric(),
+      n_observations = integer(), stringsAsFactors = FALSE
     ))
   }
-  rows <- lapply(focal_index, function(index) {
-    neighbour_index <- graph$neighbours[[index]]
-    all_set <- v24_local_doy_difference(
-      index, neighbour_index, median_doy, median_year, same_year_only = FALSE
-    )
-    same_year <- v24_local_doy_difference(
-      index, neighbour_index, median_doy, median_year, same_year_only = TRUE
-    )
+  groups <- split(
+    seq_len(nrow(observations)),
+    paste(observations$cell_id_v24, observations$year, sep = "::")
+  )
+  rows <- lapply(groups, function(index) {
+    block <- observations[index, , drop = FALSE]
     data.frame(
-      analysis_spec_version = v24_analysis_spec_version,
-      role = role,
-      exact_site_id = as.character(cells$exact_site_id[index]),
-      median_DOY = median_doy[index],
-      median_year = median_year[index],
-      all_neighbour_doy = unname(all_set[["neighbour_doy"]]),
-      all_neighbour_difference = unname(all_set[["difference"]]),
-      all_n_neighbours = as.integer(all_set[["n_neighbours"]]),
-      same_year_neighbour_doy = unname(same_year[["neighbour_doy"]]),
-      same_year_difference = unname(same_year[["difference"]]),
-      same_year_n_neighbours = as.integer(same_year[["n_neighbours"]]),
+      exact_site_id = as.character(block$cell_id_v24[[1L]]),
+      year = as.integer(block$year[[1L]]),
+      median_DOY = stats::median(block$DOY),
+      n_observations = nrow(block),
       stringsAsFactors = FALSE
     )
   })
-  do.call(rbind, rows)
+  out <- do.call(rbind, rows)
+  out[order(out$exact_site_id, out$year), , drop = FALSE]
 }
 
-# Descriptive only: counts, means, medians and the support behind them. No
-# p-value and no test. With the candidate set fixed and the comparison being
-# candidates against their own neighbours, a test here would be answering a
-# question nobody asked and would invite reading a supplementary check as a
-# finding.
+v24_all_neighbour_difference <- function(focal_index, neighbour_index,
+                                         median_doy) {
+  keep <- neighbour_index[is.finite(median_doy[neighbour_index])]
+  if (!length(keep) || !is.finite(median_doy[focal_index])) {
+    return(c(
+      difference = NA_real_, n_neighbours = length(keep),
+      focal_doy = median_doy[focal_index], neighbour_doy = NA_real_
+    ))
+  }
+  neighbour_doy <- stats::median(median_doy[keep])
+  c(
+    difference = median_doy[focal_index] - neighbour_doy,
+    n_neighbours = length(keep),
+    focal_doy = median_doy[focal_index], neighbour_doy = neighbour_doy
+  )
+}
+
+# Exact-year rows for one focal cell. A year is usable only when the focal cell
+# and at least one locked neighbour both have observations in that literal year.
+v24_same_year_rows <- function(focal_id, neighbour_ids, cell_year, role) {
+  focal <- cell_year[cell_year$exact_site_id == focal_id, , drop = FALSE]
+  if (!nrow(focal) || !length(neighbour_ids)) return(data.frame())
+  rows <- lapply(seq_len(nrow(focal)), function(index) {
+    year <- focal$year[[index]]
+    neighbours <- cell_year[
+      cell_year$exact_site_id %in% neighbour_ids & cell_year$year == year,
+      , drop = FALSE
+    ]
+    if (!nrow(neighbours)) return(NULL)
+    neighbour_doy <- stats::median(neighbours$median_DOY)
+    data.frame(
+      analysis_spec_version = v24_analysis_spec_version,
+      role = role,
+      exact_site_id = focal_id,
+      year = year,
+      focal_year_median_DOY = focal$median_DOY[[index]],
+      neighbour_year_median_DOY = neighbour_doy,
+      difference_days = focal$median_DOY[[index]] - neighbour_doy,
+      n_neighbour_cells = length(unique(neighbours$exact_site_id)),
+      n_neighbour_observations = sum(neighbours$n_observations),
+      neighbour_cell_ids = paste(
+        sort(unique(as.character(neighbours$exact_site_id))), collapse = "|"
+      ),
+      stringsAsFactors = FALSE
+    )
+  })
+  rows <- Filter(Negate(is.null), rows)
+  if (!length(rows)) data.frame() else do.call(rbind, rows)
+}
+
+# Return one focal-cell table plus the exact-year detail used to build it.
+v24_doy_difference_table <- function(cells, graph, focal_index, role,
+                                     cell_year) {
+  v24_require_columns(cells, c("exact_site_id", "median_DOY"), "cells")
+  median_doy <- as.numeric(cells$median_DOY)
+  if (!length(focal_index)) {
+    return(list(
+      differences = data.frame(), year_detail = data.frame()
+    ))
+  }
+
+  detail_rows <- list()
+  rows <- lapply(focal_index, function(index) {
+    neighbour_index <- graph$neighbours[[index]]
+    focal_id <- as.character(cells$exact_site_id[[index]])
+    neighbour_ids <- as.character(cells$exact_site_id[neighbour_index])
+    all_set <- v24_all_neighbour_difference(
+      index, neighbour_index, median_doy
+    )
+    year_rows <- v24_same_year_rows(
+      focal_id, neighbour_ids, cell_year, role
+    )
+    if (nrow(year_rows)) {
+      detail_rows[[length(detail_rows) + 1L]] <<- year_rows
+    }
+    usable_years <- nrow(year_rows)
+    data.frame(
+      analysis_spec_version = v24_analysis_spec_version,
+      role = role,
+      exact_site_id = focal_id,
+      median_DOY = median_doy[[index]],
+      all_neighbour_doy = unname(all_set[["neighbour_doy"]]),
+      all_neighbour_difference = unname(all_set[["difference"]]),
+      all_n_neighbours = as.integer(all_set[["n_neighbours"]]),
+      same_year_median_difference = if (usable_years) {
+        stats::median(year_rows$difference_days)
+      } else NA_real_,
+      same_year_mean_difference = if (usable_years) {
+        mean(year_rows$difference_days)
+      } else NA_real_,
+      same_year_n_years = usable_years,
+      same_year_mean_neighbour_cells = if (usable_years) {
+        mean(year_rows$n_neighbour_cells)
+      } else NA_real_,
+      same_year_min_neighbour_cells = if (usable_years) {
+        min(year_rows$n_neighbour_cells)
+      } else 0,
+      stringsAsFactors = FALSE
+    )
+  })
+
+  list(
+    differences = do.call(rbind, rows),
+    year_detail = if (length(detail_rows)) {
+      do.call(rbind, detail_rows)
+    } else data.frame()
+  )
+}
+
+# Descriptive only: counts, means, medians and support. Negative differences
+# mean earlier flowering. No significance test is attached to this supplement.
 v24_doy_summary <- function(differences) {
   if (!nrow(differences)) return(data.frame())
   rows <- list()
   for (role in unique(differences$role)) {
     block <- differences[differences$role == role, , drop = FALSE]
-    for (set in c("all", "same_year")) {
-      value <- if (identical(set, "all")) {
-        block$all_neighbour_difference
-      } else block$same_year_difference
-      support <- if (identical(set, "all")) {
-        block$all_n_neighbours
-      } else block$same_year_n_neighbours
+    definitions <- list(
+      all = list(
+        value = block$all_neighbour_difference,
+        support = block$all_n_neighbours
+      ),
+      exact_same_year = list(
+        value = block$same_year_median_difference,
+        support = block$same_year_mean_neighbour_cells
+      )
+    )
+    for (set in names(definitions)) {
+      value <- definitions[[set]]$value
+      support <- definitions[[set]]$support
       usable <- is.finite(value)
       rows[[length(rows) + 1L]] <- data.frame(
         analysis_spec_version = v24_analysis_spec_version,
@@ -148,7 +216,9 @@ v24_doy_summary <- function(differences) {
         } else NA_real_,
         n_earlier_than_neighbours = sum(usable & value < 0),
         n_later_than_neighbours = sum(usable & value > 0),
-        mean_neighbours_used = if (any(usable)) mean(support[usable]) else NA_real_,
+        mean_neighbours_used = if (any(usable)) {
+          mean(support[usable], na.rm = TRUE)
+        } else NA_real_,
         stringsAsFactors = FALSE
       )
     }

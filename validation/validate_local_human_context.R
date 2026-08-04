@@ -36,6 +36,9 @@ if (!baseline %in% c("published", "reconstruction")) {
 }
 published_cell_count <- 1307L
 published_candidate_count <- 16L
+# Not a population size: the 1-km MLIT land-use grid the published run built
+# from its own copy of the primary-mesh archives.
+published_mlit_cell_count <- 309600L
 
 source("R/pipeline_support.R")
 hb_load_modules("local_human_context")
@@ -121,12 +124,38 @@ registry <- v21_landuse_registry()
 class_sum <- rowSums(class_cells[, c(
   registry$feature, "other_land_fraction"
 ), drop = FALSE])
+# The 1-km MLIT land-use grid is built from the primary-mesh archives listed in
+# the snapshot's own download manifest (v21_process_mlit_classes). It does not
+# depend on the observation population at all, so a difference here is an input
+# coverage difference in the MLIT product, not a 1,909-versus-1,923 effect. It
+# is reported separately from the population checks for exactly that reason.
+#
+# Uniqueness is the structural invariant and is enforced in both modes: a
+# duplicated 1-km mesh key would corrupt the per-observation lookup.
 add_check(
-  "mlit_class_cell_grain",
-  nrow(class_cells) == 309600L &&
-    !anyDuplicated(class_cells$mesh_1km),
-  paste("rows=", nrow(class_cells))
+  "mlit_class_cell_uniqueness",
+  !anyDuplicated(class_cells$mesh_1km),
+  paste(
+    "rows=", nrow(class_cells),
+    "unique=", length(unique(class_cells$mesh_1km))
+  )
 )
+if (identical(baseline, "published")) {
+  add_check(
+    "mlit_class_cell_coverage",
+    nrow(class_cells) == published_mlit_cell_count,
+    paste("rows=", nrow(class_cells))
+  )
+} else {
+  add_not_applicable("mlit_class_cell_coverage", paste0(
+    "observed=", nrow(class_cells),
+    ";published=", published_mlit_cell_count,
+    ";difference=", nrow(class_cells) - published_mlit_cell_count,
+    ";reason=MLIT primary-mesh coverage in the verified snapshot differs from",
+    " the published run's cache; this is an input difference, not a",
+    " consequence of the reconstruction's analysis population"
+  ))
+}
 add_check(
   "mlit_class_fractions",
   all(class_cells[, registry$feature] >= 0) &&

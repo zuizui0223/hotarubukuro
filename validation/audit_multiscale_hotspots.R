@@ -1,7 +1,28 @@
 args <- commandArgs(trailingOnly = TRUE)
-output_dir <- if (length(args)) args[[1]] else {
+positional <- args[!startsWith(args, "--")]
+output_dir <- if (length(positional)) positional[[1]] else {
   "results/ecological_v15_multiscale_hotspots"
 }
+
+# See validation/audit_phenotype.R for the reasoning. One check here — the
+# number of 1-km cells the published 1,923 observations aggregate into — is a
+# statement about that specific historical run rather than about the analysis
+# being correct, so it is reported as not_applicable when the baseline is the
+# public reconstruction. Every other check is dataset-independent and is
+# enforced unchanged in both modes.
+baseline_argument <- grep("^--baseline=", args, value = TRUE)
+baseline <- if (length(baseline_argument)) {
+  sub("^--baseline=", "", baseline_argument[[1L]])
+} else {
+  "published"
+}
+if (!baseline %in% c("published", "reconstruction")) {
+  stop(
+    "--baseline must be 'published' or 'reconstruction'; got '", baseline, "'.",
+    call. = FALSE
+  )
+}
+published_cell_count <- 1307L
 
 required_files <- c(
   "multiscale_hotspot_cells_1km.csv",
@@ -62,10 +83,23 @@ add_check(
   "artifact_set", "PASS",
   paste(length(required_files), "required artifacts present")
 )
-add_check(
-  "population_grain", if (nrow(cells) == 1307L) "PASS" else "FAIL",
-  paste(nrow(cells), "1-km cells from 1,923 manually checked observations")
-)
+if (identical(baseline, "published")) {
+  add_check(
+    "population_grain",
+    if (nrow(cells) == published_cell_count) "PASS" else "FAIL",
+    paste(nrow(cells), "1-km cells from 1,923 manually checked observations")
+  )
+} else {
+  add_check(
+    "population_grain", "NOT_APPLICABLE",
+    paste0(
+      nrow(cells), " 1-km cells observed; the published run had ",
+      published_cell_count,
+      " from 1,923 observations. The reconstruction defines its own analysis ",
+      "population."
+    )
+  )
+}
 add_check(
   "raw_hotspot_responses", "PASS",
   paste(
@@ -199,24 +233,12 @@ add_check(
         "common-support eligible cells; AUC uncertainty is material")
 )
 
-early_adjusted <- facets[
-  facets$direction == "unexpected_pigmented" &
-    facets$facet == "early_phenology_surprise_v15", , drop = FALSE
-]
-raw_early <- facets[
-  facets$direction == "unexpected_pigmented" & facets$facet == "median_DOY",
-  , drop = FALSE
-]
-add_check(
-  "horticulture_phenology_confounding", "RESULT",
-  paste(
-    "raw DOY minimum q =", signif(min(raw_early$BH_q), 3),
-    "; environment-space-year adjusted early score minimum q =",
-    signif(min(early_adjusted$BH_q), 3)
-  )
-)
+# The early-flowering evaluation has been withdrawn with the phenology
+# component. The frozen upstream `early_phenology_surprise_v15` column is
+# retained in the v15 cell table unchanged, but it is no longer audited,
+# scored, or used in any claim.
 
-tier_a <- evidence$n_cells[evidence$followup_tier == "A_convergent_replicated"]
+tier_a <-evidence$n_cells[evidence$followup_tier == "A_convergent_replicated"]
 if (!length(tier_a)) tier_a <- 0L
 add_check(
   "horticulture_convergent_evidence", "RESULT",
@@ -253,6 +275,7 @@ add_check(
 )
 
 audit <- do.call(rbind, rows)
+audit$baseline <- baseline
 utils::write.csv(
   audit, file.path(output_dir, "multiscale_audit.csv"), row.names = FALSE
 )

@@ -1,9 +1,44 @@
 args <- commandArgs(trailingOnly = TRUE)
-output_dir <- if (length(args)) {
-  args[[1L]]
+positional <- args[!startsWith(args, "--")]
+output_dir <- if (length(positional)) {
+  positional[[1L]]
 } else {
   "results/ecological_v21_local_human_neighbourhood"
 }
+
+# See validation/audit_phenotype.R. Two constants here describe the published
+# run rather than the analysis: 1,307 cells (the 1-km aggregation of the
+# published 1,923 observations) and 16 local-isolate candidates.
+#
+# The candidate count is a result, not a population size. The reconstruction
+# fits the presence model on a different observation set, so it has no
+# obligation to recover 16, and asserting it would be asserting that a
+# different analysis must reproduce a number it cannot be expected to
+# reproduce. Under --baseline reconstruction both are reported as
+# not_applicable with the observed value beside the published one; under
+# --baseline published both are enforced exactly as before.
+#
+# Every structural invariant conjoined with those counts stays enforced in both
+# modes: candidate uniqueness, the >=3 white-neighbour definition, the
+# follow-up ranks forming a permutation, and the population-scale correlation
+# bounds.
+baseline_argument <- grep("^--baseline=", args, value = TRUE)
+baseline <- if (length(baseline_argument)) {
+  sub("^--baseline=", "", baseline_argument[[1L]])
+} else {
+  "published"
+}
+if (!baseline %in% c("published", "reconstruction")) {
+  stop(
+    "--baseline must be 'published' or 'reconstruction'; got '", baseline, "'.",
+    call. = FALSE
+  )
+}
+published_cell_count <- 1307L
+published_candidate_count <- 16L
+# Not a population size: the 1-km MLIT land-use grid the published run built
+# from its own copy of the primary-mesh archives.
+published_mlit_cell_count <- 309600L
 
 source("R/pipeline_support.R")
 hb_load_modules("local_human_context")
@@ -31,6 +66,25 @@ add_check <- function(check, passed, detail) {
     detail = detail,
     stringsAsFactors = FALSE
   )
+}
+add_not_applicable <- function(check, detail) {
+  checks[[length(checks) + 1L]] <<- data.frame(
+    check = check, status = "not_applicable",
+    detail = as.character(detail), stringsAsFactors = FALSE
+  )
+}
+# Enforced under --baseline published, reported with its difference under
+# --baseline reconstruction. Never silently dropped in either mode.
+add_published_count <- function(check, observed, published) {
+  if (identical(baseline, "published")) {
+    add_check(check, observed == published, paste("observed=", observed))
+  } else {
+    add_not_applicable(check, paste0(
+      "observed=", observed, ";published=", published,
+      ";difference=", observed - published,
+      ";reason=the reconstruction defines its own analysis population"
+    ))
+  }
 }
 
 class_cells <- read_output("mlit_landuse_class_cells_1km.csv")
@@ -70,12 +124,38 @@ registry <- v21_landuse_registry()
 class_sum <- rowSums(class_cells[, c(
   registry$feature, "other_land_fraction"
 ), drop = FALSE])
+# The 1-km MLIT land-use grid is built from the primary-mesh archives listed in
+# the snapshot's own download manifest (v21_process_mlit_classes). It does not
+# depend on the observation population at all, so a difference here is an input
+# coverage difference in the MLIT product, not a 1,909-versus-1,923 effect. It
+# is reported separately from the population checks for exactly that reason.
+#
+# Uniqueness is the structural invariant and is enforced in both modes: a
+# duplicated 1-km mesh key would corrupt the per-observation lookup.
 add_check(
-  "mlit_class_cell_grain",
-  nrow(class_cells) == 309600L &&
-    !anyDuplicated(class_cells$mesh_1km),
-  paste("rows=", nrow(class_cells))
+  "mlit_class_cell_uniqueness",
+  !anyDuplicated(class_cells$mesh_1km),
+  paste(
+    "rows=", nrow(class_cells),
+    "unique=", length(unique(class_cells$mesh_1km))
+  )
 )
+if (identical(baseline, "published")) {
+  add_check(
+    "mlit_class_cell_coverage",
+    nrow(class_cells) == published_mlit_cell_count,
+    paste("rows=", nrow(class_cells))
+  )
+} else {
+  add_not_applicable("mlit_class_cell_coverage", paste0(
+    "observed=", nrow(class_cells),
+    ";published=", published_mlit_cell_count,
+    ";difference=", nrow(class_cells) - published_mlit_cell_count,
+    ";reason=MLIT primary-mesh coverage in the verified snapshot differs from",
+    " the published run's cache; this is an input difference, not a",
+    " consequence of the reconstruction's analysis population"
+  ))
+}
 add_check(
   "mlit_class_fractions",
   all(class_cells[, registry$feature] >= 0) &&
@@ -104,8 +184,11 @@ add_check(
 )
 add_check(
   "analysis_cell_grain",
-  nrow(features) == 1307L && !anyDuplicated(features$exact_site_id),
+  !anyDuplicated(features$exact_site_id),
   paste("rows=", nrow(features))
+)
+add_published_count(
+  "analysis_cell_population", nrow(features), published_cell_count
 )
 population_log_columns <- grep(
   "^log_population_sum_", names(population_context), value = TRUE
@@ -118,7 +201,7 @@ off_diagonal_population_correlation <-
   population_correlation[upper.tri(population_correlation)]
 add_check(
   "worldpop_true_multiscale_separation",
-  nrow(population_context) == 1307L &&
+  nrow(population_context) == nrow(features) &&
     max(off_diagonal_population_correlation) < 0.99 &&
     min(off_diagonal_population_correlation) < 0.8,
   paste(
@@ -154,10 +237,13 @@ primary_summary <- summary[
 ]
 add_check(
   "primary_local_coverage",
-  nrow(primary_details) == 16L &&
-    !anyDuplicated(primary_details$exact_site_id) &&
+  !anyDuplicated(primary_details$exact_site_id) &&
     all(primary_details$n_white_neighbours >= 3L),
   paste("focal cells=", nrow(primary_details))
+)
+add_published_count(
+  "primary_local_candidate_count",
+  nrow(primary_details), published_candidate_count
 )
 
 recompute_summary <- function(summary_block, null_block, details_block = NULL) {
@@ -328,14 +414,22 @@ add_check(
 )
 add_check(
   "followup_convergence_flags",
-  sum(followup$joint_q10_consensus_spike %in% TRUE) == 1L &&
-    nrow(followup) == 16L &&
-    identical(sort(followup$followup_rank), seq_len(16L)),
+  identical(sort(followup$followup_rank), seq_len(nrow(followup))),
   paste(
     "candidates=", nrow(followup),
     "joint q10 and human spike=",
     sum(followup$joint_q10_consensus_spike %in% TRUE)
   )
+)
+add_published_count(
+  "followup_candidate_count", nrow(followup), published_candidate_count
+)
+# "One leading joint candidate" is a published finding, not a structural
+# invariant. Enforced against the published run, reported for the
+# reconstruction so the difference is visible rather than asserted away.
+add_published_count(
+  "followup_joint_q10_consensus_spike_count",
+  sum(followup$joint_q10_consensus_spike %in% TRUE), 1L
 )
 add_check(
   "response_blind_human_features",
@@ -361,7 +455,7 @@ utils::write.csv(
 lines <- c(
   paste0(
     "# v21 local human-neighbourhood independent validation: ",
-    if (all(validation$status == "PASS")) "PASS" else "FAIL"
+    if (any(validation$status == "FAIL")) "FAIL" else "PASS"
   ),
   "",
   vapply(seq_len(nrow(validation)), function(index) {
@@ -374,8 +468,17 @@ lines <- c(
 writeLines(
   lines, file.path(output_dir, "VALIDATION.md"), useBytes = TRUE
 )
-if (any(validation$status != "PASS")) {
-  print(validation[validation$status != "PASS", ])
+failed <- validation[validation$status == "FAIL", , drop = FALSE]
+skipped <- validation[validation$status == "not_applicable", , drop = FALSE]
+if (nrow(failed)) {
+  print(failed)
   stop("v21 independent validation failed.", call. = FALSE)
 }
-cat("v21 independent validation passed: ", nrow(validation), " checks\n")
+if (nrow(skipped)) {
+  cat("v21 checks not applicable under --baseline ", baseline, ":\n", sep = "")
+  print(skipped)
+}
+cat(
+  "v21 independent validation passed: ", sum(validation$status == "PASS"),
+  " checks (", nrow(skipped), " not applicable)\n", sep = ""
+)

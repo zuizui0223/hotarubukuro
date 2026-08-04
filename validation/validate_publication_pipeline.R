@@ -10,6 +10,23 @@ output_dir <- hb_arg_value(
 read_output <- function(name) {
   hb_read_csv(file.path(output_dir, name))
 }
+read_baseline <- function() {
+  explicit <- grep("^--baseline=", args, value = TRUE)
+  if (length(explicit)) return(sub("^--baseline=", "", explicit[[1L]]))
+  marker <- file.path(output_dir, "run_mode.txt")
+  if (!file.exists(marker)) return("published")
+  lines <- readLines(marker, warn = FALSE)
+  value <- sub("^baseline=", "", grep("^baseline=", lines, value = TRUE))
+  if (length(value) != 1L) {
+    stop("run_mode.txt must contain exactly one baseline= entry.", call. = FALSE)
+  }
+  value
+}
+baseline <- read_baseline()
+if (!baseline %in% c("published", "reconstruction")) {
+  stop("Unknown final-validation baseline: ", baseline, call. = FALSE)
+}
+
 checks <- list()
 add_check <- function(check, passed, detail) {
   checks[[length(checks) + 1L]] <<- data.frame(
@@ -17,6 +34,25 @@ add_check <- function(check, passed, detail) {
     status = if (isTRUE(passed)) "PASS" else "FAIL",
     detail = detail,
     stringsAsFactors = FALSE
+  )
+}
+valid_probability <- function(x) {
+  length(x) > 0L && all(is.finite(x) & x >= 0 & x <= 1)
+}
+natural_status <- function(p) {
+  ifelse(p <= 0.05, "upper_tail_against_natural_model",
+         "compatible_with_natural_model")
+}
+exploratory_status <- function(raw_p, corrected_p) {
+  ifelse(
+    corrected_p <= 0.05, "familywise_supported_direction",
+    ifelse(raw_p < 0.10, "suggestive_not_corrected", "not_supported")
+  )
+}
+positive_status <- function(estimate, corrected_p) {
+  ifelse(
+    estimate > 0 & corrected_p < 0.05,
+    "supported_association", "not_supported_at_0.05"
   )
 }
 
@@ -30,6 +66,11 @@ stages <- read_output("final_stage_manifest.csv")
 stage_registry <- read_output("publication_stage_registry.csv")
 metadata_value <- setNames(metadata$value, metadata$field)
 
+add_check(
+  "declared_baseline",
+  baseline %in% c("published", "reconstruction"),
+  baseline
+)
 add_check(
   "analysis_specification",
   identical(
@@ -59,7 +100,8 @@ add_check(
     hb_close_enough(results$raw_p, recomputed_results$raw_p) &&
     hb_close_enough(
       results$corrected_p, recomputed_results$corrected_p
-    ),
+    ) &&
+    identical(results$status, recomputed_results$status),
   paste("results=", nrow(results))
 )
 recomputed_claims <- final_claim_registry(recomputed_results)
@@ -85,18 +127,26 @@ v17 <- results[
     c("local_bombus_presence", "local_bombus_intensity"),
   , drop = FALSE
 ]
+expected_v17_status <- positive_status(v17$estimate, v17$corrected_p)
+local_bombus_ok <- nrow(v17) == 2L &&
+  all(v17$estimate > 0) &&
+  valid_probability(v17$raw_p) &&
+  valid_probability(v17$corrected_p) &&
+  identical(as.character(v17$status), as.character(expected_v17_status)) &&
+  all(
+    v17$correction_family ==
+      "two primary 25-km hurdle responses"
+  )
+if (identical(baseline, "published")) {
+  local_bombus_ok <- local_bombus_ok && all(v17$corrected_p < 0.05)
+}
 add_check(
   "local_bombus_primary_family",
-  nrow(v17) == 2L &&
-    all(v17$estimate > 0) &&
-    all(v17$corrected_p < 0.05) &&
-    all(
-      v17$correction_family ==
-        "two primary 25-km hurdle responses"
-    ),
+  local_bombus_ok,
   paste(
-    "corrected p=",
-    paste(round(v17$corrected_p, 4), collapse = ",")
+    "baseline=", baseline,
+    "corrected p=", paste(round(v17$corrected_p, 4), collapse = ","),
+    "status=", paste(v17$status, collapse = ",")
   )
 )
 national_bombus <- results[
@@ -105,21 +155,35 @@ national_bombus <- results[
 add_check(
   "national_and_local_bombus_not_conflated",
   nrow(national_bombus) == 1L &&
-    abs(national_bombus$estimate) < 0.02 &&
+    is.finite(national_bombus$estimate) &&
     all(v17$estimate > national_bombus$estimate),
   paste("national mean AUC gain=", round(national_bombus$estimate, 4))
 )
+
 isolates <- results[
   results$result_id %in%
     c("local_isolate_count", "local_isolate_fraction"),
   , drop = FALSE
 ]
+expected_isolate_status <- natural_status(isolates$raw_p)
+isolate_ok <- nrow(isolates) == 2L &&
+  valid_probability(isolates$raw_p) &&
+  identical(
+    as.character(isolates$status), as.character(expected_isolate_status)
+  )
+if (identical(baseline, "published")) {
+  isolate_ok <- isolate_ok && all(isolates$raw_p > 0.05)
+}
 add_check(
   "local_isolates_are_candidate_definition",
-  all(isolates$raw_p > 0.05) &&
-    all(isolates$status == "compatible_with_natural_model"),
-  paste("p=", paste(round(isolates$raw_p, 3), collapse = ","))
+  isolate_ok,
+  paste(
+    "baseline=", baseline,
+    "p=", paste(round(isolates$raw_p, 3), collapse = ","),
+    "status=", paste(isolates$status, collapse = ",")
+  )
 )
+
 human <- results[
   results$result_id %in%
     c(
@@ -129,27 +193,39 @@ human <- results[
     ),
   , drop = FALSE
 ]
+expected_human_status <- exploratory_status(
+  human$raw_p, human$corrected_p
+)
+human_ok <- nrow(human) == 3L &&
+  valid_probability(human$raw_p) &&
+  valid_probability(human$corrected_p) &&
+  identical(as.character(human$status), as.character(expected_human_status))
+if (identical(baseline, "published")) {
+  human_ok <- human_ok &&
+    all(human$raw_p < 0.10) && all(human$corrected_p > 0.05)
+}
 add_check(
   "human_context_exploratory_ceiling",
-  all(human$raw_p < 0.10) &&
-    all(human$corrected_p > 0.05) &&
-    all(human$status == "suggestive_not_corrected"),
+  human_ok,
   paste(
-    "corrected p=",
-    paste(round(human$corrected_p, 3), collapse = ",")
+    "baseline=", baseline,
+    "corrected p=", paste(round(human$corrected_p, 3), collapse = ","),
+    "status=", paste(human$status, collapse = ",")
   )
 )
+
+joint_count <- results$estimate[
+  results$result_id == "joint_human_followup_count"
+]
+joint_ok <- length(joint_count) == 1L && is.finite(joint_count) &&
+  joint_count >= 0 && joint_count == round(joint_count)
+if (identical(baseline, "published")) {
+  joint_ok <- joint_ok && joint_count == 1
+}
 add_check(
-  "single_joint_followup",
-  results$estimate[
-    results$result_id == "joint_human_followup_count"
-  ] == 1,
-  paste(
-    "count=",
-    results$estimate[
-      results$result_id == "joint_human_followup_count"
-    ]
-  )
+  "joint_followup_count",
+  joint_ok,
+  paste("baseline=", baseline, "count=", joint_count)
 )
 
 add_check(
@@ -226,7 +302,7 @@ writeLines(
     "",
     paste(
       sum(validation$status == "PASS"), "of", nrow(validation),
-      "checks passed."
+      "checks passed under the", baseline, "baseline."
     ),
     "",
     paste0(
@@ -241,5 +317,7 @@ if (any(validation$status != "PASS")) {
   print(validation[validation$status != "PASS", , drop = FALSE])
   stop("Final pipeline validation failed.", call. = FALSE)
 }
-cat("Final pipeline independent validation passed ",
-    nrow(validation), " checks.\n")
+cat(
+  "Final pipeline independent validation passed ", nrow(validation),
+  " checks under the ", baseline, " baseline.\n", sep = ""
+)

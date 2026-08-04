@@ -174,6 +174,57 @@ summary_lines <- c(
   ""
 )
 
+# Numerical stabilisation, read back from what the stage actually wrote rather
+# than from what a driver requested. A solver setting that changes results has
+# to be visible in the run's own record, not only in the code that set it.
+stabilisation_rows <- local({
+  path <- file.path(
+    "results", "ecological_v16_predictive_replication",
+    "predictive_replication_model_log.csv"
+  )
+  if (!file.exists(path)) return(NULL)
+  logs <- utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
+  if (!"inla_diagonal" %in% names(logs)) return(NULL)
+  values <- stats::aggregate(inla_diagonal ~ model, logs, max)
+  values[order(values$model), , drop = FALSE]
+})
+if (!is.null(stabilisation_rows)) {
+  stabilised <- stabilisation_rows[stabilisation_rows$inla_diagonal > 0, ,
+                                   drop = FALSE]
+  summary_lines <- c(
+    summary_lines,
+    "## Numerical stabilisation",
+    "",
+    if (!nrow(stabilised)) {
+      paste0(
+        "No component used a precision-matrix diagonal. Every one of the ",
+        nrow(stabilisation_rows), " cross-fitted components was fitted with ",
+        "INLA's defaults."
+      )
+    } else {
+      c(
+        paste0(
+          "The following components were fitted with `control.inla(diagonal=)`, ",
+          "which adds a constant to the diagonal of the precision matrix so the ",
+          "Cholesky factorisation inside `inla.qsample` stays defined. This is a ",
+          "property of the solver, not of the scientific model: no formula, ",
+          "prior, spatial fold, draw count, neighbourhood definition or ",
+          "threshold differs from an unstabilised fit, and no other component is ",
+          "affected."
+        ),
+        "",
+        "| component | diagonal |",
+        "|---|---|",
+        paste0(
+          "| `", stabilised$model, "` | ",
+          format(stabilised$inla_diagonal, scientific = TRUE), " |"
+        )
+      )
+    },
+    ""
+  )
+}
+
 if (length(missing_inputs)) {
   summary_lines <- c(
     summary_lines,

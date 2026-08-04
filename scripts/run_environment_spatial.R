@@ -6,7 +6,18 @@ repo_root <- normalizePath(file.path(dirname(script_path), ".."), winslash = "/"
 source(file.path(repo_root, "R", "pipeline_support.R"))
 arg_value <- function(flag, default = "") hb_arg_value(args, flag, default)
 as_bool <- hb_as_bool
-hb_require_stage_packages("phenotype")
+# INLA is in this stage's package group because the stage can fit an INLA model,
+# but --run-inla=false means it will not. Requiring it unconditionally makes
+# every use of this script — including building the analysis table and auditing
+# the complete-case filter, neither of which touches a model — depend on a
+# third-party download host being reachable. The requirement is therefore tied
+# to what the run actually does. When --run-inla is true, nothing changes.
+fits_inla <- as_bool(arg_value("--run-inla", "true"))
+stage_packages <- unique(unlist(
+  hb_package_groups[hb_stage_packages[["phenotype"]]], use.names = FALSE
+))
+if (!fits_inla) stage_packages <- setdiff(stage_packages, "INLA")
+hb_require_packages(stage_packages)
 hb_load_modules("phenotype", root = repo_root)
 
 anomaly_csv <- arg_value("--anomaly-csv", Sys.getenv("HOTARUBUKURO_ANOMALY_CSV"))

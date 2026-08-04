@@ -12,7 +12,32 @@ output_dir <- hb_arg_value(
 )
 run_tests <- hb_as_bool(hb_arg_value(args, "--tests", "true"))
 
+# Which analysis the frozen upstream audits are auditing against. `published`
+# is the locked behaviour and the default. `reconstruction` keeps every
+# dataset-independent check and reports the handful of checks that assert the
+# published run's own row counts and warning pattern as not applicable; see
+# validation/audit_phenotype.R.
+baseline <- hb_arg_value(args, "--baseline", "published")
+if (!baseline %in% c("published", "reconstruction")) {
+  stop("--baseline must be published or reconstruction.", call. = FALSE)
+}
+
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Stamp what this run was, before it runs, so every reader of these outputs —
+# the comparison, the reproducibility report, a person opening the artifact —
+# can tell what produced them without inferring it. Every stage must pass in
+# sequence; there is no mode that tolerates a failing stage.
+writeLines(
+  c(
+    "run_mode=canonical",
+    paste0("mode=", mode),
+    paste0("baseline=", baseline),
+    paste0("started_utc=", format(Sys.time(), tz = "UTC", usetz = TRUE))
+  ),
+  file.path(output_dir, "run_mode.txt")
+)
+
 log_dir <- file.path(output_dir, "logs")
 dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
 rscript <- file.path(R.home("bin"), "Rscript")
@@ -79,11 +104,13 @@ run_stage <- function(stage, script, arguments = character(),
 
 run_stage(
   "01_audit_phenotype", "validation/audit_phenotype.R",
+  c(paste0("--baseline=", baseline)),
   role = "frozen_upstream_audit"
 )
 run_stage(
   "02_audit_multiscale_context",
   "validation/audit_multiscale_hotspots.R",
+  c(paste0("--baseline=", baseline)),
   role = "frozen_upstream_audit"
 )
 
@@ -133,6 +160,7 @@ if (mode == "full") {
 run_stage(
   "04_validate_human_landscape_features",
   "validation/validate_human_landscape_features.R",
+  c(paste0("--baseline=", baseline)),
   role = "feature_engineering_validation"
 )
 run_stage(
@@ -156,7 +184,49 @@ run_stage(
 run_stage(
   "04_audit_local_pigmented_isolates",
   "validation/audit_local_pigmented_isolates.R",
+  c(paste0("--baseline=", baseline)),
   role = "candidate_definition_validation"
+)
+
+# --- Supplementary: the same local event without assuming a direction --------
+# The main analysis above is directional: a pigmented cell among white
+# neighbours. This replays the same locked neighbourhood graph and the same
+# natural null counting a white cell among pigmented neighbours as the same
+# kind of departure, so the direction the main analysis assumes can be checked
+# rather than taken for granted.
+#
+# Supplementary throughout. It selects no candidates and ranks none: the
+# human-context stages below continue to read the directional candidate set,
+# and no main claim depends on it.
+if (mode %in% c("extensions", "full")) {
+  run_stage(
+    "S1_run_direction_check",
+    "scripts/run_local_state_asymmetry.R",
+    role = "supplementary_direction_check"
+  )
+}
+run_stage(
+  "S1_validate_direction_check",
+  "validation/validate_local_state_asymmetry.R",
+  role = "supplementary_direction_check_validation"
+)
+
+# --- Supplementary: local flowering-date difference --------------------------
+# Runs after the candidate set is fixed and describes it; contributes nothing
+# to it. Arithmetic on the frozen cell table and the locked neighbourhood
+# graph -- no model, and the withdrawn national phenology component stays
+# withdrawn. Flowering date reaches no selection, no ranking and no main claim.
+if (mode %in% c("extensions", "full")) {
+  run_stage(
+    "S2_run_candidate_doy_check",
+    "scripts/run_candidate_doy_check.R",
+    role = "supplementary_flowering_date_check"
+  )
+}
+run_stage(
+  "S2_validate_candidate_doy_check",
+  "validation/validate_candidate_doy_check.R",
+  role = "supplementary_flowering_date_check_validation"
 )
 
 if (mode %in% c("extensions", "full")) {
@@ -169,11 +239,13 @@ if (mode %in% c("extensions", "full")) {
 run_stage(
   "05_validate_local_human_context",
   "validation/validate_local_human_context.R",
+  c(paste0("--baseline=", baseline)),
   role = "exploratory_human_context_validation"
 )
 run_stage(
   "05_audit_local_human_context",
   "validation/audit_local_human_context.R",
+  c(paste0("--baseline=", baseline)),
   role = "exploratory_human_context_validation"
 )
 
@@ -187,11 +259,13 @@ if (mode %in% c("extensions", "full")) {
 run_stage(
   "05_validate_did_sensitivity",
   "validation/validate_did_sensitivity.R",
+  c(paste0("--baseline=", baseline)),
   role = "exploratory_human_context_validation"
 )
 run_stage(
   "05_audit_did_sensitivity",
   "validation/audit_did_sensitivity.R",
+  c(paste0("--baseline=", baseline)),
   role = "exploratory_human_context_validation"
 )
 
@@ -212,11 +286,12 @@ run_stage(
 run_stage(
   "06_audit_publication_claims",
   "validation/audit_publication_claims.R",
-  c(paste0("--output=", output_dir)),
+  c(paste0("--output=", output_dir), paste0("--baseline=", baseline)),
   role = "final_claim_audit"
 )
 
 write_manifest()
+
 cat(
   "Final analysis pipeline completed in mode '", mode,
   "': ", normalizePath(output_dir), "\n", sep = ""

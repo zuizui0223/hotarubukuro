@@ -224,6 +224,30 @@ final_result_registry <- function(root = ".") {
       stringsAsFactors = FALSE
     )
   }
+  positive_association_status <- function(estimate, corrected_p) {
+    if (is.finite(estimate) && estimate > 0 &&
+        is.finite(corrected_p) && corrected_p < 0.05) {
+      "supported_association"
+    } else {
+      "not_supported_at_0.05"
+    }
+  }
+  natural_null_status <- function(p) {
+    if (is.finite(p) && p <= 0.05) {
+      "upper_tail_against_natural_model"
+    } else {
+      "compatible_with_natural_model"
+    }
+  }
+  exploratory_status <- function(raw_p, corrected_p) {
+    if (is.finite(corrected_p) && corrected_p <= 0.05) {
+      "familywise_supported_direction"
+    } else if (is.finite(raw_p) && raw_p < 0.10) {
+      "suggestive_not_corrected"
+    } else {
+      "not_supported"
+    }
+  }
 
   do.call(rbind, list(
     add(
@@ -254,7 +278,11 @@ final_result_registry <- function(root = ".") {
       "national_bombus_auc_gain", "sensitivity",
       "mean fold AUC gain after adding Bombus fingerprint",
       mean(bombus$AUC_improvement),
-      status = "small_predictive_gain",
+      status = if (abs(mean(bombus$AUC_improvement)) < 0.02) {
+        "small_predictive_gain"
+      } else {
+        "predictive_gain_ge_0.02"
+      },
       source = "stage 02 national Bombus sensitivity"
     ),
     add(
@@ -265,7 +293,10 @@ final_result_registry <- function(root = ".") {
       pair_presence$beta_empirical_p,
       pair_presence$BH_q_primary_25km,
       "two primary 25-km hurdle responses",
-      "supported_association",
+      positive_association_status(
+        pair_presence$observed_partial_beta,
+        pair_presence$BH_q_primary_25km
+      ),
       "stage 03 local Bombus pair summary"
     ),
     add(
@@ -276,7 +307,10 @@ final_result_registry <- function(root = ".") {
       pair_intensity$beta_empirical_p,
       pair_intensity$BH_q_primary_25km,
       "two primary 25-km hurdle responses",
-      "supported_association",
+      positive_association_status(
+        pair_intensity$observed_partial_beta,
+        pair_intensity$BH_q_primary_25km
+      ),
       "stage 03 local Bombus pair summary"
     ),
     add(
@@ -284,7 +318,7 @@ final_result_registry <- function(root = ".") {
       "10-km environment-similar all-white-neighbour isolate count",
       isolate_count$observed_value, isolate_count$null_mean,
       isolate_count$empirical_p, correction_family = "prespecified primary",
-      status = "compatible_with_natural_model",
+      status = natural_null_status(isolate_count$empirical_p),
       source = "stage 04 local-isolate natural null"
     ),
     add(
@@ -293,7 +327,7 @@ final_result_registry <- function(root = ".") {
       isolate_fraction$observed_value, isolate_fraction$null_mean,
       isolate_fraction$empirical_p,
       correction_family = "prespecified primary",
-      status = "compatible_with_natural_model",
+      status = natural_null_status(isolate_fraction$empirical_p),
       source = "stage 04 local-isolate natural null"
     ),
     add(
@@ -304,7 +338,10 @@ final_result_registry <- function(root = ".") {
       population_5km$directional_or_two_sided_p,
       population_5km$maxT_FWER_p,
       "five population scales",
-      "suggestive_not_corrected",
+      exploratory_status(
+        population_5km$directional_or_two_sided_p,
+        population_5km$maxT_FWER_p
+      ),
       "stage 05 population-scale summary"
     ),
     add(
@@ -316,7 +353,10 @@ final_result_registry <- function(root = ".") {
       did_alignment$directional_or_two_sided_p,
       did_alignment$maxT_FWER_p,
       "five DID-context features",
-      "suggestive_not_corrected",
+      exploratory_status(
+        did_alignment$directional_or_two_sided_p,
+        did_alignment$maxT_FWER_p
+      ),
       "stage 05 DID contrast summary"
     ),
     add(
@@ -328,7 +368,7 @@ final_result_registry <- function(root = ".") {
       did_urban$two_sided_p,
       did_urban$maxT_FWER_p,
       "four response-blind context classes",
-      "suggestive_not_corrected",
+      exploratory_status(did_urban$two_sided_p, did_urban$maxT_FWER_p),
       "stage 05 DID context composition"
     ),
     add(
@@ -344,8 +384,67 @@ final_result_registry <- function(root = ".") {
 
 final_claim_registry <- function(results) {
   value <- function(id, column) {
-    results[[column]][match(id, results$result_id)]
+    result <- results[[column]][match(id, results$result_id)]
+    if (length(result) != 1L) {
+      stop("Missing or duplicated final result: ", id, call. = FALSE)
+    }
+    result
   }
+
+  bombus_presence_beta <- value("local_bombus_presence", "estimate")
+  bombus_intensity_beta <- value("local_bombus_intensity", "estimate")
+  bombus_presence_q <- value("local_bombus_presence", "corrected_p")
+  bombus_intensity_q <- value("local_bombus_intensity", "corrected_p")
+  bombus_supported <- all(c(
+    bombus_presence_beta > 0,
+    bombus_intensity_beta > 0,
+    bombus_presence_q < 0.05,
+    bombus_intensity_q < 0.05
+  ))
+
+  isolate_count <- value("local_isolate_count", "estimate")
+  isolate_count_p <- value("local_isolate_count", "raw_p")
+  isolate_fraction <- value("local_isolate_fraction", "estimate")
+  isolate_fraction_p <- value("local_isolate_fraction", "raw_p")
+  isolates_compatible <- isolate_count_p > 0.05 && isolate_fraction_p > 0.05
+  isolate_status <- if (isolates_compatible) {
+    "not_excessive_under_natural_model"
+  } else if (isolate_count_p <= 0.05 && isolate_fraction_p <= 0.05) {
+    "count_and_fraction_upper_tail"
+  } else if (isolate_count_p <= 0.05) {
+    "count_upper_tail_only"
+  } else {
+    "fraction_upper_tail_only"
+  }
+  isolate_claim <- if (isolates_compatible) {
+    sprintf(
+      paste(
+        "The %d primary local pigmented isolates are useful follow-up",
+        "units; neither count (p=%.3f) nor fraction (%.4f; p=%.3f)",
+        "exceeded the natural-map reference."
+      ),
+      as.integer(round(isolate_count)), isolate_count_p,
+      isolate_fraction, isolate_fraction_p
+    )
+  } else {
+    sprintf(
+      paste(
+        "The reconstruction identified %d primary local pigmented isolates.",
+        "The count test gave p=%.3f and the candidate fraction was %.4f",
+        "with p=%.3f; the upper-tail result is reported without assigning",
+        "horticultural provenance."
+      ),
+      as.integer(round(isolate_count)), isolate_count_p,
+      isolate_fraction, isolate_fraction_p
+    )
+  }
+
+  population_corrected <- value("local_population_5km", "corrected_p")
+  did_corrected <- value("local_population_did_alignment", "corrected_p")
+  human_familywise_supported <- any(c(
+    population_corrected, did_corrected
+  ) <= 0.05)
+
   data.frame(
     claim_id = c(
       "C1_two_part_phenotype", "C2_national_natural_baseline",
@@ -359,9 +458,20 @@ final_claim_registry <- function(results) {
       "exploratory_extension", "claim_ceiling"
     ),
     status = c(
-      "supported", "supported", "small_and_inconsistent",
-      "supported_association", "not_excessive_under_natural_model",
-      "suggestive_not_familywise_significant", "not_demonstrated"
+      "supported", "supported",
+      if (abs(value("national_bombus_auc_gain", "estimate")) < 0.02) {
+        "small_and_inconsistent"
+      } else {
+        "gain_ge_0.02"
+      },
+      if (bombus_supported) "supported_association" else "not_jointly_supported",
+      isolate_status,
+      if (human_familywise_supported) {
+        "familywise_supported_context_association"
+      } else {
+        "suggestive_not_familywise_significant"
+      },
+      "not_demonstrated"
     ),
     claim = c(
       paste(
@@ -374,36 +484,28 @@ final_claim_registry <- function(results) {
       ),
       sprintf(
         paste(
-          "Adding the Bombus fingerprint yields only a small mean",
-          "cross-fitted AUC change (%.4f)."
+          "Adding the Bombus fingerprint yields a mean cross-fitted",
+          "AUC change of %.4f."
         ),
         value("national_bombus_auc_gain", "estimate")
       ),
       sprintf(
         paste(
           "At the prespecified 25-km pair scale, Bombus fingerprint",
-          "turnover is positively associated with presence turnover",
-          "(beta %.3f) and pigmented-only intensity turnover",
-          "(beta %.3f); both primary-family q %.3f)."
+          "turnover had presence beta %.3f (q %.3f) and pigmented-only",
+          "intensity beta %.3f (q %.3f)."
         ),
-        value("local_bombus_presence", "estimate"),
-        value("local_bombus_intensity", "estimate"),
-        max(
-          value("local_bombus_presence", "corrected_p"),
-          value("local_bombus_intensity", "corrected_p")
-        )
+        bombus_presence_beta, bombus_presence_q,
+        bombus_intensity_beta, bombus_intensity_q
       ),
-      paste(
-        "The 16 primary local pigmented isolates are useful follow-up",
-        "units but are not more frequent than the natural maps."
-      ),
+      isolate_claim,
       sprintf(
         paste(
-          "Local 5-km population and DID alignment point toward",
-          "settlement proximity, but corrected p-values are %.3f and %.3f."
+          "Local 5-km population and DID alignment had corrected",
+          "p-values %.3f and %.3f; these characterize post-selection",
+          "human context rather than provenance."
         ),
-        value("local_population_5km", "corrected_p"),
-        value("local_population_did_alignment", "corrected_p")
+        population_corrected, did_corrected
       ),
       paste(
         "Images and public landscape layers do not demonstrate planting,",

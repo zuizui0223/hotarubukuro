@@ -214,7 +214,12 @@ v18_match_cases <- function(cases, controls, match_options, q, z, ids) {
   if (length(rows)) do.call(rbind, rows) else data.frame()
 }
 
-v18_profile <- function(cells, presence, phenology, intensity) {
+# Auxiliary, post-selection facets only. None of these values enters candidate
+# selection or case-control matching; both happen upstream from presence draws
+# alone. The early-flowering facet has been withdrawn with the phenology
+# component, so the convergence count is over the human-context and
+# pigmented-intensity facets.
+v18_profile <- function(cells, presence, intensity) {
   observed_share <- as.numeric(cells$n_pigmented) /
     pmax(as.numeric(cells$n_observations), 1)
   predicted_share_draws <- sweep(
@@ -226,18 +231,14 @@ v18_profile <- function(cells, presence, phenology, intensity) {
   color_sd <- apply(predicted_share_draws, 1, stats::sd)
   color_z <- (observed_share - rowMeans(predicted_share_draws)) /
     pmax(color_sd, 1e-12)
-  early_q <- v18_predictive_tail_q(
-    as.numeric(cells$median_DOY), phenology$draws, "lower"
-  )
   dark_q <- v18_predictive_tail_q(
     as.numeric(cells$conditional_intensity_median),
     intensity$draws, "upper"
   )
   population_rank <- v18_rank01(cells$log_population_sum_25km)
-  early_depth <- v18_tail_depth(early_q)
   dark_depth <- v18_tail_depth(dark_q)
   convergence_count <- as.integer(population_rank >= 0.90) +
-    as.integer(early_q <= 0.10) + as.integer(dark_q <= 0.10)
+    as.integer(dark_q <= 0.10)
   convergence_count[!is.finite(dark_q)] <- NA_integer_
   data.frame(
     exact_site_id = as.character(cells$exact_site_id),
@@ -246,13 +247,10 @@ v18_profile <- function(cells, presence, phenology, intensity) {
     unexpected_pigmented_q = color_q,
     unexpected_pigmented_tail_depth = v18_tail_depth(color_q),
     unexpected_pigmented_z = color_z,
-    early_predictive_q = early_q,
-    early_tail_depth = early_depth,
     dark_predictive_q = dark_q,
     dark_tail_depth = dark_depth,
     population_rank = population_rank,
     high_population = population_rank >= 0.90,
-    early_tail_10 = early_q <= 0.10,
     dark_tail_10 = dark_q <= 0.10,
     convergence_count = convergence_count,
     two_plus_facets = convergence_count >= 2,
@@ -362,11 +360,6 @@ v18_matched_extreme_analysis <- function(
       support = rep(TRUE, nrow(cells)),
       values = profile$population_rank,
       role = "human_context"
-    ),
-    early_tail_depth = list(
-      support = is.finite(profile$early_predictive_q),
-      values = profile$early_tail_depth,
-      role = "phenology_tail"
     ),
     dark_tail_depth = list(
       support = conditional_support,
@@ -481,8 +474,7 @@ v18_matched_extreme_analysis <- function(
   summary$BH_q_primary_top5 <- NA_real_
   primary <- summary$fraction == 0.05 &
     summary$metric %in% c(
-      "population_rank", "early_tail_depth", "dark_tail_depth",
-      "convergence_count"
+      "population_rank", "dark_tail_depth", "convergence_count"
     )
   summary$BH_q_primary_top5[primary] <- stats::p.adjust(
     summary$empirical_p[primary], method = "BH"

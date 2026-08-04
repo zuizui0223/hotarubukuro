@@ -1,6 +1,7 @@
 args <- commandArgs(trailingOnly = TRUE)
-output_dir <- if (length(args)) {
-  args[[1L]]
+positional <- args[!startsWith(args, "--")]
+output_dir <- if (length(positional)) {
+  positional[[1L]]
 } else {
   "results/ecological_v21_local_human_neighbourhood"
 }
@@ -32,6 +33,59 @@ add_check <- function(check, passed, detail) {
     stringsAsFactors = FALSE
   )
 }
+
+# See validation/audit_phenotype.R. The assertions below that name a published
+# value -- a candidate count, a specific cell -- are statements about the
+# published run, not about the analysis being correct. Under
+# --baseline reconstruction they are reported as not_applicable carrying the
+# observed value; under --baseline published they are enforced unchanged.
+baseline_argument <- grep("^--baseline=", args, value = TRUE)
+baseline <- if (length(baseline_argument)) {
+  sub("^--baseline=", "", baseline_argument[[1L]])
+} else {
+  "published"
+}
+if (!baseline %in% c("published", "reconstruction")) {
+  stop(
+    "--baseline must be 'published' or 'reconstruction'; got '", baseline, "'.",
+    call. = FALSE
+  )
+}
+add_not_applicable <- function(name, detail) {
+  checks[[length(checks) + 1L]] <<- data.frame(
+    check = name, status = "not_applicable",
+    detail = as.character(detail), stringsAsFactors = FALSE
+  )
+}
+add_published_finding <- function(name, passed, detail) {
+  if (identical(baseline, "published")) {
+    add_check(name, passed, detail)
+  } else {
+    add_not_applicable(name, paste0(
+      detail,
+      ";reason=the reconstruction defines its own analysis population"
+    ))
+  }
+}
+
+# Inferential claims are reported as RESULT under --baseline reconstruction and
+# enforced under --baseline published; see validation/audit_local_pigmented_isolates.R
+# for the reasoning. Code and metadata properties stay PASS/FAIL in both modes.
+add_claim <- function(name, passed, detail) {
+  if (identical(baseline, "published")) {
+    add_check(name, passed, detail)
+  } else {
+    checks[[length(checks) + 1L]] <<- data.frame(
+      check = name,
+      status = "RESULT",
+      detail = paste0(
+        detail, "; published-mode verdict would be ",
+        if (isTRUE(passed)) "PASS" else "FAIL"
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+}
 primary <- "primary_10km_env1_all_white"
 primary_summary <- summary[
   summary$configuration == primary, , drop = FALSE
@@ -45,21 +99,27 @@ feature <- function(name, configuration = primary) {
 
 add_check(
   "independent_validation",
-  all(validation$status == "PASS"),
+  !any(validation$status == "FAIL"),
   paste("checks=", nrow(validation))
 )
 primary_support <- support[support$configuration == primary, ]
+# The structural half: no requested candidate was dropped. Enforced always.
 add_check(
   "all_primary_candidates_retained",
-  primary_support$observed_requested_cases == 16L &&
-    primary_support$observed_usable_cases == 16L,
+  primary_support$observed_usable_cases ==
+    primary_support$observed_requested_cases,
   paste(
     "usable=", primary_support$observed_usable_cases,
     "of", primary_support$observed_requested_cases
   )
 )
+add_published_finding(
+  "primary_candidate_count",
+  primary_support$observed_requested_cases == 16L,
+  paste("observed=", primary_support$observed_requested_cases)
+)
 primary_global <- global[global$configuration == primary, ]
-add_check(
+add_claim(
   "primary_multivariate_human_null",
   primary_global$empirical_p > 0.05,
   paste(
@@ -70,7 +130,7 @@ add_check(
 settlement <- feature("settlement_density_score")
 built <- feature("built_up_fraction_rank")
 primary_population <- feature("local_population_rank")
-add_check(
+add_claim(
   "weak_settlement_direction_not_confirmatory",
   settlement$observed_focal_minus_white_neighbour > 0 &&
     settlement$directional_or_two_sided_p > 0.05 &&
@@ -86,7 +146,7 @@ add_check(
   )
 )
 consensus <- feature("human_activity_consensus_score")
-add_check(
+add_claim(
   "human_consensus_not_supported",
   consensus$directional_or_two_sided_p > 0.05 &&
     consensus$maxT_FWER_p > 0.05,
@@ -106,7 +166,7 @@ population_25 <- population[
   population$feature == "population_25km_rank", ]
 population_50 <- population[
   population$feature == "population_50km_rank", ]
-add_check(
+add_claim(
   "localized_population_pattern_is_suggestive_not_confirmatory",
   population_5$directional_or_two_sided_p < 0.05 &&
     population_10$directional_or_two_sided_p < 0.05 &&
@@ -128,7 +188,7 @@ scale25_population <- feature(
 scale25_consensus <- feature(
   "human_activity_consensus_score", "scale_25km_env1_white90"
 )
-add_check(
+add_claim(
   "scale25_population_signal_is_sensitivity_only",
   scale25_population$directional_or_two_sided_p < 0.05 &&
     scale25_population$maxT_FWER_p > 0.05 &&
@@ -149,7 +209,7 @@ settlement_spike <- convergence[
 joint_consensus <- convergence[
   convergence$spike_feature == "human_activity_consensus_score" &
     convergence$metric == "candidate_q10_human_spike_count", ]
-add_check(
+add_claim(
   "exploratory_spike_signal_below_corrected_threshold",
   settlement_spike$empirical_p < 0.05 &&
     settlement_spike$BH_q > 0.05 &&
@@ -163,7 +223,7 @@ add_check(
     "FWER=", round(joint_consensus$maxT_FWER_p, 4)
   )
 )
-add_check(
+add_claim(
   "one_convergent_followup_not_population_claim",
   sum(followup$joint_q10_consensus_spike %in% TRUE) == 1L,
   paste(
@@ -171,7 +231,7 @@ add_check(
     sum(followup$joint_q10_consensus_spike %in% TRUE)
   )
 )
-add_check(
+add_claim(
   "sampling_environment_controls_null",
   all(quality$maxT_FWER_p > 0.05),
   paste(
@@ -185,7 +245,7 @@ candidate_golf <- prevalence$primary_focal_nonzero_fraction[
 candidate_road <- prevalence$primary_focal_nonzero_fraction[
   prevalence$feature == "road_land_fraction"
 ]
-add_check(
+add_claim(
   "no_direct_golf_or_road_land_convergence",
   candidate_golf == 0 && candidate_road == 0,
   paste(
@@ -219,7 +279,7 @@ utils::write.csv(
 lines <- c(
   paste0(
     "# v21 local human-neighbourhood claim audit: ",
-    if (all(audit$status == "PASS")) "PASS" else "FAIL"
+    if (any(audit$status == "FAIL")) "FAIL" else "PASS"
   ),
   "",
   vapply(seq_len(nrow(audit)), function(index) {
@@ -230,8 +290,18 @@ lines <- c(
   }, character(1))
 )
 writeLines(lines, file.path(output_dir, "AUDIT.md"), useBytes = TRUE)
-if (any(audit$status != "PASS")) {
-  print(audit[audit$status != "PASS", ])
+skipped <- audit[
+  audit$status %in% c("not_applicable", "RESULT"), , drop = FALSE
+]
+if (any(audit$status == "FAIL")) {
+  print(audit[audit$status == "FAIL", ])
   stop("v21 claim audit failed.", call. = FALSE)
+}
+if (nrow(skipped)) {
+  cat(
+    "v21 claims reported rather than enforced under --baseline ",
+    baseline, ":\n", sep = ""
+  )
+  print(skipped)
 }
 cat("v21 claim audit passed: ", nrow(audit), " checks\n")

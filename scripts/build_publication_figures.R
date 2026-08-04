@@ -558,7 +558,6 @@ candidates <- hb_read_csv(
 candidates$longitude <- read_num(candidates$longitude)
 candidates$latitude <- read_num(candidates$latitude)
 candidates$candidate_rank <- read_num(candidates$candidate_rank)
-candidates$early_predictive_q <- read_num(candidates$early_predictive_q)
 candidates$dark_predictive_q <- read_num(candidates$dark_predictive_q)
 
 cells$site_label <- factor(
@@ -675,15 +674,11 @@ fig4c <- ggplot2::ggplot(
   ) +
   theme_publication(base_size = 8)
 
-tail_long <- rbind(
-  data.frame(
-    candidate_rank = candidates$candidate_rank,
-    feature = "Early flowering", q = candidates$early_predictive_q
-  ),
-  data.frame(
-    candidate_rank = candidates$candidate_rank,
-    feature = "Dark intensity", q = candidates$dark_predictive_q
-  )
+# The early-flowering series has been withdrawn with the phenology component;
+# this panel now carries the pigmented-only darkness tail alone.
+tail_long <- data.frame(
+  candidate_rank = candidates$candidate_rank,
+  feature = "Dark intensity", q = candidates$dark_predictive_q
 )
 fig4d <- ggplot2::ggplot(
   tail_long,
@@ -692,20 +687,18 @@ fig4d <- ggplot2::ggplot(
   ggplot2::geom_hline(yintercept = 0.10, linetype = "dashed", colour = mid_grey) +
   ggplot2::geom_line(linewidth = 0.5) +
   ggplot2::geom_point(size = 1.8) +
-  ggplot2::scale_colour_manual(
-    values = c("Early flowering" = blue, "Dark intensity" = pink)
-  ) +
-  ggplot2::scale_shape_manual(values = c("Early flowering" = 16, "Dark intensity" = 17)) +
+  ggplot2::scale_colour_manual(values = c("Dark intensity" = pink)) +
+  ggplot2::scale_shape_manual(values = c("Dark intensity" = 17)) +
   ggplot2::guides(
-    colour = ggplot2::guide_legend(nrow = 2, byrow = TRUE, title = NULL),
-    shape = ggplot2::guide_legend(nrow = 2, byrow = TRUE, title = NULL)
+    colour = ggplot2::guide_legend(nrow = 1, byrow = TRUE, title = NULL),
+    shape = ggplot2::guide_legend(nrow = 1, byrow = TRUE, title = NULL)
   ) +
   ggplot2::scale_x_continuous(breaks = c(1, 4, 8, 12, 16)) +
   ggplot2::scale_y_continuous(
     limits = c(0, 1), breaks = seq(0, 1, 0.2)
   ) +
   ggplot2::labs(
-    title = "d   Early and dark tail checks",
+    title = "d   Dark tail check",
     subtitle = "Dashed line: pre-specified q = .10 tail criterion",
     x = "Candidate rank", y = "Predictive q",
     colour = "Feature", shape = "Feature"

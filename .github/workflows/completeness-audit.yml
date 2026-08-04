@@ -1,0 +1,263 @@
+name: Analysis-population completeness audit
+
+# A diagnostic that answers exactly one question: which observations does the
+# complete-case filter drop, and on which variable.
+#
+# The filter in R/environment_spatial.R is what decides the analysis population,
+# so it is the only place the 1909-versus-1923 difference can originate. This
+# workflow rebuilds the environmental input from the pinned public rasters, runs
+# the stage that applies the filter, and prints the per-observation record plus
+# the two summaries: exclusions by first failing variable, and exclusions by the
+# combination of variables that failed together.
+#
+# It fits no model, so it is provisioned with --skip-inla and is unaffected by
+# the INLA download host being unavailable. It also does not refit the Bombus
+# SDMs: the prediction surfaces come from the recorded publication commit, the
+# same ones the reconstruction uses.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+    branches: ["main", "analysis/local-colour-state-asymmetry"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: completeness-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PUBLIC_CACHE: ${{ github.workspace }}/reproduction_inputs/public_environment_cache
+  SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
+  BOMBUS_DIR: ${{ github.workspace }}/results/enmeval_aicc_reselected/predictions
+  REPORT_DIR: ${{ github.workspace }}/reproducibility
+  HISTORICAL_PUBLICATION_COMMIT: bcceb7c7c909adcb5f7b69721ee5c5921ae90f2e
+
+jobs:
+  audit:
+    name: Audit the complete-case filter
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-completeness-audit'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read the pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      # A separate cache namespace from the modelling workflows, because this
+      # environment deliberately has no INLA in it and must never be restored
+      # into a job that fits a model.
+      - name: Restore the model-free R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-lib-noinla-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt') }}
+          restore-keys: |
+            r-lib-noinla-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore the raw raster cache
+        uses: actions/cache@v4
+        with:
+          path: data/cache/rasters
+          key: raw-sources-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R') }}
+          restore-keys: raw-sources-
+
+      - name: Restore the declared R environment without INLA
+        run: |
+          Rscript scripts/setup_r_environment.R \
+            --report-dir "$REPORT_DIR" \
+            --scopes analysis,reproducibility,acquisition \
+            --skip-inla true
+
+      - name: Fetch the pinned public rasters
+        run: |
+          Rscript scripts/download_rasters.R
+          Rscript scripts/prepare_rasters.R --force --no-download
+
+      - name: Alias the prepared rasters
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, shutil
+          processed = Path("data/processed/rasters")
+          cache = Path(os.environ["PUBLIC_CACHE"]); cache.mkdir(parents=True, exist_ok=True)
+          aliases = {
+              "chelsa_bio05.tif": "bio5_Japan_crop_30s.tif",
+              "chelsa_bio10.tif": "bio10_Japan_crop_30s.tif",
+              "chelsa_bio04.tif": "bio4_Japan_crop_30s.tif",
+              "chelsa_gdd5.tif": "gdd5_Japan_crop_30s.tif",
+              "chelsa_cmimean.tif": "CMI_Japan_crop_30s.tif",
+              "chelsa_bio12.tif": "bio12_Japan_crop_30s.tif",
+              "chelsa_bio14.tif": "bio14_Japan_crop_30s.tif",
+              "chelsa_bio15.tif": "bio15_Japan_crop_30s.tif",
+              "chelsa_rsdsmean.tif": "RSDS_Japan_crop_30s.tif",
+              "soilgrids_bdod_0_5cm_mean.tif": "bdod_0-5cm_mean_30s.tif",
+              "soilgrids_cfvo_0_5cm_mean.tif": "cfvo_0-5cm_mean_30s.tif",
+              "soilgrids_sand_0_5cm_mean.tif": "sand_0-5cm_mean_30s.tif",
+              "soilgrids_silt_0_5cm_mean.tif": "silt_0-5cm_mean_30s.tif",
+              "soilgrids_nitrogen_0_5cm_mean.tif": "nitrogen_0-5cm_mean_30s.tif",
+              "soilgrids_ocd_0_5cm_mean.tif": "ocd_0-5cm_mean_30s.tif",
+              "soilgrids_soc_0_5cm_mean.tif": "soc_0-5cm_mean_30s.tif",
+              "soilgrids_phh2o_0_5cm_mean.tif": "phh2o_0-5cm_mean_30s.tif",
+              "elevation_30s.tif": "elevation_Japan_crop.tif",
+          }
+          missing = [n for n in aliases if not (processed / n).exists()]
+          if missing:
+              raise SystemExit("Raster preparation did not produce: " + ", ".join(sorted(missing)))
+          for source, destination in aliases.items():
+              shutil.copy2(processed / source, cache / destination)
+          print(f"Aliased {len(aliases)} rasters into {cache}")
+          PY
+
+      # Not refitted. These are the prediction surfaces committed at the
+      # recorded publication commit, exactly as the reconstruction uses them.
+      - name: Restore the historical Bombus prediction surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$BOMBUS_DIR"
+          git fetch --no-tags origin "$HISTORICAL_PUBLICATION_COMMIT"
+          for species in ardens beaticola consobrinus diversus honshuensis; do
+            git show "${HISTORICAL_PUBLICATION_COMMIT}:sdm/${species}.tif" > "${BOMBUS_DIR}/${species}.tif"
+            test -s "${BOMBUS_DIR}/${species}.tif"
+          done
+          sha256sum "${BOMBUS_DIR}"/*.tif
+
+      # The MLIT-derived human rasters and the WorldPop layer come from the same
+      # immutable snapshot the reconstruction uses, so this audit sees exactly
+      # the raster set the reconstruction's filter saw. Substituting empty paths
+      # here would change the inputs and make the audit describe a different
+      # filter than the one in question.
+      - name: Restore the canonical analysis-input snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
+
+      - name: Build the environmental input
+        run: |
+          mkdir -p results/environment_v3
+          Rscript scripts/build_environment_input.R \
+            --raw-colour-csv=Data_S1.csv \
+            --cache-root="$PUBLIC_CACHE" \
+            --output-csv=results/environment_v3/ecological_input_v2.csv
+
+      - name: Apply the complete-case filter and record it per observation
+        shell: bash
+        run: |
+          set -o pipefail
+          rasters="${SNAPSHOT_DIR}/analysis_inputs/results/public_rasters/mlit_human_forest_edge_2021"
+          ls -1 "$rasters"
+          Rscript scripts/run_environment_spatial.R \
+            --anomaly-csv=results/environment_v3/ecological_input_v2.csv \
+            --raw-colour-csv=Data_S1.csv \
+            --bombus-dir="$BOMBUS_DIR" \
+            --H-raster="${SNAPSHOT_DIR}/analysis_inputs/rasters/population_count_Japan_crop.tif" \
+            --R-raster="${rasters}/mlit_human_forest_edge_1km.tif" \
+            --N-raster="${PUBLIC_CACHE}/gdd5_Japan_crop_30s.tif" \
+            --A-raster="${rasters}/mlit_major_road_distance_1km.tif" \
+            --output-dir=results/ecological_v9_final_public_HRNA_50km \
+            --run-inla=false \
+            --author-review-confirmed=true 2>&1 | tee /tmp/filter.log
+
+      # The completeness audit showed every exclusion is Bombus_W. This measures
+      # the extraction itself on the same fixed surfaces and coordinates.
+      - name: Audit the Bombus extraction implementation
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          Rscript scripts/audit_bombus_extraction.R \
+            --observations Data_S1.csv \
+            --bombus-dir "$BOMBUS_DIR" \
+            --output-dir results/bombus_extraction_audit 2>&1 | tee /tmp/extraction.log
+
+      - name: Report the exclusions
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          dir=results/ecological_v9_final_public_HRNA_50km
+          {
+            echo "## Analysis-population completeness audit"
+            echo
+            echo "Published analysis: 1923 observations. Reconstruction: 1909."
+            echo
+            if [[ -s "${dir}/analysis_completeness_audit.csv" ]]; then
+              total=$(( $(wc -l < "${dir}/analysis_completeness_audit.csv") - 1 ))
+              echo "- observations entering the filter: ${total}"
+            fi
+            echo
+            echo "### Exclusions by first failing variable"
+            echo '```csv'
+            cat "${dir}/analysis_exclusions_by_first_variable.csv" 2>/dev/null || echo "not produced"
+            echo '```'
+            echo
+            echo "### Exclusions by combination of missing variables"
+            echo '```csv'
+            cat "${dir}/analysis_exclusions_by_combination.csv" 2>/dev/null || echo "not produced"
+            echo '```'
+            echo
+            echo "### Excluded observations"
+            echo '```csv'
+            head -1 "${dir}/analysis_completeness_audit.csv" 2>/dev/null
+            awk -F, 'NR > 1 && $2 == "FALSE"' "${dir}/analysis_completeness_audit.csv" 2>/dev/null | head -60
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: completeness-audit-${{ github.run_id }}
+          path: |
+            results/bombus_extraction_audit
+            results/ecological_v9_final_public_HRNA_50km
+            results/environment_v3
+            reproducibility
+          if-no-files-found: warn
+          retention-days: 90
+
+      # Last on purpose: the report and the upload above are long enough to push
+      # a stage error out of a workflow log tail.
+      - name: Show the filter error
+        if: failure()
+        shell: bash
+        run: |
+          echo "=== run_environment_spatial.R output (last 60 lines) ===" >&2
+          tail -60 /tmp/filter.log >&2 || echo "no captured output" >&2
+
+      - name: Show the extraction diagnosis
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          echo "=== raster geometry and extraction diagnosis ==="
+          cat results/bombus_extraction_audit/raster_geometry.csv 2>/dev/null
+          echo
+          cat results/bombus_extraction_audit/extraction_diagnosis.csv 2>/dev/null \
+            || tail -40 /tmp/extraction.log

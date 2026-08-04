@@ -334,12 +334,73 @@ make_analysis_data <- function(anomaly_data, raw_colour, bombus_dir, raster_path
   # areas of alpine Bombus SDMs. W is nationwide; A is analysed on its own
   # explicitly labelled common-support subset.
   required <- c("response", "longitude", "latitude", "x_km", "y_km", "Bombus_W", env_terms)
-  dat <- dat[stats::complete.cases(dat[required]), , drop = FALSE]
+
+  # ---------------------------------------------------------------------
+  # Observation-level completeness audit.
+  #
+  # This filter is what decides the analysis population, so when two runs
+  # disagree on the row count the answer is here and nowhere else. Recording it
+  # per observation, before the subset, turns "the population changed" into a
+  # named list of variables and observations.
+  #
+  # The audit is a record, not a gate: it changes no value and removes no row.
+  # ---------------------------------------------------------------------
+  identifier <- if ("observation_id" %in% names(dat)) {
+    as.character(dat$observation_id)
+  } else {
+    as.character(dat[[id]])
+  }
+  audit_columns <- unique(c(
+    "response", "longitude", "latitude", "x_km", "y_km",
+    # Bombus_W is NA whenever either widespread species failed to extract, so
+    # both are recorded beside it rather than only the derived axis.
+    "bee_ardens", "bee_diversus", "Bombus_W", "Bombus_A",
+    env_original, env_terms
+  ))
+  audit_columns <- intersect(audit_columns, names(dat))
+  finite_flags <- as.data.frame(lapply(
+    dat[audit_columns],
+    function(column) {
+      if (is.numeric(column)) is.finite(column) else !is.na(column)
+    }
+  ), stringsAsFactors = FALSE)
+  names(finite_flags) <- paste0(audit_columns, "_finite")
+
+  required_present <- intersect(required, names(dat))
+  required_flags <- finite_flags[paste0(required_present, "_finite")]
+  included <- stats::complete.cases(dat[required])
+
+  # "First failing variable" is defined by the declared order of `required`, so
+  # the attribution is reproducible rather than dependent on column order.
+  first_failure <- apply(required_flags, 1L, function(flags) {
+    failed <- which(!flags)
+    if (!length(failed)) NA_character_ else required_present[[failed[[1L]]]]
+  })
+  missing_combination <- apply(required_flags, 1L, function(flags) {
+    failed <- required_present[!flags]
+    if (!length(failed)) "" else paste(failed, collapse = "+")
+  })
+
+  completeness_audit <- cbind(
+    data.frame(
+      observation_id = identifier,
+      included = included,
+      first_failing_variable = first_failure,
+      missing_combination = missing_combination,
+      n_missing_required = rowSums(!required_flags),
+      stringsAsFactors = FALSE
+    ),
+    finite_flags
+  )
+
+  dat <- dat[included, , drop = FALSE]
   rownames(dat) <- NULL
 
   list(
     data = dat,
     qc_audit = qc$audit,
+    completeness_audit = completeness_audit,
+    required_columns = required,
     raster_registry = raster_registry,
     environment_terms = env_terms,
     environment_original = env_original
@@ -781,6 +842,60 @@ run_environment_spatial_analysis <- function(anomaly_csv, raw_colour_csv, bombus
   }
 
   write_csv_safe(prepared$qc_audit, file.path(output_dir, "colour_qc_audit.csv"))
+
+  # The observation-level record of the complete-case filter, plus the two
+  # summaries that answer "why is the analysis population this size": which
+  # variable failed first, and which variables failed together.
+  write_csv_safe(
+    prepared$completeness_audit,
+    file.path(output_dir, "analysis_completeness_audit.csv")
+  )
+  excluded <- prepared$completeness_audit[!prepared$completeness_audit$included, , drop = FALSE]
+  by_first <- if (nrow(excluded)) {
+    counts <- table(excluded$first_failing_variable)
+    data.frame(
+      first_failing_variable = names(counts),
+      n_excluded = as.integer(counts),
+      stringsAsFactors = FALSE
+    )[order(-as.integer(counts)), , drop = FALSE]
+  } else {
+    data.frame(
+      first_failing_variable = character(), n_excluded = integer(),
+      stringsAsFactors = FALSE
+    )
+  }
+  by_combination <- if (nrow(excluded)) {
+    counts <- table(excluded$missing_combination)
+    data.frame(
+      missing_combination = names(counts),
+      n_excluded = as.integer(counts),
+      stringsAsFactors = FALSE
+    )[order(-as.integer(counts)), , drop = FALSE]
+  } else {
+    data.frame(
+      missing_combination = character(), n_excluded = integer(),
+      stringsAsFactors = FALSE
+    )
+  }
+  write_csv_safe(
+    by_first, file.path(output_dir, "analysis_exclusions_by_first_variable.csv")
+  )
+  write_csv_safe(
+    by_combination,
+    file.path(output_dir, "analysis_exclusions_by_combination.csv")
+  )
+  message(
+    "[completeness] ", sum(prepared$completeness_audit$included), " of ",
+    nrow(prepared$completeness_audit), " observations retained; ",
+    nrow(excluded), " excluded by complete.cases over: ",
+    paste(prepared$required_columns, collapse = ", ")
+  )
+  if (nrow(by_first)) {
+    message("[completeness] exclusions by first failing variable:")
+    print(by_first, row.names = FALSE)
+    message("[completeness] exclusions by missing-variable combination:")
+    print(by_combination, row.names = FALSE)
+  }
   write_csv_safe(data.frame(
     field = c("review_scope", "review_status", "raw_csv_pending_interpretation"),
     value = c(

@@ -6,8 +6,11 @@ name: PR checks
 # instead of failing hours into the canonical numerical workflow.
 
 on:
+  # A pull request stacked on another pull request's branch still needs these
+  # checks. Without the second base branch here, a stacked PR reports no CI at
+  # all, which reads as "nothing to check" rather than "nothing was checked".
   pull_request:
-    branches: ["main"]
+    branches: ["main", "analysis/local-colour-state-asymmetry"]
   push:
     branches: ["main"]
   workflow_dispatch:
@@ -298,6 +301,12 @@ jobs:
         with:
           path: ${{ env.R_LIBS_USER }}
           key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          # A cold job otherwise has to refetch INLA from a mutable upstream that
+          # is periodically unavailable. A partial-key hit is safe here because
+          # scripts/setup_r_environment.R reuses INLA only on an exact pinned
+          # version match and re-verifies the version after installing.
+          restore-keys: |
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
 
       - name: Restore the declared R environment
         run: Rscript scripts/setup_r_environment.R --report-dir reproducibility --scopes analysis,reproducibility,testing,figures,reporting

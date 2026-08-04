@@ -743,7 +743,6 @@ v16_null_comparison <- function(observed, simulated, alternative = "greater") {
 
 v16_candidate_null <- function(presence_result, cells,
                                intensity_result = NULL,
-                               phenology_result = NULL,
                                tiers = c(0.05, 0.10, 0.20),
                                maximum_neighbour_km = 50,
                                isolation_km = 25) {
@@ -774,13 +773,6 @@ v16_candidate_null <- function(presence_result, cells,
   population <- as.numeric(d$log_population_sum_25km)
   effort <- log1p(as.numeric(d$n_observations))
   independent_sites <- log1p(as.numeric(d$n_independent_sites))
-  observed_early <- rep(NA_real_, nrow(d))
-  simulated_early <- matrix(NA_real_, nrow(d), ncol(counts))
-  if (!is.null(phenology_result)) {
-    phenology_index <- match(d$exact_site_id, phenology_result$cell_id)
-    observed_early <- phenology_result$latent_mean[phenology_index] - d$median_DOY
-    simulated_early <- matrix(observed_early, nrow(d), ncol(counts))
-  }
   observed_intensity <- rep(NA_real_, nrow(d))
   simulated_intensity <- matrix(NA_real_, nrow(d), ncol(counts))
   if (!is.null(intensity_result)) {
@@ -793,10 +785,6 @@ v16_candidate_null <- function(presence_result, cells,
     mean_population_context = list(
       observed = population,
       simulated = matrix(population, nrow(d), ncol(counts)),
-      alternative = "greater"
-    ),
-    mean_early_phenology_surprise = list(
-      observed = observed_early, simulated = simulated_early,
       alternative = "greater"
     ),
     mean_intensity_surprise = list(
@@ -963,7 +951,6 @@ v16_candidate_null <- function(presence_result, cells,
     summary = out,
     scores = scores,
     observed_local_isolation = observed_isolation,
-    observed_early_surprise = observed_early,
     observed_intensity_surprise = observed_intensity
   )
 }

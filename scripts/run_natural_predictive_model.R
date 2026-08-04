@@ -4,16 +4,15 @@ source("R/reproducibility.R")
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
 as_bool <- hb_as_bool
 
-# The stage fits five components. `--components` selects a named subset so that
+# The stage fits four components. `--components` selects a named subset so that
 # a workflow which only needs the natural presence baseline does not have to
-# refit the intensity, phenology, and Bombus-fingerprint components as well.
+# refit the intensity and Bombus-fingerprint components as well.
 # The default is every component, so the locked stage-02 behaviour is unchanged;
 # a subset is always recorded in the component-scope metadata rather than being
 # applied silently.
 all_components <- c(
   "national_environment_spde_presence",
   "national_environment_spde_intensity",
-  "national_environment_year_spde_phenology",
   "common_support_environment_spde_presence",
   "common_support_environment_spde_bombus_presence"
 )
@@ -90,11 +89,9 @@ run_or_load <- function(model, expression) {
   if (!force_rerun && file.exists(path)) {
     message("[v16] loading checkpoint: ", path)
     result <- readRDS(path)
-    compatible_previous_component <-
-      model != "national_environment_year_spde_phenology" &&
-      identical(
-        result$analysis_spec_version, "v16.4_apredictor_projection"
-      )
+    compatible_previous_component <- identical(
+      result$analysis_spec_version, "v16.4_apredictor_projection"
+    )
     if ((identical(
       result$analysis_spec_version, v16_analysis_spec_version
     ) || compatible_previous_component) &&
@@ -139,20 +136,6 @@ national_intensity <- run_or_load(
   )
 )
 
-national_phenology <- run_or_load(
-  "national_environment_year_spde_phenology",
-  v16_crossfit_spde(
-    cells, response = "median_DOY", family = "gaussian",
-    environment_terms = c(
-      environment_terms, "median_year_centered",
-      "median_year_centered_squared"
-    ),
-    training_eligible = is.finite(cells$median_DOY),
-    model = "national_environment_year_spde_phenology",
-    n_draws = n_draws, seed = seed + 200000L
-  )
-)
-
 common <- cells[
   cells$bombus_fingerprint_common_support &
     stats::complete.cases(cells[c(environment_terms, fingerprint_terms)]),
@@ -183,7 +166,6 @@ common_fingerprint <- run_or_load(
 all_results <- list(
   national_environment_spde_presence = national_presence,
   national_environment_spde_intensity = national_intensity,
-  national_environment_year_spde_phenology = national_phenology,
   common_support_environment_spde_presence = common_reference,
   common_support_environment_spde_bombus_presence = common_fingerprint
 )
@@ -228,7 +210,7 @@ rp_write_csv_atomic(
 
 if (partial_scope) {
   # The cross-model performance, candidate-null, and rank-sensitivity tables
-  # below are defined across all five components. They are not written for a
+  # below are defined across all four components. They are not written for a
   # partial scope, and the scope is recorded above so no downstream reader can
   # mistake a subset run for the complete stage.
   message(
@@ -264,9 +246,6 @@ performance <- do.call(rbind, list(
     national_intensity, cells, "conditional_intensity_median", "gaussian"
   ),
   v16_model_performance(
-    national_phenology, cells, "median_DOY", "gaussian"
-  ),
-  v16_model_performance(
     common_reference, common, "n_pigmented", "binomial", "n_observations"
   ),
   v16_model_performance(
@@ -296,9 +275,6 @@ fold_performance <- do.call(rbind, list(
   ),
   v16_fold_performance(
     national_intensity, cells, "conditional_intensity_median", "gaussian"
-  ),
-  v16_fold_performance(
-    national_phenology, cells, "median_DOY", "gaussian"
   ),
   v16_fold_performance(
     common_reference, common, "n_pigmented", "binomial", "n_observations"
@@ -338,13 +314,13 @@ utils::write.csv(
 )
 
 national_null <- v16_candidate_null(
-  national_presence, cells, national_intensity, national_phenology
+  national_presence, cells, national_intensity
 )
 common_reference_null <- v16_candidate_null(
-  common_reference, common, national_intensity, national_phenology
+  common_reference, common, national_intensity
 )
 common_fingerprint_null <- v16_candidate_null(
-  common_fingerprint, common, national_intensity, national_phenology
+  common_fingerprint, common, national_intensity
 )
 null_summary <- do.call(rbind, list(
   national_null$summary,
@@ -371,7 +347,6 @@ annotate_scores <- function(null_result, cell_data) {
   ), drop = FALSE]
   score <- cbind(score, additions)
   score$local_colour_isolation <- null_result$observed_local_isolation
-  score$early_phenology_surprise <- null_result$observed_early_surprise
   score$conditional_intensity_surprise <- null_result$observed_intensity_surprise
   score
 }
@@ -445,7 +420,7 @@ metadata <- data.frame(
     "analysis_version", "analysis_spec_version", "generated_at",
     "n_predictive_draws", "random_seed",
     "candidate_unit", "presence_likelihood", "intensity_likelihood",
-    "phenology_likelihood", "spatial_validation", "natural_primary_model",
+    "spatial_validation", "natural_primary_model",
     "bombus_role", "bombus_abundance_claim", "candidate_selection_inputs",
     "AUC_definition",
     "heldout_candidate_facets", "white_intensity_modelled",
@@ -458,7 +433,6 @@ metadata <- data.frame(
     "1-km cell with observed trial count fixed",
     "binomial n_pigmented out of n_observations",
     "Gaussian conditional on at least one observed pigmented flower",
-    "Gaussian DOY with environment, observation year, and SPDE",
     "five response-blind 100-km spatial folds; SPDE constrained to zero mean at training locations within each fold",
     "nationwide environment plus SPDE",
     "environment-orthogonal five-species ENMeval fingerprint on common support",
@@ -485,7 +459,7 @@ writeLines(
     "",
     paste0("Generated with ", n_draws, " predictive draws per spatial-fold model."),
     "",
-    "The primary candidate score is a one-sided cross-fitted predictive tail probability for pigmented counts in a 1-km cell. Population, phenology, conditional intensity, and local isolation are not used to select candidates. Their observed cross-fitted facet maps are held fixed while the same candidate extraction is applied to each predictive replicate map; separate response models are not treated as a joint posterior merely by sharing a draw index.",
+    "The primary candidate score is a one-sided cross-fitted predictive tail probability for pigmented counts in a 1-km cell. Population, conditional intensity, and local isolation are not used to select candidates. Their observed cross-fitted facet maps are held fixed while the same candidate extraction is applied to each predictive replicate map; separate response models are not treated as a joint posterior merely by sharing a draw index.",
     "",
     "The national model contains multiscale environment and an SPDE field constrained to zero mean at fold-specific training locations. Observation-level posterior predictions are drawn from INLA's projected APredictor. The five-species ENMeval fingerprint is evaluated only on its common support after fold-trained orthogonalization against environment. Its predictions are not abundance, visitation, or pollination effectiveness.",
     "",

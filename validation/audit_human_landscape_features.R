@@ -30,10 +30,17 @@ add_check <- function(check, passed, detail) {
   )
 }
 
+# FAIL-based, not PASS-based. Under --baseline reconstruction the v19
+# validation table legitimately carries not_applicable rows; those are not
+# failures, and they are not passes either, so they are reported separately.
 add_check(
   "independent_validation",
-  all(validation$status == "PASS"),
-  paste("checks=", nrow(validation))
+  !any(validation$status == "FAIL"),
+  paste(
+    "checks=", nrow(validation),
+    "passed=", sum(validation$status == "PASS"),
+    "not applicable=", sum(validation$status == "not_applicable")
+  )
 )
 add_check(
   "complete_public_landscape_join",
@@ -158,7 +165,7 @@ utils::write.csv(
 lines <- c(
   paste0(
     "# v19 human-landscape extreme audit: ",
-    if (all(audit$status == "PASS")) "PASS" else "FAIL"
+    if (any(audit$status == "FAIL")) "FAIL" else "PASS"
   ),
   "",
   vapply(seq_len(nrow(audit)), function(index) {

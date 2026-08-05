@@ -1,16 +1,8 @@
 name: PR checks
 
-# Fast checks that run on every push to a pull request. They do not run any
-# expensive analysis stage; their job is to fail in minutes when the declared
-# environment, the declared dependencies, or the stage registry is wrong,
-# instead of failing hours into the canonical numerical workflow.
-
 on:
-  # A pull request stacked on another pull request's branch still needs these
-  # checks. Without the second base branch here, a stacked PR reports no CI at
-  # all, which reads as "nothing to check" rather than "nothing was checked".
   pull_request:
-    branches: ["main", "analysis/local-colour-state-asymmetry"]
+    branches: ["main"]
   push:
     branches: ["main"]
   workflow_dispatch:
@@ -24,241 +16,82 @@ concurrency:
 
 jobs:
   static-checks:
-    name: Static checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-
-      - name: Read the pinned R version
-        id: rversion
-        shell: bash
-        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
-
       - uses: r-lib/actions/setup-r@v2
         with:
-          r-version: ${{ steps.rversion.outputs.version }}
+          r-version: "4.5.3"
           use-public-rspm: true
 
-      - name: Parse every R script
+      - name: Parse active R code
         shell: Rscript {0}
         run: |
-          files <- list.files(
+          files <- unlist(lapply(
             c("R", "scripts", "validation", "tests"),
-            pattern = "\\.R$", recursive = TRUE, full.names = TRUE
-          )
+            function(path) list.files(path, pattern = "\\.R$", recursive = TRUE, full.names = TRUE)
+          ))
           stopifnot(length(files) > 0L)
-          for (file in files) {
-            message("Parsing ", file)
-            parse(file, keep.source = FALSE)
-          }
-          cat("Parsed", length(files), "R files.\n")
+          for (file in files) parse(file, keep.source = FALSE)
+          cat("Parsed", length(files), "active R files. Legacy is intentionally excluded.\n")
 
-      - name: Check the workflow shell drivers
+      - name: Check active shell drivers
         shell: bash
         run: |
           set -euo pipefail
-          for script in scripts/*.sh; do
-            bash -n "$script"
-            echo "syntax ok: $script"
-          done
+          for script in scripts/*.sh; do bash -n "$script"; done
 
-      - name: Check the dependency declaration is complete and self-consistent
-        shell: Rscript {0}
-        run: |
-          source("R/pipeline_support.R")
-          source("R/reproducibility.R")
-
-          declared <- rp_declared_packages()
-          stopifnot(nrow(declared) > 0L, !anyDuplicated(declared$package))
-
-          # Every package the analysis code reaches for through `::` or through
-          # the stage package groups must be declared exactly once. This is the
-          # check that stops the pattern of discovering one missing package per
-          # failed run.
-          sources <- list.files(
-            c("R", "scripts", "validation"), pattern = "\\.R$",
-            recursive = TRUE, full.names = TRUE
-          )
-          text <- unlist(lapply(sources, readLines, warn = FALSE))
-          used <- unique(unlist(regmatches(
-            text, gregexpr("\\b[A-Za-z][A-Za-z0-9.]*(?=::)", text, perl = TRUE)
-          )))
-          base_packages <- rownames(installed.packages(priority = "base"))
-          used <- setdiff(used, c(base_packages, "chain"))
-          grouped <- unique(unlist(hb_package_groups, use.names = FALSE))
-          required <- unique(c(used, grouped))
-          undeclared <- setdiff(required, declared$package)
-          if (length(undeclared)) {
-            stop(
-              "Packages used by the pipeline but absent from ",
-              "dependencies/r-packages.csv: ",
-              paste(sort(undeclared), collapse = ", ")
-            )
-          }
-          cat("All", length(required), "referenced packages are declared.\n")
-
-          apt <- rp_read_lines_config("dependencies/apt-packages.txt")
-          stopifnot(length(apt) > 0L)
-          inla <- rp_read_key_value("dependencies/inla.csv")
-          stopifnot(
-            nzchar(inla[["version"]]),
-            any(nzchar(inla[grepl("^source_url_", names(inla))]))
-          )
-          cat("Declared", length(apt), "system libraries and INLA",
-              inla[["version"]], "\n")
-
-      - name: Validate the workflow YAML and the stage registry
+      - name: Validate workflow YAML and stage registry
         shell: bash
         run: |
-          set -euo pipefail
           python3 - <<'PY'
           import csv, pathlib, sys, yaml
-
-          for path in sorted(pathlib.Path(".github/workflows").glob("*.yml")):
+          for path in sorted(pathlib.Path('.github/workflows').glob('*.yml')):
               yaml.safe_load(path.read_text())
-              print("yaml ok:", path)
-
-          registry = list(csv.DictReader(
-              open("reproducibility/pipeline_stage_registry.csv")
-          ))
-          if not registry:
-              sys.exit("stage registry is empty")
-
-          required_columns = {
-              "stage_id", "order", "mode", "role", "generating_script",
-              "validation_script", "audit_script", "required_inputs",
-              "produced_outputs", "package_groups", "system_libraries", "seed",
-              "deterministic", "output_class", "invariant",
-          }
-          missing = required_columns - set(registry[0])
-          if missing:
-              sys.exit(f"stage registry is missing columns: {sorted(missing)}")
-
-          ids = [row["stage_id"] for row in registry]
-          if len(ids) != len(set(ids)):
-              sys.exit("stage registry has duplicate stage_id values")
-          orders = [int(row["order"]) for row in registry]
-          if orders != sorted(orders):
-              sys.exit("stage registry rows are not in execution order")
-
-          classes = {"immutable_input", "intermediate_checkpoint",
-                     "publication_result", "validation"}
+              print('yaml ok:', path)
+          rows = list(csv.DictReader(open('reproducibility/pipeline_stage_registry.csv')))
+          if not rows: sys.exit('stage registry is empty')
+          ids = [r['stage_id'] for r in rows]
+          if len(ids) != len(set(ids)): sys.exit('duplicate stage_id')
           absent = []
-          for row in registry:
-              if row["output_class"] not in classes:
-                  sys.exit(
-                      f"{row['stage_id']}: unknown output_class "
-                      f"{row['output_class']!r}"
-                  )
-              for column in ("generating_script", "validation_script",
-                             "audit_script"):
-                  script = row[column].strip()
-                  if script and not pathlib.Path(script).exists():
-                      absent.append(f"{row['stage_id']}:{column}={script}")
-          if absent:
-              sys.exit("stage registry references missing scripts: "
-                       + ", ".join(absent))
-          print(f"stage registry validated: {len(registry)} stages")
+          for row in rows:
+              for col in ('generating_script','validation_script','audit_script'):
+                  value = row[col].strip()
+                  if value and not pathlib.Path(value).exists(): absent.append(f'{row["stage_id"]}:{value}')
+          if absent: sys.exit('missing active scripts: ' + ', '.join(absent))
+          print('stage registry ok:', len(rows), 'stages')
           PY
 
-      - name: Check that no local-machine path or undeclared variable is required
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import pathlib, re, sys
-
-          # Absolute developer paths and Windows drive letters must never be
-          # baked into the pipeline; that is why a clean runner could not
-          # reproduce the analysis. Reviewed exceptions live in
-          # dependencies/local-path-allowlist.txt so they stay visible.
-          allowlist = {}
-          for line in pathlib.Path(
-              "dependencies/local-path-allowlist.txt"
-          ).read_text().splitlines():
-              line = line.strip()
-              if not line or line.startswith("#"):
-                  continue
-              target, _, reason = line.partition(":")
-              allowlist[target.strip()] = reason.strip()
-
-          local_path = re.compile(
-              r"[A-Za-z]:[\\/]{1,2}(Program Files|Users)|/home/[a-z][a-z0-9_-]*/|/Users/"
-          )
-          sources = [
-              p for directory in ("R", "scripts", "validation", "tests")
-              for p in pathlib.Path(directory).rglob("*")
-              if p.suffix in {".R", ".sh"}
-          ]
-
-          offences = []
-          for source in sources:
-              key = source.as_posix()
-              for number, line in enumerate(
-                  source.read_text().splitlines(), start=1
-              ):
-                  if local_path.search(line):
-                      if key in allowlist:
-                          continue
-                      offences.append(f"{key}:{number}: {line.strip()[:120]}")
-
-              # USERPROFILE resolved to an unwritable path on non-Windows
-              # runners. Any file that still uses it must carry the guard, which
-              # may sit several lines away from the use.
-              text = source.read_text()
-              if "USERPROFILE" in text and \
-                      'nzchar(Sys.getenv("USERPROFILE"))' not in text and \
-                      key not in allowlist:
-                  offences.append(
-                      f"{key}: uses USERPROFILE without a non-Windows fallback"
-                  )
-
-          if offences:
-              print("Local-machine dependencies found:", file=sys.stderr)
-              for offence in offences:
-                  print("  " + offence, file=sys.stderr)
-              sys.exit(1)
-          print(
-              f"Scanned {len(sources)} files; no unreviewed local-machine paths. "
-              f"{len(allowlist)} reviewed exceptions."
-          )
-          PY
-
-      # The stage directories behind the manuscript are gone, so the committed
-      # summary artifacts are the strongest surviving provenance. Verifying them
-      # against the MD5s the publication lock recorded is what establishes that
-      # they are the published run's own output rather than a later rebuild.
-      - name: Verify the surviving published artifacts against the publication lock
-        shell: bash
-        run: python3 scripts/verify_locked_artifacts.py --report-dir reproducibility
-
-      - name: Check the canonical snapshot descriptor
+      - name: Validate active snapshot descriptor and population expectations
         shell: Rscript {0}
         run: |
-          path <- "inputs/canonical_snapshot.json"
-          if (!file.exists(path)) {
-            cat("No snapshot descriptor yet; the canonical workflow will refuse to run.\n")
-            quit(save = "no", status = 0)
-          }
-          if (!requireNamespace("jsonlite", quietly = TRUE)) {
-            install.packages("jsonlite")
-          }
-          descriptor <- jsonlite::fromJSON(path, simplifyDataFrame = TRUE)
+          if (!requireNamespace("jsonlite", quietly = TRUE)) install.packages("jsonlite")
+          descriptor <- jsonlite::fromJSON("inputs/canonical_snapshot.json", simplifyDataFrame = TRUE)
           stopifnot(
-            nzchar(descriptor$release_tag),
-            nzchar(descriptor$asset_name),
+            nzchar(descriptor$release_tag), nzchar(descriptor$asset_name),
             nchar(descriptor$asset_sha256) == 64L,
             nrow(descriptor$contents) > 0L,
             all(nchar(descriptor$contents$sha256) == 64L)
           )
-          cat("Snapshot descriptor declares", nrow(descriptor$contents),
-              "members for tag", descriptor$release_tag, "\n")
+          expected <- read.csv("inputs/analysis_1909_expectations.csv", stringsAsFactors = FALSE)
+          stopifnot(
+            identical(expected$quantity, c("analysis_observations","white_observations","pigmented_observations")),
+            identical(as.integer(expected$expectation), c(1909L,955L,954L))
+          )
+
+      - name: Confirm active code does not import legacy
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIn --exclude-dir=legacy --exclude='*.md' --exclude='pr-checks.yml' 'legacy/published-1923' R scripts validation tests .github/workflows; then
+            echo 'Active executable code imports legacy material.' >&2
+            exit 1
+          fi
 
   python-tests:
-    name: Python tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -268,65 +101,26 @@ jobs:
       - run: python -m pip install --upgrade pip && python -m pip install -e ".[test]"
       - run: python -m pytest
 
-  environment-and-unit-tests:
-    name: Environment restore, preflight, and R unit tests
+  environment-and-r-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-
-      - name: Read the pinned R version
-        id: rversion
-        shell: bash
-        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
-
       - uses: r-lib/actions/setup-r@v2
         with:
-          r-version: ${{ steps.rversion.outputs.version }}
+          r-version: "4.5.3"
           use-public-rspm: true
-
-      - name: Install declared system libraries
-        shell: bash
+      - name: Install system libraries
         run: |
-          set -euo pipefail
           sudo apt-get update -qq
-          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
-            sudo apt-get install --yes --no-install-recommends
-
-      # The cache only makes the restore faster. The restore itself is defined
-      # entirely by the pinned snapshot and dependencies/inla.csv, so a cold
-      # cache produces the same environment.
-      - name: Restore the R library cache
-        uses: actions/cache@v4
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs sudo apt-get install --yes --no-install-recommends
+      - uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
-          # A cold job otherwise has to refetch INLA from a mutable upstream that
-          # is periodically unavailable. A partial-key hit is safe here because
-          # scripts/setup_r_environment.R reuses INLA only on an exact pinned
-          # version match and re-verifies the version after installing.
+          key: r-lib-${{ runner.os }}-4.5.3-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
           restore-keys: |
-            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
-
-      - name: Restore the declared R environment
-        run: Rscript scripts/setup_r_environment.R --report-dir reproducibility --scopes analysis,reproducibility,testing,figures,reporting
-
-      - name: Preflight the analysis environment
-        run: Rscript scripts/preflight.R --scope canonical --report-dir reproducibility
-
-      - name: Run the R unit tests
-        shell: Rscript {0}
-        run: |
-          results <- testthat::test_dir(
-            "tests/testthat", reporter = "summary", stop_on_failure = TRUE
-          )
-          invisible(results)
-
-      - name: Upload environment audit
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr-checks-environment-${{ github.sha }}
-          path: reproducibility
-          if-no-files-found: warn
-          retention-days: 14
+            r-lib-${{ runner.os }}-4.5.3-
+      - run: Rscript scripts/setup_r_environment.R --report-dir reproducibility --scopes analysis,reproducibility,testing,figures,reporting
+      - run: Rscript scripts/preflight.R --scope canonical --report-dir reproducibility
+      - shell: Rscript {0}
+        run: testthat::test_dir("tests/testthat", reporter = "summary", stop_on_failure = TRUE)

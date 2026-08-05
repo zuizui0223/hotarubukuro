@@ -85,7 +85,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RIn --exclude-dir=legacy --exclude='*.md' --exclude='pr-checks.yml' 'legacy/published-1923' R scripts validation tests .github/workflows; then
+          # Mentions in explanatory error messages are allowed. Fail only when
+          # active executable code attempts to read, source, list, or execute a
+          # path below the archived 1,923 tree.
+          if grep -RInE \
+            --exclude-dir=legacy \
+            --exclude='*.md' \
+            --exclude='pr-checks.yml' \
+            '(source\(|read\.csv\(|readLines\(|hb_read_csv\(|file\.exists\(|list\.files\(|system2\(|Rscript |bash ).*legacy/published-1923' \
+            R scripts validation tests .github/workflows; then
             echo 'Active executable code imports legacy material.' >&2
             exit 1
           fi

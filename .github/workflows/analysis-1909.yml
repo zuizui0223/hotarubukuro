@@ -24,7 +24,7 @@ jobs:
     name: Reproduce the 1,909 analysis
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.label.name == 'run-analysis-1909'
+      github.event.label.name == 'run-canonical-analysis'
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     env:

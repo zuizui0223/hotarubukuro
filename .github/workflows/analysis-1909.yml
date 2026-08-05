@@ -1,0 +1,106 @@
+name: 1909 analysis pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_figures:
+        description: Build manuscript figures from the fresh run
+        type: boolean
+        required: false
+        default: true
+  pull_request:
+    types: [labeled]
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: analysis-1909-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analysis:
+    name: Reproduce the 1,909 analysis
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-canonical-analysis'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      REPORT_DIR: ${{ github.workspace }}/reproducibility
+      STATUS_DIR: ${{ github.workspace }}/reproduction_status
+      SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
+      BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
+      RUN_TESTS: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read the pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore the R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore the declared R environment
+        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing,figures,reporting
+
+      - name: Run the complete 1,909 pipeline
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/run_analysis_1909.sh
+
+      - name: Publish the summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -s reproducibility/reproduction_summary.md ]]; then
+            cat reproducibility/reproduction_summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s reproducibility/analysis_population_check.csv ]]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat reproducibility/analysis_population_check.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the complete run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-1909-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results
+            reproducibility
+            reproduction_status
+            manuscript/figures
+          if-no-files-found: warn
+          retention-days: 90

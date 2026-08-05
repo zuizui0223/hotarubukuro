@@ -2,37 +2,34 @@ args <- commandArgs(trailingOnly = TRUE)
 source("R/pipeline_support.R")
 hb_load_modules("final_registry")
 
-mode <- hb_arg_value(args, "--mode", "extensions")
+mode <- hb_arg_value(args, "--mode", "full")
 if (!mode %in% c("verify", "extensions", "full")) {
   stop("--mode must be verify, extensions, or full.", call. = FALSE)
 }
 output_dir <- hb_arg_value(
-  args,
-  "--output", "results/final_analysis_pipeline"
+  args, "--output", "results/final_analysis_pipeline"
 )
 run_tests <- hb_as_bool(hb_arg_value(args, "--tests", "true"))
 
-# Which analysis the frozen upstream audits are auditing against. `published`
-# is the locked behaviour and the default. `reconstruction` keeps every
-# dataset-independent check and reports the handful of checks that assert the
-# published run's own row counts and warning pattern as not applicable; see
-# validation/audit_phenotype.R.
-baseline <- hb_arg_value(args, "--baseline", "published")
-if (!baseline %in% c("published", "reconstruction")) {
-  stop("--baseline must be published or reconstruction.", call. = FALSE)
+# The active repository has one scientific baseline. `reconstruction` remains
+# an accepted internal spelling for validators; both values mean the active
+# 1,909-observation analysis.
+baseline_requested <- hb_arg_value(args, "--baseline", "analysis_1909")
+if (!baseline_requested %in% c("analysis_1909", "reconstruction")) {
+  stop(
+    "The active pipeline supports only --baseline=analysis_1909. ",
+    "The 1,923 analysis and superseded implementations are under legacy/.",
+    call. = FALSE
+  )
 }
+baseline <- "reconstruction"
 
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-
-# Stamp what this run was, before it runs, so every reader of these outputs —
-# the comparison, the reproducibility report, a person opening the artifact —
-# can tell what produced them without inferring it. Every stage must pass in
-# sequence; there is no mode that tolerates a failing stage.
 writeLines(
   c(
-    "run_mode=canonical",
+    "run_mode=analysis_1909",
     paste0("mode=", mode),
-    paste0("baseline=", baseline),
+    "baseline=analysis_1909",
     paste0("started_utc=", format(Sys.time(), tz = "UTC", usetz = TRUE))
   ),
   file.path(output_dir, "run_mode.txt")
@@ -57,10 +54,9 @@ run_stage <- function(stage, script, arguments = character(),
   stdout_path <- file.path(log_dir, paste0(stage, "_stdout.log"))
   stderr_path <- file.path(log_dir, paste0(stage, "_stderr.log"))
   started <- Sys.time()
-  message("[final] ", stage)
+  message("[1909] ", stage)
   status <- system2(
-    rscript, c(script, arguments),
-    stdout = stdout_path, stderr = stderr_path
+    rscript, c(script, arguments), stdout = stdout_path, stderr = stderr_path
   )
   ended <- Sys.time()
   stage_rows[[length(stage_rows) + 1L]] <<- data.frame(
@@ -68,18 +64,13 @@ run_stage <- function(stage, script, arguments = character(),
     role = role,
     command = paste(c(script, arguments), collapse = " "),
     status = if (identical(status, 0L)) "PASS" else "FAIL",
-    elapsed_seconds = as.numeric(
-      difftime(ended, started, units = "secs")
-    ),
+    elapsed_seconds = as.numeric(difftime(ended, started, units = "secs")),
     stdout_log = stdout_path,
     stderr_log = stderr_path,
     stringsAsFactors = FALSE
   )
   write_manifest()
   if (!identical(status, 0L)) {
-    # Surface the stage's own output here. The logs are uploaded as artifacts,
-    # but a failure has to be diagnosable from the workflow log alone, which is
-    # the only channel available when the artifact cannot be downloaded.
     for (entry in list(
       list(label = "stdout", path = stdout_path, lines = 60L),
       list(label = "stderr", path = stderr_path, lines = 200L)
@@ -93,25 +84,20 @@ run_stage <- function(stage, script, arguments = character(),
       )
       message(paste(utils::tail(text, entry$lines), collapse = "\n"))
     }
-    message("----- end of ", stage, " logs -----")
-    stop(
-      "Final pipeline stage failed: ", stage,
-      ". See ", stderr_path, call. = FALSE
-    )
+    stop("Active pipeline stage failed: ", stage, call. = FALSE)
   }
   invisible(TRUE)
 }
 
+# Frozen upstream tables are restored from the checksum-locked snapshot. The
+# old generators are archived; only their resulting inputs are audited here.
 run_stage(
   "01_audit_phenotype", "validation/audit_phenotype.R",
-  c(paste0("--baseline=", baseline)),
-  role = "frozen_upstream_audit"
+  c(paste0("--baseline=", baseline)), role = "frozen_upstream_audit"
 )
 run_stage(
-  "02_audit_multiscale_context",
-  "validation/audit_multiscale_hotspots.R",
-  c(paste0("--baseline=", baseline)),
-  role = "frozen_upstream_audit"
+  "02_audit_multiscale_context", "validation/audit_multiscale_hotspots.R",
+  c(paste0("--baseline=", baseline)), role = "frozen_upstream_audit"
 )
 
 if (mode == "full") {
@@ -188,51 +174,23 @@ run_stage(
   role = "candidate_definition_validation"
 )
 
-# --- Supplementary: the same local event without assuming a direction --------
-# The main analysis above is directional: a pigmented cell among white
-# neighbours. This replays the same locked neighbourhood graph and the same
-# natural null counting a white cell among pigmented neighbours as the same
-# kind of departure, so the direction the main analysis assumes can be checked
-# rather than taken for granted.
-#
-# Supplementary throughout. It selects no candidates and ranks none: the
-# human-context stages below continue to read the directional candidate set,
-# and no main claim depends on it.
+# Supplementary, model-free candidate DOY description. It reaches no candidate
+# selection, ranking, main test, or causal conclusion.
 if (mode %in% c("extensions", "full")) {
   run_stage(
-    "S1_run_direction_check",
-    "scripts/run_local_state_asymmetry.R",
-    role = "supplementary_direction_check"
-  )
-}
-run_stage(
-  "S1_validate_direction_check",
-  "validation/validate_local_state_asymmetry.R",
-  role = "supplementary_direction_check_validation"
-)
-
-# --- Supplementary: local flowering-date difference --------------------------
-# Runs after the candidate set is fixed and describes it; contributes nothing
-# to it. Arithmetic on the frozen cell table and the locked neighbourhood
-# graph -- no model, and the withdrawn national phenology component stays
-# withdrawn. Flowering date reaches no selection, no ranking and no main claim.
-if (mode %in% c("extensions", "full")) {
-  run_stage(
-    "S2_run_candidate_doy_check",
-    "scripts/run_candidate_doy_check.R",
+    "S1_run_candidate_doy_check", "scripts/run_candidate_doy_check.R",
     role = "supplementary_flowering_date_check"
   )
 }
 run_stage(
-  "S2_validate_candidate_doy_check",
+  "S1_validate_candidate_doy_check",
   "validation/validate_candidate_doy_check.R",
   role = "supplementary_flowering_date_check_validation"
 )
 
 if (mode %in% c("extensions", "full")) {
   run_stage(
-    "05_run_local_human_context",
-    "scripts/run_local_human_context.R",
+    "05_run_local_human_context", "scripts/run_local_human_context.R",
     role = "exploratory_human_context"
   )
 }
@@ -251,8 +209,7 @@ run_stage(
 
 if (mode %in% c("extensions", "full")) {
   run_stage(
-    "05_run_did_sensitivity",
-    "scripts/run_did_sensitivity.R",
+    "05_run_did_sensitivity", "scripts/run_did_sensitivity.R",
     role = "exploratory_human_context_sensitivity"
   )
 }
@@ -291,8 +248,7 @@ run_stage(
 )
 
 write_manifest()
-
 cat(
-  "Final analysis pipeline completed in mode '", mode,
+  "Active 1,909 analysis completed in mode '", mode,
   "': ", normalizePath(output_dir), "\n", sep = ""
 )

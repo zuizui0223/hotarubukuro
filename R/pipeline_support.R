@@ -1,18 +1,12 @@
-# Shared interface for the publication analysis.
+# Shared interface for the active 1,909-observation analysis.
 #
-# Analysis functions live in stage-specific files under R/. Executable scripts
-# source this file and request a paper stage through hb_load_modules(). This
-# keeps package declarations, argument parsing, and module ordering in one place.
+# Only modules named in hb_module_files are loadable by the active pipeline.
+# Historical implementations live under legacy/ and are deliberately absent
+# from this registry.
 
 hb_package_groups <- list(
-  phenotype = c(
-    "INLA", "jsonlite", "mclust", "mgcv", "qgam", "quantreg", "sf", "terra"
-  ),
-  multiscale_environment = c("INLA", "mgcv", "sf", "terra"),
   natural_predictive_model = c("INLA", "Matrix", "sf", "terra"),
-  bombus_sdm = c("ENMeval", "FNN", "maxnet", "rgbif", "sf", "terra"),
   bombus_occurrences = c("dplyr", "jsonlite", "readr", "rgbif"),
-  environment_input = c("jsonlite", "terra"),
   human_context = c("foreign", "ranger", "terra"),
   publication_figures = c(
     "cowplot", "ggplot2", "patchwork", "rnaturalearth", "scales", "sf"
@@ -22,31 +16,20 @@ hb_package_groups <- list(
 )
 
 hb_stage_packages <- list(
-  phenotype = c("phenotype"),
-  multiscale_hotspots = c("multiscale_environment"),
-  natural_predictive_model = c("natural_predictive_model"),
+  natural_predictive_model = "natural_predictive_model",
   local_bombus_turnover = character(),
-  human_landscape_features = c("human_context"),
-  local_pigmented_isolates = c("human_context"),
-  local_human_context = c("human_context", "multiscale_environment"),
-  did_sensitivity = c("human_context"),
-  bombus_occurrences = c("bombus_occurrences"),
-  bombus_sdm = c("bombus_sdm"),
-  environment_input = c("environment_input"),
-  human_raster = c("human_context"),
-  reporting = c("reporting"),
-  publication_figures = c("publication_figures"),
+  human_landscape_features = "human_context",
+  local_pigmented_isolates = "human_context",
+  local_human_context = "human_context",
+  did_sensitivity = "human_context",
+  bombus_occurrences = "bombus_occurrences",
+  human_raster = "human_context",
+  reporting = "reporting",
+  publication_figures = "publication_figures",
   full = names(hb_package_groups)
 )
 
 hb_module_files <- c(
-  environment_spatial = "R/environment_spatial.R",
-  natural_biotic_covariates = "R/natural_biotic_covariates.R",
-  phenotype_hurdle = "R/phenotype_hurdle.R",
-  local_transition_pairs = "R/local_transition_pairs.R",
-  hotspot_candidates = "R/hotspot_candidates.R",
-  bombus_community_fingerprint = "R/bombus_community_fingerprint.R",
-  multiscale_hotspots = "R/multiscale_hotspots.R",
   natural_predictive_model = "R/natural_predictive_model.R",
   local_bombus_turnover = "R/local_bombus_turnover.R",
   candidate_null_tools = "R/candidate_null_tools.R",
@@ -54,23 +37,13 @@ hb_module_files <- c(
   local_pigmented_isolates = "R/local_pigmented_isolates.R",
   human_raster_features = "R/human_raster_features.R",
   local_human_context = "R/local_human_context.R",
+  spatial_context = "R/spatial_context.R",
   did_sensitivity = "R/did_sensitivity.R",
   final_registry = "R/final_registry.R"
 )
 
 hb_stage_modules <- list(
-  environment_input = "environment_spatial",
-  bombus_sdm = "environment_spatial",
   human_raster = "human_raster_features",
-  phenotype = c(
-    "environment_spatial", "natural_biotic_covariates",
-    "phenotype_hurdle"
-  ),
-  multiscale_hotspots = c(
-    "environment_spatial", "local_transition_pairs",
-    "hotspot_candidates", "bombus_community_fingerprint",
-    "multiscale_hotspots"
-  ),
   natural_predictive_model = "natural_predictive_model",
   local_bombus_turnover = "local_bombus_turnover",
   human_landscape_features = c(
@@ -83,7 +56,7 @@ hb_stage_modules <- list(
   local_human_context = c(
     "human_raster_features", "candidate_null_tools",
     "human_landscape_features", "local_pigmented_isolates",
-    "local_human_context", "multiscale_hotspots"
+    "local_human_context", "spatial_context"
   ),
   did_sensitivity = c(
     "human_raster_features", "candidate_null_tools",
@@ -150,7 +123,7 @@ hb_require_packages <- function(packages) {
 hb_require_stage_packages <- function(stage) {
   groups <- hb_stage_packages[[stage]]
   if (is.null(groups)) {
-    stop("Unknown publication package stage: ", stage, call. = FALSE)
+    stop("Unknown active package stage: ", stage, call. = FALSE)
   }
   hb_require_packages(unique(unlist(hb_package_groups[groups], use.names = FALSE)))
 }
@@ -158,13 +131,13 @@ hb_require_stage_packages <- function(stage) {
 hb_load_modules <- function(stage, envir = parent.frame(), root = ".") {
   modules <- hb_stage_modules[[stage]]
   if (is.null(modules)) {
-    stop("Unknown publication module stage: ", stage, call. = FALSE)
+    stop("Unknown active module stage: ", stage, call. = FALSE)
   }
   paths <- file.path(root, unname(hb_module_files[modules]))
   missing <- paths[!file.exists(paths)]
   if (length(missing)) {
     stop(
-      "Missing publication modules: ", paste(missing, collapse = ", "),
+      "Missing active modules: ", paste(missing, collapse = ", "),
       call. = FALSE
     )
   }

@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
 #
-# Publish or restore the canonical analysis-input snapshot.
-#
-# The snapshot is the immutable boundary between the two meanings of "full
-# reproduction". Everything upstream of it (external climate, soil, population,
-# land-use, and occurrence services) is rebuilt by the raw-data reconstruction
-# workflow. Everything downstream of it is rebuilt by the canonical analysis
-# workflow, which must not depend on an ephemeral Actions cache or artifact.
+# Publish or restore the immutable analysis-input snapshot.
 #
 # Usage:
 #   scripts/canonical_snapshot.sh publish <staging-dir> <tag> <asset-name>
@@ -24,15 +18,19 @@ die() {
 }
 
 require_token() {
-  [[ -n "${GITHUB_TOKEN:-}" ]] || die "GITHUB_TOKEN is required for release access."
+  [[ -n "${GITHUB_TOKEN:-}" ]] || die "GITHUB_TOKEN is required for release publication."
 }
+
+auth_args=()
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  auth_args=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+fi
 
 publish() {
   local staging="$1" tag="$2" asset="$3"
   [[ -d "$staging" ]] || die "Staging directory not found: $staging"
   require_token
 
-  # A deterministic archive: sorted member order, fixed owner, fixed mtime.
   local archive="${PWD}/${asset}"
   tar --sort=name \
       --mtime='UTC 2020-01-01' \
@@ -46,65 +44,60 @@ publish() {
   echo "bytes=$(stat -c%s "$archive")"
 
   local release_id
-  release_id="$(curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+  release_id="$(curl -sS "${auth_args[@]}" \
     -H "Accept: application/vnd.github+json" \
     "${api}/repos/${repository}/releases/tags/${tag}" | jq -r '.id // empty')"
 
   if [[ -z "$release_id" ]]; then
-    # A pull_request run has GITHUB_SHA pointing at the ephemeral merge commit,
-    # which is not a sensible release target. Prefer the head branch.
     local target="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-${GITHUB_SHA:-}}}"
     echo "Creating release ${tag} targeting ${target}"
     local create_status
     create_status="$(curl -sS -w '%{http_code}' -o /tmp/snapshot-release.json -X POST \
-      -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+      "${auth_args[@]}" \
       -H "Accept: application/vnd.github+json" \
       "${api}/repos/${repository}/releases" \
       -d "$(jq -n --arg tag "$tag" --arg target "$target" '{
              tag_name: $tag,
              target_commitish: $target,
              name: $tag,
-             body: "Immutable analysis-input snapshot for the canonical analysis workflow. Contents and per-file SHA-256 hashes are recorded in SNAPSHOT_MANIFEST.csv inside the archive and in inputs/canonical_snapshot.json in the repository.",
+             body: "Immutable analysis-input snapshot. Contents and per-file SHA-256 hashes are recorded in SNAPSHOT_MANIFEST.csv inside the archive and in inputs/canonical_snapshot.json in the repository.",
              draft: false,
              prerelease: false
            }')")"
     echo "release create HTTP ${create_status}"
-    # The exact response is what tells a reader whether this is a permission
-    # policy, a protected tag, or a malformed target. Never summarise it away.
     cat /tmp/snapshot-release.json
     release_id="$(jq -r '.id // empty' /tmp/snapshot-release.json)"
     if [[ -z "$release_id" ]]; then
-      die "Could not create release ${tag}: HTTP ${create_status}. See the response body above; it is the authoritative reason."
+      die "Could not create release ${tag}: HTTP ${create_status}. See the response body above."
     fi
   fi
 
   local existing
-  existing="$(curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+  existing="$(curl -sS "${auth_args[@]}" \
     -H "Accept: application/vnd.github+json" \
     "${api}/repos/${repository}/releases/${release_id}/assets" \
     | jq -r --arg name "$asset" '.[] | select(.name == $name) | .id')"
   if [[ -n "$existing" ]]; then
-    die "Asset ${asset} already exists on release ${tag}. A published snapshot is immutable; publish a new tag instead of overwriting it."
+    die "Asset ${asset} already exists on release ${tag}. Publish a new tag instead of overwriting it."
   fi
 
   local upload_status
   upload_status="$(curl -sS -w '%{http_code}' -o /tmp/snapshot-upload.json -X POST \
-    -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+    "${auth_args[@]}" \
     -H "Accept: application/vnd.github+json" \
     -H "Content-Type: application/gzip" \
     --data-binary "@${archive}" \
     "https://uploads.github.com/repos/${repository}/releases/${release_id}/assets?name=${asset}")"
   if [[ "$upload_status" != "201" ]]; then
     cat /tmp/snapshot-upload.json >&2 || true
-    die "Snapshot upload failed with HTTP ${upload_status}. If this is a permission failure, report it verbatim rather than substituting another input."
+    die "Snapshot upload failed with HTTP ${upload_status}."
   fi
   echo "published=${tag}/${asset}"
 }
 
 restore() {
   local descriptor="$1" destination="$2"
-  [[ -f "$descriptor" ]] || die "Snapshot descriptor not found: $descriptor. The canonical workflow cannot run until the raw-data reconstruction workflow has published a snapshot and its checksums have been committed."
-  require_token
+  [[ -f "$descriptor" ]] || die "Snapshot descriptor not found: $descriptor."
 
   local tag asset expected
   tag="$(jq -r '.release_tag' "$descriptor")"
@@ -114,10 +107,12 @@ restore() {
   [[ -n "$expected" && "$expected" != "null" && "$expected" != "" ]] \
     || die "descriptor has no asset_sha256; refusing to restore an unverifiable input"
 
-  local asset_id
-  asset_id="$(curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+  local release_json asset_id
+  release_json="$(curl -sS --fail "${auth_args[@]}" \
     -H "Accept: application/vnd.github+json" \
-    "${api}/repos/${repository}/releases/tags/${tag}" \
+    "${api}/repos/${repository}/releases/tags/${tag}")" \
+    || die "Could not read public release ${tag}. Set GITHUB_TOKEN if anonymous API access is rate-limited."
+  asset_id="$(printf '%s' "$release_json" \
     | jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .id')"
   [[ -n "$asset_id" ]] || die "Release ${tag} has no asset named ${asset}."
 
@@ -126,7 +121,7 @@ restore() {
   local attempt
   for attempt in 1 2 3 4; do
     if curl -sS --fail --location \
-        -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        "${auth_args[@]}" \
         -H "Accept: application/octet-stream" \
         "${api}/repos/${repository}/releases/assets/${asset_id}" \
         -o "$archive"; then
@@ -135,7 +130,7 @@ restore() {
     echo "download attempt ${attempt} failed; retrying" >&2
     sleep $((2 ** attempt))
   done
-  [[ -s "$archive" ]] || die "Snapshot asset download produced no file."
+  [[ -s "$archive" ]] || die "Snapshot asset download produced no file. Set GITHUB_TOKEN if anonymous access is rate-limited."
 
   local observed
   observed="$(sha256sum "$archive" | awk '{print $1}')"

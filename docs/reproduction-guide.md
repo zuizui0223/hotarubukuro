@@ -1,180 +1,122 @@
-# Reproducing the publication analysis
+# Reproducing the 1,909-observation analysis
 
-## What is reproducible
+## Canonical route: GitHub Actions
 
-The repository separates three reproducibility levels.
+The canonical run restores the immutable analysis-input snapshot named in `inputs/canonical_snapshot.json`. Historical result-directory names inside that snapshot are retained only to preserve file identity; their old generators are under `legacy/implementations/`.
 
-1. **Locked-result verification** recalculates the final result and claim
-   registries from adopted stage outputs, reruns independent validators and
-   audits, and runs the software tests.
-2. **Post-baseline reconstruction** starts from the frozen national predictive
-   checkpoints and regenerates the local *Bombus*, candidate-definition, and
-   human-context stages.
-3. **Full model reconstruction** refits the national natural model before
-   regenerating all downstream stages. It additionally requires the public
-   environmental rasters, MLIT layers, occurrence cache, and freshly selected
-   ENMeval predictions described below.
+1. Open the repository's **Actions** tab.
+2. Choose **1909 analysis pipeline**.
+3. Click **Run workflow** and select `main`.
+4. Keep `build_figures=true` unless only numerical outputs are needed.
+5. Start the workflow.
+6. Download `analysis-1909-<commit>-<run-id>` after completion.
 
-The raw SNS photographs cannot be redistributed automatically. `Data_S1.csv`
-contains the derived colour measurements, source identifiers, image hashes,
-manual-review provenance, and QC fields needed to audit the published
-phenotypes.
+The workflow performs, in order:
 
-The public environmental and human-landscape inputs, including the exact
-dataset versions, variables, spatial resolutions, provider pages, and roles in
-the analysis, are listed in
-[`docs/data-sources/public-environment-sources.md`](data-sources/public-environment-sources.md).
+1. restore the pinned R version and declared dependencies;
+2. restore and SHA-256 verify the immutable snapshot;
+3. verify exactly 1,909 observations, 955 white-like and 954 pigmented;
+4. run dependency and INLA smoke tests;
+5. execute the active stages declared in `reproducibility/pipeline_stage_registry.csv`;
+6. run active unit tests, independent validators and claim audits;
+7. build figures from fresh outputs; and
+8. upload outputs, logs, manifests and provenance as one artifact.
 
-## Software
+The post-hoc bidirectional colour-state asymmetry diagnostic is not in this sequence. Candidate DOY is retained only as a supplementary post-selection description.
 
-The locked local run used R 4.5.3. R package groups and their assignment to
-analysis stages are declared in `R/pipeline_support.R`. Major dependencies are
-INLA, sf, terra, ENMeval, maxnet, mclust, mgcv, qgam, ranger, testthat, and
-rmarkdown.
+## Success criteria
 
-Python 3.9 or later is required for the supplementary colour-extraction
-utilities. Install the declared package with:
+Check:
 
-```powershell
-python -m pip install -e ".[excel,test]"
+```text
+reproducibility/analysis_population_check.csv
+results/final_analysis_pipeline/final_stage_manifest.csv
+results/final_analysis_pipeline/final_independent_validation.csv
+results/final_analysis_pipeline/final_claim_audit.csv
+results/final_analysis_pipeline/final_result_registry.csv
+reproducibility/reproduction_summary.md
 ```
 
-On Windows, set `TEMP` and `TMP` to an ASCII-only directory before fitting
-INLA models if the default temporary path contains non-ASCII characters.
+All population rows and all executed stages must be `PASS`. A scientific result on either side of a statistical threshold is recorded as a result and is not itself a software failure.
 
-## Verify the locked results
+## Local execution
 
-From the repository root:
+```bash
+git clone https://github.com/zuizui0223/hotarubukuro.git
+cd hotarubukuro
 
-```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
-  scripts/run_publication_pipeline.R --mode=verify --tests=true
+Rscript scripts/setup_r_environment.R \
+  --report-dir reproducibility \
+  --scopes analysis,reproducibility,testing,figures,reporting
+
+bash scripts/run_analysis_1909.sh
 ```
 
-Success requires:
+Optional controls:
 
-- all stages in `results/final_analysis_pipeline/final_stage_manifest.csv` to
-  report `PASS`;
-- all checks in `final_independent_validation.csv` to report `PASS`; and
-- all checks in `final_claim_audit.csv` to report `PASS`.
-
-## Rebuild downstream analyses
-
-To regenerate stages 03–06 from the frozen national predictive checkpoints:
-
-```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
-  scripts/run_publication_pipeline.R --mode=extensions --tests=true
+```bash
+BUILD_FIGURES=false bash scripts/run_analysis_1909.sh
+RUN_TESTS=false bash scripts/run_analysis_1909.sh
+SNAPSHOT_DIR=/absolute/path/to/snapshot bash scripts/run_analysis_1909.sh
 ```
 
-This reproduces the 25-km local *Bombus* turnover test, local pigmented-isolate
-definition, population/DID characterization, and final lock.
+Public GitHub release assets normally restore anonymously. `GITHUB_TOKEN` can be supplied for rate-limit or repository-policy reasons.
 
-## Refit the national natural model
+## Direct active commands
 
-To refit stage 02 and then rebuild all downstream stages:
+Restore the snapshot:
 
-```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
-  scripts/run_publication_pipeline.R --mode=full --tests=true
+```bash
+bash scripts/canonical_snapshot.sh restore \
+  inputs/canonical_snapshot.json \
+  reproduction_inputs/snapshot
 ```
 
-The full run expects:
+Verify the population:
 
-- the two-part phenotype input under
-  `results/ecological_v11_pigmentation_hurdle/`;
-- fixed 1-km cell context under
-  `results/ecological_v15_multiscale_hotspots/`;
-- freshly selected ENMeval predictions under
-  `results/enmeval_aicc_reselected/predictions/`;
-- the frozen public *Bombus* occurrence cache;
-- MLIT-derived human-context rasters under `results/public_rasters/`; and
-- the public environmental cache supplied through the runner arguments or
-  environment variables documented by the individual build scripts.
-
-Previously generated *Bombus* TIFFs are not accepted as substitutes for the
-fresh ENMeval selection workflow.
-
-## Create a dated local snapshot
-
-```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
-  scripts/export_publication_snapshot.R `
-  --output=local_outputs/publication_snapshot_2026-07-24 `
-  --overwrite=true
+```bash
+Rscript scripts/check_analysis_population.R \
+  --expectations inputs/analysis_1909_expectations.csv \
+  --report-dir reproducibility \
+  --strict true
 ```
 
-The snapshot contains the adopted full stage outputs, compact upstream inputs,
-the final registries, a file-level MD5 manifest, R session information, and
-year-specific sample counts. Copy its `repository/` directory into a checkout
-of the recorded commit to repeat the locked-result verification.
+Run the numerical and validation stages:
 
-## Rebuild the figures and manuscript
-
-Build the four figures from the locked analysis artifacts first:
-
-```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
-  scripts/build_publication_figures.R
+```bash
+Rscript scripts/run_publication_pipeline.R \
+  --mode full \
+  --baseline analysis_1909 \
+  --tests true
 ```
 
-This writes 600-dpi PNG review copies and vector PDF submission masters under
-`manuscript/figures/`. The Word draft is then generated from the versioned
-manuscript rather than edited from the superseded DOCX:
+Build figures:
 
-```powershell
-& 'C:\Users\zuizui\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
-  scripts/build_manuscript_docx.py
+```bash
+Rscript scripts/build_publication_figures.R
 ```
 
-The default output is
-`local_outputs/manuscript_review/revised.docx`. Supply `--output=<path>` to
-write a separate submission copy elsewhere. The generated document uses A4
-pages, 2.54-cm margins, Times New Roman 12 pt, double-spaced body text,
-continuous line numbering, page numbers, semantic headings, and marked table
-header rows. It embeds the PNG figures with alternative text while retaining
-the PDF versions as separate journal-upload files.
+These are the only supported canonical entry points. Exact active modules and scripts are listed in `config/code_manifest.csv`.
 
-## Sampling and interpretation limits
+## Inputs and generated outputs
 
-The database contains every eligible *Campanula punctata* record identified by
-the author on YAMAP from 1 June through 31 August in each of 2023, 2024, and
-2025; it is not a random sample of Japanese populations. Before database
-construction, the author manually confirmed the focal taxon and flower region,
-removed repeated photographs of the same individual, and excluded taxonomic
-errors including *Adenophora triphylla* misidentified as *C. punctata*. Those
-pre-database exclusions were not retained as separate count categories and
-must not be assigned reconstructed counts.
+`Data_S1.csv` contains curated derived flower-colour measurements and source identifiers. Raw YAMAP photographs are not redistributed. The snapshot supplies the fixed upstream phenotype/cell tables and public spatial layers; its asset and member hashes are declared in `inputs/canonical_snapshot.json`.
 
-YAMAP is a GPS-enabled hiking and outdoor-activity platform. Its activity
-records provide a stronger route-linked georeferencing affordance than ordinary
-social-media photographs that lack usable coordinates. The analysis uses the
-reviewed coordinates carried in the curated source workbook; it does not claim
-that the publication pipeline independently reconstructed every coordinate from
-GPX. Because the occurrence records are concentrated on accessible hiking
-trails and activity routes, accessibility, photographer choice, and observation
-opportunity remain part of the sampling process.
+Files under `results/`, generated `reproducibility/` reports and `manuscript/figures/` are run products. The complete runner clears previous generated products before restoring inputs, so a new run cannot silently reuse committed or stale numerical outputs.
 
-Unlike iNaturalist, whose basic data unit is intentionally an organismal
-observation, YAMAP is organized around hiking maps and recorded activities.
-The comparison does not imply that YAMAP has higher positional accuracy than a
-purpose-built biodiversity application. It identifies a different reuse case:
-an incidental biological image can inherit a route-linked geographic context
-and become a supervised trait record after taxon, flower region, and coordinate
-review.
+## Source-build utilities
 
-The curated colour database contains 1,965 records (642, 687, and 636 in
-2023–2025). Two exact duplicate images were excluded programmatically. The
-final complete-case ecological analysis contains 1,923 observations (629, 669,
-and 625 by year); the remaining difference reflects missing joint
-environmental or nationwide *Bombus* prediction support. Automated QC warnings
-were retained in the primary analysis after author review and were excluded
-only in sensitivity analyses.
+`source_build/` contains optional utilities for colour extraction and public-data acquisition or alignment. They are audited as code but are not called by the canonical DAG. Running them creates a new source-build exercise rather than reproducing the checksum-locked 1,909 analysis.
 
-The restricted hiking-route sampling frame also limits the human-context
-analysis. Population, roads, and land use can affect both plant exposure and
-the probability that a YAMAP user records a flower. Moreover, when candidate
-and comparison observations are already drawn from accessible trails, the
-range of human accessibility can be narrower than it would be in a
-trail-independent survey. Weak human-context contrasts therefore do not rule
-out human influence, but they also cannot be interpreted as evidence for it.
+## Legacy material
+
+- `legacy/published-1923/`: earlier 1,923 fixed outputs, manuscript and workflows.
+- `legacy/implementations/frozen-upstream/`: superseded v11/v15 implementation code, runners and tests.
+- `legacy/diagnostics/local-state-asymmetry/`: post-hoc reverse-direction diagnostic.
+- `legacy/reconstruction-prototypes/`: historical public-reconstruction experiments.
+
+Nothing in the active commands imports these directories.
+
+## Statistical rather than bitwise reproducibility
+
+INLA posterior samples can differ at the bit level despite fixed seeds, folds and draw counts. The pipeline therefore verifies input hashes, fixed definitions, stage completion, finite results, claim ceilings and output provenance. Report effect sizes, realised p/q values, uncertainty and the run commit together.

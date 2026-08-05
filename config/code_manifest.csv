@@ -1,0 +1,70 @@
+status,area,path,purpose
+active,interface,R/pipeline_support.R,only loader available to the 1909 pipeline
+active,model,R/natural_predictive_model.R,national environment and INLA-SPDE predictive baseline
+active,model,R/local_bombus_turnover.R,local Bombus fingerprint turnover test
+active,support,R/candidate_null_tools.R,selection-aware predictive null helpers
+active,model,R/human_landscape_features.R,human landscape feature construction
+active,model,R/local_pigmented_isolates.R,primary pigmented-in-white candidate event
+active,model,R/human_raster_features.R,MLIT raster processing helpers
+active,model,R/local_human_context.R,post-selection local human-context contrasts
+active,support,R/spatial_context.R,fixed-radius population raster summaries
+active,model,R/did_sensitivity.R,DID proximity sensitivity analysis
+active,lock,R/final_registry.R,final result and claim registry
+supplementary,model,R/candidate_doy_check.R,held-out descriptive DOY comparison after candidate fixation
+support,provenance,R/reproducibility.R,checksums versions and run provenance
+source_build,support,R/raster_sources.R,public raster acquisition and alignment helper only
+active,entrypoint,scripts/run_analysis_1909.sh,supported complete local runner
+active,entrypoint,scripts/run_publication_pipeline.R,ordered numerical stages and validation
+active,stage,scripts/run_natural_predictive_model.R,stage 02 runner
+active,stage,scripts/run_local_bombus_turnover.R,stage 03 runner
+active,stage,scripts/run_human_landscape_features.R,stage 04 feature runner
+active,stage,scripts/run_local_pigmented_isolates.R,stage 04 candidate runner
+supplementary,stage,scripts/run_candidate_doy_check.R,held-out DOY runner
+active,stage,scripts/run_local_human_context.R,stage 05 human-context runner
+active,stage,scripts/run_did_sensitivity.R,stage 05 DID runner
+support,snapshot,scripts/canonical_snapshot.sh,restore and verify the immutable 1909 snapshot
+support,snapshot,scripts/stage_canonical_snapshot.R,maintainer-only snapshot staging
+support,snapshot,scripts/verify_canonical_snapshot.R,snapshot member validation
+support,environment,scripts/setup_r_environment.R,restore declared R environment
+support,environment,scripts/preflight.R,dependency input and INLA smoke checks
+support,validation,scripts/check_analysis_population.R,1909 row and colour-state gate
+support,reporting,scripts/report_analysis_arc.R,read fresh outputs as manuscript argument
+support,reporting,scripts/write_reproducibility_report.R,write run provenance report
+support,figures,scripts/build_publication_figures.R,public figure-generation interface
+support,figures,scripts/internal/build_publication_figures_core.R,figure implementation
+validation,input,validation/audit_phenotype.R,audit frozen phenotype snapshot member
+validation,input,validation/audit_multiscale_hotspots.R,audit frozen 1-km cell snapshot member
+validation,stage,validation/validate_natural_predictive_model.R,stage 02 validator
+validation,stage,validation/audit_natural_predictive_model.R,stage 02 independent audit
+validation,stage,validation/validate_local_bombus_turnover.R,stage 03 validator
+validation,stage,validation/audit_local_bombus_turnover.R,stage 03 independent audit
+validation,stage,validation/validate_human_landscape_features.R,stage 04 feature validator
+validation,stage,validation/audit_human_landscape_features.R,stage 04 feature audit
+validation,stage,validation/validate_local_pigmented_isolates.R,stage 04 candidate validator
+validation,stage,validation/audit_local_pigmented_isolates.R,stage 04 candidate audit
+validation,supplementary,validation/validate_candidate_doy_check.R,supplementary DOY validator
+validation,stage,validation/validate_local_human_context.R,stage 05 validator
+validation,stage,validation/audit_local_human_context.R,stage 05 independent audit
+validation,stage,validation/validate_did_sensitivity.R,DID validator
+validation,stage,validation/audit_did_sensitivity.R,DID independent audit
+validation,final,validation/validate_publication_pipeline.R,final independent lock validation
+validation,final,validation/audit_publication_claims.R,claim ceiling audit
+active_test,r,tests/testthat.R,active R unit-test entrypoint
+active_test,r,tests/testthat/test-candidate-null-tools.R,candidate null helper tests
+active_test,r,tests/testthat/test-did-sensitivity.R,DID tests
+active_test,r,tests/testthat/test-human-landscape-features.R,human feature tests
+active_test,r,tests/testthat/test-human-raster-features.R,human raster tests
+active_test,r,tests/testthat/test-local-bombus-turnover.R,local Bombus tests
+active_test,r,tests/testthat/test-local-human-context.R,local human-context tests
+active_test,r,tests/testthat/test-local-pigmented-isolates.R,local isolate tests
+active_test,r,tests/testthat/test-natural-predictive-model.R,natural model tests
+active_test,r,tests/testthat/test-publication-pipeline.R,active interface and claim tests
+source_build,public,Code_S1.py,public GPX georeferencing supplement
+source_build,python,source_build/extract_color.py,supervised visible-colour extraction utility
+source_build,python,source_build/build_data_s1.py,public derived-table builder
+source_build,r,source_build/audit_bombus_extraction.R,Bombus surface extraction audit utility
+source_build,r,source_build/build_human_raster.R,MLIT raster builder
+source_build,r,source_build/download_rasters.R,public raster downloader
+source_build,r,source_build/prepare_rasters.R,public raster alignment utility
+source_build,r,source_build/fetch_bombus_occurrences.R,GBIF occurrence acquisition utility
+source_build_test,python,tests/python/test_extract_color.py,colour extraction utility test

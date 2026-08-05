@@ -1,210 +1,51 @@
-# Canonical analysis pipeline DAG
-
-The authoritative stage sequence is `scripts/run_publication_pipeline.R`. This
-document and the machine-readable
-[`reproducibility/pipeline_stage_registry.csv`](../reproducibility/pipeline_stage_registry.csv)
-describe that runner; they do not define a second pipeline. Where the two
-disagree, the runner is correct and the registry is a bug.
+# Pipeline DAG: active 1,909 analysis
 
 ```text
-Data_S1.csv (versioned phenotype record)
-  → public raster acquisition (CHELSA, SoilGrids, WorldClim, WorldPop)
-  → MLIT land-use rasters
-  → environmental predictor extraction and PCA
-  → environmental/spatial analysis table
-  → Bombus predicted-community inputs
-  → two-part flower-colour models
-  → 1-km multiscale cell context
-  ───────────── canonical analysis-input snapshot boundary ─────────────
-  → national natural predictive model with spatial cross-validation   (v16)
-  → local Bombus-turnover analysis                                    (v17)
-  → human-landscape features                                          (v19)
-  → locally discordant pigmentation (pigmented-isolate) definition     (v20)
-  → anthropogenic-context characterization                            (v21)
-  → DID sensitivity                                                   (v22)
-  → publication lock, independent validation, claim audit
-  → manuscript tables and figures
+Data_S1.csv + inputs/canonical_snapshot.json
+                    |
+                    v
+snapshot restore + SHA-256 verification
+                    |
+                    v
+frozen phenotype and 1-km cell input audits
+n = 1,909; white-like = 955; pigmented = 954
+                    |
+                    v
+02 national environment + INLA-SPDE natural baseline
+presence / conditional intensity / five blocked folds / 1,000 draws
+              |                                |
+              v                                v
+03 local Bombus turnover            04 pigmented-in-white isolate event
+fixed response-blind graphs          identical extractor on 1,000 maps
+              |                                |
+              |                       S1 held-out candidate DOY
+              |                       description only; no selection
+              +--------------------+-----------+
+                                   v
+05 post-selection human context
+population / land use / roads / DID / familywise maxT
+                                   |
+                                   v
+06 final result lock + independent validation + claim audit
+                                   |
+                                   v
+07 figures generated from fresh outputs
 ```
 
-Everything above the boundary belongs to **workflow B**
-(`.github/workflows/raw-data-reconstruction.yml`), which depends on external
-public services. Everything below belongs to **workflow A**
-(`.github/workflows/canonical-analysis.yml`), which starts from the immutable,
-checksummed snapshot and must be reliable on a clean runner.
+## Explicit interfaces
 
-## Environment (shared by every stage)
-
-| Item | Declaration |
+| Purpose | Entry point |
 |---|---|
-| R | `dependencies/r-version.txt` |
-| CRAN packages and scopes | `dependencies/r-packages.csv` |
-| CRAN resolution | `dependencies/cran-snapshot.txt` (one dated Posit Package Manager snapshot) |
-| INLA | `dependencies/inla.csv` (version, candidate sources, recorded resolved URL and SHA-256) |
-| System libraries | `dependencies/apt-packages.txt` |
-| Preflight | `scripts/preflight.R` |
+| GitHub-hosted complete run | `.github/workflows/analysis-1909.yml` |
+| Local complete run | `scripts/run_analysis_1909.sh` |
+| Numerical stages and validation | `scripts/run_publication_pipeline.R` |
+| Input population gate | `scripts/check_analysis_population.R` |
+| Figure generation | `scripts/build_publication_figures.R` |
+| Exact code declaration | `config/code_manifest.csv` |
+| Machine-readable stage declaration | `reproducibility/pipeline_stage_registry.csv` |
 
-## Stages
+## Boundaries
 
-The per-stage inputs, outputs, package groups, seeds, determinism, output class
-and invariant are recorded in `reproducibility/pipeline_stage_registry.csv`.
-The narrative below covers what the table cannot.
+The DAG reads no file under `legacy/` or `source_build/`. Frozen upstream result-directory names are preserved inside the immutable snapshot, but the old implementations that created those files are not loadable through `R/pipeline_support.R`.
 
-### Snapshot inputs (stages `00_*`)
-
-The snapshot carries the frozen phenotype stage, the frozen 1-km cell context,
-the MLIT-derived human rasters, the raw MLIT primary-mesh cache, the MLIT
-A16-15 DID archive, the five Bombus prediction surfaces, and the WorldPop
-layer. `scripts/verify_canonical_snapshot.R` rehashes every member against
-`inputs/canonical_snapshot.json` and then materialises them into the paths the
-locked runner expects. That materialisation step is what replaced the pipeline's
-former dependence on one developer machine's directory layout.
-
-### `02_run_natural_predictive_model`
-
-Four components — national presence, national intensity, common-support
-presence, and common-support Bombus presence — each cross-fitted over five
-response-blind 100-km spatial folds with 1,000 predictive draws. Seed
-`20260725`; the binomial replicate draw uses `seed + 1` per fold.
-
-All four are required. The audit
-(`validation/audit_natural_predictive_model.R`) checks for exactly these four
-models with five folds each, and `validation/validate_local_pigmented_isolates.R`
-loads the presence and intensity draw checkpoints to build the auxiliary facet
-profile behind `local_isolate_natural_null_summary.csv`, which is a required
-publication artifact.
-
-A fifth component, `national_environment_year_spde_phenology`, was previously
-fitted here. It has been withdrawn: `inla.qsample` aborts on a non-positive-definite
-precision matrix inside `inla.posterior.sample`, and fold 4 never completed in
-any measured configuration. The instability is tracked on the
-`diagnostic/phenology-inla-instability` branch. Removing it does not change
-local-isolate candidates — candidate selection and case-control matching read
-presence draws only, and every use of the phenology-derived facet came strictly
-after both.
-
-`--components` exists so a partial rerun can refit one component; the canonical
-workflow does not pass it, so all four are fitted and the selection is recorded
-in `predictive_replication_component_scope.csv`.
-
-### `05_run_local_human_context` and `05_run_did_sensitivity`
-
-These two stages read raw MLIT products rather than only the derived rasters:
-the local-human-context stage re-processes the L03-b primary-mesh archives to
-separate seven land-use classes, and the DID stage rasterises the A16-15
-Densely Inhabited District polygons. Both caches ship inside the snapshot and
-are addressed through `HOTARUBUKURO_MLIT_CACHE` and `HOTARUBUKURO_DID_CACHE`, so
-neither stage contacts MLIT during a canonical run.
-
-### `07_build_publication_figures`
-
-`rnaturalearth::ne_countries(scale = "medium")` resolves from the
-`rnaturalearthdata` package rather than the network. That package is declared
-explicitly; without it the figure stage would attempt a download mid-run.
-
-## Determinism
-
-Distinguish two properties.
-
-**Bitwise reproducible.** The frozen snapshot inputs, and every table derived
-from them by deterministic code. Two clean runs produce identical SHA-256
-hashes.
-
-**Statistically reproducible only.** Anything downstream of
-`INLA::inla.posterior.sample()`. The sampling call is seeded and
-single-threaded, but the INLA fit preceding it is not bit-deterministic across
-runs, so the draw matrices differ slightly between runs. Two independent clean
-runs of the previous canonical configuration produced a bit-identical 1-km cell
-table and bit-identical observed statistics, while Monte Carlo p-values computed
-against the draws moved in the third decimal (0.2018 versus 0.2138).
-
-Consequences:
-
-- report Monte Carlo p-values from draw-based stages to two decimals;
-- numerical regression checks on draw-derived quantities use tolerances rather
-  than equality, recorded in `reproducibility/numerical_regression_report.csv`;
-- a `.rds` checkpoint hash is not a determinism check — the v16 checkpoints also
-  store per-fold wall-clock timings.
-
-The random-forest null draws in `04_run_human_landscape_features` and the
-permutation nulls in the v20/v21/v22 stages are likewise seeded per run but
-compared on tolerance.
-
-## Restartability
-
-`scripts/run_natural_predictive_model.R` writes each component checkpoint
-through a temporary file and renames it into place, so a checkpoint on disk is
-either complete or absent, never truncated. It reloads a checkpoint only when
-the recorded `analysis_spec_version`, model name and draw count all match the
-requested configuration, and refits otherwise; file existence alone is never
-treated as proof of validity.
-
-## Failure conditions
-
-The canonical workflow fails, rather than degrading, when:
-
-- the snapshot descriptor is missing, or any member checksum does not match;
-- a required column, CRS, extent or value range in a snapshot input is wrong;
-- a declared namespace fails to load, or the INLA posterior-sampling, sf/terra,
-  or figure-device smoke tests fail;
-- the stage registry references a script that does not exist;
-- any stage in `run_publication_pipeline.R` returns non-zero;
-- any independent validation or claim-audit row is not `PASS`.
-
-## Audit notes
-
-- **The established analysis inputs are not reproducible from any declared
-  source, and this is the pipeline's one unresolved gap.** Every published
-  number rests on
-  `results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv`
-  and on the 1-km cell table derived from it. Neither was ever committed: they
-  are absent from the current repository, absent from the recorded publication
-  commit `bcceb7c7`, and absent from every release. The only reproducible route
-  to them is regeneration from `Data_S1.csv` and the pinned public rasters,
-  which is what the raw-data reconstruction workflow does — and that route does
-  not land on the published tables.
-
-  | quantity | published | reconstructed |
-  |---|---:|---:|
-  | analysis observations | 1923 | 1909 |
-  | white-like | 966 | 955 |
-  | pigmented | 957 | 954 |
-
-  The mechanism is visible in `R/environment_spatial.R`: the analysis population
-  is defined by `complete.cases` over the environmental covariates extracted at
-  each observation, so any coverage difference in a public raster silently
-  changes which observations survive. Fourteen do not.
-
-  The established tables cannot be archived, because they no longer exist. A
-  runner-side search of both published snapshots and the retained
-  canonical-analysis artifact found only reconstruction outputs: the table
-  recorded in the snapshot-v1 descriptor as
-  `3916ac6b…cad069f` has 1909 observations, not 1923.
-  `docs/established-inputs.md` records the search and its evidence.
-
-  What does survive is verified: all ten summary artifacts named by the
-  publication lock match the MD5s it recorded, under the CRLF normalisation git
-  applied on commit. `scripts/verify_locked_artifacts.py` runs this check in PR
-  checks, so `inputs/established_input_expectations.csv` and
-  `inputs/numerical_reference.csv` are anchored to the real publication.
-
-  This is reported, not worked around. `scripts/check_input_fidelity.R` states
-  the comparison in the first minute of a canonical run, and the frozen upstream
-  audit `validation/audit_phenotype.R` then refuses the run at stage 01. Neither
-  the audit nor `inputs/numerical_reference.csv` has been re-baselined against
-  the reconstructed inputs, because doing so would change published quantities
-  and that is an author decision rather than a pipeline decision. The two
-  legitimate resolutions are to archive the established analysis-input tables as
-  a snapshot component, or to re-baseline deliberately and republish the
-  affected counts.
-- **Bombus provenance.** The five species prediction surfaces are restored from
-  the committed publication commit `bcceb7c7`, not regenerated. The repository
-  versions neither the ENMeval tuning grid nor the fitted candidate objects that
-  `scripts/select_enmeval_models.R` reads, so AICc reselection cannot run from
-  this repository alone. They are treated as archived immutable inputs. See
-  `reproducibility/reproduction_summary.md`.
-- **WorldPop naming.** `docs/data-sources/public-environment-sources.md`
-  describes the population layer as "unconstrained/unadjusted" but links the
-  `Global_2000_2020_1km_UNadj` directory. The reconstruction uses
-  `Global_2000_2020_1km/2020/JPN/jpn_ppp_2020_1km_Aggregated.tif`, the
-  unadjusted product, and records that exact URL in the snapshot manifest. The
-  documentation contradicts itself and should be corrected.
+The reverse white-in-pigmented asymmetry diagnostic is archived rather than shown as a paper stage. Source-build utilities are a separate provenance layer and do not replace the immutable snapshot during canonical reproduction.

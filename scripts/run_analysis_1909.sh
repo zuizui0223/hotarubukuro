@@ -16,7 +16,16 @@ STATUS_DIR="${STATUS_DIR:-${PWD}/reproduction_status}"
 RUN_TESTS="${RUN_TESTS:-true}"
 BUILD_FIGURES="${BUILD_FIGURES:-true}"
 
-mkdir -p "$SNAPSHOT_DIR" "$REPORT_DIR" "$STATUS_DIR"
+# A rerun must never inherit generated outputs from an earlier attempt.
+mkdir -p results reproducibility manuscript
+find results -mindepth 1 -depth ! -path 'results/README.md' -delete
+find reproducibility -mindepth 1 -type f \
+  ! -name 'pipeline_stage_registry.csv' \
+  ! -name 'phenology_removal_candidate_identity.md' -delete
+find reproducibility -mindepth 1 -depth -type d -empty -delete
+rm -rf "$SNAPSHOT_DIR" "$STATUS_DIR" manuscript/figures rasters
+mkdir -p "$SNAPSHOT_DIR" "$REPORT_DIR" "$STATUS_DIR" manuscript/figures
+
 export HOTARUBUKURO_RUN_STARTED="$(date -u +%s)"
 export HOTARUBUKURO_RUN_STARTED_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 printf '%s\n' "$HOTARUBUKURO_RUN_STARTED_ISO" > "$STATUS_DIR/run_started_utc.txt"

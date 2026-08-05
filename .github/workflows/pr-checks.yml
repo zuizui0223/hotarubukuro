@@ -45,6 +45,7 @@ jobs:
       - name: Validate workflow YAML and stage registry
         shell: bash
         run: |
+          python3 -m pip install --quiet pyyaml
           python3 - <<'PY'
           import csv, pathlib, sys, yaml
           for path in sorted(pathlib.Path('.github/workflows').glob('*.yml')):

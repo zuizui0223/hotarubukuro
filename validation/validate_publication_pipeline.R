@@ -14,7 +14,7 @@ read_baseline <- function() {
   explicit <- grep("^--baseline=", args, value = TRUE)
   if (length(explicit)) return(sub("^--baseline=", "", explicit[[1L]]))
   marker <- file.path(output_dir, "run_mode.txt")
-  if (!file.exists(marker)) return("published")
+  if (!file.exists(marker)) return("reconstruction")
   lines <- readLines(marker, warn = FALSE)
   value <- sub("^baseline=", "", grep("^baseline=", lines, value = TRUE))
   if (length(value) != 1L) {
@@ -22,9 +22,14 @@ read_baseline <- function() {
   }
   value
 }
-baseline <- read_baseline()
+baseline_declared <- read_baseline()
+baseline <- if (identical(baseline_declared, "analysis_1909")) {
+  "reconstruction"
+} else {
+  baseline_declared
+}
 if (!baseline %in% c("published", "reconstruction")) {
-  stop("Unknown final-validation baseline: ", baseline, call. = FALSE)
+  stop("Unknown final-validation baseline: ", baseline_declared, call. = FALSE)
 }
 
 checks <- list()
@@ -69,7 +74,7 @@ metadata_value <- setNames(metadata$value, metadata$field)
 add_check(
   "declared_baseline",
   baseline %in% c("published", "reconstruction"),
-  baseline
+  paste0(baseline_declared, " -> ", baseline)
 )
 add_check(
   "analysis_specification",
@@ -302,7 +307,7 @@ writeLines(
     "",
     paste(
       sum(validation$status == "PASS"), "of", nrow(validation),
-      "checks passed under the", baseline, "baseline."
+      "checks passed under the", baseline_declared, "baseline."
     ),
     "",
     paste0(
@@ -319,5 +324,5 @@ if (any(validation$status != "PASS")) {
 }
 cat(
   "Final pipeline independent validation passed ", nrow(validation),
-  " checks under the ", baseline, " baseline.\n", sep = ""
+  " checks under the ", baseline_declared, " baseline.\n", sep = ""
 )

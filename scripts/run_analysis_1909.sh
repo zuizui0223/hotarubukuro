@@ -17,8 +17,10 @@ RUN_TESTS="${RUN_TESTS:-true}"
 BUILD_FIGURES="${BUILD_FIGURES:-true}"
 
 mkdir -p "$SNAPSHOT_DIR" "$REPORT_DIR" "$STATUS_DIR"
-export HOTARUBUKURO_RUN_STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-printf '%s\n' "$HOTARUBUKURO_RUN_STARTED" > "$STATUS_DIR/run_started_utc.txt"
+export HOTARUBUKURO_RUN_STARTED="$(date -u +%s)"
+export HOTARUBUKURO_RUN_STARTED_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf '%s\n' "$HOTARUBUKURO_RUN_STARTED_ISO" > "$STATUS_DIR/run_started_utc.txt"
+printf '%s\n' "$HOTARUBUKURO_RUN_STARTED" > "$STATUS_DIR/run_started_epoch.txt"
 
 failure_stage="initialization"
 show_failure() {
@@ -70,9 +72,8 @@ fi
 
 failure_stage="write reproducibility report"
 Rscript scripts/write_reproducibility_report.R \
-  --root . \
-  --stage-registry reproducibility/pipeline_stage_registry.csv \
-  --output-dir "$REPORT_DIR" \
+  --report-dir "$REPORT_DIR" \
+  --workflow analysis-1909 \
   --inputs "Data_S1.csv,inputs/canonical_snapshot.json,inputs/analysis_1909_expectations.csv" \
   --outputs "results,manuscript/figures,reproducibility"
 
@@ -89,7 +90,7 @@ lookup = {r.get("result_id"): r for r in results}
 lines = [
     "# 1,909 analysis reproduction summary", "",
     f"- commit: `{os.getenv('GITHUB_SHA', 'local')}`",
-    f"- started UTC: `{os.getenv('HOTARUBUKURO_RUN_STARTED', '')}`",
+    f"- started UTC: `{os.getenv('HOTARUBUKURO_RUN_STARTED_ISO', '')}`",
     f"- population checks: {sum(r['status']=='PASS' for r in pop)}/{len(pop)} PASS",
     f"- stages: {sum(r['status']=='PASS' for r in stages)}/{len(stages)} PASS",
     "", "## Key generated quantities", "",

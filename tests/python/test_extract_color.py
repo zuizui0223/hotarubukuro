@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from scripts.extract_color import build_parser, srgb_to_cielab
+from source_build.extract_color import build_parser, srgb_to_cielab
 
 
 def test_srgb_to_cielab_reference_neutrals() -> None:

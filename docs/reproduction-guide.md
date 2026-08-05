@@ -1,30 +1,32 @@
 # Reproducing the 1,909-observation analysis
 
-## Recommended: GitHub Actions
+## Canonical route: GitHub Actions
 
-The standard reproducible run starts from the immutable input snapshot named in `inputs/canonical_snapshot.json`. The historical filename is retained for compatibility; it is the active **1,909 analysis snapshot**.
+The canonical run restores the immutable analysis-input snapshot named in `inputs/canonical_snapshot.json`. Historical result-directory names inside that snapshot are retained only to preserve file identity; their old generators are under `legacy/implementations/`.
 
-1. Go to the repository's **Actions** tab.
+1. Open the repository's **Actions** tab.
 2. Choose **1909 analysis pipeline**.
 3. Click **Run workflow** and select `main`.
 4. Keep `build_figures=true` unless only numerical outputs are needed.
 5. Start the workflow.
-6. At completion, download `analysis-1909-<commit>-<run-id>`.
+6. Download `analysis-1909-<commit>-<run-id>` after completion.
 
 The workflow performs, in order:
 
-1. restore the pinned R version and declared system/R dependencies;
-2. restore and SHA-256 verify the immutable analysis-input snapshot;
-3. verify the active population is exactly 1,909 observations, 955 white-like and 954 pigmented;
+1. restore the pinned R version and declared dependencies;
+2. restore and SHA-256 verify the immutable snapshot;
+3. verify exactly 1,909 observations, 955 white-like and 954 pigmented;
 4. run dependency and INLA smoke tests;
-5. run the full national and local analysis with `--baseline=analysis_1909`;
-6. run all independent validators, audits, software tests, and the final claim lock;
-7. build figures from fresh outputs, never from committed result tables; and
-8. upload results, logs, manifests, and provenance as one artifact.
+5. execute the active stages declared in `reproducibility/pipeline_stage_registry.csv`;
+6. run active unit tests, independent validators and claim audits;
+7. build figures from fresh outputs; and
+8. upload outputs, logs, manifests and provenance as one artifact.
 
-### Success criteria
+The post-hoc bidirectional colour-state asymmetry diagnostic is not in this sequence. Candidate DOY is retained only as a supplementary post-selection description.
 
-Check these files in the downloaded artifact:
+## Success criteria
+
+Check:
 
 ```text
 reproducibility/analysis_population_check.csv
@@ -35,36 +37,22 @@ results/final_analysis_pipeline/final_result_registry.csv
 reproducibility/reproduction_summary.md
 ```
 
-All three population rows and every stage must be `PASS`. Claim-audit rows distinguish a scientific result from a pipeline failure; a p-value on either side of 0.05 is not itself a software failure.
+All population rows and all executed stages must be `PASS`. A scientific result on either side of a statistical threshold is recorded as a result and is not itself a software failure.
 
 ## Local execution
-
-### 1. Clone and enter the repository
 
 ```bash
 git clone https://github.com/zuizui0223/hotarubukuro.git
 cd hotarubukuro
-```
 
-### 2. Install the declared environment
-
-Use the R version in `dependencies/r-version.txt`. On Ubuntu/WSL, install the packages listed in `dependencies/apt-packages.txt`, then run:
-
-```bash
 Rscript scripts/setup_r_environment.R \
   --report-dir reproducibility \
   --scopes analysis,reproducibility,testing,figures,reporting
-```
 
-INLA is installed and verified against `dependencies/inla.csv`. On Windows, use WSL or Git Bash and set `TEMP`/`TMP` to an ASCII-only path if INLA has temporary-path problems.
-
-### 3. Run the analysis
-
-```bash
 bash scripts/run_analysis_1909.sh
 ```
 
-Optional environment variables:
+Optional controls:
 
 ```bash
 BUILD_FIGURES=false bash scripts/run_analysis_1909.sh
@@ -72,11 +60,11 @@ RUN_TESTS=false bash scripts/run_analysis_1909.sh
 SNAPSHOT_DIR=/absolute/path/to/snapshot bash scripts/run_analysis_1909.sh
 ```
 
-For a public GitHub release, snapshot restoration normally works anonymously. Set `GITHUB_TOKEN` if API rate limits or repository policy require authentication.
+Public GitHub release assets normally restore anonymously. `GITHUB_TOKEN` can be supplied for rate-limit or repository-policy reasons.
 
-## Direct component commands
+## Direct active commands
 
-Restore the snapshot only:
+Restore the snapshot:
 
 ```bash
 bash scripts/canonical_snapshot.sh restore \
@@ -84,7 +72,7 @@ bash scripts/canonical_snapshot.sh restore \
   reproduction_inputs/snapshot
 ```
 
-Verify the analysis population:
+Verify the population:
 
 ```bash
 Rscript scripts/check_analysis_population.R \
@@ -93,7 +81,7 @@ Rscript scripts/check_analysis_population.R \
   --strict true
 ```
 
-Run the model and validation pipeline after the snapshot has been materialized:
+Run the numerical and validation stages:
 
 ```bash
 Rscript scripts/run_publication_pipeline.R \
@@ -102,22 +90,33 @@ Rscript scripts/run_publication_pipeline.R \
   --tests true
 ```
 
-Build figures from the newly generated outputs:
+Build figures:
 
 ```bash
 Rscript scripts/build_publication_figures.R
 ```
 
-## Inputs and outputs
+These are the only supported canonical entry points. Exact active modules and scripts are listed in `config/code_manifest.csv`.
 
-`Data_S1.csv` contains the curated derived flower-colour measurements and source identifiers. Raw YAMAP photographs are not redistributed. The immutable snapshot supplies the fixed upstream phenotype/cell tables and public spatial layers needed by the active analysis. Its asset checksum and every member checksum are declared in `inputs/canonical_snapshot.json`.
+## Inputs and generated outputs
 
-Generated files under `results/`, `reproducibility/`, and `manuscript/figures/` are run products. They must not be treated as inputs to a new run. The driver sets a run-start timestamp and the output manifest records which files were produced in that run.
+`Data_S1.csv` contains curated derived flower-colour measurements and source identifiers. Raw YAMAP photographs are not redistributed. The snapshot supplies the fixed upstream phenotype/cell tables and public spatial layers; its asset and member hashes are declared in `inputs/canonical_snapshot.json`.
 
-## Statistical rather than bitwise reproducibility
+Files under `results/`, generated `reproducibility/` reports and `manuscript/figures/` are run products. The complete runner clears previous generated products before restoring inputs, so a new run cannot silently reuse committed or stale numerical outputs.
 
-INLA posterior samples can differ at the bit level despite fixed seeds, folds, and draw counts. The active pipeline therefore logs checkpoint hashes and verifies scientific invariants. Candidate identities and major result directions have been stable in repeated runs, while Monte Carlo values near a decision boundary can shift slightly. Report effect sizes, realised p/q values, uncertainty, and the run commit together.
+## Source-build utilities
+
+`source_build/` contains optional utilities for colour extraction and public-data acquisition or alignment. They are audited as code but are not called by the canonical DAG. Running them creates a new source-build exercise rather than reproducing the checksum-locked 1,909 analysis.
 
 ## Legacy material
 
-All 1,923-observation fixed outputs, the old manuscript, old comparison code, and recovery workflows are in `legacy/published-1923/`. Nothing in the active commands above imports from that directory.
+- `legacy/published-1923/`: earlier 1,923 fixed outputs, manuscript and workflows.
+- `legacy/implementations/frozen-upstream/`: superseded v11/v15 implementation code, runners and tests.
+- `legacy/diagnostics/local-state-asymmetry/`: post-hoc reverse-direction diagnostic.
+- `legacy/reconstruction-prototypes/`: historical public-reconstruction experiments.
+
+Nothing in the active commands imports these directories.
+
+## Statistical rather than bitwise reproducibility
+
+INLA posterior samples can differ at the bit level despite fixed seeds, folds and draw counts. The pipeline therefore verifies input hashes, fixed definitions, stage completion, finite results, claim ceilings and output provenance. Report effect sizes, realised p/q values, uncertainty and the run commit together.

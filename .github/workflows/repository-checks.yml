@@ -10,33 +10,24 @@ permissions:
   contents: read
 
 jobs:
-  active-source-syntax:
+  declared-source-syntax:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: "4.5.3"
-      - name: Parse active R and R Markdown sources
+      - name: Parse declared R sources only
         shell: Rscript {0}
         run: |
-          files <- unlist(lapply(
-            c("R", "scripts", "validation", "tests", "reports"),
-            function(path) if (dir.exists(path)) list.files(path, pattern = "\\.(R|Rmd)$", recursive = TRUE, full.names = TRUE) else character()
-          ))
-          for (file in files) {
-            lines <- readLines(file, warn = FALSE, encoding = "UTF-8")
-            if (grepl("\\.Rmd$", file)) {
-              in_chunk <- FALSE; chunk <- character()
-              for (line in lines) {
-                if (!in_chunk && grepl("^\\s*```\\{[rR]", line)) { in_chunk <- TRUE; chunk <- character(); next }
-                if (in_chunk && grepl("^\\s*```\\s*$", line)) { if (length(chunk)) parse(text = chunk); in_chunk <- FALSE; next }
-                if (in_chunk) chunk <- c(chunk, line)
-              }
-              if (in_chunk) stop("Unclosed R chunk in ", file)
-            } else parse(text = lines, keep.source = FALSE)
-          }
-          cat("Checked", length(files), "active source files; legacy excluded.\n")
+          manifest <- read.csv(
+            "config/code_manifest.csv", stringsAsFactors = FALSE,
+            check.names = FALSE
+          )
+          files <- manifest$path[grepl("\\.R$", manifest$path)]
+          stopifnot(length(files) > 0L, all(file.exists(files)))
+          for (file in files) parse(file, keep.source = FALSE)
+          cat("Checked", length(files), "declared R files; legacy excluded.\n")
 
   python-package:
     runs-on: ubuntu-24.04

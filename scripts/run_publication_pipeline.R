@@ -12,13 +12,13 @@ output_dir <- hb_arg_value(
 run_tests <- hb_as_bool(hb_arg_value(args, "--tests", "true"))
 
 # The active repository has one scientific baseline. `reconstruction` remains
-# an accepted spelling only because independent validators use that internal
-# label; both spellings mean the active 1,909-observation analysis.
+# an accepted internal spelling for validators; both values mean the active
+# 1,909-observation analysis.
 baseline_requested <- hb_arg_value(args, "--baseline", "analysis_1909")
 if (!baseline_requested %in% c("analysis_1909", "reconstruction")) {
   stop(
     "The active pipeline supports only --baseline=analysis_1909. ",
-    "The 1,923 analysis is archived under legacy/published-1923/.",
+    "The 1,923 analysis and superseded implementations are under legacy/.",
     call. = FALSE
   )
 }
@@ -89,6 +89,8 @@ run_stage <- function(stage, script, arguments = character(),
   invisible(TRUE)
 }
 
+# Frozen upstream tables are restored from the checksum-locked snapshot. The
+# old generators are archived; only their resulting inputs are audited here.
 run_stage(
   "01_audit_phenotype", "validation/audit_phenotype.R",
   c(paste0("--baseline=", baseline)), role = "frozen_upstream_audit"
@@ -172,30 +174,16 @@ run_stage(
   role = "candidate_definition_validation"
 )
 
-# Supplementary direction check. It does not alter the directional candidate
-# set used by the main human-context analysis.
+# Supplementary, model-free candidate DOY description. It reaches no candidate
+# selection, ranking, main test, or causal conclusion.
 if (mode %in% c("extensions", "full")) {
   run_stage(
-    "S1_run_direction_check", "scripts/run_local_state_asymmetry.R",
-    role = "supplementary_direction_check"
-  )
-}
-run_stage(
-  "S1_validate_direction_check",
-  "validation/validate_local_state_asymmetry.R",
-  role = "supplementary_direction_check_validation"
-)
-
-# Supplementary, model-free candidate DOY description. It reaches no selection,
-# ranking, figure claim, or causal conclusion.
-if (mode %in% c("extensions", "full")) {
-  run_stage(
-    "S2_run_candidate_doy_check", "scripts/run_candidate_doy_check.R",
+    "S1_run_candidate_doy_check", "scripts/run_candidate_doy_check.R",
     role = "supplementary_flowering_date_check"
   )
 }
 run_stage(
-  "S2_validate_candidate_doy_check",
+  "S1_validate_candidate_doy_check",
   "validation/validate_candidate_doy_check.R",
   role = "supplementary_flowering_date_check_validation"
 )

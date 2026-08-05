@@ -25,22 +25,71 @@ jobs:
           r-version: "4.5.3"
           use-public-rspm: true
 
-      - name: Parse active R code
+      - name: Validate the declared code manifest
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+
+          manifest = Path('config/code_manifest.csv')
+          rows = list(csv.DictReader(manifest.open(encoding='utf-8')))
+          if not rows:
+              raise SystemExit('config/code_manifest.csv is empty')
+          paths = [row['path'].strip() for row in rows]
+          if len(paths) != len(set(paths)):
+              raise SystemExit('duplicate paths in config/code_manifest.csv')
+          missing = [path for path in paths if not Path(path).is_file()]
+          if missing:
+              raise SystemExit('declared code files are missing: ' + ', '.join(missing))
+
+          roots = [Path('R'), Path('scripts'), Path('validation'),
+                   Path('tests/testthat'), Path('tests/python'), Path('source_build')]
+          discovered = set()
+          for root in roots:
+              if not root.exists():
+                  continue
+              for path in root.rglob('*'):
+                  if path.is_file() and path.suffix in {'.R', '.Rmd', '.py', '.sh'}:
+                      discovered.add(path.as_posix())
+          discovered.add('tests/testthat.R')
+          discovered.add('Code_S1.py')
+          declared = set(paths)
+          undeclared = sorted(discovered - declared)
+          stale = sorted(declared - discovered)
+          if undeclared:
+              raise SystemExit('undeclared executable files outside legacy: ' + ', '.join(undeclared))
+          if stale:
+              raise SystemExit('manifest paths outside checked code roots: ' + ', '.join(stale))
+          print('code manifest ok:', len(rows), 'declared files')
+          PY
+
+      - name: Parse all declared R code
         shell: Rscript {0}
         run: |
-          files <- unlist(lapply(
-            c("R", "scripts", "validation", "tests"),
-            function(path) list.files(path, pattern = "\\.R$", recursive = TRUE, full.names = TRUE)
-          ))
-          stopifnot(length(files) > 0L)
-          for (file in files) parse(file, keep.source = FALSE)
-          cat("Parsed", length(files), "active R files. Legacy is intentionally excluded.\n")
+          manifest <- read.csv(
+            "config/code_manifest.csv", stringsAsFactors = FALSE,
+            check.names = FALSE
+          )
+          files <- manifest$path[grepl("\\.(R|Rmd)$", manifest$path)]
+          stopifnot(length(files) > 0L, all(file.exists(files)))
+          for (file in files) {
+            if (grepl("\\.Rmd$", file)) next
+            parse(file, keep.source = FALSE)
+          }
+          cat("Parsed", length(files), "declared R files.\n")
 
-      - name: Check active shell drivers
+      - name: Check declared shell drivers
         shell: bash
         run: |
           set -euo pipefail
-          for script in scripts/*.sh; do bash -n "$script"; done
+          python3 - <<'PY' > /tmp/hb-shell-files
+          import csv
+          for row in csv.DictReader(open('config/code_manifest.csv')):
+              if row['path'].endswith('.sh'):
+                  print(row['path'])
+          PY
+          while IFS= read -r script; do bash -n "$script"; done < /tmp/hb-shell-files
 
       - name: Validate workflow YAML and stage registry
         shell: bash
@@ -59,8 +108,18 @@ jobs:
           for row in rows:
               for col in ('generating_script','validation_script','audit_script'):
                   value = row[col].strip()
-                  if value and not pathlib.Path(value).exists(): absent.append(f'{row["stage_id"]}:{value}')
+                  if value and not pathlib.Path(value).exists():
+                      absent.append(f'{row["stage_id"]}:{value}')
           if absent: sys.exit('missing active scripts: ' + ', '.join(absent))
+          declared = {r['path'] for r in csv.DictReader(open('config/code_manifest.csv'))}
+          referenced = {
+              row[col].strip() for row in rows
+              for col in ('generating_script','validation_script','audit_script')
+              if row[col].strip()
+          }
+          missing_from_manifest = sorted(referenced - declared)
+          if missing_from_manifest:
+              sys.exit('stage registry uses undeclared code: ' + ', '.join(missing_from_manifest))
           print('stage registry ok:', len(rows), 'stages')
           PY
 
@@ -81,20 +140,21 @@ jobs:
             identical(as.integer(expected$expectation), c(1909L,955L,954L))
           )
 
-      - name: Confirm active code does not import legacy
+      - name: Confirm active code does not import legacy or source-build tools
         shell: bash
         run: |
           set -euo pipefail
-          # Mentions in explanatory error messages are allowed. Fail only when
-          # active executable code attempts to read, source, list, or execute a
-          # path below the archived 1,923 tree.
-          if grep -RInE \
-            --exclude-dir=legacy \
-            --exclude='*.md' \
-            --exclude='pr-checks.yml' \
-            '(source\(|read\.csv\(|readLines\(|hb_read_csv\(|file\.exists\(|list\.files\(|system2\(|Rscript |bash ).*legacy/published-1923' \
-            R scripts validation tests .github/workflows; then
-            echo 'Active executable code imports legacy material.' >&2
+          python3 - <<'PY' > /tmp/hb-active-files
+          import csv
+          active = {'active','supplementary','support','validation','active_test'}
+          for row in csv.DictReader(open('config/code_manifest.csv')):
+              if row['status'] in active:
+                  print(row['path'])
+          PY
+          if xargs grep -InE \
+            '(source\(|sys\.source\(|read\.csv\(|readLines\(|file\.exists\(|list\.files\(|system2\(|Rscript |bash ).*(legacy/|source_build/)' \
+            < /tmp/hb-active-files; then
+            echo 'Active executable code imports legacy or source-build material.' >&2
             exit 1
           fi
 

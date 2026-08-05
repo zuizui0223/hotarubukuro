@@ -47,6 +47,17 @@ bash scripts/canonical_snapshot.sh restore \
 
 analysis_inputs="$SNAPSHOT_DIR/analysis_inputs"
 test -d "$analysis_inputs"
+
+# Human-landscape stages consume the raw MLIT archives from the immutable
+# snapshot. Point them at the restored locations explicitly instead of relying
+# on an author's home-directory cache.
+export HOTARUBUKURO_INPUT_ROOT="$analysis_inputs"
+export HOTARUBUKURO_MLIT_CACHE="$analysis_inputs/mlit_l03_2021"
+export HOTARUBUKURO_DID_CACHE="$analysis_inputs/mlit_did_2015"
+
+test -d "$HOTARUBUKURO_MLIT_CACHE"
+test -d "$HOTARUBUKURO_DID_CACHE"
+
 for root in results rasters; do
   if [[ -d "$analysis_inputs/$root" ]]; then
     mkdir -p "$root"

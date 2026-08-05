@@ -1,68 +1,43 @@
-name: Public reconstruction
-
-# Produces the PUBLIC RECONSTRUCTION. This is NOT the paper's analysis.
-#
-# The published manuscript analysis is canonical and is computed on 1,923
-# observations. This workflow runs the same locked pipeline on an analysis
-# population rebuilt entirely from Data_S1.csv and the pinned public sources,
-# which contains 1,909 observations. The published analysis-input tables are
-# lost (docs/established-inputs.md), so the published analysis cannot be
-# re-executed from source; this is the closest reproducible approximation and
-# is never a substitute for it.
-#
-# The comparison it produces is descriptive: published value, reconstructed
-# value, difference. No robust/differs verdict is issued, because the two sides
-# are computed on different observation sets.
-#
-# The frozen upstream audits run with --baseline reconstruction: every
-# dataset-independent structural check is enforced exactly as in the published
-# mode, and the few checks that assert the published run's own row counts and
-# convergence-warning pattern are reported as not applicable rather than
-# deleted.
-#
-# Stage 02 fits four cross-fitted components. A fifth, the phenology component,
-# has been withdrawn: it aborts inside INLA's sampler and fold 4 never
-# completed in any measured configuration. Withdrawing it does not change
-# local-isolate candidates. See docs/public-reconstruction.md.
+name: 1909 analysis pipeline
 
 on:
   workflow_dispatch:
     inputs:
       build_figures:
-        description: Build the manuscript-facing figures
-        type: string
+        description: Build manuscript figures from the fresh run
+        type: boolean
         required: false
-        default: "true"
+        default: true
   pull_request:
     types: [labeled]
-    branches: ["main", "analysis/local-colour-state-asymmetry"]
+    branches: ["main"]
 
 permissions:
   contents: read
 
 concurrency:
-  group: reconstruction-analysis-${{ github.ref }}
+  group: analysis-1909-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
-  STATUS_DIR: ${{ github.workspace }}/reproduction_status
-  REPORT_DIR: ${{ github.workspace }}/reproducibility
-  BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
-  HOTARUBUKURO_MLIT_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_l03_2021
-  HOTARUBUKURO_DID_CACHE: ${{ github.workspace }}/reproduction_inputs/mlit_did_2015
-
 jobs:
-  reconstruction:
-    name: Reconstruction analysis and robustness comparison
+  analysis:
+    name: Reproduce the 1,909 analysis
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.label.name == 'run-reconstruction-analysis'
+      github.event.label.name == 'run-analysis-1909'
     runs-on: ubuntu-24.04
-    timeout-minutes: 480
+    timeout-minutes: 300
+    env:
+      REPORT_DIR: ${{ github.workspace }}/reproducibility
+      STATUS_DIR: ${{ github.workspace }}/reproduction_status
+      SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
+      BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
+      RUN_TESTS: "true"
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Read the pinned R version
         id: rversion
@@ -73,6 +48,11 @@ jobs:
         with:
           r-version: ${{ steps.rversion.outputs.version }}
           use-public-rspm: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
 
       - name: Install declared system libraries
         shell: bash
@@ -87,78 +67,40 @@ jobs:
         with:
           path: ${{ env.R_LIBS_USER }}
           key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
-          # A cold job otherwise has to refetch INLA from a mutable upstream that
-          # is periodically unavailable. A partial-key hit is safe here because
-          # scripts/setup_r_environment.R reuses INLA only on an exact pinned
-          # version match and re-verifies the version after installing.
           restore-keys: |
             r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
 
       - name: Restore the declared R environment
-        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing,reporting,figures
+        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing,figures,reporting
 
-      # The same immutable, checksummed snapshot the canonical workflow uses.
-      # Here it is the analysis input rather than a failed reproduction attempt.
-      - name: Restore the canonical analysis-input snapshot
+      - name: Run the complete 1,909 pipeline
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$SNAPSHOT_DIR"
+        run: bash scripts/run_analysis_1909.sh
 
-      - name: Run the reconstruction analysis
-        run: bash scripts/run_reconstruction_analysis.sh
-
-      - name: Publish the robustness comparison
+      - name: Publish the summary
         if: always()
         shell: bash
         run: |
-          set +e
-          {
-            echo "## Reconstruction robustness analysis"
-            echo
-            echo "- commit: \`${GITHUB_SHA}\`"
-            echo
-            if [[ -s "${REPORT_DIR}/reconstruction_vs_published.md" ]]; then
-              cat "${REPORT_DIR}/reconstruction_vs_published.md"
-            else
-              echo "No comparison was produced."
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -s reproducibility/reproduction_summary.md ]]; then
+            cat reproducibility/reproduction_summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s reproducibility/analysis_population_check.csv ]]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat reproducibility/analysis_population_check.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      - name: Record run provenance
-        if: always()
-        shell: bash
-        run: |
-          set +e
-          mkdir -p "$STATUS_DIR"
-          {
-            echo "workflow=reconstruction-analysis"
-            echo "workflow_run=${GITHUB_RUN_ID}"
-            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            echo "commit=${GITHUB_SHA}"
-            echo "baseline=reconstruction"
-            echo "run_mode=canonical"
-          } > "${STATUS_DIR}/run_provenance.txt"
-
-      - name: Upload the analysis, the comparison, and all logs
+      - name: Upload the complete run
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reconstruction-analysis-${{ github.sha }}-${{ github.run_id }}
+          name: analysis-1909-${{ github.sha }}-${{ github.run_id }}
           path: |
+            results
             reproducibility
             reproduction_status
-            results/final_analysis_pipeline
-            results/ecological_v11_pigmentation_hurdle
-            results/ecological_v15_multiscale_hotspots
-            results/ecological_v16_predictive_replication
-            results/ecological_v17_local_pair_turnover
-            results/ecological_v19_human_landscape_extremes
-            results/ecological_v20_local_white_isolates
-            results/ecological_v23_local_state_asymmetry
-            results/ecological_v24_candidate_doy_check
-            results/ecological_v21_local_human_neighbourhood
-            results/ecological_v22_did_human_context
             manuscript/figures
           if-no-files-found: warn
-          compression-level: 6
           retention-days: 90

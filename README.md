@@ -1,130 +1,82 @@
 # hotarubukuro
 
-Reproducible nationwide analysis of floral-colour geography in *Campanula
-punctata* using author-reviewed YAMAP hiking-activity photographs,
-environmental rasters, spatial models, predicted *Bombus* communities, and
-exploratory human-landscape context. The occurrence frame is concentrated on
-hiking trails and activity routes and is not a random sample of Japanese plant
-populations.
+Reproducible nationwide analysis of flower-colour geography in *Campanula punctata* from author-reviewed YAMAP photographs.
 
-## Biological response
+## Active analysis: 1,909 observations
 
-Each focal flower was cropped and its retained petal colour region was visually
-confirmed by the author before scripted colour extraction. The analysis then
-uses a two-part response:
+`main` contains one active analysis baseline: the **1,909-observation analysis** reconstructed from `Data_S1.csv` and the pinned immutable input snapshot described by `inputs/canonical_snapshot.json`.
 
-1. optical pigmentation presence across all observations; and
-2. CIELAB a* intensity conditional on a flower being classified as pigmented.
+Expected analysis population:
 
-White-flower a* variation is not interpreted as anthocyanin quantity. Extreme
-dark or pink flowers are retained because they may be biologically real and are
-relevant to follow-up of possible human-mediated introductions.
+| Quantity | Expected |
+|---|---:|
+| observations | 1,909 |
+| white-like observations | 955 |
+| pigmented observations | 954 |
 
-## Publication analysis
+The active pipeline estimates:
 
-The pipeline separates nationwide pattern, local biotic turnover, and
-exploratory human context so that they do not share a single causal claim.
+1. a two-part flower-colour response (pigmentation presence and pigmented-only visible intensity);
+2. national environmental and INLA-SPDE structure;
+3. local flower-colour turnover against a predicted five-species *Bombus* fingerprint;
+4. repeated local pigmented-isolate events under 1,000 natural-map draws; and
+5. post-selection human-landscape context.
 
-| Stage | Manuscript role | Main analysis |
-|---|---|---|
-| `01_phenotype` | Measurement model | White/pigmented classification and pigmented-only intensity |
-| `02_natural_model` | Confirmatory natural baseline | Response-blind environment plus PC-prior INLA-SPDE and spatial cross-validation |
-| `03_local_bombus` | Planned local biotic test | Near-neighbour flower-colour turnover versus predicted *Bombus* community turnover |
-| `04_candidate_definition` | Candidate definition | Pigmented isolates among environment-similar observed-white neighbours |
-| `05_human_context` | Exploratory characterization | Population and DID contrasts without using human variables to select candidates |
-| `06_final_lock` | Reproducibility and claim control | Result, exclusion, checksum, validation, and claim registries |
+The predicted *Bombus* fingerprint is relative habitat support and composition, not abundance, visitation, pollen transfer, or direct selection pressure. Human-context results prioritize follow-up sites; they do not establish horticultural origin.
 
-Fresh ENMeval model selection and prediction are used for the five *Bombus*
-species. Previously generated *Bombus* TIFF files are not accepted as analysis
-inputs. Predicted suitability is treated as a community fingerprint, not as
-abundance, visitation, pollination efficiency, or direct selection pressure.
+## Run on GitHub Actions
 
-See `docs/analysis-plan.md` for the complete inferential design and
-`docs/manuscript-story.md` for the reviewer-facing narrative and claim
-ceilings.
+1. Open **Actions**.
+2. Select **1909 analysis pipeline**.
+3. Select **Run workflow** on `main`.
+4. Leave `build_figures=true` and start the run.
+5. Download the artifact named `analysis-1909-<commit>-<run-id>`.
 
-The current submission draft is
-`manuscript/ecology-and-evolution-manuscript.md`. Public raster provenance,
-journal selection, literature support, and exact rerun commands are recorded in
-`docs/data-sources/public-environment-sources.md`,
-`docs/journal-target-review.md`, `docs/methodology-literature.md`, and
-`docs/reproduction-guide.md`.
+A successful run contains:
+
+- `reproducibility/analysis_population_check.csv` with three `PASS` rows;
+- `results/final_analysis_pipeline/final_stage_manifest.csv` with all stages `PASS`;
+- independent validation and claim-audit tables;
+- regenerated result tables; and
+- regenerated manuscript figures when requested.
+
+Exact commands, output paths, and interpretation limits are in [`docs/reproduction-guide.md`](docs/reproduction-guide.md). The stage graph is in [`docs/pipeline-dag.md`](docs/pipeline-dag.md).
+
+## Run locally
+
+The simplest supported local route is Linux, macOS, or WSL/Git Bash with the pinned R version:
+
+```bash
+git clone https://github.com/zuizui0223/hotarubukuro.git
+cd hotarubukuro
+
+Rscript scripts/setup_r_environment.R \
+  --report-dir reproducibility \
+  --scopes analysis,reproducibility,testing,figures,reporting
+
+bash scripts/run_analysis_1909.sh
+```
+
+The shell driver restores and verifies the immutable snapshot, checks the 1,909-row population, runs the complete analysis, validates every stage, and writes a run summary.
 
 ## Repository layout
 
 ```text
-R/                         stage-specific analysis functions
-R/pipeline_support.R       package groups, module registry, shared helpers
-scripts/                   executable data-build and stage runners
+R/                         active analysis functions
+scripts/                   active runners and data-build scripts
 validation/                independent validation and claim audits
-tests/testthat/             unit and interface tests
-reports/                   analysis reports, separate from executable modules
-docs/                      current analysis and data-source documentation
-results/final_analysis_pipeline/
-                           publication registries and locked handoff
-Data_S1.csv                analysis data
-scripts/extract_color.py   deterministic colour-extraction CLI
-Code_S1.py                 supplementary GPX georeferencing code
+tests/                     software tests
+inputs/                    active snapshot descriptor and 1,909 expectations
+docs/                      active 1,909 documentation
+results/                   generated at run time; not a source of truth
+manuscript/                active manuscript notes and generated figures
+legacy/published-1923/     archived 1,923 artifacts, manuscript, and old runners
 ```
 
-Stable code filenames do not contain development version numbers. Versioned
-result directories such as `ecological_v11_*` and `ecological_v22_*` remain as
-provenance identifiers for frozen analyses.
+## Legacy 1,923 analysis
 
-## Run and verify
+The earlier 1,923-observation outputs, manuscript, reference tables, and comparison workflows are preserved under `legacy/published-1923/` for provenance only. They are not read by the active workflow or CI. The original 1,923 analysis-input tables were not retained, so that analysis is not presented as fully rerunnable.
 
-From the repository root, verify all locked artifacts and run the test suite:
+## Reproducibility ceiling
 
-```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
-  scripts/run_publication_pipeline.R --mode=verify --tests=true
-```
-
-Rebuild the post-baseline extensions from the frozen natural-model checkpoint:
-
-```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
-  scripts/run_publication_pipeline.R --mode=extensions --tests=true
-```
-
-Use `--mode=full` to rebuild the natural predictive model and subsequent
-stages. Image extraction and manually reviewed colour regions remain fixed
-upstream inputs.
-
-Render the phenotype-analysis report:
-
-```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
-  scripts/render_phenotype_report.R
-```
-
-Build the publication figures and the *Ecology and Evolution*
-submission-format Word draft:
-
-```powershell
-& 'C:\Program Files\R\R-4.5.3\bin\Rscript.exe' `
-  scripts/build_publication_figures.R
-
-& 'C:\Users\zuizui\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' `
-  scripts/build_manuscript_docx.py
-```
-
-On Windows, INLA may require `TEMP` and `TMP` to point to an ASCII-only
-directory.
-
-## Dependencies
-
-R package requirements and their stage assignments are centralized in
-`R/pipeline_support.R`. Major dependencies are `INLA`, `sf`, `terra`,
-`ENMeval`, `maxnet`, `mclust`, `mgcv`, `qgam`, `ranger`, `testthat`, and
-`rmarkdown`. Python dependencies for supplementary colour extraction are
-declared in `pyproject.toml`.
-
-## Interpretation ceiling
-
-The natural model quantifies environmental and unresolved spatial structure.
-The local *Bombus* analysis evaluates correspondence between predicted
-community turnover and flower-colour turnover. The human-context analysis ranks
-follow-up candidates. None of these analyses alone establishes pollinator
-selection, horticultural origin, planting, garden escape, introgression, or
-genetic contamination; those require field, provenance, and genetic evidence.
+The pipeline is designed for **method and statistical reproducibility**, not guaranteed bitwise identity of INLA posterior samples. Seeds, folds, draw counts, input hashes, candidate definitions, validators, and output manifests are fixed. Candidate identities and major directions should remain stable, but Monte Carlo quantities close to a threshold can vary slightly between runs; report the realised estimate and uncertainty rather than treating a single rounded p-value as immutable.

@@ -106,12 +106,14 @@ if (!identical(expected_candidate_ids, observed_candidate_ids)) {
   )
 }
 
+primary_metrics <- c("candidate_count", "candidate_fraction")
 primary_summary <- submission_summary[
-  submission_summary$configuration == "primary_10km_env1_all_white",
+  submission_summary$configuration == "primary_10km_env1_all_white" &
+    submission_summary$metric %in% primary_metrics,
   , drop = FALSE
 ]
-if (!identical(sort(primary_summary$metric), c("candidate_count", "candidate_fraction"))) {
-  stop("Primary submission summary is incomplete.", call. = FALSE)
+if (!identical(sort(as.character(primary_summary$metric)), sort(primary_metrics))) {
+  stop("Primary submission count/fraction summary is incomplete.", call. = FALSE)
 }
 
 thread_fields <- c(
@@ -184,9 +186,10 @@ rp_write_manifest(
 )
 
 # The final registry and manuscript figures already consume the v20 paths.
-# Replace only the natural-map count/fraction tables after all 1,000-map human
-# diagnostics have completed; candidate, matching, landscape and DID outputs are
-# untouched.
+# Replace only the natural-map count/fraction source tables after all 1,000-map
+# human diagnostics have completed. The full four-metric table is retained so
+# auxiliary q-tail diagnostics remain available, but only count and fraction
+# are treated as the primary submission comparison.
 rp_write_csv_atomic(
   submission_summary,
   file.path(active_output_dir, "local_isolate_natural_null_summary.csv")

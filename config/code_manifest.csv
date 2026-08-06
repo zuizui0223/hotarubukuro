@@ -22,6 +22,7 @@ active,stage,scripts/run_local_pigmented_isolates.R,stage 04 candidate runner
 supplementary,stage,scripts/run_candidate_doy_check.R,held-out DOY runner
 active,stage,scripts/run_local_human_context.R,stage 05 human-context runner
 active,stage,scripts/run_did_sensitivity.R,stage 05 DID runner
+active,stage,scripts/refine_submission_isolate_null.R,10000-map submission reference for pre-fixed local isolates
 support,snapshot,scripts/canonical_snapshot.sh,restore and verify the immutable 1909 snapshot
 support,snapshot,scripts/stage_canonical_snapshot.R,maintainer-only snapshot staging
 support,snapshot,scripts/verify_canonical_snapshot.R,snapshot member validation
@@ -47,6 +48,7 @@ validation,stage,validation/validate_local_human_context.R,stage 05 validator
 validation,stage,validation/audit_local_human_context.R,stage 05 independent audit
 validation,stage,validation/validate_did_sensitivity.R,DID validator
 validation,stage,validation/audit_did_sensitivity.R,DID independent audit
+validation,submission,validation/validate_submission_isolate_null.R,submission-scale candidate null and thread-lock validator
 validation,final,validation/validate_publication_pipeline.R,final independent lock validation
 validation,final,validation/audit_publication_claims.R,claim ceiling audit
 active_test,r,tests/testthat.R,active R unit-test entrypoint

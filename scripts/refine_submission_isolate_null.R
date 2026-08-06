@@ -28,9 +28,13 @@ output_dir <- arg_value(
 expected_draws <- as.integer(arg_value(
   "--draws", Sys.getenv("HOTARUBUKURO_SUBMISSION_DRAWS", "10000")
 ))
+submission_seed <- as.integer(arg_value("--seed", "20260725"))
 
 if (!is.finite(expected_draws) || expected_draws < 5000L) {
   stop("Submission null refinement requires at least 5,000 maps.", call. = FALSE)
+}
+if (!is.finite(submission_seed)) {
+  stop("--seed must be a finite integer.", call. = FALSE)
 }
 
 hb_require_stage_packages("local_pigmented_isolates")
@@ -48,7 +52,6 @@ if (!is.matrix(counts) || ncol(counts) != expected_draws) {
   )
 }
 
-trials <- pmax(as.numeric(cells$n_observations), 1)
 observed_q <- v18_predictive_tail_q(
   as.numeric(cells$n_pigmented), counts, "upper"
 )
@@ -97,7 +100,7 @@ expected_candidate_ids <- sort(as.character(candidates$exact_site_id))
 observed_candidate_ids <- sort(primary_candidate_ids)
 if (!identical(expected_candidate_ids, observed_candidate_ids)) {
   stop(
-    "The 10,000-map refinement changed observed candidate identity. ",
+    "The submission refinement changed observed candidate identity. ",
     "Observed candidates must be fixed before the natural-map comparison.",
     call. = FALSE
   )
@@ -131,7 +134,7 @@ metadata <- data.frame(
     rp_sha256(presence_checkpoint),
     as.character(length(observed_candidate_ids)),
     digest::digest(observed_candidate_ids, algo = "sha256"),
-    as.character(presence_raw$seed %||% NA_integer_),
+    as.character(submission_seed),
     paste(RNGkind(), collapse = ";"),
     unname(Sys.getenv(thread_fields, unset = "unset")),
     rp_git_commit(),
@@ -142,17 +145,6 @@ metadata <- data.frame(
   ),
   stringsAsFactors = FALSE
 )
-
-# `%||%` is deliberately local to avoid changing the active interface.
-# It is evaluated only above after presence_raw is known to be a list.
-
-# Rebuild metadata without relying on a package-specific infix if the checkpoint
-# does not carry a top-level seed.
-metadata$value[metadata$field == "random_seed"] <- if (!is.null(presence_raw$seed)) {
-  as.character(presence_raw$seed[[1L]])
-} else {
-  "20260725"
-}
 
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 rp_write_csv_atomic(

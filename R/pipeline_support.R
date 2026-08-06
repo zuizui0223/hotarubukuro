@@ -20,13 +20,28 @@ hb_configure_deterministic_compute <- function() {
     normal.kind = "Inversion",
     sample.kind = "Rejection"
   )
+  r_seed <- suppressWarnings(as.integer(Sys.getenv(
+    "HOTARUBUKURO_R_SEED", "20260725"
+  )))
+  if (length(r_seed) != 1L || !is.finite(r_seed) || r_seed <= 0L) {
+    stop("HOTARUBUKURO_R_SEED must be one positive integer.", call. = FALSE)
+  }
+  # inla.posterior.sample() uses both the GMRFLib seed supplied at the call
+  # site and R's RNG state.  Initialising .Random.seed here makes every active
+  # R process start from the same declared state before any posterior sampling.
+  set.seed(r_seed)
   if (requireNamespace("INLA", quietly = TRUE)) {
-    INLA::inla.setOption(num.threads = "1:1")
+    INLA::inla.setOption(
+      num.threads = "1:1",
+      blas.num.threads = 1L
+    )
   }
   invisible(data.frame(
-    field = c(thread_variables, "OMP_DYNAMIC", "RNGkind"),
+    field = c(
+      thread_variables, "OMP_DYNAMIC", "R_seed", "RNGkind"
+    ),
     value = c(
-      rep("1", length(thread_variables)), "FALSE",
+      rep("1", length(thread_variables)), "FALSE", as.character(r_seed),
       paste(RNGkind(), collapse = ";")
     ),
     stringsAsFactors = FALSE

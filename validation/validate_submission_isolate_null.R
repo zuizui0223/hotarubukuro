@@ -138,7 +138,7 @@ for (row in seq_len(nrow(submission_summary))) {
   observed <- as.numeric(item$observed_value)
   upper_p <- (1 + sum(values >= observed, na.rm = TRUE)) /
     (length(values) + 1)
-  percentile <- mean(values < observed, na.rm = TRUE)
+  percentile <- mean(values <= observed, na.rm = TRUE)
   recalculated[[length(recalculated) + 1L]] <- data.frame(
     configuration = item$configuration,
     metric = item$metric,

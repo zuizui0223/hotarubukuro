@@ -27,14 +27,11 @@ hb_configure_deterministic_compute <- function() {
     stop("HOTARUBUKURO_R_SEED must be one positive integer.", call. = FALSE)
   }
   # inla.posterior.sample() uses both the GMRFLib seed supplied at the call
-  # site and R's RNG state.  Initialising .Random.seed here makes every active
-  # R process start from the same declared state before any posterior sampling.
+  # site and R's RNG state. Initialising .Random.seed here makes every active
+  # R process start from the same declared state before posterior sampling.
   set.seed(r_seed)
   if (requireNamespace("INLA", quietly = TRUE)) {
-    INLA::inla.setOption(
-      num.threads = "1:1",
-      blas.num.threads = 1L
-    )
+    INLA::inla.setOption(num.threads = "1:1")
   }
   invisible(data.frame(
     field = c(

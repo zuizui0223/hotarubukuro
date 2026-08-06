@@ -8,6 +8,11 @@ on:
         type: boolean
         required: false
         default: true
+      submission_draws:
+        description: Natural maps for the submission isolate reference
+        type: number
+        required: false
+        default: 10000
   pull_request:
     types: [labeled]
     branches: ["main"]
@@ -26,13 +31,23 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.label.name == 'run-canonical-analysis'
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 360
     env:
       REPORT_DIR: ${{ github.workspace }}/reproducibility
       STATUS_DIR: ${{ github.workspace }}/reproduction_status
       SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
       BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
       RUN_TESTS: "true"
+      HOTARUBUKURO_SUBMISSION_DRAWS: ${{ inputs.submission_draws || '10000' }}
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      GOTO_NUM_THREADS: "1"
+      BLIS_NUM_THREADS: "1"
+      INLA_NUM_THREADS: "1"
+      OMP_DYNAMIC: "FALSE"
 
     steps:
       - uses: actions/checkout@v4

@@ -24,13 +24,13 @@ The active paper is organized as one measurement framework, one national natural
 
 ### Bombus inference ceiling
 
-Stage 03 is directional and biologically motivated. Its active lower-third gate compares a cell where **all five focal species have within-species predicted-support rank <=0.33** with an environmentally similar cell where **at least one focal species has rank >=0.50**. Pairs are within 25 km, in the same held-out fold, and matched one-to-one before flower colour is read. Environment and an SPDE field are not fitted a second time locally; the 1,000 flower natural-model maps are replayed only as a predictive reference.
+The active paper contains **no national Bombus increment analysis**. Bombus enters only at stage 03, where the hypothesis is local, directional and biologically motivated. Its active lower-third gate compares a cell where **all five focal species have within-species predicted-support rank <=0.33** with an environmentally similar cell where **at least one focal species has rank >=0.50**. Pairs are within 25 km, in the same held-out fold, and matched one-to-one before flower colour is read. Environment and an SPDE field are not fitted a second time locally; the 1,000 flower natural-model maps are replayed only as a predictive reference.
 
 The lower-third gate was adopted for biological interpretability **after exploratory design development**. The full 0.10/0.20/0.25/0.33 threshold grid and its across-grid multiplicity correction remain visible in the outputs and claim lock. The result is therefore reported as a mechanistically motivated local sensitivity, not retrospectively described as a preregistered confirmatory test.
 
 The checksum-locked *Bombus* surfaces represent **predicted habitat availability**, not abundance, visitation, pollen transfer, pollination effectiveness or selection pressure. Uncertainty from GBIF sampling, ENMeval model selection, fitted SDM parameters and alternative prediction surfaces is not propagated through the current stage. Shared or unmeasured environmental structure can therefore remain even after local matching. See [`docs/bombus-sdm-inference.md`](docs/bombus-sdm-inference.md) and [`docs/bombus-pollinator-opportunity-proxy.md`](docs/bombus-pollinator-opportunity-proxy.md).
 
-The older unsigned flower-colour/*Bombus*-community turnover analysis is retained only as a sensitivity and is not read by the final result or claim registries.
+The older unsigned flower-colour/*Bombus*-community turnover analysis is not run by the active pipeline and remains only as historical method-development code.
 
 Human-context outputs prioritize follow-up sites and do not establish horticultural origin.
 

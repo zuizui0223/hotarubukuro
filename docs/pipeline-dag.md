@@ -41,7 +41,7 @@ The 0.33 gate was adopted for biological interpretability after exploratory desi
 
 The 1,000 stage-02 flower maps are replayed on the fixed matched pairs as a predictive reference. Environment and an SPDE field are not fitted again locally. The *Bombus* surfaces are checksum-locked predicted habitat-support layers: they do not measure abundance, visitation, reproductive success or selection, and shared/unmeasured environmental structure can remain.
 
-The previous unsigned *Bombus*-community turnover analysis is rerun only as a documented sensitivity. It is not read by the final result or claim registries.
+The previous unsigned *Bombus*-community turnover analysis is outside the active pipeline. The active paper tests *Bombus* only through the local limitation gate.
 
 ## Explicit interfaces
 

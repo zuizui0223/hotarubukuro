@@ -1,4 +1,4 @@
-final_analysis_spec_version <- "publication_pipeline_1.1_limitation_gate"
+final_analysis_spec_version <- "publication_pipeline_1.2_local_bombus_only"
 
 final_require_columns <- function(data, columns, label = "data") {
   missing <- setdiff(columns, names(data))
@@ -19,7 +19,7 @@ final_read_csv <- function(root, path) {
 final_required_artifacts <- function() {
   data.frame(
     stage = c(
-      "phenotype", "national_natural_model", "national_natural_model",
+      "phenotype", "national_natural_model",
       "local_bombus_limitation", "local_bombus_limitation",
       "local_isolate_definition", "local_human_context",
       "local_human_context", "did_sensitivity", "did_sensitivity"
@@ -27,7 +27,6 @@ final_required_artifacts <- function() {
     artifact = c(
       "results/ecological_v11_pigmentation_hurdle/pigmentation_measurement_summary.csv",
       "results/ecological_v16_predictive_replication/predictive_replication_model_performance.csv",
-      "results/ecological_v16_predictive_replication/predictive_replication_bombus_paired_contrast.csv",
       "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv",
       "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_metadata.csv",
       "results/ecological_v20_local_white_isolates/local_isolate_natural_null_summary.csv",
@@ -39,7 +38,6 @@ final_required_artifacts <- function() {
     inference_role = c(
       "confirmatory_measurement",
       "confirmatory_natural_baseline",
-      "national_bombus_sensitivity",
       "local_pollinator_limitation_test",
       "local_pollinator_limitation_test",
       "candidate_definition_and_natural_null",
@@ -58,9 +56,6 @@ final_result_registry <- function(root = ".") {
   )
   performance <- final_read_csv(
     root, "results/ecological_v16_predictive_replication/predictive_replication_model_performance.csv"
-  )
-  bombus <- final_read_csv(
-    root, "results/ecological_v16_predictive_replication/predictive_replication_bombus_paired_contrast.csv"
   )
   gate <- final_read_csv(
     root, "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv"
@@ -181,15 +176,6 @@ final_result_registry <- function(root = ".") {
       "cross-fitted pigmented-only intensity RMSE",
       national_intensity$RMSE, status = "model_diagnostic",
       source = "stage 02 natural-model performance"
-    ),
-    add(
-      "national_bombus_auc_gain", "sensitivity",
-      "mean fold AUC gain after adding the predicted Bombus fingerprint",
-      mean(bombus$AUC_improvement),
-      status = if (abs(mean(bombus$AUC_improvement)) < 0.02) {
-        "small_predictive_gain"
-      } else "predictive_gain_ge_0.02",
-      source = "stage 02 national Bombus sensitivity"
     ),
     add(
       "local_bombus_limitation_presence", "local_mechanistic_sensitivity",
@@ -336,21 +322,16 @@ final_claim_registry <- function(results) {
   data.frame(
     claim_id = c(
       "C1_two_part_phenotype", "C2_national_natural_baseline",
-      "C3_national_bombus_gain", "C4_local_bombus_limitation",
-      "C5_local_isolates", "C6_local_human_context", "C7_horticultural_origin"
+      "C4_local_bombus_limitation", "C5_local_isolates",
+      "C6_local_human_context", "C7_horticultural_origin"
     ),
     manuscript_role = c(
-      "confirmatory_core", "confirmatory_core", "sensitivity",
+      "confirmatory_core", "confirmatory_core",
       "local_mechanistic_sensitivity", "candidate_definition",
       "exploratory_extension", "claim_ceiling"
     ),
     status = c(
-      "supported", "supported",
-      if (abs(value("national_bombus_auc_gain", "estimate")) < 0.02) {
-        "small_and_inconsistent"
-      } else "gain_ge_0.02",
-      gate_status,
-      isolate_status,
+      "supported", "supported", gate_status, isolate_status,
       if (human_familywise_supported) {
         "familywise_supported_context_association"
       } else "suggestive_not_familywise_significant",
@@ -364,10 +345,6 @@ final_claim_registry <- function(results) {
       paste(
         "Environment plus continuous spatial structure provides the nationwide",
         "natural predictive baseline."
-      ),
-      sprintf(
-        "Adding the Bombus fingerprint yields a mean cross-fitted AUC change of %.4f.",
-        value("national_bombus_auc_gain", "estimate")
       ),
       sprintf(
         paste(
@@ -396,7 +373,6 @@ final_claim_registry <- function(results) {
     claim_ceiling = c(
       "measurement hierarchy; not anthocyanin chemistry",
       "predictive baseline; not complete causal partition",
-      "habitat-support fingerprint; not abundance or visitation",
       paste(
         "predicted Bombus-availability contrast after local environmental matching;",
         "lower-third gate adopted after exploratory design development; not",
@@ -420,6 +396,7 @@ final_exclusion_registry <- function() {
       "random-forest or extreme-tail inference",
       "matched-landscape and early-dark horticultural diagnostics",
       "model residual as a primary response",
+      "national Bombus fingerprint as a manuscript-facing analysis",
       "unsigned Bombus community-turnover as the active mechanism test",
       "individual Bombus species causal coefficients",
       "causal pollinator-selection claim",
@@ -433,6 +410,7 @@ final_exclusion_registry <- function() {
       "exploratory development paths not retained in final inference",
       "small or weakly supported and superseded by stage 05 design",
       "avoids second-stage residual bias and unclear estimands",
+      "removed from active inference; the pollinator hypothesis is tested only in local matched contrasts",
       paste(
         "superseded as the active biological test by the directional Bombus",
         "limitation gate; turnover remains a documented sensitivity"

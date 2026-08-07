@@ -36,8 +36,20 @@ text <- gsub(
   'ggplot2::scale_x_continuous(breaks = scales::breaks_pretty(n = 5))',
   text, fixed = TRUE
 )
+# The retained core still contains the archived national/turnover Figure 3.
+# Remove that block before evaluation; the active Figure 3 is local-only.
+text <- sub(
+  "(?s)# Figure 3: incremental national information and local turnover tests\\..*?# Figure 4: local isolates and human-context follow-up\\.",
+  "# Figure 4: local isolates and human-context follow-up.",
+  text, perl = TRUE
+)
+text <- gsub(
+  "figure_3_bombus_turnover", "figure_3_bombus_limitation",
+  text, fixed = TRUE
+)
+
 parsed <- parse(text = text, keep.source = FALSE)
 eval(parsed, envir = new.env(parent = globalenv()))
 
-# Replace the manuscript-facing Figure 3 with the directional limitation gate.
+# Build the manuscript-facing Figure 3 from the local limitation gate only.
 source("scripts/internal/build_bombus_limitation_figure.R", local = new.env(parent = globalenv()))

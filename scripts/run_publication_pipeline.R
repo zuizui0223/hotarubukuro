@@ -81,12 +81,6 @@ if (mode %in% c("extensions", "full")) {
 run_stage("03_validate_bombus_limitation_gate", "validation/validate_bombus_limitation_gate.R", role = "local_pollinator_limitation_validation")
 run_stage("03_audit_bombus_limitation_gate", "validation/audit_bombus_limitation_gate.R", role = "local_pollinator_limitation_validation")
 
-# The former unsigned turnover test is no longer an active claim. It is rerun as
-# a sensitivity so historical comparisons remain available and the retained
-# plotting core can be reproduced; final registries do not read its result.
-if (mode %in% c("extensions", "full")) {
-  run_stage("03S_run_unsigned_turnover_sensitivity", "scripts/run_local_bombus_turnover.R", role = "superseded_turnover_sensitivity")
-}
 
 if (mode == "full") run_stage("04_run_human_landscape_features", "scripts/run_human_landscape_features.R", role = "feature_engineering_only")
 run_stage("04_validate_human_landscape_features", "validation/validate_human_landscape_features.R", c(paste0("--baseline=", baseline)), "feature_engineering_validation")

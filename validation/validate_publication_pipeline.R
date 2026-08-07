@@ -113,12 +113,12 @@ add_check(
               claims$claim_ceiling[claims$claim_id == "C4_local_bombus_limitation"], fixed = TRUE)),
   claims$claim_ceiling[claims$claim_id == "C4_local_bombus_limitation"]
 )
-national_bombus <- results[results$result_id == "national_bombus_auc_gain", , drop = FALSE]
 add_check(
-  "national_and_local_bombus_not_conflated",
-  nrow(national_bombus) == 1L && is.finite(national_bombus$estimate) &&
+  "national_bombus_not_active",
+  !any(results$result_id == "national_bombus_auc_gain") &&
+    !any(claims$claim_id == "C3_national_bombus_gain") &&
     grepl("limitation", metadata_value[["local_mechanism_test"]], ignore.case = TRUE),
-  paste("national mean AUC gain=", round(national_bombus$estimate, 4))
+  "Bombus inference is restricted to the stage-03 local limitation contrast."
 )
 
 isolates <- results[results$result_id %in% c("local_isolate_count", "local_isolate_fraction"), , drop = FALSE]
@@ -159,7 +159,7 @@ add_check("species_causal_effect_exclusion",
 add_check("turnover_not_active_claim",
           any(grepl("unsigned Bombus community-turnover", exclusions$excluded_item, fixed = TRUE)) &&
             !any(grepl("turnover", claims$claim[claims$claim_id == "C4_local_bombus_limitation"], ignore.case = TRUE)),
-          "turnover retained only as sensitivity")
+          "turnover excluded from the active pipeline")
 add_check("pipeline_stage_completion", all(stages$status == "PASS"),
           paste("stages=", nrow(stages), "failures=", sum(stages$status != "PASS")))
 add_check(

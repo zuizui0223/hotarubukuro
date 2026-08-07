@@ -26,7 +26,7 @@ The active scientific question changed during PR #21 from unsigned community tur
 
 The 0.33 lower-third gate was adopted as the manuscript-facing gate **after** inspecting the exploratory design-development grid. The active pipeline therefore retains the complete 0.10/0.20/0.25/0.33 grid and its across-grid multiplicity correction. C4 is `directionally_coherent_exploratory_support`, not a preregistered confirmatory finding.
 
-The successful integrated run reproduced the lower-third result: 22 one-to-one environmentally matched pairs, available-minus-limited pigmented-share difference 0.2235, upper-tail predictive p=0.0170 and across-grid BH q=0.1019. Conditional intensity differed by -0.6145 (p=0.9051), providing no support for darker flowers under greater predicted Bombus availability. National Bombus addition remained negligible (mean held-out AUC change -0.00187).
+The successful integrated run reproduced the lower-third result: 22 one-to-one environmentally matched pairs, available-minus-limited pigmented-share difference 0.2235, upper-tail predictive p=0.0170 and across-grid BH q=0.1019. Conditional intensity differed by -0.6145 (p=0.9051), providing no support for darker flowers under greater predicted Bombus availability. No national Bombus increment is part of the active manuscript or claim registry.
 
 ## Interpretation lock
 

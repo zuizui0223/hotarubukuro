@@ -65,7 +65,6 @@ get_result <- function(id) {
 }
 local_presence <- get_result("local_bombus_limitation_presence")
 local_intensity <- get_result("local_bombus_limitation_intensity")
-national_bombus <- get_result("national_bombus_auc_gain")
 isolate_count <- get_result("local_isolate_count")
 isolate_fraction <- get_result("local_isolate_fraction")
 population <- get_result("local_population_5km")
@@ -79,10 +78,11 @@ add_check(
         results$result_id) && any(grepl("all-flower continuous", exclusions$excluded_item)),
   "pigmentation presence and pigmented-only intensity retained"
 )
-add_claim(
-  "National Bombus gain remains small",
-  abs(national_bombus$estimate) < 0.02,
-  sprintf("mean AUC change=%.4f", national_bombus$estimate)
+add_check(
+  "National Bombus increment is not an active claim",
+  !any(results$result_id == "national_bombus_auc_gain") &&
+    !any(claims$claim_id == "C3_national_bombus_gain"),
+  "Bombus is tested only in the local limitation stage"
 )
 add_claim(
   "Lower-third Bombus limitation contrast is positive for pigmentation",
@@ -115,7 +115,7 @@ add_check(
 add_check(
   "Unsigned turnover is no longer the active mechanism claim",
   any(grepl("unsigned Bombus community-turnover", exclusions$excluded_item, fixed = TRUE)),
-  "turnover retained only as documented sensitivity"
+  "turnover is outside the active pipeline"
 )
 add_claim(
   "Primary local isolates are not excessive under the natural model",

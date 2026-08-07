@@ -128,16 +128,6 @@ For each Bombus ensemble realization, define high-confidence limited/available p
 
 The aim is not a single magical p-value but stability of the biological direction under uncertainty in both latent processes.
 
-## Useful secondary analyses
-
-The previously developed analyses remain useful as sensitivities but are not the active causal story:
-
-- unsigned community-composition turnover tests whether flower-colour and predicted bee-community mosaics change together;
-- strict five-of-five directional dominance tests a monotone “more Bombus everywhere” hypothesis and was not supported;
-- environment-residualized community composition checks whether species-composition correspondence survives removal of measured broad environmental information.
-
-These should not be mixed with the limitation gate as if they were interchangeable estimands.
-
 ## Stronger than any SDM-only test: field validation
 
 No SDM-only redesign can establish the attraction mechanism. The next causal test should use the national analysis to choose bumblebee-limited/available transition zones and collect:

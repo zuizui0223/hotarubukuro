@@ -21,7 +21,6 @@ intensity,SPDE range CrI lower,31.2479689546048,pigmentation_inla_hyperparameter
 intensity,SPDE range CrI upper,113.881813225293,pigmentation_inla_hyperparameters.csv
 final_registry,national_presence_auc estimate,0.863167484386491,final_result_registry.csv
 final_registry,national_intensity_rmse estimate,0.912100149031509,final_result_registry.csv
-final_registry,national_bombus_auc_gain estimate,-0.00187358101016455,final_result_registry.csv
 bombus_limitation,primary low threshold,0.33,bombus_limitation_gate_metadata.csv
 bombus_limitation,available threshold,0.50,bombus_limitation_gate_metadata.csv
 bombus_limitation,environment match threshold,0.75,bombus_limitation_gate_metadata.csv

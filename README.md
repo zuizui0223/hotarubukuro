@@ -22,7 +22,9 @@ The active pipeline contains only the ordered scientific arc used for the curren
 6. describe candidate flowering date as a held-out supplementary check; and
 7. write independent validation, claim and artifact locks.
 
-The *Bombus* fingerprint represents relative predicted habitat support and composition, not abundance, visitation or selection. Human-context outputs prioritize follow-up sites and do not establish horticultural origin.
+The *Bombus* fingerprint represents relative predicted habitat support and composition, not abundance, visitation or selection. The active 1,909 analysis treats the checksum-locked *Bombus* prediction surfaces as **fixed archived inputs**. The downstream local-turnover analysis is reproducible conditional on those surfaces, but uncertainty from GBIF sampling, ENMeval model selection, fitted SDM parameters and alternative prediction surfaces is **not propagated** through the 1,000 flower-colour predictive maps. Accordingly, the local result is a conditional community-turnover correspondence, not a causal interaction or pollinator-selection estimate. See [`docs/bombus-sdm-inference.md`](docs/bombus-sdm-inference.md) for the inference ceiling and a stronger future design.
+
+Human-context outputs prioritize follow-up sites and do not establish horticultural origin.
 
 ## Supported entry points
 
@@ -96,3 +98,5 @@ The bidirectional local colour-state asymmetry diagnostic is also archived. It w
 ## Reproducibility ceiling
 
 The target is method and statistical reproducibility, not guaranteed bitwise identity of INLA posterior samples. Seeds, folds, draw counts, input hashes, candidate definitions and validators are fixed. Report each run's realised estimates and Monte Carlo uncertainty with its commit rather than treating a rounded threshold-adjacent p-value as immutable.
+
+For the *Bombus* component, reproducibility currently begins at the archived prediction surfaces rather than at ENMeval model selection. Rebuilding alternative SDMs from occurrences constitutes a new source-build analysis and must carry its own occurrence snapshot, background definition, tuning grid, model objects or equivalent selection table, prediction hashes and uncertainty analysis.

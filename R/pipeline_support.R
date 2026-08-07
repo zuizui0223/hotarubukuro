@@ -26,17 +26,12 @@ hb_configure_deterministic_compute <- function() {
   if (length(r_seed) != 1L || !is.finite(r_seed) || r_seed <= 0L) {
     stop("HOTARUBUKURO_R_SEED must be one positive integer.", call. = FALSE)
   }
-  # inla.posterior.sample() uses both the GMRFLib seed supplied at the call
-  # site and R's RNG state. Initialising .Random.seed here makes every active
-  # R process start from the same declared state before posterior sampling.
   set.seed(r_seed)
   if (requireNamespace("INLA", quietly = TRUE)) {
     INLA::inla.setOption(num.threads = "1:1")
   }
   invisible(data.frame(
-    field = c(
-      thread_variables, "OMP_DYNAMIC", "R_seed", "RNGkind"
-    ),
+    field = c(thread_variables, "OMP_DYNAMIC", "R_seed", "RNGkind"),
     value = c(
       rep("1", length(thread_variables)), "FALSE", as.character(r_seed),
       paste(RNGkind(), collapse = ";")
@@ -61,6 +56,7 @@ hb_package_groups <- list(
 hb_stage_packages <- list(
   natural_predictive_model = "natural_predictive_model",
   local_bombus_turnover = character(),
+  bombus_limitation_gate = character(),
   human_landscape_features = "human_context",
   local_pigmented_isolates = "human_context",
   local_human_context = "human_context",
@@ -89,6 +85,7 @@ hb_stage_modules <- list(
   human_raster = "human_raster_features",
   natural_predictive_model = "natural_predictive_model",
   local_bombus_turnover = "local_bombus_turnover",
+  bombus_limitation_gate = "local_bombus_turnover",
   human_landscape_features = c(
     "candidate_null_tools", "human_landscape_features"
   ),
@@ -117,12 +114,13 @@ hb_publication_stage_registry <- function() {
     ),
     manuscript_role = c(
       "measurement_model", "confirmatory_natural_baseline",
-      "planned_local_biotic_test", "candidate_definition",
+      "local_pollinator_limitation_test", "candidate_definition",
       "exploratory_human_context", "claim_and_artifact_lock"
     ),
     response = c(
       "pigmentation presence and pigmented-only intensity",
-      "same two-part response", "local turnover of both response stages",
+      "same two-part response",
+      "directed pigmentation contrast between Bombus-limited and Bombus-available local matches",
       "pigmented isolates among environment-similar white neighbours",
       "population and DID contrasts", "registered results and claim ceilings"
     ),

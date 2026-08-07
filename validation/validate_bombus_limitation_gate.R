@@ -72,14 +72,22 @@ primary_null <- null[
   abs(null$low_threshold - primary_low) < 1e-12 &
     null$response == "pigmentation_share", , drop = FALSE
 ]
-recomputed_upper <- (1 + sum(primary_null$statistic >= observed)) /
-  (nrow(primary_null) + 1)
+# The null p-value is calculated before CSV serialization. Re-reading decimal
+# representations can move a mathematically tied draw by ~1e-16. Treat values
+# within the same 1e-12 numerical tolerance used by the other independent
+# recalculations as ties, rather than changing a Monte Carlo count because of
+# text serialization.
+tie_tolerance <- 1e-12
+recomputed_upper <- (
+  1 + sum(primary_null$statistic >= observed - tie_tolerance)
+) / (nrow(primary_null) + 1)
 add("predictive_draw_count", nrow(primary_null) == 1000L,
     paste("draws=", nrow(primary_null)))
 add("upper_tail_recalculation",
     abs(recomputed_upper - primary_presence$upper_tail_p) < 1e-12,
     paste("recomputed=", recomputed_upper,
-          "recorded=", primary_presence$upper_tail_p))
+          "recorded=", primary_presence$upper_tail_p,
+          "tie tolerance=", tie_tolerance))
 
 for (threshold in unique(summary$low_threshold)) {
   idx <- abs(summary$low_threshold - threshold) < 1e-12 &

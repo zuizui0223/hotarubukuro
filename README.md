@@ -12,17 +12,25 @@ The repository has one active and rerunnable baseline: the **1,909-observation a
 | white-like observations | 955 |
 | pigmented observations | 954 |
 
-The active pipeline contains only the ordered scientific arc used for the current reconstruction:
+The active paper is organized as one measurement framework, one national natural baseline, and two bounded local challenges to that baseline:
 
 1. audit the frozen two-part phenotype and 1-km cell inputs;
 2. fit the national environment-plus-INLA-SPDE natural baseline;
-3. test local flower-colour turnover against the predicted five-species *Bombus* fingerprint;
-4. define pigmented-in-white local isolates and replay the same event on 1,000 natural maps;
+3. test a **local Bombus-limitation hypothesis**: among nearby environmentally matched cells, is pigmentation lower where all five focal *Bombus* species have low predicted availability than where at least one species is moderately supported?;
+4. define pigmented-in-white local isolates and replay the same event on natural maps;
 5. characterize population, land use and DID context only after candidates are fixed;
 6. describe candidate flowering date as a held-out supplementary check; and
 7. write independent validation, claim and artifact locks.
 
-The *Bombus* fingerprint represents relative predicted habitat support and composition, not abundance, visitation or selection. The active 1,909 analysis treats the checksum-locked *Bombus* prediction surfaces as **fixed archived inputs**. The downstream local-turnover analysis is reproducible conditional on those surfaces, but uncertainty from GBIF sampling, ENMeval model selection, fitted SDM parameters and alternative prediction surfaces is **not propagated** through the 1,000 flower-colour predictive maps. Accordingly, the local result is a conditional community-turnover correspondence, not a causal interaction or pollinator-selection estimate. See [`docs/bombus-sdm-inference.md`](docs/bombus-sdm-inference.md) for the inference ceiling and a stronger future design.
+### Bombus inference ceiling
+
+Stage 03 is directional and biologically motivated. Its active lower-third gate compares a cell where **all five focal species have within-species predicted-support rank <=0.33** with an environmentally similar cell where **at least one focal species has rank >=0.50**. Pairs are within 25 km, in the same held-out fold, and matched one-to-one before flower colour is read. Environment and an SPDE field are not fitted a second time locally; the 1,000 flower natural-model maps are replayed only as a predictive reference.
+
+The lower-third gate was adopted for biological interpretability **after exploratory design development**. The full 0.10/0.20/0.25/0.33 threshold grid and its across-grid multiplicity correction remain visible in the outputs and claim lock. The result is therefore reported as a mechanistically motivated local sensitivity, not retrospectively described as a preregistered confirmatory test.
+
+The checksum-locked *Bombus* surfaces represent **predicted habitat availability**, not abundance, visitation, pollen transfer, pollination effectiveness or selection pressure. Uncertainty from GBIF sampling, ENMeval model selection, fitted SDM parameters and alternative prediction surfaces is not propagated through the current stage. Shared or unmeasured environmental structure can therefore remain even after local matching. See [`docs/bombus-sdm-inference.md`](docs/bombus-sdm-inference.md) and [`docs/bombus-pollinator-opportunity-proxy.md`](docs/bombus-pollinator-opportunity-proxy.md).
+
+The older unsigned flower-colour/*Bombus*-community turnover analysis is retained only as a sensitivity and is not read by the final result or claim registries.
 
 Human-context outputs prioritize follow-up sites and do not establish horticultural origin.
 
@@ -36,13 +44,13 @@ Human-context outputs prioritize follow-up sites and do not establish horticultu
 | Active code declaration | `config/code_manifest.csv` |
 | Stage declaration | `reproducibility/pipeline_stage_registry.csv` |
 
-Everything called by the active pipeline is declared in both the loader or stage registry and the code manifest. CI fails when an undeclared executable file is added to the non-legacy code roots.
+Everything called by the active pipeline is declared in the loader or stage registry and the code manifest. CI fails when an undeclared executable file is added to the non-legacy code roots.
 
 ## Run on GitHub Actions
 
 1. Open **Actions**.
 2. Select **1909 analysis pipeline**.
-3. Select **Run workflow** on `main`.
+3. Select **Run workflow** on the desired ref.
 4. Leave `build_figures=true` and start the run.
 5. Download `analysis-1909-<commit>-<run-id>`.
 
@@ -50,6 +58,7 @@ A successful artifact contains:
 
 - `reproducibility/analysis_population_check.csv` with three `PASS` rows;
 - `results/final_analysis_pipeline/final_stage_manifest.csv` with all stages `PASS`;
+- `results/ecological_v17_bombus_limitation_gate/` with the matched-pair result, full gate grid, validation and audit;
 - `final_independent_validation.csv` and `final_claim_audit.csv`;
 - newly generated result tables; and
 - newly generated manuscript figures when requested.
@@ -72,15 +81,16 @@ See [`docs/reproduction-guide.md`](docs/reproduction-guide.md) for exact checks 
 ## Repository layout
 
 ```text
-R/                               active analysis modules and one declared source-build helper
-scripts/                         active runners and reproducibility support only
+R/                               active analysis modules and support helpers
+scripts/                         active runners and reproducibility support
 validation/                      active input, stage and final validators
-tests/                           tests for active code and declared source-build utilities
+tests/                           tests for active code and source-build utilities
 source_build/                    optional raw/public-data construction utilities; not canonical input
 inputs/                          immutable 1,909 snapshot descriptor and population expectations
 config/code_manifest.csv         exact non-legacy executable-file declaration
 reproducibility/                 stage registry and generated run reports
 results/                         generated output; never a committed source of truth
+manuscript/                      active 1,909 manuscript and figure map
 legacy/published-1923/           archived 1,923 manuscript, outputs and historical workflows
 legacy/implementations/          superseded upstream implementations and their tests
 legacy/diagnostics/              non-paper or withdrawn diagnostics
@@ -91,9 +101,7 @@ legacy/reconstruction-prototypes/ historical reconstruction experiments
 
 ## Legacy boundary
 
-No active loader, stage, validator or test imports `legacy/`. Historical filenames such as `ecological_v11_*` and `ecological_v15_*` remain inside the immutable snapshot because changing them would alter the preserved input package; the implementations that originally generated them are archived.
-
-The bidirectional local colour-state asymmetry diagnostic is also archived. It was explicitly post hoc and is not part of the manuscript pipeline. The only active flowering-date component is the held-out candidate DOY description, which cannot select or rank candidates.
+No active loader, stage, validator or test imports a historical implementation from `legacy/`. Frozen upstream result-directory names remain inside the immutable snapshot because changing them would alter the preserved input package.
 
 ## Reproducibility ceiling
 

@@ -8,8 +8,22 @@ output_dir <- file.path("manuscript", "figures")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 folds <- hb_read_csv(
-  "results/ecological_v16_predictive_replication/predictive_replication_bombus_paired_contrast.csv"
+  "results/ecological_v16_predictive_replication/predictive_replication_model_fold_performance.csv"
 )
+folds <- folds[
+  folds$model %in% c(
+    "common_support_environment_spde_presence",
+    "common_support_environment_spde_bombus_presence"
+  ), , drop = FALSE
+]
+folds$AUC <- as.numeric(folds$AUC)
+folds$heldout_spatial_fold <- factor(folds$heldout_spatial_fold)
+folds$model_label <- ifelse(
+  grepl("bombus", folds$model),
+  "Environment + space + Bombus",
+  "Environment + space"
+)
+
 gate <- hb_read_csv(
   "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv"
 )
@@ -38,13 +52,22 @@ paired_long$state <- factor(
   paired_long$state, levels = c("Bombus-limited", "Bombus-available")
 )
 
-p1 <- ggplot2::ggplot(folds, ggplot2::aes(x = factor(fold), y = AUC_improvement)) +
-  ggplot2::geom_hline(yintercept = 0, linetype = "dashed") +
-  ggplot2::geom_point(size = 2.4) +
+p1 <- ggplot2::ggplot(
+  folds,
+  ggplot2::aes(x = model_label, y = AUC, group = heldout_spatial_fold)
+) +
+  ggplot2::geom_line(alpha = 0.5) +
+  ggplot2::geom_point(size = 2.2) +
+  ggplot2::stat_summary(
+    ggplot2::aes(group = model_label), fun = mean,
+    geom = "point", shape = 23, size = 3.2
+  ) +
   ggplot2::labs(
-    title = "National Bombus fingerprint adds little discrimination",
-    x = "Held-out spatial fold", y = "AUC change"
-  ) + ggplot2::theme_minimal(base_size = 9)
+    title = "Bombus adds little national discrimination",
+    x = NULL, y = "Held-out AUC"
+  ) +
+  ggplot2::theme_minimal(base_size = 9) +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 18, hjust = 1))
 
 p2 <- ggplot2::ggplot(paired_long, ggplot2::aes(x = state, y = share, group = pair)) +
   ggplot2::geom_line(alpha = 0.35) +
@@ -54,12 +77,13 @@ p2 <- ggplot2::ggplot(paired_long, ggplot2::aes(x = state, y = share, group = pa
   ) +
   ggplot2::stat_summary(fun = mean, geom = "point", size = 3) +
   ggplot2::labs(
-    title = "Pigmentation increases across the lower-third limitation gate",
-    subtitle = "25 km, one-to-one, environmentally matched pairs",
+    title = "Pigmentation across the lower-third limitation gate",
+    subtitle = "25 km; one-to-one environmentally matched pairs",
     x = NULL, y = "Pigmented share"
   ) + ggplot2::theme_minimal(base_size = 9)
 
 presence <- gate[gate$response == "pigmentation_share", , drop = FALSE]
+presence <- presence[order(presence$low_threshold), , drop = FALSE]
 presence$threshold_label <- paste0("≤", presence$low_threshold)
 p3 <- ggplot2::ggplot(
   presence,
@@ -68,15 +92,13 @@ p3 <- ggplot2::ggplot(
 ) +
   ggplot2::geom_hline(yintercept = 0, linetype = "dashed") +
   ggplot2::geom_point(size = 2.5) +
-  ggplot2::geom_point(
-    ggplot2::aes(y = natural_null_mean), shape = 1, size = 2.5
-  ) +
+  ggplot2::geom_point(ggplot2::aes(y = natural_null_mean), shape = 1, size = 2.5) +
   ggplot2::geom_text(
     ggplot2::aes(label = paste0("p=", sprintf("%.3f", upper_tail_p))),
     nudge_y = 0.035, size = 2.7
   ) +
   ggplot2::labs(
-    title = "Direction is positive across the retained gate grid",
+    title = "Positive direction across retained gates",
     subtitle = "Filled = observed; open = natural-map mean",
     x = "All-species low-support threshold", y = "Available − limited pigmentation"
   ) + ggplot2::theme_minimal(base_size = 9)
@@ -93,9 +115,9 @@ p4 <- ggplot2::ggplot(primary_null, ggplot2::aes(x = statistic)) +
     linewidth = 0.8, linetype = "dashed"
   ) +
   ggplot2::labs(
-    title = "Observed contrast against 1,000 natural maps",
+    title = "Lower-third contrast against 1,000 natural maps",
     subtitle = sprintf(
-      "Observed = %.3f; upper-tail p = %.3f; across-grid BH q = %.3f",
+      "Observed = %.3f; p = %.3f; across-grid BH q = %.3f",
       primary$observed_directed_difference,
       primary$upper_tail_p, primary$BH_q_all_gate_tests
     ),

@@ -1,4 +1,5 @@
 # Figure 3: local Bombus limitation gate only.
+# No national Bombus increment is plotted or used as a manuscript-facing result.
 source("R/pipeline_support.R")
 hb_require_packages(c("ggplot2", "patchwork"))
 output_dir <- file.path("manuscript", "figures")

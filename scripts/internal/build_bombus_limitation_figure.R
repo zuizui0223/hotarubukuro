@@ -43,18 +43,15 @@ p1 <- ggplot2::ggplot(
   ) +
   ggplot2::stat_summary(fun = mean, geom = "point", size = 3) +
   ggplot2::labs(
-    title = "Lower-third Bombus gate",
-    subtitle = sprintf(
-      "%d one-to-one pairs within 25 km; environmentally matched",
-      nrow(primary_pairs)
-    ),
+    title = "Matched local pairs",
+    subtitle = sprintf("Lower-third Bombus gate; n = %d; within 25 km", nrow(primary_pairs)),
     x = NULL, y = "Pigmented share"
   ) +
   ggplot2::theme_minimal(base_size = 9)
 
 presence <- gate[gate$response == "pigmentation_share", , drop = FALSE]
 presence <- presence[order(presence$low_threshold), , drop = FALSE]
-presence$threshold_label <- paste0("≤", presence$low_threshold)
+presence$threshold_label <- sprintf("%.2f", presence$low_threshold)
 p2 <- ggplot2::ggplot(
   presence,
   ggplot2::aes(
@@ -70,10 +67,10 @@ p2 <- ggplot2::ggplot(
     nudge_y = 0.035, size = 2.7
   ) +
   ggplot2::labs(
-    title = "Retained limitation-gate sensitivity",
+    title = "Gate sensitivity",
     subtitle = "Filled = observed; open = natural-map mean",
-    x = "All-species low-support threshold",
-    y = "Available − limited pigmentation"
+    x = "Maximum support rank in limited cells",
+    y = "Available - limited pigmentation"
   ) +
   ggplot2::theme_minimal(base_size = 9)
 
@@ -98,7 +95,7 @@ p3 <- ggplot2::ggplot(primary_null, ggplot2::aes(x = statistic)) +
       primary$upper_tail_p,
       primary$BH_q_all_gate_tests
     ),
-    x = "Available − limited pigmentation contrast",
+    x = "Available - limited pigmentation contrast",
     y = "Predictive maps"
   ) +
   ggplot2::theme_minimal(base_size = 9)

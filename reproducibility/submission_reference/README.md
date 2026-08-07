@@ -1,19 +1,29 @@
-# Frozen submission analysis reference
+# Active submission analysis reference
 
-This directory is the compact, permanent scientific reference for the Ecology and Evolution submission analysis. It was copied verbatim from the successful canonical GitHub Actions run on `main`; large posterior objects and the 200,000-row null table are deliberately omitted because they are regenerable from the locked source and input snapshot.
+This directory is the compact scientific reference used to synchronize the active 1,909 manuscript. Large posterior objects and long null tables are omitted because they are regenerable from the locked source and input snapshot.
+
+The national natural-model and isolate evidence originated from the successful canonical 1,909 run on `main`:
 
 - analysis source commit: `2084bceaef9c4dee71a3399c9d0c5aa917abe067`
 - canonical Actions run: `31149006557`
-- artifact: `analysis-1909-2084bceaef9c4dee71a3399c9d0c5aa917abe067-31149006557`
 - artifact digest: `sha256:b66502976d55bdbacd6b46cab4c7140062f7a78385dacdbeac7834eabbefe052`
 - analysis population: 1,909 observations (955 white-like; 954 pigmented)
-- submission inference status: `crossfit_upper_tail_not_jointly_robust`
-- deterministic 10,000-map scientific null SHA-256: `ca8606a6b2afcc23de33fd789808dc2a01cf661ac69ada75a5413ce4b7ad868f`
-- joint probability checkpoint SHA-256: `9ab73385fdbd1fcd25f7af271c7edcaef2daaf85542ec363e69eed29c32e046e`
-- final figure manifest SHA-256: `931e988130504add3f615a756c390e50454835cbb615746b6f46a832124db535`
+- isolate inference status: `crossfit_upper_tail_not_jointly_robust`
+
+The active stage-03 scientific question changed during PR #21 from unsigned community turnover to the directional **Bombus-limitation gate**. The lower-third gate design-development result is anchored by:
+
+- Actions run: `31168019534`
+- source head: `b956a1fa320c248fb8f8646ba77b4a74a36ac140`
+- artifact SHA-256: `4a6dad8d98f212515eb1ec2f72c40f59b82f6f06b755ced3168bc5dcf77d9384`
+
+The 0.33 lower-third gate was adopted as the manuscript-facing gate after exploratory design development. The full 0.10/0.20/0.25/0.33 grid and across-grid multiplicity are therefore retained. The compact C4 reference is `directionally_coherent_exploratory_support`, not a preregistered confirmatory finding.
+
+A fresh full 1,909 canonical run on the PR branch is required before merge to regenerate the stage-03 result, Figure 3, final result/claim registries and submission lock together. Once that run succeeds, its commit/run/artifact digest supersedes the mixed transition provenance above.
 
 ## Interpretation lock
 
-Eighteen local pigmented isolates are reproducible follow-up units. Their absolute count is compatible with the fitted natural baseline. Their fraction lies near the upper tail of the held-out cross-fitted reference, but its Monte Carlo interval crosses 0.05 and the full-data joint spatial posterior-predictive reference does not support a robust excess. Human-context results remain post-selection and non-causal; horticultural origin is not demonstrated.
+Eighteen local pigmented isolates remain reproducible follow-up units. Their absolute count is compatible with the fitted natural baseline. Their fraction lies near the upper tail of the held-out cross-fitted reference, but the full-data joint spatial posterior-predictive reference does not support a robust excess. Human-context results remain post-selection and non-causal; horticultural origin is not demonstrated.
 
-`manuscript_numeric_reference.csv` is the compact table used to synchronize the final manuscript. `submission_inference_summary.csv`, `submission_claim_registry.csv`, and `submission_analysis_validation.csv` preserve the final inferential lock and its validation.
+For the bumblebee hypothesis, predicted SDM support is interpreted as relative availability rather than abundance or visitation. The active result tests whether pigmentation is lower under locally matched low predicted bumblebee availability and does not establish attraction-mediated selection or pigment-production costs.
+
+`manuscript_numeric_reference.csv` synchronizes manuscript numbers. `submission_inference_summary.csv`, `submission_claim_registry.csv` and `submission_analysis_validation.csv` preserve the inferential lock; they should be refreshed from the successful full branch run before merge.

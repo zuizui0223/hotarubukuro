@@ -8,7 +8,13 @@ on:
     paths:
       - .github/workflows/bombus-limitation-gate.yml
       - scripts/run_bombus_limitation_gate.R
-      - R/local_bombus_turnover.R
+      - scripts/internal/build_bombus_limitation_figure.R
+      - R/final_registry.R
+      - R/pipeline_support.R
+      - validation/validate_bombus_limitation_gate.R
+      - validation/audit_bombus_limitation_gate.R
+      - validation/validate_publication_pipeline.R
+      - validation/audit_publication_claims.R
       - config/code_manifest.csv
 
 permissions:
@@ -36,27 +42,53 @@ jobs:
             --repo zuizui0223/hotarubukuro \
             --name analysis-1909-2084bceaef9c4dee71a3399c9d0c5aa917abe067-31149006557 \
             --dir canonical-artifact
+          mkdir -p results
+          cp -a canonical-artifact/results/. results/
 
-      - name: Run Bombus limitation-gate analysis
+      - name: Run active Bombus limitation gate
         run: |
           Rscript scripts/run_bombus_limitation_gate.R \
-            --artifact-root canonical-artifact \
-            --output exploratory-output \
+            --artifact-root . \
+            --output results/ecological_v17_bombus_limitation_gate \
             --env-match 0.75 \
             --low-thresholds 0.10,0.20,0.25,0.33 \
+            --primary-low-threshold 0.33 \
             --available-threshold 0.50
 
-      - name: Show interpretation
+      - name: Validate and audit active stage 03
         run: |
-          cat exploratory-output/bombus_limitation_gate_summary.csv
+          Rscript validation/validate_bombus_limitation_gate.R
+          Rscript validation/audit_bombus_limitation_gate.R
+
+      - name: Rebuild final result and claim registries
+        run: |
+          Rscript -e 'source("R/pipeline_support.R"); hb_load_modules("final_registry"); final_write_lock(".", "results/final_analysis_pipeline")'
+          Rscript validation/validate_publication_pipeline.R \
+            --output=results/final_analysis_pipeline \
+            --baseline=reconstruction
+          Rscript validation/audit_publication_claims.R \
+            --output=results/final_analysis_pipeline \
+            --baseline=reconstruction
+
+      - name: Install lightweight Figure 3 packages
+        run: Rscript -e 'install.packages(c("ggplot2", "patchwork"), repos="https://cloud.r-project.org")'
+
+      - name: Build active Figure 3
+        run: Rscript scripts/internal/build_bombus_limitation_figure.R
+
+      - name: Show active inference
+        run: |
+          cat results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv
           echo
-          cat exploratory-output/available_zone_intensity_gradient.csv
-          echo
-          cat exploratory-output/interpretation_summary.csv
+          cat results/final_analysis_pipeline/final_claim_registry.csv
 
       - uses: actions/upload-artifact@v4
         with:
-          name: bombus-limitation-gate-${{ github.sha }}
-          path: exploratory-output
+          name: bombus-limitation-integration-${{ github.sha }}
+          path: |
+            results/ecological_v17_bombus_limitation_gate
+            results/final_analysis_pipeline
+            manuscript/figures/figure_3_bombus_limitation.png
+            manuscript/figures/figure_3_bombus_limitation.pdf
           if-no-files-found: error
           retention-days: 30

@@ -9,10 +9,20 @@ on:
         required: false
         default: true
       submission_draws:
-        description: Natural maps for the submission isolate reference
+        description: Natural maps for the cross-fitted isolate reference
         type: number
         required: false
         default: 10000
+      joint_latent_draws:
+        description: Joint posterior draws for the isolate coherence sensitivity
+        type: number
+        required: false
+        default: 10000
+      joint_observation_replicates:
+        description: Observation replicates per joint posterior draw
+        type: number
+        required: false
+        default: 20
   pull_request:
     types: [labeled]
     branches: ["main"]
@@ -39,6 +49,8 @@ jobs:
       BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
       RUN_TESTS: "true"
       HOTARUBUKURO_SUBMISSION_DRAWS: ${{ inputs.submission_draws || '10000' }}
+      HOTARUBUKURO_JOINT_LATENT_DRAWS: ${{ inputs.joint_latent_draws || '10000' }}
+      HOTARUBUKURO_JOINT_OBS_REPS: ${{ inputs.joint_observation_replicates || '20' }}
       OMP_NUM_THREADS: "1"
       OPENBLAS_NUM_THREADS: "1"
       MKL_NUM_THREADS: "1"
@@ -93,6 +105,15 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/run_analysis_1909.sh
 
+      - name: Run the joint spatial posterior-predictive isolate sensitivity
+        run: |
+          Rscript scripts/run_joint_submission_isolate_ppc.R \
+            --latent-draws "$HOTARUBUKURO_JOINT_LATENT_DRAWS" \
+            --observation-replicates "$HOTARUBUKURO_JOINT_OBS_REPS"
+
+      - name: Validate the joint isolate sensitivity
+        run: Rscript validation/validate_joint_submission_isolate_ppc.R
+
       - name: Publish the summary
         if: always()
         shell: bash
@@ -104,6 +125,13 @@ jobs:
             echo >> "$GITHUB_STEP_SUMMARY"
             echo '```csv' >> "$GITHUB_STEP_SUMMARY"
             cat reproducibility/analysis_population_check.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s results/ecological_v26_joint_submission_isolate_ppc/joint_isolate_natural_null_summary.csv ]]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '### Joint posterior-predictive isolate sensitivity' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat results/ecological_v26_joint_submission_isolate_ppc/joint_isolate_natural_null_summary.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
 

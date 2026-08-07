@@ -2,19 +2,22 @@
 
 This directory is the compact scientific reference used to synchronize the active 1,909 manuscript. Large posterior objects and long null tables are omitted because they are regenerable from the locked source and input snapshot.
 
-## Successful integrated limitation-gate run
+## Successful local-only Bombus canonical run
 
-The active numerical pipeline, new stage 03, Figure 3 generation, joint isolate posterior-predictive sensitivity and submission inference lock were run together successfully in:
+The flower-only national natural baseline, local stage-03 Bombus limitation gate, local-isolate analyses, joint isolate posterior-predictive sensitivity, submission inference lock and manuscript figures were run together successfully after the national Bombus comparator was removed from stage 02:
 
-- PR head used for the integrated analysis: `eccbb7be1e279f400e0e11fb5c1b88a4ea6836a2`
-- canonical Actions run: `31173134069`
-- uploaded artifact: `analysis-1909-47bfbe2d7553761a7bc64e8e3528387e3c4f3d0c-31173134069`
-- artifact SHA-256: `bffb00a8494d3af552607431574ff5af5347127bcc8a10d21c8de6d660418f1b`
+- PR head used for the numerical canonical analysis: `b1aa2364c5af0b35cdf691633d3694b93b632dc7`
+- canonical Actions run: `31187715157`
+- uploaded artifact: `analysis-1909-ded1ee6cc45667ef647618496aa49978942b1abd-31187715157`
+- artifact SHA-256: `90e32c4b894d47f4809ebd27ab307bb012ea1e298773d19ace5bc94f6367a800`
 - analysis population: 1,909 observations (955 white-like; 954 pigmented)
+- numerical stage manifest: 28/28 PASS
 - stage-03 status: `directionally_coherent_exploratory_support`
 - isolate submission status: `crossfit_upper_tail_not_jointly_robust`
 
-GitHub names pull-request artifacts with the PR merge SHA, whereas the run's `head_sha` identifies the branch head above. Subsequent commits that only tighten Figure 3 labels or synchronize compact manuscript-reference numbers do not change the numerical stage-03 design or result.
+The canonical stage-02 draw manifest contains exactly two models: `national_environment_spde_presence` and `national_environment_spde_intensity`. A fresh run produces no national Bombus/fingerprint/common-support model checkpoint and no national Bombus paired-contrast result. Bombus enters the active inference only at local stage 03.
+
+GitHub names pull-request artifacts with the PR merge SHA, whereas the run's `head_sha` identifies the branch head above. The subsequent commit `733091dd82cf02669be6f178e21f4a3ea8278b65` only shortens Figure 3 labels and changes no numerical estimand, model or result.
 
 ## Stage-03 design history
 
@@ -26,7 +29,7 @@ The active scientific question changed during PR #21 from unsigned community tur
 
 The 0.33 lower-third gate was adopted as the manuscript-facing gate **after** inspecting the exploratory design-development grid. The active pipeline therefore retains the complete 0.10/0.20/0.25/0.33 grid and its across-grid multiplicity correction. C4 is `directionally_coherent_exploratory_support`, not a preregistered confirmatory finding.
 
-The successful integrated run reproduced the lower-third result: 22 one-to-one environmentally matched pairs, available-minus-limited pigmented-share difference 0.2235, upper-tail predictive p=0.0170 and across-grid BH q=0.1019. Conditional intensity differed by -0.6145 (p=0.9051), providing no support for darker flowers under greater predicted Bombus availability. No national Bombus increment is part of the active manuscript or claim registry.
+The local-only canonical run reproduced the lower-third result: 22 one-to-one environmentally matched pairs, available-minus-limited pigmented-share difference 0.2235, upper-tail predictive p=0.0170 and across-grid BH q=0.1019. Conditional intensity differed by -0.6145 (p=0.9041), providing no support for darker flowers under greater predicted Bombus availability.
 
 ## Interpretation lock
 

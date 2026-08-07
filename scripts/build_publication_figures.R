@@ -2,8 +2,8 @@
 
 # The established plotting implementation remains the base for Figures 1, 2,
 # and 4. Historical hard-coded labels are replaced before evaluation. Figure 3
-# is then regenerated from the active Bombus-limitation stage and the manuscript
-# points only to that new figure stem.
+# is then regenerated from the active local Bombus-limitation stage and the
+# manuscript points only to that new figure stem.
 core_path <- "scripts/internal/build_publication_figures_core.R"
 code <- readLines(core_path, warn = FALSE, encoding = "UTF-8")
 text <- paste(code, collapse = "\n")
@@ -39,10 +39,13 @@ text <- gsub(
 # The retained core still contains the archived national/turnover Figure 3.
 # Remove that block before evaluation; the active Figure 3 is local-only.
 text <- sub(
-  "(?s)# Figure 3: incremental national information and local turnover tests\\..*?# Figure 4: local isolates and human-context follow-up\\.",
+  "(?s)# Figure 3: incremental national information and local turnover tests\..*?# Figure 4: local isolates and human-context follow-up\.",
   "# Figure 4: local isolates and human-context follow-up.",
   text, perl = TRUE
 )
+if (grepl("incremental national information and local turnover tests", text, fixed = TRUE)) {
+  stop("Historical Figure 3 block was not removed from the plotting core.", call. = FALSE)
+}
 text <- gsub(
   "figure_3_bombus_turnover", "figure_3_bombus_limitation",
   text, fixed = TRUE

@@ -3,7 +3,7 @@
 # the manuscript figure map points only to this limitation-gate figure.
 
 source("R/pipeline_support.R")
-hb_require_stage_packages("publication_figures")
+hb_require_packages(c("ggplot2", "patchwork"))
 output_dir <- file.path("manuscript", "figures")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 

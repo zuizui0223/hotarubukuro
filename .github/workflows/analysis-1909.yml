@@ -114,6 +114,12 @@ jobs:
       - name: Validate the joint isolate sensitivity
         run: Rscript validation/validate_joint_submission_isolate_ppc.R
 
+      - name: Write the submission inference lock
+        run: Rscript scripts/write_submission_analysis_lock.R
+
+      - name: Validate the submission inference lock
+        run: Rscript validation/validate_submission_analysis_lock.R
+
       - name: Publish the summary
         if: always()
         shell: bash
@@ -133,6 +139,10 @@ jobs:
             echo '```csv' >> "$GITHUB_STEP_SUMMARY"
             cat results/ecological_v26_joint_submission_isolate_ppc/joint_isolate_natural_null_summary.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s results/submission_analysis_lock/SUBMISSION_CLAIM.md ]]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            cat results/submission_analysis_lock/SUBMISSION_CLAIM.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload the complete run

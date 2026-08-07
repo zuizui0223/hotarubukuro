@@ -28,7 +28,6 @@ if [[ ! "$HOTARUBUKURO_SUBMISSION_DRAWS" =~ ^[0-9]+$ ]] || \
   exit 2
 fi
 
-# A rerun must never inherit generated outputs from an earlier attempt.
 mkdir -p results reproducibility manuscript
 find results -mindepth 1 -depth ! -path 'results/README.md' -delete
 find reproducibility -mindepth 1 -type f \
@@ -67,19 +66,13 @@ show_failure() {
 trap show_failure EXIT
 
 failure_stage="restore immutable 1909 snapshot"
-bash scripts/canonical_snapshot.sh restore \
-  "$SNAPSHOT_DESCRIPTOR" "$SNAPSHOT_DIR"
-
+bash scripts/canonical_snapshot.sh restore "$SNAPSHOT_DESCRIPTOR" "$SNAPSHOT_DIR"
 analysis_inputs="$SNAPSHOT_DIR/analysis_inputs"
 test -d "$analysis_inputs"
 
-# Human-landscape stages consume the raw MLIT archives from the immutable
-# snapshot. Point them at the restored locations explicitly instead of relying
-# on an author's home-directory cache.
 export HOTARUBUKURO_INPUT_ROOT="$analysis_inputs"
 export HOTARUBUKURO_MLIT_CACHE="$analysis_inputs/mlit_l03_2021"
 export HOTARUBUKURO_DID_CACHE="$analysis_inputs/mlit_did_2015"
-
 test -d "$HOTARUBUKURO_MLIT_CACHE"
 test -d "$HOTARUBUKURO_DID_CACHE"
 
@@ -93,20 +86,15 @@ done
 failure_stage="verify analysis population"
 Rscript scripts/check_analysis_population.R \
   --expectations inputs/analysis_1909_expectations.csv \
-  --report-dir "$REPORT_DIR" \
-  --strict true
+  --report-dir "$REPORT_DIR" --strict true
 
 failure_stage="preflight environment"
-Rscript scripts/preflight.R \
-  --scope canonical \
-  --report-dir "$REPORT_DIR"
+Rscript scripts/preflight.R --scope canonical --report-dir "$REPORT_DIR"
 
 failure_stage="run model and validation stages"
 Rscript scripts/run_publication_pipeline.R \
-  --mode full \
-  --baseline analysis_1909 \
-  --submission-draws "$HOTARUBUKURO_SUBMISSION_DRAWS" \
-  --tests "$RUN_TESTS"
+  --mode full --baseline analysis_1909 \
+  --submission-draws "$HOTARUBUKURO_SUBMISSION_DRAWS" --tests "$RUN_TESTS"
 
 failure_stage="write analysis arc"
 Rscript scripts/report_analysis_arc.R --report-dir "$REPORT_DIR"
@@ -118,8 +106,7 @@ fi
 
 failure_stage="write reproducibility report"
 Rscript scripts/write_reproducibility_report.R \
-  --report-dir "$REPORT_DIR" \
-  --workflow analysis-1909 \
+  --report-dir "$REPORT_DIR" --workflow analysis-1909 \
   --inputs "Data_S1.csv,inputs/canonical_snapshot.json,inputs/analysis_1909_expectations.csv" \
   --outputs "results,manuscript/figures,reproducibility"
 
@@ -137,10 +124,8 @@ submission = list(csv.DictReader(open(
     "submission_isolate_natural_null_summary.csv"
 )))
 lookup = {r.get("result_id"): r for r in results}
-primary = {
-    r["metric"]: r for r in submission
-    if r["configuration"] == "primary_10km_env1_all_white"
-}
+primary = {r["metric"]: r for r in submission
+           if r["configuration"] == "primary_10km_env1_all_white"}
 lines = [
     "# 1,909 analysis reproduction summary", "",
     f"- commit: `{os.getenv('GITHUB_SHA', 'local')}`",
@@ -151,7 +136,7 @@ lines = [
     "", "## Key generated quantities", "",
 ]
 for result_id in [
-    "local_bombus_presence", "local_bombus_intensity",
+    "local_bombus_limitation_presence", "local_bombus_limitation_intensity",
     "local_isolate_count", "local_isolate_fraction",
     "local_population_5km"
 ]:
@@ -170,9 +155,11 @@ for metric in ("candidate_count", "candidate_fraction"):
             f"MCSE={row['monte_carlo_se']}"
         )
 lines += [
-    "", "The observed candidate set is fixed before the natural-map comparison.",
-    "The submission isolate p-values use the higher-precision single-thread",
-    "reference and are reported with Monte Carlo standard errors and run hashes.",
+    "", "Stage 03 uses environmentally matched one-to-one Bombus-limitation pairs.",
+    "The lower-third gate history and full threshold-grid multiplicity are retained.",
+    "Bombus SDM support is predicted availability, not abundance or visitation.",
+    "", "The observed isolate candidate set is fixed before the natural-map comparison.",
+    "Submission isolate p-values use the higher-precision single-thread reference."
 ]
 p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 PY

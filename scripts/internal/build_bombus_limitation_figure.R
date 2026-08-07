@@ -78,7 +78,7 @@ p2 <- ggplot2::ggplot(paired_long, ggplot2::aes(x = state, y = share, group = pa
   ggplot2::stat_summary(fun = mean, geom = "point", size = 3) +
   ggplot2::labs(
     title = "Lower-third Bombus gate",
-    subtitle = "25 km; one-to-one environmentally matched pairs",
+    subtitle = "25-km environmentally matched pairs",
     x = NULL, y = "Pigmented share"
   ) + ggplot2::theme_minimal(base_size = 9)
 
@@ -100,7 +100,7 @@ p3 <- ggplot2::ggplot(
   ggplot2::labs(
     title = "Positive direction across retained gates",
     subtitle = "Filled = observed; open = natural-map mean",
-    x = "All-species low-support threshold", y = "Available − limited pigmentation"
+    x = "Low-support gate", y = "Pigmentation contrast"
   ) + ggplot2::theme_minimal(base_size = 9)
 
 primary_null <- null[
@@ -117,11 +117,11 @@ p4 <- ggplot2::ggplot(primary_null, ggplot2::aes(x = statistic)) +
   ggplot2::labs(
     title = "Observed contrast vs natural maps",
     subtitle = sprintf(
-      "Observed = %.3f; p = %.3f; across-grid BH q = %.3f",
+      "Obs %.3f | p %.3f | grid q %.3f",
       primary$observed_directed_difference,
       primary$upper_tail_p, primary$BH_q_all_gate_tests
     ),
-    x = "Available − limited pigmentation contrast", y = "Predictive maps"
+    x = "Pigmentation contrast", y = "Predictive maps"
   ) + ggplot2::theme_minimal(base_size = 9)
 
 figure_3 <- (p1 + p2) / (p3 + p4) + patchwork::plot_annotation(tag_levels = "a")

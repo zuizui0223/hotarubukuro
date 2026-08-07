@@ -86,3 +86,29 @@ testthat::test_that("claim registry preserves causal ceilings", {
     "not human-mediated origin"
   )
 })
+
+testthat::test_that("local Bombus stage exposes the fixed-SDM uncertainty ceiling", {
+  script_path <- file.path(repo_root, "scripts", "run_local_bombus_turnover.R")
+  script <- paste(readLines(script_path, warn = FALSE), collapse = "\n")
+  testthat::expect_match(script, "pollinator_surface_role", fixed = TRUE)
+  testthat::expect_match(script, "pollinator_prediction_uncertainty", fixed = TRUE)
+  testthat::expect_match(script, "sdm_reselection_reproducibility", fixed = TRUE)
+  testthat::expect_match(script, "not propagated", fixed = TRUE)
+  testthat::expect_match(script, "fixed SDM surfaces", fixed = TRUE)
+
+  metadata_path <- file.path(
+    repo_root, "results", "ecological_v17_local_pair_turnover",
+    "local_pair_metadata.csv"
+  )
+  if (file.exists(metadata_path)) {
+    metadata <- utils::read.csv(
+      metadata_path, check.names = FALSE, stringsAsFactors = FALSE
+    )
+    required_fields <- c(
+      "pollinator_surface_role", "pollinator_prediction_uncertainty",
+      "sdm_reselection_reproducibility", "interaction_inference_ceiling",
+      "natural_null_uncertainty_scope"
+    )
+    testthat::expect_true(all(required_fields %in% metadata$field))
+  }
+})

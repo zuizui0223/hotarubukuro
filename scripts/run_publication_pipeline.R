@@ -18,9 +18,6 @@ if (!is.finite(submission_draws) || submission_draws < 5000L) {
   stop("--submission-draws must be at least 5000.", call. = FALSE)
 }
 
-# The active repository has one scientific baseline. `reconstruction` remains
-# an accepted internal spelling for validators; both values mean the active
-# 1,909-observation analysis.
 baseline_requested <- hb_arg_value(args, "--baseline", "analysis_1909")
 if (!baseline_requested %in% c("analysis_1909", "reconstruction")) {
   stop(
@@ -37,6 +34,7 @@ writeLines(
     "run_mode=analysis_1909",
     paste0("mode=", mode),
     "baseline=analysis_1909",
+    "stage03=bombus_limitation_gate",
     paste0("submission_natural_maps=", submission_draws),
     paste0("started_utc=", format(Sys.time(), tz = "UTC", usetz = TRUE))
   ),
@@ -57,24 +55,19 @@ write_manifest <- function() {
     row.names = FALSE
   )
 }
-run_stage <- function(stage, script, arguments = character(),
-                      role = "validation") {
+run_stage <- function(stage, script, arguments = character(), role = "validation") {
   stdout_path <- file.path(log_dir, paste0(stage, "_stdout.log"))
   stderr_path <- file.path(log_dir, paste0(stage, "_stderr.log"))
   started <- Sys.time()
   message("[1909] ", stage)
-  status <- system2(
-    rscript, c(script, arguments), stdout = stdout_path, stderr = stderr_path
-  )
+  status <- system2(rscript, c(script, arguments), stdout = stdout_path, stderr = stderr_path)
   ended <- Sys.time()
   stage_rows[[length(stage_rows) + 1L]] <<- data.frame(
-    stage = stage,
-    role = role,
+    stage = stage, role = role,
     command = paste(c(script, arguments), collapse = " "),
     status = if (identical(status, 0L)) "PASS" else "FAIL",
     elapsed_seconds = as.numeric(difftime(ended, started, units = "secs")),
-    stdout_log = stdout_path,
-    stderr_log = stderr_path,
+    stdout_log = stdout_path, stderr_log = stderr_path,
     stringsAsFactors = FALSE
   )
   write_manifest()
@@ -97,8 +90,6 @@ run_stage <- function(stage, script, arguments = character(),
   invisible(TRUE)
 }
 
-# Frozen upstream tables are restored from the checksum-locked snapshot. The
-# old generators are archived; only their resulting inputs are audited here.
 run_stage(
   "01_audit_phenotype", "validation/audit_phenotype.R",
   c(paste0("--baseline=", baseline)), role = "frozen_upstream_audit"
@@ -120,8 +111,7 @@ if (mode == "full") {
     c(
       "--components=national_environment_spde_presence",
       paste0("--draws=", submission_draws),
-      "--seed=20260725",
-      "--force=true",
+      "--seed=20260725", "--force=true",
       "--output=results/ecological_v25_submission_presence"
     ),
     role = "submission_reproducibility_lock"
@@ -138,22 +128,25 @@ run_stage(
   role = "confirmatory_core_validation"
 )
 
+# Stage 03 now tests the biologically directional limitation hypothesis rather
+# than an unsigned community-turnover correspondence. Environment is controlled
+# by pre-outcome local matching; no second local environment/SPDE model is fit.
 if (mode %in% c("extensions", "full")) {
   run_stage(
-    "03_run_local_bombus_turnover",
-    "scripts/run_local_bombus_turnover.R",
-    role = "planned_local_mechanism"
+    "03_run_bombus_limitation_gate",
+    "scripts/run_bombus_limitation_gate.R",
+    role = "local_pollinator_limitation_test"
   )
 }
 run_stage(
-  "03_validate_local_bombus_turnover",
-  "validation/validate_local_bombus_turnover.R",
-  role = "planned_local_mechanism_validation"
+  "03_validate_bombus_limitation_gate",
+  "validation/validate_bombus_limitation_gate.R",
+  role = "local_pollinator_limitation_validation"
 )
 run_stage(
-  "03_audit_local_bombus_turnover",
-  "validation/audit_local_bombus_turnover.R",
-  role = "planned_local_mechanism_validation"
+  "03_audit_bombus_limitation_gate",
+  "validation/audit_bombus_limitation_gate.R",
+  role = "local_pollinator_limitation_validation"
 )
 
 if (mode == "full") {
@@ -166,8 +159,7 @@ if (mode == "full") {
 run_stage(
   "04_validate_human_landscape_features",
   "validation/validate_human_landscape_features.R",
-  c(paste0("--baseline=", baseline)),
-  role = "feature_engineering_validation"
+  c(paste0("--baseline=", baseline)), role = "feature_engineering_validation"
 )
 run_stage(
   "04_audit_human_landscape_features",
@@ -190,12 +182,9 @@ run_stage(
 run_stage(
   "04_audit_local_pigmented_isolates",
   "validation/audit_local_pigmented_isolates.R",
-  c(paste0("--baseline=", baseline)),
-  role = "candidate_definition_validation"
+  c(paste0("--baseline=", baseline)), role = "candidate_definition_validation"
 )
 
-# Supplementary, model-free candidate DOY description. It reaches no candidate
-# selection, ranking, main test, or causal conclusion.
 if (mode %in% c("extensions", "full")) {
   run_stage(
     "S1_run_candidate_doy_check", "scripts/run_candidate_doy_check.R",
@@ -217,14 +206,12 @@ if (mode %in% c("extensions", "full")) {
 run_stage(
   "05_validate_local_human_context",
   "validation/validate_local_human_context.R",
-  c(paste0("--baseline=", baseline)),
-  role = "exploratory_human_context_validation"
+  c(paste0("--baseline=", baseline)), role = "exploratory_human_context_validation"
 )
 run_stage(
   "05_audit_local_human_context",
   "validation/audit_local_human_context.R",
-  c(paste0("--baseline=", baseline)),
-  role = "exploratory_human_context_validation"
+  c(paste0("--baseline=", baseline)), role = "exploratory_human_context_validation"
 )
 
 if (mode %in% c("extensions", "full")) {
@@ -236,26 +223,20 @@ if (mode %in% c("extensions", "full")) {
 run_stage(
   "05_validate_did_sensitivity",
   "validation/validate_did_sensitivity.R",
-  c(paste0("--baseline=", baseline)),
-  role = "exploratory_human_context_validation"
+  c(paste0("--baseline=", baseline)), role = "exploratory_human_context_validation"
 )
 run_stage(
   "05_audit_did_sensitivity",
   "validation/audit_did_sensitivity.R",
-  c(paste0("--baseline=", baseline)),
-  role = "exploratory_human_context_validation"
+  c(paste0("--baseline=", baseline)), role = "exploratory_human_context_validation"
 )
 
-# Human-context stages above retain their original 1,000-map diagnostics. Only
-# after those are complete do we replace the final candidate count/fraction null
-# with the higher-precision, single-thread submission reference.
 if (mode %in% c("extensions", "full")) {
   run_stage(
     "05_refine_submission_isolate_null",
     "scripts/refine_submission_isolate_null.R",
     c(
-      paste0("--draws=", submission_draws),
-      "--seed=20260725",
+      paste0("--draws=", submission_draws), "--seed=20260725",
       paste0(
         "--presence-checkpoint=results/ecological_v25_submission_presence/",
         "checkpoints/national_environment_spde_presence_draws",
@@ -283,8 +264,7 @@ final_write_lock(".", output_dir)
 run_stage(
   "06_validate_publication_lock",
   "validation/validate_publication_pipeline.R",
-  c(paste0("--output=", output_dir)),
-  role = "final_lock_validation"
+  c(paste0("--output=", output_dir)), role = "final_lock_validation"
 )
 run_stage(
   "06_audit_publication_claims",
@@ -296,6 +276,6 @@ run_stage(
 write_manifest()
 cat(
   "Active 1,909 analysis completed in mode '", mode,
-  "' with ", submission_draws, " submission natural maps: ",
-  normalizePath(output_dir), "\n", sep = ""
+  "' with Bombus limitation gate and ", submission_draws,
+  " submission natural maps: ", normalizePath(output_dir), "\n", sep = ""
 )

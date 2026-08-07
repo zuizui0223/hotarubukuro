@@ -13,6 +13,7 @@ n = 1,909; white-like = 955; pigmented = 954
                     v
 02 national environment + INLA-SPDE natural baseline
 presence / conditional intensity / five blocked folds / 1,000 draws
+NO Bombus term or national Bombus comparison
               |                                |
               v                                v
 03 local Bombus limitation gate      04 pigmented-in-white isolate event

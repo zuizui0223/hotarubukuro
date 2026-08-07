@@ -1,167 +1,151 @@
-# Bombus pollinator-opportunity proxy: an eDNA-inspired directional design
+# Bombus pollinator-opportunity proxy: an eDNA-inspired limitation design
 
-## Biological hypothesis
+## The measurement problem
 
-The biological hypothesis is directional rather than merely correlational:
+The biological hypothesis concerns attraction and pollinator-mediated selection, but the broad-scale data contain *Bombus* occurrences and SDM predictions rather than visits to *Campanula punctata*. The correct task is therefore **not** to manufacture a visitation-pressure number from habitat suitability. It is to define the strongest latent pollinator-availability contrast that the occurrence data can defend.
 
-> Greater local exposure to flower-visiting *Bombus* should increase the opportunity for a shared attraction advantage of pigmented flowers to translate into differential visitation and, ultimately, pollinator-mediated selection favouring pigmentation.
+The active biological prediction is threshold-like:
 
-The broad-scale data cannot observe visitation rate or selection directly. The statistical problem is therefore not to manufacture an abundance estimate from SDM suitability, but to define the strongest **pollinator-opportunity estimand** that occurrence data can actually support.
+> If pigmentation has an attraction benefit when effective bumblebees are available, then that benefit can relax where all focal *Bombus* taxa are poorly available. White flowers should therefore be relatively more common under local bumblebee limitation. A pigment-production cost could strengthen this transition but is not measured or required.
 
 ## Why the eDNA analogy is useful
 
-The useful analogy is conceptual, not literal. eDNA studies often separate a latent ecological state (occupancy/presence) from the observation process (capture and molecular detection). Multiscale occupancy models estimate presence while explicitly acknowledging imperfect detection; they do not require eDNA concentration to equal organism abundance. Attempts to infer abundance from eDNA concentration can work in some systems, but require calibration because shedding, transport, degradation, sampling and amplification can all alter the concentration-abundance relationship.
+The analogy is conceptual. eDNA studies often separate a latent ecological state such as occupancy from imperfect detection. They do not require DNA concentration to equal organism abundance. Quantitative abundance inference requires additional calibration because shedding, transport, degradation, sampling and amplification alter the concentration–abundance relationship.
 
-Relevant examples are Schmidt et al. (2013, Methods in Ecology and Evolution, doi:10.1111/2041-210X.12052), Willoughby et al. (2016, Molecular Ecology Resources, doi:10.1111/1755-0998.12531), Dorazio & Erickson (2018, Molecular Ecology Resources, doi:10.1111/1755-0998.12735), and the biomass review of Rourke et al. (2022, Environmental DNA, doi:10.1002/edn3.185).
+The corresponding hierarchy here is:
 
-The corresponding lesson for this study is:
+```text
+eDNA:   latent occurrence -> molecular detection -> calibrated abundance only with extra information
+Bombus: latent availability -> SDM support       -> visitation/selection only with extra information
+```
 
-> Estimate **potential Bombus availability / encounter opportunity**, which the occurrence data can support, rather than labelling habitat suitability as abundance, visitation pressure, or selection pressure.
+The nationwide study can defend the middle step—relative evidence for local *Bombus* availability—not the final visitation or selection step.
 
-## Do not use `sum(MaxEnt suitability)` as "Bombus pressure"
+Relevant eDNA examples motivating this distinction include Schmidt et al. (2013; doi:10.1111/2041-210X.12052), Willoughby et al. (2016; doi:10.1111/1755-0998.12531), Dorazio & Erickson (2018; doi:10.1111/1755-0998.12735), and Rourke et al. (2022; doi:10.1002/edn3.185).
 
-A raw sum assumes all of the following without data:
+## Why `sum(MaxEnt suitability)` is not Bombus pressure
 
-1. suitability is proportional to local abundance;
+A raw sum would assume without calibration that:
+
+1. suitability is proportional to abundance;
 2. the proportionality is the same among species;
-3. local abundance is proportional to visitation of *Campanula punctata*;
-4. each visit has the same selective effect; and
-5. the SDM outputs are quantitatively comparable among species.
+3. local abundance is proportional to visits to *C. punctata*;
+4. visit rate translates monotonically to selection; and
+5. SDM output magnitudes are quantitatively comparable among species.
 
-Those assumptions are too strong. Published pollination-service modelling has used SDM occurrence likelihood as a proxy for **potential** pollinator service, but explicitly notes that occurrence likelihood does not contain the number of individuals and that cross-species comparability is an additional assumption (Zulian et al. 2013, PLOS ONE, doi:10.1371/journal.pone.0076308).
+Those assumptions are too strong. Presence-only SDMs are more naturally interpreted as relative occurrence intensity or relative habitat support than absolute abundance (Renner & Warton, 2013; Guillera-Arroita, 2015). Opportunistic records also mix ecological intensity with observer sampling bias; multi-species point-process approaches can partially separate a shared sampling process when the necessary information is available (Fithian et al., 2015; doi:10.1111/2041-210X.12242).
 
-Presence-only models are more naturally interpreted in terms of relative occurrence intensity or relative habitat support than absolute occupancy or abundance. Opportunistic records also mix ecological intensity with observer sampling bias; multi-species point-process models can partly separate these when a shared bias process is estimable (Fithian et al. 2015, Methods in Ecology and Evolution, doi:10.1111/2041-210X.12242).
+## Preferred active estimand: an all-species-low limitation gate
 
-## Recommended primary estimand: directional Bombus opportunity without a scalar pressure index
+Each focal species is placed on its **own** within-species predicted-support rank. Cross-species magnitudes are never summed.
 
-### Core idea
-
-If all focal *Bombus* species are assumed a priori to exert selection in the **same sign** (pigmented flowers have an attraction advantage relative to white flowers), then the strongest SDM-only comparison does not require estimating how many visits each species makes.
-
-For an environmentally matched local pair of flower cells A and B, compare the five species-specific, spatially cross-fitted *Bombus* support values.
-
-Define A as **strictly Bombus-opportunity dominant** over B when:
+For flower cell `i`, define:
 
 ```text
-support_A,s > support_B,s   for every focal Bombus species s.
+best_Bombus_support_i = max_s(rank_is)
 ```
 
-This is a Pareto-dominance comparison. If every species contributes a non-negative amount to Bombus-mediated visitation opportunity and support is monotone with that species' local availability, then A has greater potential Bombus encounter opportunity than B under **any positive species weighting**. No assumption about equal abundance, equal visitation rates, or quantitative comparability of SDM values among species is required for the direction of the contrast.
+where `rank_is` is the within-species rank for focal species `s`.
 
-The flower prediction is then directional:
+The active manuscript-facing gate is:
 
 ```text
-pigmented_share_A - pigmented_share_B > 0
+Bombus-limited:   best_Bombus_support <= 0.33
+Bombus-available: best_Bombus_support >= 0.50
 ```
 
-with conditional intensity as a secondary response.
+Thus a limited cell has **all five focal taxa in their lower third of predicted support**, while an available cell has **at least one focal taxon at or above its own median support**.
 
-### Why this is stronger than the present turnover test
+This construction has two advantages over a scalar pressure index.
 
-The present turnover test asks whether bee-community change and flower-colour change occur together. The dominance design instead tests the biological prediction:
+First, the low state has a clear ecological interpretation without assuming cross-species calibration: every focal taxon is locally poorly supported on its own scale. Second, the high state only requires one plausible effective pollinator to be moderately available; it does not require all species to increase together or have equal contribution.
 
-> When all predicted Bombus opportunities increase in the same direction, does pigmentation also increase in that direction?
+The 0.33 gate was adopted as the active gate after exploratory design development. The complete 0.10/0.20/0.25/0.33 grid and its multiplicity correction must therefore remain visible.
 
-This directly matches the attraction-selection hypothesis while still respecting the fact that SDMs do not provide visitation counts.
+## Local design
 
-## Primary analysis specification
+The gate is tested only among response-blind local matches:
 
-1. **Rebuild each Bombus SDM with spatial cross-fitting.** A flower cell receives a species prediction only from a model trained without records from its held-out spatial fold.
-2. **Control opportunistic-record bias.** Prefer a presence-only point-process / target-group framework that includes observer-effort covariates or a shared multi-species sampling-bias component. The estimand remains relative occurrence intensity, not abundance.
-3. **Use species-specific ranks or other monotone support scales only within species.** Dominance is invariant to monotone transformation within each species, so it does not require cross-species calibration.
-4. **Construct response-blind local pairs** within the pre-specified 25-km radius and same held-out flower-model fold.
-5. **Environmentally match pairs** using the raw abiotic predictors used in the bee SDMs. Use a pre-specified caliper before examining flower colour.
-6. **Orient each pair using Bombus only.** If A is higher than B for all five species, orient B -> A. Flower colour must not determine orientation.
-7. **Primary response:** directed difference in pigmented share, `share_highBombus - share_lowBombus`.
-8. **Primary hypothesis:** the mean/partial directed contrast is positive relative to the 1,000 flower natural-model posterior-predictive maps.
-9. **Secondary response:** directed difference in pigmented-only visible intensity.
-10. **Do not use mixed-sign pairs in the primary directional test.** Those pairs have ambiguous total Bombus opportunity without species-specific visitation weights and belong in the existing community-composition analysis.
+1. endpoints within 25 km;
+2. same held-out flower-model fold;
+3. five-species common SDM support;
+4. environmental RMS distance <=0.75 on the four broad/within-50-km axes; and
+5. one-to-one pair use.
 
-## Useful sensitivity levels
+Pairs are oriented `limited -> available` from *Bombus* predictions before flower colour is read.
 
-Strict five-species dominance may reduce sample size. Pre-specify a hierarchy rather than choosing whichever is significant:
-
-- **Primary:** 5/5 species agree in direction.
-- **Sensitivity 1:** at least 4/5 agree, with the dissenting species difference small relative to its SDM uncertainty.
-- **Sensitivity 2:** posterior/ensemble probability of common-direction dominance >= 0.8.
-- **Negative control:** mixed-sign pairs where some species increase and others decrease; no simple directional pigmentation prediction is made.
-
-A result that strengthens with agreement among species is more consistent with the shared-attraction hypothesis than a result driven by one species or by arbitrary community weighting.
-
-## Propagate SDM uncertainty as dominance probability
-
-With an ensemble of valid SDM realizations `b = 1,...,B`, define for each pair:
+Primary response:
 
 ```text
-D_AB = proportion of SDM realizations in which A is higher than B for all species.
+pigmented_share_available - pigmented_share_limited
 ```
 
-Then either:
-
-- use only pairs with `D_AB >= 0.8` for the primary directional comparison; or
-- carry `D_AB` as probabilistic pair orientation in a hierarchical model.
-
-This is preferable to averaging the SDM surfaces first, because averaging can hide uncertainty in which site actually has greater pollinator opportunity.
-
-## Secondary scalar index: Potential Encounter Opportunity (PEO), not pressure
-
-A scalar can still be useful as a secondary analysis, but its name and assumptions must be explicit.
-
-For species `s` at flower site `i`, let `R_is` be the spatially cross-fitted within-species percentile of relative occurrence support. Optionally replace the point value with a foraging-accessible landscape value by kernel-averaging support around the flower site.
-
-A simple agnostic index is:
+Secondary response:
 
 ```text
-PEO_i = sum_s w_s R_is
+pigmented_only_intensity_available - pigmented_only_intensity_limited
 ```
 
-where all `w_s >= 0`.
+The biological expectation is stronger for pigmentation state than for conditional intensity because an occurrence-based availability gate more naturally represents whether an attraction benefit can operate than the magnitude of visitation-driven selection.
 
-Equal weights may be used only as a transparent reference case. Robustness should be checked over many positive weight vectors (for example Dirichlet draws) and by leave-one-species-out analyses. The scalar is **potential encounter opportunity**, not expected abundance or visitation rate.
+## Why environment and space are not fitted twice
 
-If future data provide genuinely calibrated species occupancy probabilities, a saturating "at least one Bombus available" quantity such as `1 - product_s(1-p_is)` could be considered, but this should not be applied to uncalibrated MaxEnt/cloglog values as if they were occupancy probabilities.
+The local contrast already restricts geography and matches measured environment. A second local regression containing the same environment and another spatial field is not the active estimand. Such a model would not establish a causal pollinator effect and could remove environmentally mediated variation that defines the SDM availability layer.
 
-## Foraging accessibility can make the proxy more mechanistic
+The national 1,000 flower environment-plus-SPDE maps are instead used as a **separate predictive reference**. The fixed matched pairs and Bombus orientation are replayed on those maps to ask whether the observed contrast is larger than broad natural geography commonly generates.
 
-The plant interacts with foraging bees, not with a raster cell. A stronger opportunity surface can therefore integrate surrounding species support with a species-specific or common foraging kernel:
+This reduces broad confounding but does not fully separate pollinators from environment. The *Bombus* surfaces are environmentally predicted and can encode unmeasured habitat, distribution history or sampling structure.
+
+## Why strict all-species dominance is now secondary
+
+An earlier exploratory design oriented pairs only when all five focal species had greater predicted support at the same endpoint. That comparison avoids arbitrary species weights, but it tests a different biological model: a monotonic increase in overall *Bombus* opportunity. In the 1,909 data the observed pigmentation direction was positive but did not exceed the natural-map reference.
+
+The limitation hypothesis is more closely aligned with the natural history of *C. punctata*: the key transition may be loss of access to effective bumblebee pollination rather than a linear dose response once bumblebees are already available.
+
+## Propagating SDM uncertainty in a future rebuild
+
+The current gate uses fixed archived SDM surfaces. A stronger future version should rebuild spatially cross-fitted SDM ensembles and estimate the **probability that a site is limited or available**.
+
+For SDM realization `b`, calculate each species rank and the gate state. For pair A/B define, for example:
 
 ```text
-A_is = integral K_s(distance(i,x)) * R_s(x) dx
+P(A limited and B available)
 ```
 
-This represents the amount of predicted bee habitat accessible to a flower site under an assumed foraging scale. The same dominance logic can then be applied to `A_is` instead of point-cell support. If species-specific foraging kernels are poorly known, a common kernel plus fixed sensitivity radii is safer than pretending precise species-specific movement parameters are known.
+as the proportion of valid SDM realizations supporting that orientation. The main analysis could retain only pairs with high orientation probability or carry orientation uncertainty into a hierarchical matched-pair model.
 
-## Why this is analogous to eDNA occupancy rather than eDNA concentration
+This is preferable to averaging surfaces before classifying because the biologically relevant uncertainty is whether the site actually belongs on the limited or available side of the gate.
 
-The preferred interpretation hierarchy is:
+## Foraging accessibility can improve the latent availability state
+
+A bumblebee can forage beyond a 1-km raster cell. A future source build can kernel-average each species' predicted support around a flower site before ranking:
 
 ```text
-eDNA:     latent presence -> detection evidence -> (only with calibration) abundance
-Bombus:   latent availability -> SDM support -> (only with calibration) visitation/pressure
+A_is = integral K_s(distance(i,x)) * support_s(x) dx
 ```
 
-The current broad-scale study can defend the middle step: relative evidence for local Bombus availability. It cannot identify the last step without direct visitation or abundance data.
+If species-specific foraging distances are poorly known, a common kernel with predeclared sensitivity radii is safer than assigning precise unsupported movement parameters.
 
-Therefore the manuscript should use terms such as:
+## Terminology
+
+Preferred terms:
 
 - `predicted Bombus availability`;
+- `Bombus-limited` / `Bombus-available`;
 - `potential Bombus encounter opportunity`;
-- `Bombus-opportunity contrast`;
-- `pollinator-opportunity proxy`.
+- `pollinator-availability proxy`.
 
-Avoid:
+Avoid without independent calibration:
 
 - `Bombus abundance`;
 - `visitation pressure`;
 - `selection pressure`;
-- `pollination service`;
+- `pollination service`.
 
-unless those quantities are independently calibrated.
+## Ecological claim enabled by the active design
 
-## Ecological claim enabled by the directional design
+A positive environmentally matched contrast supports the statement:
 
-If environmentally matched, cross-fitted, high-confidence dominance pairs show higher pigmentation on the Bombus-dominant endpoint, the strongest defensible statement becomes:
+> Pigmentation tends to be greater where at least one focal bumblebee taxon is moderately supported than where all focal taxa have low predicted support. This is consistent with relaxation of a bumblebee-associated attraction benefit under low predicted pollinator availability.
 
-> Sites with consistently greater predicted availability across the focal Bombus assemblage also tended to have greater flower pigmentation, beyond the flower natural-model expectation. Because the exposure is occurrence-based rather than visitation-based, this is consistent with the directional prediction of a Bombus-mediated attraction hypothesis but does not itself estimate visitation rate or selection strength.
-
-This is substantially more mechanistic than a turnover-turnover correspondence while remaining honest about what presence-only SDMs can and cannot measure.
+It does **not** establish that bumblebees visited the pigmented flowers more often or caused their fitness advantage. That mechanism requires direct species-resolved visitation and reproductive-success data.

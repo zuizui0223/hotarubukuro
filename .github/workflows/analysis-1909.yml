@@ -36,9 +36,11 @@ on:
 permissions:
   contents: read
 
+# A newer canonical request on the same ref supersedes an older run tied to
+# stale PR code. The surviving artifact remains tied to one explicit head SHA.
 concurrency:
   group: analysis-1909-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   analysis:

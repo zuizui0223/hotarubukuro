@@ -96,9 +96,11 @@ metadata <- data.frame(
     "pair_construction", "primary_radius_km", "sensitivity_radii_km",
     "neighbours_per_cell", "pair_joint_support", "presence_response",
     "intensity_response", "pollinator_primary_estimand",
-    "pollinator_interpretation", "natural_null",
-    "residual_as_pair_response", "observation_year_role",
-    "n_predictive_draws"
+    "pollinator_interpretation", "pollinator_surface_role",
+    "pollinator_prediction_uncertainty", "sdm_reselection_reproducibility",
+    "interaction_inference_ceiling", "natural_null",
+    "natural_null_uncertainty_scope", "residual_as_pair_response",
+    "observation_year_role", "n_predictive_draws"
   ),
   value = c(
     v17_analysis_spec_version, as.character(Sys.time()),
@@ -111,7 +113,24 @@ metadata <- data.frame(
     "absolute endpoint difference in conditional intensity among pigmented endpoints",
     "distance in total-support plus composition-PC1/PC2 fingerprint",
     "predicted habitat community fingerprint, not abundance, visitation, or pollination effectiveness",
+    "checksum-locked archived Bombus prediction surfaces treated as fixed inputs",
+    paste(
+      "not propagated: occurrence-sampling, ENMeval model-selection, fitted-SDM",
+      "parameter, and alternative-surface uncertainty"
+    ),
+    paste(
+      "not claimed from occurrences to surfaces because the historical ENMeval",
+      "candidate/tuning objects were not retained"
+    ),
+    paste(
+      "community-turnover correspondence conditional on fixed SDM surfaces;",
+      "not interaction strength, visitation, or causal pollinator selection"
+    ),
     "1000 v16 environment-plus-SPDE cross-fitted predictive maps",
+    paste(
+      "propagates flower natural-model posterior predictive and observation-design",
+      "variation only; Bombus SDM surfaces remain fixed"
+    ),
     "false",
     "nuisance adjustment only; no three-year temporal inference",
     as.character(ncol(presence$draws))
@@ -128,7 +147,7 @@ readme <- c(
   "",
   paste0(
     "Pairs are constructed without flower-colour information among 1-km cells ",
-    "on the five-species ENMeval common support. The primary graph uses up to ",
+    "on the five-species common support. The primary graph uses up to ",
     k, " nearest neighbours within 25 km; 10 and 50 km are fixed sensitivities."
   ),
   "",
@@ -147,6 +166,15 @@ readme <- c(
   ),
   "",
   paste0(
+    "The active 1,909 analysis treats the checksum-locked Bombus prediction ",
+    "surfaces as fixed archived inputs. Uncertainty from occurrence sampling, ",
+    "ENMeval model selection, fitted SDM parameters, or alternative prediction ",
+    "surfaces is not propagated by this stage. The historical ENMeval ",
+    "candidate/tuning objects needed to reproduce the original selection path ",
+    "were not retained."
+  ),
+  "",
+  paste0(
     "For each of 1000 v16 environment-plus-SPDE predictive maps, the same ",
     "pair response and partial association are recomputed. Shared endpoints ",
     "and the pair graph are therefore present in both observed and null ",
@@ -155,10 +183,16 @@ readme <- c(
   ),
   "",
   paste0(
-    "The result tests whether observed local colour turnover aligns with ",
-    "predicted community turnover more strongly than expected from the fitted ",
-    "natural model and observation design. It does not estimate a causal ",
-    "pollinator effect."
+    "Those 1000 maps propagate uncertainty and observation variation on the ",
+    "flower natural-model side only. They do not turn the fixed Bombus ",
+    "fingerprint into an uncertain predictor ensemble."
+  ),
+  "",
+  paste0(
+    "The result therefore tests whether observed local colour turnover aligns ",
+    "with this fixed predicted-community turnover more strongly than expected ",
+    "from the fitted flower natural model and observation design. It does not ",
+    "estimate a causal pollinator effect or interaction strength."
   )
 )
 writeLines(

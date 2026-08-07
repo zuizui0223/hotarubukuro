@@ -1,6 +1,12 @@
 name: 1909 analysis pipeline
 
 on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - "reproducibility/submission_reference/**"
+      - "manuscript/**"
+      - "docs/**"
   workflow_dispatch:
     inputs:
       build_figures:
@@ -8,6 +14,21 @@ on:
         type: boolean
         required: false
         default: true
+      submission_draws:
+        description: Natural maps for the cross-fitted isolate reference
+        type: number
+        required: false
+        default: 10000
+      joint_latent_draws:
+        description: Joint posterior draws for the isolate coherence sensitivity
+        type: number
+        required: false
+        default: 10000
+      joint_observation_replicates:
+        description: Observation replicates per joint posterior draw
+        type: number
+        required: false
+        default: 20
   pull_request:
     types: [labeled]
     branches: ["main"]
@@ -24,15 +45,28 @@ jobs:
     name: Reproduce the 1,909 analysis
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
       github.event.label.name == 'run-canonical-analysis'
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 360
     env:
       REPORT_DIR: ${{ github.workspace }}/reproducibility
       STATUS_DIR: ${{ github.workspace }}/reproduction_status
       SNAPSHOT_DIR: ${{ github.workspace }}/reproduction_inputs/snapshot
       BUILD_FIGURES: ${{ inputs.build_figures || 'true' }}
       RUN_TESTS: "true"
+      HOTARUBUKURO_SUBMISSION_DRAWS: ${{ inputs.submission_draws || '10000' }}
+      HOTARUBUKURO_JOINT_LATENT_DRAWS: ${{ inputs.joint_latent_draws || '10000' }}
+      HOTARUBUKURO_JOINT_OBS_REPS: ${{ inputs.joint_observation_replicates || '20' }}
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      GOTO_NUM_THREADS: "1"
+      BLIS_NUM_THREADS: "1"
+      INLA_NUM_THREADS: "1"
+      OMP_DYNAMIC: "FALSE"
 
     steps:
       - uses: actions/checkout@v4
@@ -78,6 +112,21 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/run_analysis_1909.sh
 
+      - name: Run the joint spatial posterior-predictive isolate sensitivity
+        run: |
+          Rscript scripts/run_joint_submission_isolate_ppc.R \
+            --latent-draws "$HOTARUBUKURO_JOINT_LATENT_DRAWS" \
+            --observation-replicates "$HOTARUBUKURO_JOINT_OBS_REPS"
+
+      - name: Validate the joint isolate sensitivity
+        run: Rscript validation/validate_joint_submission_isolate_ppc.R
+
+      - name: Write the submission inference lock
+        run: Rscript scripts/write_submission_analysis_lock.R
+
+      - name: Validate the submission inference lock
+        run: Rscript validation/validate_submission_analysis_lock.R
+
       - name: Publish the summary
         if: always()
         shell: bash
@@ -90,6 +139,17 @@ jobs:
             echo '```csv' >> "$GITHUB_STEP_SUMMARY"
             cat reproducibility/analysis_population_check.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s results/ecological_v26_joint_submission_isolate_ppc/joint_isolate_natural_null_summary.csv ]]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '### Joint posterior-predictive isolate sensitivity' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat results/ecological_v26_joint_submission_isolate_ppc/joint_isolate_natural_null_summary.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s results/submission_analysis_lock/SUBMISSION_CLAIM.md ]]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            cat results/submission_analysis_lock/SUBMISSION_CLAIM.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload the complete run

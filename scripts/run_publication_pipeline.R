@@ -10,6 +10,13 @@ output_dir <- hb_arg_value(
   args, "--output", "results/final_analysis_pipeline"
 )
 run_tests <- hb_as_bool(hb_arg_value(args, "--tests", "true"))
+submission_draws <- as.integer(hb_arg_value(
+  args, "--submission-draws",
+  Sys.getenv("HOTARUBUKURO_SUBMISSION_DRAWS", "10000")
+))
+if (!is.finite(submission_draws) || submission_draws < 5000L) {
+  stop("--submission-draws must be at least 5000.", call. = FALSE)
+}
 
 # The active repository has one scientific baseline. `reconstruction` remains
 # an accepted internal spelling for validators; both values mean the active
@@ -30,6 +37,7 @@ writeLines(
     "run_mode=analysis_1909",
     paste0("mode=", mode),
     "baseline=analysis_1909",
+    paste0("submission_natural_maps=", submission_draws),
     paste0("started_utc=", format(Sys.time(), tz = "UTC", usetz = TRUE))
   ),
   file.path(output_dir, "run_mode.txt")
@@ -105,6 +113,18 @@ if (mode == "full") {
     "02_run_natural_predictive_model",
     "scripts/run_natural_predictive_model.R",
     role = "confirmatory_core"
+  )
+  run_stage(
+    "02_run_submission_presence_checkpoint",
+    "scripts/run_natural_predictive_model.R",
+    c(
+      "--components=national_environment_spde_presence",
+      paste0("--draws=", submission_draws),
+      "--seed=20260725",
+      "--force=true",
+      "--output=results/ecological_v25_submission_presence"
+    ),
+    role = "submission_reproducibility_lock"
   )
 }
 run_stage(
@@ -226,6 +246,32 @@ run_stage(
   role = "exploratory_human_context_validation"
 )
 
+# Human-context stages above retain their original 1,000-map diagnostics. Only
+# after those are complete do we replace the final candidate count/fraction null
+# with the higher-precision, single-thread submission reference.
+if (mode %in% c("extensions", "full")) {
+  run_stage(
+    "05_refine_submission_isolate_null",
+    "scripts/refine_submission_isolate_null.R",
+    c(
+      paste0("--draws=", submission_draws),
+      "--seed=20260725",
+      paste0(
+        "--presence-checkpoint=results/ecological_v25_submission_presence/",
+        "checkpoints/national_environment_spde_presence_draws",
+        submission_draws, ".rds"
+      )
+    ),
+    role = "submission_reproducibility_lock"
+  )
+}
+run_stage(
+  "05_validate_submission_isolate_null",
+  "validation/validate_submission_isolate_null.R",
+  c(paste0("--draws=", submission_draws)),
+  role = "submission_reproducibility_validation"
+)
+
 if (run_tests) {
   run_stage(
     "06_test_publication_modules", "tests/testthat.R",
@@ -250,5 +296,6 @@ run_stage(
 write_manifest()
 cat(
   "Active 1,909 analysis completed in mode '", mode,
-  "': ", normalizePath(output_dir), "\n", sep = ""
+  "' with ", submission_draws, " submission natural maps: ",
+  normalizePath(output_dir), "\n", sep = ""
 )

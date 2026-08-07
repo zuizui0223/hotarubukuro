@@ -4,6 +4,49 @@
 # Historical implementations live under legacy/ and are deliberately absent
 # from this registry.
 
+hb_configure_deterministic_compute <- function() {
+  thread_variables <- c(
+    "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS", "GOTO_NUM_THREADS",
+    "BLIS_NUM_THREADS", "INLA_NUM_THREADS"
+  )
+  values <- as.list(rep("1", length(thread_variables)))
+  names(values) <- thread_variables
+  do.call(Sys.setenv, values)
+  Sys.setenv(OMP_DYNAMIC = "FALSE")
+  options(mc.cores = 1L)
+  RNGkind(
+    kind = "Mersenne-Twister",
+    normal.kind = "Inversion",
+    sample.kind = "Rejection"
+  )
+  r_seed <- suppressWarnings(as.integer(Sys.getenv(
+    "HOTARUBUKURO_R_SEED", "20260725"
+  )))
+  if (length(r_seed) != 1L || !is.finite(r_seed) || r_seed <= 0L) {
+    stop("HOTARUBUKURO_R_SEED must be one positive integer.", call. = FALSE)
+  }
+  # inla.posterior.sample() uses both the GMRFLib seed supplied at the call
+  # site and R's RNG state. Initialising .Random.seed here makes every active
+  # R process start from the same declared state before posterior sampling.
+  set.seed(r_seed)
+  if (requireNamespace("INLA", quietly = TRUE)) {
+    INLA::inla.setOption(num.threads = "1:1")
+  }
+  invisible(data.frame(
+    field = c(
+      thread_variables, "OMP_DYNAMIC", "R_seed", "RNGkind"
+    ),
+    value = c(
+      rep("1", length(thread_variables)), "FALSE", as.character(r_seed),
+      paste(RNGkind(), collapse = ";")
+    ),
+    stringsAsFactors = FALSE
+  ))
+}
+
+hb_deterministic_compute <- hb_configure_deterministic_compute()
+
 hb_package_groups <- list(
   natural_predictive_model = c("INLA", "Matrix", "sf", "terra"),
   bombus_occurrences = c("dplyr", "jsonlite", "readr", "rgbif"),

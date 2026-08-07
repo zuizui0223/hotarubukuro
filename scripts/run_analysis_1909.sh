@@ -3,11 +3,15 @@ set -euo pipefail
 
 export TZ=UTC
 export LC_ALL=C
-export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
-export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-1}"
-export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
-export VECLIB_MAXIMUM_THREADS="${VECLIB_MAXIMUM_THREADS:-1}"
-export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-1}"
+export OMP_NUM_THREADS="1"
+export OPENBLAS_NUM_THREADS="1"
+export MKL_NUM_THREADS="1"
+export VECLIB_MAXIMUM_THREADS="1"
+export NUMEXPR_NUM_THREADS="1"
+export GOTO_NUM_THREADS="1"
+export BLIS_NUM_THREADS="1"
+export INLA_NUM_THREADS="1"
+export OMP_DYNAMIC="FALSE"
 
 SNAPSHOT_DESCRIPTOR="${SNAPSHOT_DESCRIPTOR:-inputs/canonical_snapshot.json}"
 SNAPSHOT_DIR="${SNAPSHOT_DIR:-${PWD}/reproduction_inputs/snapshot}"
@@ -15,6 +19,14 @@ REPORT_DIR="${REPORT_DIR:-${PWD}/reproducibility}"
 STATUS_DIR="${STATUS_DIR:-${PWD}/reproduction_status}"
 RUN_TESTS="${RUN_TESTS:-true}"
 BUILD_FIGURES="${BUILD_FIGURES:-true}"
+HOTARUBUKURO_SUBMISSION_DRAWS="${HOTARUBUKURO_SUBMISSION_DRAWS:-10000}"
+export HOTARUBUKURO_SUBMISSION_DRAWS
+
+if [[ ! "$HOTARUBUKURO_SUBMISSION_DRAWS" =~ ^[0-9]+$ ]] || \
+   (( HOTARUBUKURO_SUBMISSION_DRAWS < 5000 )); then
+  echo "HOTARUBUKURO_SUBMISSION_DRAWS must be an integer >= 5000" >&2
+  exit 2
+fi
 
 # A rerun must never inherit generated outputs from an earlier attempt.
 mkdir -p results reproducibility manuscript
@@ -30,6 +42,19 @@ export HOTARUBUKURO_RUN_STARTED="$(date -u +%s)"
 export HOTARUBUKURO_RUN_STARTED_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 printf '%s\n' "$HOTARUBUKURO_RUN_STARTED_ISO" > "$STATUS_DIR/run_started_utc.txt"
 printf '%s\n' "$HOTARUBUKURO_RUN_STARTED" > "$STATUS_DIR/run_started_epoch.txt"
+
+{
+  echo "OMP_NUM_THREADS=$OMP_NUM_THREADS"
+  echo "OPENBLAS_NUM_THREADS=$OPENBLAS_NUM_THREADS"
+  echo "MKL_NUM_THREADS=$MKL_NUM_THREADS"
+  echo "VECLIB_MAXIMUM_THREADS=$VECLIB_MAXIMUM_THREADS"
+  echo "NUMEXPR_NUM_THREADS=$NUMEXPR_NUM_THREADS"
+  echo "GOTO_NUM_THREADS=$GOTO_NUM_THREADS"
+  echo "BLIS_NUM_THREADS=$BLIS_NUM_THREADS"
+  echo "INLA_NUM_THREADS=$INLA_NUM_THREADS"
+  echo "OMP_DYNAMIC=$OMP_DYNAMIC"
+  echo "HOTARUBUKURO_SUBMISSION_DRAWS=$HOTARUBUKURO_SUBMISSION_DRAWS"
+} > "$STATUS_DIR/submission_compute_lock.txt"
 
 failure_stage="initialization"
 show_failure() {
@@ -80,6 +105,7 @@ failure_stage="run model and validation stages"
 Rscript scripts/run_publication_pipeline.R \
   --mode full \
   --baseline analysis_1909 \
+  --submission-draws "$HOTARUBUKURO_SUBMISSION_DRAWS" \
   --tests "$RUN_TESTS"
 
 failure_stage="write analysis arc"
@@ -106,13 +132,22 @@ p.parent.mkdir(parents=True, exist_ok=True)
 pop = list(csv.DictReader(open("reproducibility/analysis_population_check.csv")))
 stages = list(csv.DictReader(open("results/final_analysis_pipeline/final_stage_manifest.csv")))
 results = list(csv.DictReader(open("results/final_analysis_pipeline/final_result_registry.csv")))
+submission = list(csv.DictReader(open(
+    "results/ecological_v25_submission_isolate_null/"
+    "submission_isolate_natural_null_summary.csv"
+)))
 lookup = {r.get("result_id"): r for r in results}
+primary = {
+    r["metric"]: r for r in submission
+    if r["configuration"] == "primary_10km_env1_all_white"
+}
 lines = [
     "# 1,909 analysis reproduction summary", "",
     f"- commit: `{os.getenv('GITHUB_SHA', 'local')}`",
     f"- started UTC: `{os.getenv('HOTARUBUKURO_RUN_STARTED_ISO', '')}`",
     f"- population checks: {sum(r['status']=='PASS' for r in pop)}/{len(pop)} PASS",
     f"- stages: {sum(r['status']=='PASS' for r in stages)}/{len(stages)} PASS",
+    f"- submission natural maps: {os.getenv('HOTARUBUKURO_SUBMISSION_DRAWS', '')}",
     "", "## Key generated quantities", "",
 ]
 for result_id in [
@@ -126,10 +161,18 @@ for result_id in [
             f"- `{result_id}`: estimate={row.get('estimate','')}, "
             f"raw_p={row.get('raw_p','')}, corrected_p={row.get('corrected_p','')}"
         )
+for metric in ("candidate_count", "candidate_fraction"):
+    row = primary.get(metric)
+    if row:
+        lines.append(
+            f"- submission `{metric}`: observed={row['observed_value']}, "
+            f"null_mean={row['null_mean']}, p={row['empirical_p']}, "
+            f"MCSE={row['monte_carlo_se']}"
+        )
 lines += [
-    "", "The active pipeline is statistically reproducible; INLA posterior-sample",
-    "hashes are not guaranteed to be bit-identical across runs. Threshold-adjacent",
-    "Monte Carlo quantities must be reported with the run commit and uncertainty.",
+    "", "The observed candidate set is fixed before the natural-map comparison.",
+    "The submission isolate p-values use the higher-precision single-thread",
+    "reference and are reported with Monte Carlo standard errors and run hashes.",
 ]
 p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 PY

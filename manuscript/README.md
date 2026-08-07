@@ -1,13 +1,24 @@
 # Active manuscript products
 
-The active paper uses the 1,909-observation analysis. Figures are regenerated from fresh outputs by:
+The active paper is [`ecology-and-evolution-manuscript.md`](ecology-and-evolution-manuscript.md) and uses the **1,909-observation analysis**.
+
+Its scientific arc is:
+
+1. two-part optical phenotype: pigmentation state plus pigmented-only visible intensity;
+2. national environment-plus-INLA-SPDE natural geography;
+3. a local, environmentally matched **Bombus-limitation gate** testing whether low predicted bumblebee availability is associated with relaxation of pigmentation;
+4. a separate local-isolate predictive check followed by post-selection human-context description.
+
+Stage 03 does not call SDM suitability abundance, visitation or selection pressure. The lower-third gate was adopted after exploratory design development, so the manuscript retains the full threshold grid and its across-grid multiplicity correction. The main text reports the result as directionally coherent exploratory support, not as a preregistered confirmatory finding.
+
+Figures are regenerated from fresh outputs by:
 
 ```bash
 Rscript scripts/build_publication_figures.R
 ```
 
-and written to `manuscript/figures/`. The numerical analysis does not read manuscript files.
+and written to `manuscript/figures/`. The active manuscript-facing Figure 3 is `figure_3_bombus_limitation`; the old unsigned-turnover figure may be generated as a sensitivity artifact but is not the active Figure 3. The numerical analysis does not read manuscript files.
 
-The earlier 1,923-observation manuscript, cover letter, submission checklist, and figures are archived under `legacy/published-1923/manuscript/` and are not part of the active pipeline.
+The active *Bombus* analysis is reproducible conditional on checksum-locked prediction surfaces. The flower natural-map reference propagates uncertainty on the flower-model side, but the current stage does not propagate occurrence-sampling, ENMeval model-selection, fitted-SDM or alternative-surface uncertainty. See `docs/bombus-sdm-inference.md` and `docs/bombus-pollinator-opportunity-proxy.md`.
 
-For manuscript wording, the local *Bombus* result must be described as a **community-turnover correspondence conditional on the frozen SDM prediction surfaces**. The 1,000 natural-map reference propagates flower natural-model uncertainty and observation design, but it does not propagate uncertainty in occurrence sampling, ENMeval model selection or alternative *Bombus* prediction surfaces. It is therefore not evidence of visitation, interaction strength or pollinator-mediated selection. See `docs/bombus-sdm-inference.md`.
+The earlier 1,923-observation manuscript, cover letter, submission checklist and figures are archived under `legacy/published-1923/manuscript/` and are not part of the active pipeline.

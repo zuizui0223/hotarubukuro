@@ -6,6 +6,7 @@ on:
       - agent/bombus-sdm-inference-guardrails
     paths:
       - scripts/internal/reframe_manuscript_story.py
+      - .github/workflows/manuscript-story-reframe.yml
 
 permissions:
   contents: write

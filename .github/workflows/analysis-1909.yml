@@ -36,9 +36,12 @@ on:
 permissions:
   contents: read
 
+# A new canonical request on the same ref supersedes an older one. This avoids
+# spending hours finishing a run from stale analysis code after the PR head has
+# changed; the retained run is always tied to one explicit head SHA.
 concurrency:
   group: analysis-1909-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   analysis:
@@ -58,102 +61,103 @@ jobs:
       HOTARUBUKURO_SUBMISSION_DRAWS: ${{ inputs.submission_draws || '10000' }}
       HOTARUBUKURO_JOINT_LATENT_DRAWS: ${{ inputs.joint_latent_draws || '10000' }}
       HOTARUBUKURO_JOINT_OBS_REPS: ${{ inputs.joint_observation_replicates || '20' }}
-      OMP_NUM_THREADS: "1"
-      OPENBLAS_NUM_THREADS: "1"
-      MKL_NUM_THREADS: "1"
-      VECLIB_MAXIMUM_THREADS: "1"
-      NUMEXPR_NUM_THREADS: "1"
-      GOTO_NUM_THREADS: "1"
-      BLIS_NUM_THREADS: "1"
-      INLA_NUM_THREADS: "1"
-      OMP_DYNAMIC: "FALSE"
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Read the pinned R version
-        id: rversion
+        id: pinned-r
         shell: bash
-        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+        run: |
+          python3 - <<'PY'
+          import os
+          import yaml
+          with open('dependencies/r-environment.yml', encoding='utf-8') as handle:
+              data = yaml.safe_load(handle)
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
+              handle.write(f"r-version={data['r_version']}\n")
+          PY
 
       - uses: r-lib/actions/setup-r@v2
         with:
-          r-version: ${{ steps.rversion.outputs.version }}
-          use-public-rspm: true
+          r-version: ${{ steps.pinned-r.outputs.r-version }}
+          use-public-rspm: false
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: pip
+          python-version: "3.11"
 
       - name: Install declared system libraries
         shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
-            sudo apt-get install --yes --no-install-recommends
+        run: bash dependencies/install_system_dependencies.sh
 
       - name: Restore the R library cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.R_LIBS_USER }}
-          key: r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          path: .r-lib
+          key: analysis-r-${{ runner.os }}-${{ hashFiles('dependencies/r-environment.yml', 'dependencies/r-packages.csv', 'dependencies/install_r_packages.R', 'dependencies/install_inla.R') }}
           restore-keys: |
-            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            analysis-r-${{ runner.os }}-
 
       - name: Restore the declared R environment
-        run: Rscript scripts/setup_r_environment.R --report-dir "$REPORT_DIR" --scopes analysis,reproducibility,testing,figures,reporting
+        shell: bash
+        env:
+          R_LIBS_USER: ${{ github.workspace }}/.r-lib
+        run: |
+          mkdir -p "$R_LIBS_USER"
+          Rscript scripts/setup_r_environment.R \
+            --report-dir reproducibility \
+            --scopes analysis,reproducibility,testing,figures,reporting
 
       - name: Run the complete 1,909 pipeline
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          R_LIBS_USER: ${{ github.workspace }}/.r-lib
         run: bash scripts/run_analysis_1909.sh
 
       - name: Run the joint spatial posterior-predictive isolate sensitivity
+        shell: bash
+        env:
+          R_LIBS_USER: ${{ github.workspace }}/.r-lib
         run: |
           Rscript scripts/run_joint_submission_isolate_ppc.R \
+            --output results/ecological_v26_joint_submission_isolate_ppc \
             --latent-draws "$HOTARUBUKURO_JOINT_LATENT_DRAWS" \
-            --observation-replicates "$HOTARUBUKURO_JOINT_OBS_REPS"
+            --obs-reps "$HOTARUBUKURO_JOINT_OBS_REPS" \
+            --seed 20260725
 
       - name: Validate the joint isolate sensitivity
-        run: Rscript validation/validate_joint_submission_isolate_ppc.R
+        shell: bash
+        env:
+          R_LIBS_USER: ${{ github.workspace }}/.r-lib
+        run: |
+          Rscript validation/validate_joint_submission_isolate_ppc.R \
+            --output results/ecological_v26_joint_submission_isolate_ppc
 
       - name: Write the submission inference lock
-        run: Rscript scripts/write_submission_analysis_lock.R
+        shell: bash
+        env:
+          R_LIBS_USER: ${{ github.workspace }}/.r-lib
+        run: |
+          Rscript scripts/write_submission_analysis_lock.R \
+            --output results/submission_analysis_lock
 
       - name: Validate the submission inference lock
-        run: Rscript validation/validate_submission_analysis_lock.R
+        shell: bash
+        env:
+          R_LIBS_USER: ${{ github.workspace }}/.r-lib
+        run: |
+          Rscript validation/validate_submission_analysis_lock.R \
+            --output results/submission_analysis_lock
 
       - name: Publish the summary
-        if: always()
         shell: bash
         run: |
-          if [[ -s reproducibility/reproduction_summary.md ]]; then
-            cat reproducibility/reproduction_summary.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [[ -s reproducibility/analysis_population_check.csv ]]; then
-            echo >> "$GITHUB_STEP_SUMMARY"
-            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
-            cat reproducibility/analysis_population_check.csv >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [[ -s results/ecological_v26_joint_submission_isolate_ppc/joint_isolate_natural_null_summary.csv ]]; then
-            echo >> "$GITHUB_STEP_SUMMARY"
-            echo '### Joint posterior-predictive isolate sensitivity' >> "$GITHUB_STEP_SUMMARY"
-            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
-            cat results/ecological_v26_joint_submission_isolate_ppc/joint_isolate_natural_null_summary.csv >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [[ -s results/submission_analysis_lock/SUBMISSION_CLAIM.md ]]; then
-            echo >> "$GITHUB_STEP_SUMMARY"
-            cat results/submission_analysis_lock/SUBMISSION_CLAIM.md >> "$GITHUB_STEP_SUMMARY"
-          fi
+          cat reproducibility/reproduction_summary.md >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          cat results/submission_analysis_lock/README.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the complete run
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: analysis-1909-${{ github.sha }}-${{ github.run_id }}
@@ -162,5 +166,5 @@ jobs:
             reproducibility
             reproduction_status
             manuscript/figures
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 90

@@ -19,6 +19,7 @@ active,stage,scripts/run_natural_predictive_model.R,stage 02 runner
 active,stage,scripts/run_local_bombus_turnover.R,stage 03 runner
 exploratory,analysis,scripts/run_bombus_interaction_sensitivity.R,environment-matched out-of-fold Bombus community sensitivity
 exploratory,analysis,scripts/run_bombus_directional_opportunity.R,directional all-species Bombus opportunity sensitivity
+exploratory,analysis,scripts/run_bombus_limitation_gate.R,local Bombus-limitation gate test for relaxed pigmentation benefit
 active,stage,scripts/run_human_landscape_features.R,stage 04 feature runner
 active,stage,scripts/run_local_pigmented_isolates.R,stage 04 candidate runner
 supplementary,stage,scripts/run_candidate_doy_check.R,held-out DOY runner

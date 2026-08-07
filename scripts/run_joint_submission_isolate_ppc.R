@@ -107,16 +107,14 @@ fit_time <- system.time({
     ),
     control.compute = list(config = TRUE),
     num.threads = 1L,
-    blas.num.threads = 1L,
     verbose = FALSE
   )
 })[["elapsed"]]
 
 prediction_index <- INLA::inla.stack.index(stack, "pred")$data
 
-# R-INLA documents that reproducible inla.posterior.sample() calls require both
-# a positive GMRFLib seed and a controlled R .Random.seed. Set it immediately
-# before this call, rather than relying on earlier process history.
+# Reproducible posterior sampling uses both a positive INLA seed and a
+# controlled R random state immediately before the sampling call.
 set.seed(posterior_seed)
 sample_time <- system.time({
   samples <- INLA::inla.posterior.sample(
@@ -173,9 +171,6 @@ observed_supported_present <- observed_profile$present[, 1L] &
 observed_count <- sum(observed_profile$candidate[, 1L])
 observed_fraction <- observed_count / max(sum(observed_supported_present), 1L)
 
-# Audit how often the original local event crosses a fold boundary. This is the
-# reason the joint full-data PPC is reported as a coherence sensitivity rather
-# than pretending a stitched cross-fit mosaic is one joint posterior draw.
 fold <- as.integer(cells$spatial_fold)
 crosses_fold <- vapply(seq_len(nrow(cells)), function(index) {
   neighbour <- graph$neighbours[[index]]
@@ -273,9 +268,6 @@ null_table <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# Pre-declared five equal latent-draw shards show whether the estimated tail is
-# driven by one portion of the posterior sample. These are diagnostics, not
-# additional tests.
 shard <- cut(
   seq_len(n_latent), breaks = 5L, labels = FALSE, include.lowest = TRUE
 )

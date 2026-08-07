@@ -37,7 +37,8 @@ support,validation,scripts/check_analysis_population.R,1909 row and colour-state
 support,reporting,scripts/report_analysis_arc.R,read fresh outputs as manuscript argument
 support,reporting,scripts/write_reproducibility_report.R,write run provenance report
 support,figures,scripts/build_publication_figures.R,public figure-generation interface
-support,figures,scripts/internal/build_publication_figures_core.R,figure implementation
+support,figures,scripts/internal/build_publication_figures_core.R,retained base implementation for Figures 1 2 and 4
+support,figures,scripts/internal/build_bombus_limitation_figure.R,active Figure 3 limitation-gate implementation
 validation,input,validation/audit_phenotype.R,audit frozen phenotype snapshot member
 validation,input,validation/audit_multiscale_hotspots.R,audit frozen 1-km cell snapshot member
 validation,stage,validation/validate_natural_predictive_model.R,stage 02 validator

@@ -77,7 +77,7 @@ p2 <- ggplot2::ggplot(paired_long, ggplot2::aes(x = state, y = share, group = pa
   ) +
   ggplot2::stat_summary(fun = mean, geom = "point", size = 3) +
   ggplot2::labs(
-    title = "Pigmentation across the lower-third limitation gate",
+    title = "Lower-third Bombus gate",
     subtitle = "25 km; one-to-one environmentally matched pairs",
     x = NULL, y = "Pigmented share"
   ) + ggplot2::theme_minimal(base_size = 9)
@@ -115,7 +115,7 @@ p4 <- ggplot2::ggplot(primary_null, ggplot2::aes(x = statistic)) +
     linewidth = 0.8, linetype = "dashed"
   ) +
   ggplot2::labs(
-    title = "Lower-third contrast against 1,000 natural maps",
+    title = "Observed contrast vs natural maps",
     subtitle = sprintf(
       "Observed = %.3f; p = %.3f; across-grid BH q = %.3f",
       primary$observed_directed_difference,

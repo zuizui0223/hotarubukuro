@@ -39,7 +39,7 @@ text <- gsub(
 # The retained core still contains the archived national/turnover Figure 3.
 # Remove that block before evaluation; the active Figure 3 is local-only.
 text <- sub(
-  "(?s)# Figure 3: incremental national information and local turnover tests\..*?# Figure 4: local isolates and human-context follow-up\.",
+  "(?s)# Figure 3: incremental national information and local turnover tests\\..*?# Figure 4: local isolates and human-context follow-up\\.",
   "# Figure 4: local isolates and human-context follow-up.",
   text, perl = TRUE
 )

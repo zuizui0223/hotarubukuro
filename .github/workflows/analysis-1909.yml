@@ -1,6 +1,12 @@
 name: 1909 analysis pipeline
 
 on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - "reproducibility/submission_reference/**"
+      - "manuscript/**"
+      - "docs/**"
   workflow_dispatch:
     inputs:
       build_figures:
@@ -39,6 +45,7 @@ jobs:
     name: Reproduce the 1,909 analysis
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
       github.event.label.name == 'run-canonical-analysis'
     runs-on: ubuntu-24.04
     timeout-minutes: 360

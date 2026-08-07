@@ -3,14 +3,20 @@ source("R/pipeline_support.R")
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
 
 artifact_root <- arg_value("--artifact-root", ".")
-output_dir <- arg_value("--output", "exploratory-bombus-limitation")
+output_dir <- arg_value(
+  "--output", "results/ecological_v17_bombus_limitation_gate"
+)
 env_match <- as.numeric(arg_value("--env-match", "0.75"))
 low_thresholds <- as.numeric(strsplit(
   arg_value("--low-thresholds", "0.10,0.20,0.25,0.33"), ","
 )[[1]])
+primary_low_threshold <- as.numeric(arg_value("--primary-low-threshold", "0.33"))
 available_threshold <- as.numeric(arg_value("--available-threshold", "0.50"))
+if (!primary_low_threshold %in% low_thresholds) {
+  stop("Primary low threshold must be included in the fixed threshold grid.", call. = FALSE)
+}
 
-hb_load_modules("local_bombus_turnover")
+hb_load_modules("bombus_limitation_gate")
 
 path_in_artifact <- function(...) file.path(artifact_root, ...)
 cells_path <- path_in_artifact(
@@ -27,35 +33,43 @@ intensity_path <- path_in_artifact(
 )
 required <- c(cells_path, presence_path, intensity_path)
 if (!all(file.exists(required))) {
-  stop("Missing frozen 1,909 inputs: ",
-       paste(required[!file.exists(required)], collapse = ", "), call. = FALSE)
+  stop(
+    "Missing active 1,909 inputs: ",
+    paste(required[!file.exists(required)], collapse = ", "), call. = FALSE
+  )
 }
 
 cells <- utils::read.csv(cells_path, check.names = FALSE, stringsAsFactors = FALSE)
 presence <- v17_align_result(readRDS(presence_path), cells, "presence checkpoint")
 intensity <- v17_align_result(readRDS(intensity_path), cells, "intensity checkpoint")
+if (ncol(presence$draws) != ncol(intensity$draws) || ncol(presence$draws) < 1000L) {
+  stop("Expected aligned presence/intensity checkpoints with >=1000 draws.", call. = FALSE)
+}
 
 species <- c("ardens", "diversus", "beaticola", "consobrinus", "honshuensis")
 rank_columns <- paste0(species, "_within_species_rank")
 v17_require_columns(
   cells,
-  c(rank_columns, "n_observations", "n_pigmented", "conditional_intensity_median",
-    "spatial_fold", "x_km", "y_km", "bombus_fingerprint_common_support"),
+  c(
+    rank_columns, "n_observations", "n_pigmented",
+    "conditional_intensity_median", "spatial_fold", "x_km", "y_km",
+    "bombus_fingerprint_common_support"
+  ),
   "cells"
 )
 
-# Gate-type ecological exposure: the best-supported focal Bombus species at a
-# cell. Low values mean that every focal species has low relative support; this
-# is a defensible "Bombus-limited" state without adding uncalibrated SDM values
-# across species or calling them abundance/visitation.
+# Gate-type ecological exposure. Low best-species support means that every focal
+# Bombus species is locally low on its own within-species support scale. This is
+# interpreted as predicted Bombus limitation, never as abundance or visit rate.
 support_matrix <- as.matrix(cells[, rank_columns, drop = FALSE])
 storage.mode(support_matrix) <- "double"
 cells$best_bombus_support_rank <- apply(support_matrix, 1, max, na.rm = TRUE)
 all_missing <- apply(!is.finite(support_matrix), 1, all)
 cells$best_bombus_support_rank[all_missing] <- NA_real_
 
-# Response-blind local graph, then environmental matching before flower colour is
-# inspected. Same-fold restriction preserves the joint flower posterior draws.
+# Response-blind local graph followed by environmental matching. Environment
+# and a second spatial field are not refitted in stage 03. The stage-02 natural
+# maps are replayed only as a predictive reference for the fixed local pairs.
 edges <- v17_pair_graph(
   cells, radius_km = 25, k = 5L,
   same_fold_only = TRUE, common_support_only = TRUE
@@ -86,9 +100,8 @@ null_compare <- function(observed, simulated) {
   )
 }
 
-# Greedy one-to-one matching. Flower colour is never used. Candidate edges are
-# ordered by environmental similarity, then geographic distance, so a cell is
-# not repeatedly recycled into the same threshold contrast.
+# Greedy one-to-one matching uses environmental similarity and distance only.
+# Flower colour is never used to form, select, or orient a pair.
 greedy_match <- function(candidate) {
   if (!nrow(candidate)) return(candidate)
   candidate <- candidate[order(
@@ -130,6 +143,7 @@ make_oriented_pairs <- function(low_threshold) {
   d$high_support <- cells$best_bombus_support_rank[d$high_i]
   d$low_threshold <- low_threshold
   d$available_threshold <- available_threshold
+  d$is_primary_gate <- abs(low_threshold - primary_low_threshold) < 1e-12
   greedy_match(d)
 }
 
@@ -170,6 +184,7 @@ for (low_threshold in low_thresholds) {
   summaries[[paste0(key, "_presence")]] <- data.frame(
     low_threshold = low_threshold,
     available_threshold = available_threshold,
+    is_primary_gate = abs(low_threshold - primary_low_threshold) < 1e-12,
     response = "pigmentation_share",
     n_pairs = nrow(d),
     observed_directed_difference = presence_observed,
@@ -181,6 +196,7 @@ for (low_threshold in low_thresholds) {
   summaries[[paste0(key, "_intensity")]] <- data.frame(
     low_threshold = low_threshold,
     available_threshold = available_threshold,
+    is_primary_gate = abs(low_threshold - primary_low_threshold) < 1e-12,
     response = "pigmented_only_intensity",
     n_pairs = sum(d$intensity_pair),
     observed_directed_difference = intensity_observed,
@@ -219,10 +235,6 @@ write.csv(summary, file.path(output_dir, "bombus_limitation_gate_summary.csv"), 
 write.csv(pairs, file.path(output_dir, "bombus_limitation_gate_pairs.csv"), row.names = FALSE)
 write.csv(null, file.path(output_dir, "bombus_limitation_gate_null.csv"), row.names = FALSE)
 
-# Exploratory within-available gradient: only asks whether more of the best
-# species-specific support is associated with darker pigmentation after the
-# low-Bombus gate is removed. This is secondary because SDM support is not visit
-# rate and a monotone dose-response is a stronger assumption than the gate.
 available_cells <- is.finite(cells$best_bombus_support_rank) &
   cells$best_bombus_support_rank >= available_threshold &
   is.finite(obs_intensity)
@@ -242,40 +254,61 @@ write.csv(
   row.names = FALSE
 )
 
-# Interpretation emphasizes pattern consistency across the fixed threshold grid,
-# not whichever single threshold happens to be smallest.
+primary_presence <- summary[
+  summary$is_primary_gate & summary$response == "pigmentation_share", , drop = FALSE
+]
+primary_intensity <- summary[
+  summary$is_primary_gate & summary$response == "pigmented_only_intensity", , drop = FALSE
+]
 presence_rows <- summary[summary$response == "pigmentation_share", , drop = FALSE]
 all_positive <- nrow(presence_rows) > 0 &&
   all(presence_rows$observed_directed_difference > 0)
-any_supported <- any(presence_rows$BH_q_all_gate_tests < 0.05, na.rm = TRUE)
-status <- if (all_positive && any_supported) {
-  "bombus_limitation_pattern_directionally_consistent_with_some_predictive_support"
+primary_supported <- nrow(primary_presence) == 1L &&
+  primary_presence$observed_directed_difference > 0 &&
+  primary_presence$upper_tail_p < 0.05 &&
+  primary_presence$BH_q_within_threshold < 0.05
+all_grid_supported <- nrow(primary_presence) == 1L &&
+  primary_presence$BH_q_all_gate_tests < 0.05
+status <- if (primary_supported && all_grid_supported) {
+  "lower_third_gate_supported_after_grid_correction"
+} else if (primary_supported && all_positive) {
+  "lower_third_gate_exploratory_support_not_gridwise_significant"
 } else if (all_positive) {
-  "bombus_limitation_pattern_directionally_consistent_but_not_predictively_supported"
+  "directionally_consistent_without_primary_predictive_support"
 } else {
-  "bombus_limitation_pattern_not_directionally_consistent"
+  "limitation_pattern_not_directionally_consistent"
 }
+
 interpretation <- data.frame(
   field = c(
     "status", "ecological_hypothesis", "exposure_definition",
-    "environment_control", "spatial_control", "flower_null_role",
-    "claim_ceiling"
+    "primary_gate", "primary_gate_history", "environment_control",
+    "spatial_control", "flower_null_role", "claim_ceiling"
   ),
   value = c(
     status,
     paste(
-      "low focal-Bombus availability relaxes the benefit of pigmentation;",
-      "available Bombus creates opportunity for attraction-mediated selection"
+      "low focal-Bombus availability relaxes the attraction benefit of",
+      "pigmentation; availability permits but does not measure Bombus-mediated selection"
     ),
     paste(
       "Bombus-limited means max within-species support rank <= fixed threshold;",
       "available means at least one focal species rank >=", available_threshold
     ),
+    paste(
+      "lower-third gate:", primary_low_threshold,
+      "versus at least one species at or above median support"
+    ),
+    paste(
+      "the 0.33 lower-third gate was adopted as the active biologically",
+      "interpretable gate after exploratory design development; the complete",
+      "0.10/0.20/0.25/0.33 grid and across-grid multiplicity are retained"
+    ),
     paste("response-blind local pairs matched at environmental distance <=", env_match),
     "25-km same-heldout-fold one-to-one local matching; no second local SPDE fit",
     paste(
-      "1000 national environment-plus-SPDE flower maps are used as a predictive",
-      "reference/sensitivity, not as covariates in the local pair contrast"
+      "1000 national environment-plus-SPDE flower maps are a predictive",
+      "reference only, not covariates in the local pair contrast"
     ),
     paste(
       "SDM support is predicted availability, not abundance, visitation or",
@@ -289,22 +322,54 @@ write.csv(
   file.path(output_dir, "interpretation_summary.csv"), row.names = FALSE
 )
 
+metadata <- data.frame(
+  field = c(
+    "analysis_spec_version", "pair_radius_km", "environment_match_threshold",
+    "primary_low_threshold", "available_threshold", "sensitivity_low_thresholds",
+    "pair_reuse", "pair_orientation", "local_environment_model",
+    "local_spatial_model", "n_flower_predictive_draws",
+    "bombus_surface_role", "bombus_uncertainty", "inference_role"
+  ),
+  value = c(
+    "v17.2_bombus_limitation_gate", "25", as.character(env_match),
+    as.character(primary_low_threshold), as.character(available_threshold),
+    paste(low_thresholds, collapse = ","), "one-to-one",
+    "Bombus-limited to Bombus-available; flower colour is never used",
+    "none; environment is controlled by pre-outcome local matching",
+    "none; broad space is restricted by local radius and same held-out fold",
+    as.character(ncol(presence$draws)),
+    "checksum-locked predicted habitat-support ranks",
+    "fixed surfaces; SDM fitting/model-selection uncertainty not propagated",
+    "mechanistically motivated local sensitivity with explicit post-development gate history"
+  ),
+  stringsAsFactors = FALSE
+)
+write.csv(
+  metadata,
+  file.path(output_dir, "bombus_limitation_gate_metadata.csv"), row.names = FALSE
+)
+
 writeLines(c(
   "# Bombus limitation-gate analysis",
   "",
-  "Biological prediction: if focal Bombus are effectively unavailable, the attraction benefit of pigmentation is relaxed and white flowers should be relatively more common. Pigment production cost is a possible reinforcing mechanism, not a directly measured premise.",
+  "Biological prediction: if all focal Bombus are poorly available, the attraction benefit of pigmentation is relaxed and white flowers should be relatively more common. Pigment production cost is a possible reinforcing mechanism, not a measured premise.",
   "",
   paste0("Pairs: <=25 km, same held-out fold, environmental distance <= ", env_match, "."),
   paste0("Bombus-available endpoint: best focal-species support rank >= ", available_threshold, "."),
-  paste0("Bombus-limited thresholds reported as a fixed grid: ", paste(low_thresholds, collapse = ", "), "."),
-  "One-to-one greedy matching uses environmental and geographic similarity only; flower colour never defines pairs or orientation.",
+  paste0("Active lower-third gate: all focal species <= ", primary_low_threshold, "."),
+  paste0("Complete retained sensitivity grid: ", paste(low_thresholds, collapse = ", "), "."),
+  "One-to-one matching uses environmental and geographic similarity only; flower colour never defines pairs or orientation.",
   "",
   "Primary response: pigmentation-share difference (available minus limited). Secondary: pigmented-only intensity difference.",
-  "The 1,000 flower natural-model maps are a predictive reference to ask whether the directed contrast exceeds broad natural geography; environment and SPDE are not refit in the local model.",
+  "The 1,000 flower natural-model maps are a predictive reference only. Environment and SPDE are not refit in the local stage.",
   "",
-  "The SDM exposure remains predicted habitat availability. It cannot establish visitation, attraction, reproductive success or selection strength."
+  "The lower-third gate was selected for biological interpretability after exploratory design development, so across-grid multiplicity is retained and the result is not described as pre-registered confirmation.",
+  "The SDM exposure is predicted habitat availability, not abundance, visitation, reproductive success, or selection strength."
 ), file.path(output_dir, "README.md"))
 
 print(summary)
 print(intensity_gradient)
 print(interpretation)
+if (nrow(primary_presence) != 1L || nrow(primary_intensity) != 1L) {
+  stop("Primary lower-third gate rows are not uniquely defined.", call. = FALSE)
+}

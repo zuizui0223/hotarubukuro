@@ -138,6 +138,34 @@ jobs:
           --tolerance 1e-12
           --output reproducibility/bombus_sdm_rebuild_comparison.csv
 
+      - name: Restore active 1909 flower-analysis reference
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REF_ROOT="${RUNNER_TEMP}/analysis_1909_reference"
+          bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$REF_ROOT"
+          echo "BOMBUS_FLOWER_REFERENCE=$REF_ROOT" >> "$GITHUB_ENV"
+
+      - name: Run ecology-aligned flower-side Bombus sensitivities
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_bombus_ecology_sensitivity.R \
+            --artifact-root "$BOMBUS_FLOWER_REFERENCE" \
+            --sdm-dir results/bombus_sdm_rebuild_A/predictions \
+            --occurrence-dir results/bombus_occurrence_snapshot \
+            --output results/bombus_ecology_sensitivity \
+            --env-match 0.75 \
+            --low-thresholds 0.10,0.20,0.25,0.33 \
+            --available-threshold 0.50
+
+      - name: Validate ecology-aligned flower-side sensitivities
+        run: >-
+          Rscript validation/validate_bombus_ecology_sensitivity.R
+          --output results/bombus_ecology_sensitivity
+
       - name: Record session information
         shell: bash
         run: |
@@ -150,6 +178,8 @@ jobs:
             'background=genus-wide Bombus target-group occurrence cells' \
             'predictor_screen=shared across five focal species' \
             'AUC_weighting=false' \
+            'flower_sensitivity_normalizations=flower_cell_rank,occurrence_site_ecdf' \
+            'flower_sensitivity_groups=all_five,widespread,montane_alpine,leave_one_out' \
             > reproducibility/bombus_sdm_compute_lock.txt
 
       - name: Publish source-build summary
@@ -180,6 +210,18 @@ jobs:
             cat reproducibility/bombus_sdm_rebuild_comparison.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [[ -s results/bombus_ecology_sensitivity/occurrence_support_calibration.csv ]]; then
+            echo '### Occurrence-calibrated Bombus support thresholds' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat results/bombus_ecology_sensitivity/occurrence_support_calibration.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s results/bombus_ecology_sensitivity/lower_third_presence_focus.csv ]]; then
+            echo '### Flower-side lower-third sensitivity focus' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat results/bombus_ecology_sensitivity/lower_third_presence_focus.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload complete seeded source build
         if: always()
@@ -191,6 +233,7 @@ jobs:
             results/bombus_occurrence_snapshot
             results/bombus_sdm_rebuild_A
             results/bombus_sdm_rebuild_B
+            results/bombus_ecology_sensitivity
             data/processed/rasters
             data/processed/raster_download_manifest.csv
             data/processed/raster_manifest.csv

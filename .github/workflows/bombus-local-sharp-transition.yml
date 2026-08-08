@@ -1,0 +1,156 @@
+name: Local sharp flower-colour transition x Bombus
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/bombus-local-sharp-transition
+    paths:
+      - .github/workflows/bombus-local-sharp-transition.yml
+      - scripts/run_bombus_local_sharp_transition.R
+      - reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FRESH_REANALYSIS_ARTIFACT_ID: "9022276431"
+  FRESH_REANALYSIS_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  REFINED_BOMBUS_ARTIFACT_ID: "9023137743"
+  REFINED_BOMBUS_SHA256: "d04c561b09b652591b9b479f6e26a779bb562c7c1b5f9b14e61d5e7ca8e2794b"
+
+jobs:
+  sharp-transition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Download checksum-locked fresh flower cells
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_REANALYSIS_ARTIFACT_ID}/zip" \
+            -o /tmp/fresh-reanalysis.zip
+          actual="$(sha256sum /tmp/fresh-reanalysis.zip | awk '{print $1}')"
+          echo "fresh reanalysis sha256=${actual}"
+          [[ "$actual" == "$FRESH_REANALYSIS_SHA256" ]]
+          unzip -q -o /tmp/fresh-reanalysis.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+
+      - name: Download checksum-locked effective-Bombus support
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFINED_BOMBUS_ARTIFACT_ID}/zip" \
+            -o /tmp/refined-bombus.zip
+          actual="$(sha256sum /tmp/refined-bombus.zip | awk '{print $1}')"
+          echo "refined Bombus sha256=${actual}"
+          [[ "$actual" == "$REFINED_BOMBUS_SHA256" ]]
+          unzip -q -o /tmp/refined-bombus.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v17_bombus_effective_availability_refined/cell_effective_bombus_support.csv
+
+      - name: Verify analysis specification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md
+          grep -q "No environment+SPDE predictive null" reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md
+          grep -q "abs(dY) = 1" reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md
+          grep -q "potential-substitution" reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md
+
+      - name: Run local sharp-transition analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_bombus_local_sharp_transition.R \
+            --radii 5,10,25 \
+            --thresholds 1,0.75,0.5 \
+            --k 5 \
+            --randomisations 100000 \
+            --seed 20260808 \
+            --output results/ecological_v18_bombus_local_sharp_transition
+
+      - name: Validate result family
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          p <- "results/ecological_v18_bombus_local_sharp_transition/sharp_transition_summary.csv"
+          x <- read.csv(p, check.names = FALSE)
+          stopifnot(sum(x$focal_strict_local_test) == 1L)
+          focal <- x[x$focal_strict_local_test, , drop = FALSE]
+          stopifnot(focal$radius_km == 5)
+          stopifnot(abs(focal$transition_threshold - 1) < 1e-12)
+          stopifnot(focal$exposure == "effective_occmax")
+          stopifnot(all(c(5, 10, 25) %in% x$radius_km))
+          stopifnot(all(c(1, 0.75, 0.5) %in% x$transition_threshold))
+          stopifnot(file.exists("results/ecological_v18_bombus_local_sharp_transition/montane_substitution_diagnostic.csv"))
+          cat("Focal local-transition result:\n")
+          print(focal)
+          RS
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p results/ecological_v18_bombus_local_sharp_transition
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "fresh_reanalysis_artifact_id=${FRESH_REANALYSIS_ARTIFACT_ID}"
+            echo "fresh_reanalysis_sha256=${FRESH_REANALYSIS_SHA256}"
+            echo "refined_bombus_artifact_id=${REFINED_BOMBUS_ARTIFACT_ID}"
+            echo "refined_bombus_sha256=${REFINED_BOMBUS_SHA256}"
+            echo "environment_spde_null=false"
+            echo "analysis_status=post-null exploratory local-scale refinement"
+          } > results/ecological_v18_bombus_local_sharp_transition/workflow_provenance.txt
+
+      - name: Show concise results
+        if: always()
+        shell: bash
+        run: |
+          if [[ -s results/ecological_v18_bombus_local_sharp_transition/interpretation_summary.csv ]]; then
+            cat results/ecological_v18_bombus_local_sharp_transition/interpretation_summary.csv
+          fi
+          if [[ -s results/ecological_v18_bombus_local_sharp_transition/montane_substitution_diagnostic.csv ]]; then
+            echo
+            cat results/ecological_v18_bombus_local_sharp_transition/montane_substitution_diagnostic.csv
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bombus-local-sharp-transition-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/ecological_v18_bombus_local_sharp_transition
+            reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md
+          if-no-files-found: warn
+          retention-days: 90

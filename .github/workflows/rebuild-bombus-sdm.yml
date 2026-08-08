@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: bombus-sdm-source-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   rebuild:
@@ -120,6 +120,14 @@ jobs:
           --flower-data Data_S1.csv
           --seed 42
 
+      - name: Project rebuild A to national grid
+        run: >-
+          Rscript source_build/project_bombus_sdm_national.R
+          --config config/bombus_sdm.yml
+          --build-dir results/bombus_sdm_rebuild_A
+          --raster-dir data/processed/rasters
+          --flower-data Data_S1.csv
+
       - name: Seeded SDM rebuild B
         run: >-
           Rscript source_build/build_bombus_sdm.R
@@ -130,13 +138,29 @@ jobs:
           --flower-data Data_S1.csv
           --seed 42
 
-      - name: Compare independent rebuilds
+      - name: Project rebuild B to national grid
+        run: >-
+          Rscript source_build/project_bombus_sdm_national.R
+          --config config/bombus_sdm.yml
+          --build-dir results/bombus_sdm_rebuild_B
+          --raster-dir data/processed/rasters
+          --flower-data Data_S1.csv
+
+      - name: Compare independent calibration rebuilds
         run: >-
           Rscript validation/compare_bombus_sdm_rebuilds.R
           --a results/bombus_sdm_rebuild_A
           --b results/bombus_sdm_rebuild_B
           --tolerance 1e-12
           --output reproducibility/bombus_sdm_rebuild_comparison.csv
+
+      - name: Compare independent national projections
+        run: >-
+          Rscript validation/compare_bombus_national_projections.R
+          --a results/bombus_sdm_rebuild_A
+          --b results/bombus_sdm_rebuild_B
+          --tolerance 1e-12
+          --output reproducibility/bombus_national_projection_comparison.csv
 
       - name: Record session information
         shell: bash
@@ -146,6 +170,8 @@ jobs:
             'base_seed=42' \
             'RNGkind=Mersenne-Twister;Inversion;Rejection' \
             'threads=1' \
+            'calibration_domain=species-specific accessible area M' \
+            'projection_domain=full prepared national predictor grid' \
             > reproducibility/bombus_sdm_compute_lock.txt
 
       - name: Publish source-build summary
@@ -158,16 +184,22 @@ jobs:
             cat results/bombus_sdm_rebuild_A/bombus_sdm_manifest.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
-          if [[ -s results/bombus_sdm_rebuild_A/flower_prediction_coverage_summary.csv ]]; then
-            echo '### Flower-point prediction coverage' >> "$GITHUB_STEP_SUMMARY"
+          if [[ -s results/bombus_sdm_rebuild_A/flower_prediction_coverage_national_summary.csv ]]; then
+            echo '### National flower-point prediction coverage' >> "$GITHUB_STEP_SUMMARY"
             echo '```csv' >> "$GITHUB_STEP_SUMMARY"
-            cat results/bombus_sdm_rebuild_A/flower_prediction_coverage_summary.csv >> "$GITHUB_STEP_SUMMARY"
+            cat results/bombus_sdm_rebuild_A/flower_prediction_coverage_national_summary.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
           if [[ -s reproducibility/bombus_sdm_rebuild_comparison.csv ]]; then
-            echo '### Repeated-build reproducibility' >> "$GITHUB_STEP_SUMMARY"
+            echo '### Repeated-build calibration reproducibility' >> "$GITHUB_STEP_SUMMARY"
             echo '```csv' >> "$GITHUB_STEP_SUMMARY"
             cat reproducibility/bombus_sdm_rebuild_comparison.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s reproducibility/bombus_national_projection_comparison.csv ]]; then
+            echo '### Repeated-build national projection reproducibility' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat reproducibility/bombus_national_projection_comparison.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -185,6 +217,7 @@ jobs:
             data/processed/raster_download_manifest.csv
             data/processed/raster_manifest.csv
             reproducibility/bombus_sdm_*
+            reproducibility/bombus_national_*
             config/bombus_sdm.yml
             config/raster_sources.csv
           if-no-files-found: warn

@@ -1,0 +1,180 @@
+name: 1965-source Bombus ecology sensitivities
+
+on:
+  push:
+    branches:
+      - agent/reanalysis-1965-new-bombus
+    paths:
+      - .github/workflows/reanalysis-1965-bombus-ecology-sensitivity.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: reanalysis-1965-bombus-ecology-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sensitivity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      HOTARUBUKURO_R_SEED: "42"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      GOTO_NUM_THREADS: "1"
+      BLIS_NUM_THREADS: "1"
+      GDAL_NUM_THREADS: "1"
+      OMP_DYNAMIC: "FALSE"
+      FRESH_STAGE02_ARTIFACT_ID: "9021172765"
+      FRESH_STAGE02_ARTIFACT_SHA256: "3b2e01a2edd6ccc1b3797ed4438dc4c0f1a4aaa9bee472658e7af6e116485bab"
+      BOMBUS_ARTIFACT_ID: "9020226937"
+      BOMBUS_ARTIFACT_SHA256: "d5d639e8e00d1ccc2f887c53fa8041465905b29f6bca1127f816e8c7a649d708"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: bombus-source-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt') }}
+          restore-keys: |
+            bombus-source-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Ensure sensitivity packages
+        run: Rscript -e 'p <- c("terra", "readr"); m <- p[!vapply(p, requireNamespace, logical(1), quietly=TRUE)]; if(length(m)) install.packages(m, repos="https://packagemanager.posit.co/cran/latest")'
+
+      - name: Restore fresh 1,965-source flower analysis through stage 02
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_STAGE02_ARTIFACT_ID}/zip" > /tmp/fresh-stage02.zip
+          echo "${FRESH_STAGE02_ARTIFACT_SHA256}  /tmp/fresh-stage02.zip" | sha256sum -c -
+          rm -rf /tmp/fresh-stage02 && mkdir -p /tmp/fresh-stage02
+          unzip -q /tmp/fresh-stage02.zip -d /tmp/fresh-stage02
+          rm -rf results/ecological_v15_multiscale_hotspots results/ecological_v16_predictive_replication
+          mkdir -p results
+          cp -a /tmp/fresh-stage02/results/ecological_v15_multiscale_hotspots results/
+          cp -a /tmp/fresh-stage02/results/ecological_v16_predictive_replication results/
+          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s results/ecological_v16_predictive_replication/checkpoints/national_environment_spde_presence_draws1000.rds
+          test -s results/ecological_v16_predictive_replication/checkpoints/national_environment_spde_intensity_draws1000.rds
+
+      - name: Restore repeated-build-validated Bombus SDMs and occurrence snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BOMBUS_ARTIFACT_ID}/zip" > /tmp/bombus-source.zip
+          echo "${BOMBUS_ARTIFACT_SHA256}  /tmp/bombus-source.zip" | sha256sum -c -
+          rm -rf /tmp/bombus-source && mkdir -p /tmp/bombus-source
+          unzip -q /tmp/bombus-source.zip -d /tmp/bombus-source
+          test -s /tmp/bombus-source/results/bombus_sdm_rebuild_A/predictions/ardens.tif
+          test -s /tmp/bombus-source/results/bombus_occurrence_snapshot/ardens_gbif.csv
+          awk -F, 'NR>1 && $2 != "PASS" {bad=1} END {exit bad}' \
+            /tmp/bombus-source/reproducibility/bombus_sdm_rebuild_comparison.csv
+
+      - name: Run prespecified ecological-group and leave-one-species-out sensitivities
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_bombus_ecology_sensitivity.R \
+            --artifact-root . \
+            --sdm-dir /tmp/bombus-source/results/bombus_sdm_rebuild_A/predictions \
+            --occurrence-dir /tmp/bombus-source/results/bombus_occurrence_snapshot \
+            --output results/reanalysis_1965_bombus_ecology_sensitivity \
+            --env-match 0.75 \
+            --low-thresholds 0.10,0.20,0.25,0.33 \
+            --available-threshold 0.50
+          Rscript validation/validate_bombus_ecology_sensitivity.R \
+            --output results/reanalysis_1965_bombus_ecology_sensitivity
+
+      - name: Summarize estimable contrasts
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          root <- "results/reanalysis_1965_bombus_ecology_sensitivity"
+          files <- list.files(root, full.names = FALSE)
+          cat("files:\n", paste(files, collapse="\n"), "\n", sep="")
+          summary_candidates <- c(
+            "bombus_ecology_sensitivity_summary.csv",
+            "ecology_sensitivity_summary.csv",
+            "sensitivity_summary.csv"
+          )
+          summary_path <- file.path(root, summary_candidates[file.exists(file.path(root, summary_candidates))][1])
+          if (is.na(summary_path) || !nzchar(summary_path)) {
+            csvs <- list.files(root, pattern="summary.*[.]csv$|sensitivity.*[.]csv$", full.names=TRUE)
+            if (!length(csvs)) stop("No sensitivity summary CSV found.")
+            summary_path <- csvs[[1]]
+          }
+          x <- utils::read.csv(summary_path, check.names=FALSE, stringsAsFactors=FALSE)
+          dir.create("reproducibility/reanalysis_1965", recursive=TRUE, showWarnings=FALSE)
+          utils::write.csv(x, "reproducibility/reanalysis_1965/bombus_ecology_sensitivity_summary.csv", row.names=FALSE)
+          cat("summary_path=", summary_path, "\n", sep="")
+          print(x)
+          RS
+          {
+            echo '### Fresh 1,965-source Bombus ecology sensitivities'
+            echo '```csv'
+            cat reproducibility/reanalysis_1965/bombus_ecology_sensitivity_summary.csv
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record sensitivity provenance
+        shell: bash
+        run: |
+          mkdir -p reproducibility/reanalysis_1965
+          printf '%s\n' \
+            "analysis_population=fresh 1965-source sequential population; no target n" \
+            "fresh_stage02_artifact_id=${FRESH_STAGE02_ARTIFACT_ID}" \
+            "fresh_stage02_artifact_sha256=${FRESH_STAGE02_ARTIFACT_SHA256}" \
+            "bombus_artifact_id=${BOMBUS_ARTIFACT_ID}" \
+            "bombus_artifact_sha256=${BOMBUS_ARTIFACT_SHA256}" \
+            "groups=all_five;widespread(ardens,diversus);montane_alpine(beaticola,consobrinus,honshuensis);five_leave_one_out" \
+            "normalizations=flower_cell_rank;occurrence_site_ecdf" \
+            "low_gate_grid=0.10,0.20,0.25,0.33" \
+            "available_threshold=0.50" \
+            "pairing=25km;same-fold;environment-distance<=0.75;one-to-one" \
+            "AUC_weighting=false" \
+            "role=sensitivity; not replacement primary gate" \
+            "commit=${GITHUB_SHA}" \
+            > reproducibility/reanalysis_1965/bombus_ecology_sensitivity_provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reanalysis-1965-bombus-ecology-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            reproducibility/reanalysis_1965
+            results/reanalysis_1965_bombus_ecology_sensitivity
+          if-no-files-found: error
+          retention-days: 90

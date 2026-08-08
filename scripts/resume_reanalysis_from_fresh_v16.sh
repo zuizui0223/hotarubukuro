@@ -1,10 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(pwd)"
 SUBMISSION_DRAWS="${HOTARUBUKURO_SUBMISSION_DRAWS:-10000}"
 JOINT_LATENT_DRAWS="${HOTARUBUKURO_JOINT_LATENT_DRAWS:-10000}"
 JOINT_OBS_REPS="${HOTARUBUKURO_JOINT_OBS_REPS:-20}"
 mkdir -p reanalysis_status
+
+# The fresh v16 artifact intentionally contains generated analysis outputs, not
+# the large immutable static-input snapshot. Restore exactly that unchanged
+# snapshot here so v21/v22 receive the same WorldPop/MLIT/DID inputs as the
+# active pipeline. This does not replace any fresh phenotype, environment or SDM
+# result.
+rm -rf reproduction_inputs/base_snapshot
+bash scripts/canonical_snapshot.sh restore \
+  inputs/canonical_snapshot.json reproduction_inputs/base_snapshot
+BASE_INPUTS="${ROOT}/reproduction_inputs/base_snapshot/analysis_inputs"
+export HOTARUBUKURO_INPUT_ROOT="$BASE_INPUTS"
+export HOTARUBUKURO_MLIT_CACHE="${BASE_INPUTS}/mlit_l03_2021"
+export HOTARUBUKURO_DID_CACHE="${BASE_INPUTS}/mlit_did_2015"
+export HOTARUBUKURO_WORLDPOP_RASTER="${BASE_INPUTS}/rasters/population_count_Japan_crop.tif"
+for path in \
+  "$HOTARUBUKURO_WORLDPOP_RASTER" \
+  "$HOTARUBUKURO_MLIT_CACHE" \
+  "$HOTARUBUKURO_DID_CACHE"; do
+  [[ -e "$path" ]] || { echo "Static resume prerequisite missing: $path" >&2; exit 1; }
+done
 
 for path in \
   reanalysis_inputs/upstream_data_manifest.json \
@@ -32,6 +53,7 @@ rm -rf \
   results/ecological_v20_local_white_isolates \
   results/ecological_v21_local_human_neighbourhood \
   results/ecological_v22_did_human_context \
+  results/ecological_v24_candidate_doy_check \
   results/ecological_v25_submission_isolate_null \
   results/ecological_v26_joint_submission_isolate_ppc \
   results/reanalysis_current_inputs \

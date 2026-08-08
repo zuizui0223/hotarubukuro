@@ -2,6 +2,9 @@ name: Seeded Bombus SDM source build
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+    types: [synchronize]
 
 permissions:
   contents: read
@@ -12,6 +15,9 @@ concurrency:
 
 jobs:
   rebuild:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.head_ref == 'agent/rebuild-bombus-sdm-seeded'
     name: Rebuild five Bombus SDMs twice
     runs-on: ubuntu-24.04
     timeout-minutes: 360

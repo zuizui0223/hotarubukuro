@@ -46,7 +46,7 @@ validation,stage,validation/audit_bombus_limitation_gate.R,stage 03 limitation-g
 sensitivity_validation,stage,validation/validate_local_bombus_turnover.R,superseded turnover sensitivity validator
 sensitivity_validation,stage,validation/audit_local_bombus_turnover.R,superseded turnover sensitivity audit
 validation,stage,validation/validate_human_landscape_features.R,stage 04 feature validator
-validation,stage,validation/audit_human_landscape_features.R,stage 04 feature audit
+validation,stage,validation/audit_human_landscape_features.R,stage 04 independent audit
 validation,stage,validation/validate_local_pigmented_isolates.R,stage 04 candidate validator
 validation,stage,validation/audit_local_pigmented_isolates.R,stage 04 candidate audit
 validation,supplementary,validation/validate_candidate_doy_check.R,supplementary DOY validator
@@ -76,10 +76,11 @@ source_build,r,source_build/audit_bombus_extraction.R,Bombus surface extraction 
 source_build,r,source_build/build_human_raster.R,MLIT raster builder
 source_build,r,source_build/download_rasters.R,public raster downloader
 source_build,r,source_build/prepare_rasters.R,public raster alignment utility
-source_build,r,source_build/fetch_bombus_occurrences.R,GBIF occurrence acquisition utility
-source_build,r,source_build/canonicalize_bombus_occurrences.R,canonical sorted and hashed GBIF occurrence snapshot utility
-source_build,r,source_build/build_bombus_sdm.R,seeded ENMeval maxnet Bombus SDM source builder
-source_build,r,source_build/project_bombus_sdm_national.R,project calibrated Bombus SDMs to the full national predictor grid
+source_build,r,source_build/fetch_bombus_occurrences.R,GBIF focal occurrence and genus-wide Bombus target-group acquisition utility
+source_build,r,source_build/canonicalize_bombus_occurrences.R,canonical sorted and hashed focal plus target-group GBIF snapshot utility
+source_build,r,source_build/build_bombus_sdm.R,earlier species-specific-M seeded ENMeval source-build prototype
+source_build,r,source_build/project_bombus_sdm_national.R,earlier species-specific-M national projection prototype
+source_build,r,source_build/build_bombus_sdm_mainland.R,ecology-aligned common-mainland target-group ENMeval source builder
 source_build,validation,validation/compare_bombus_sdm_rebuilds.R,independent repeated-build SDM prediction comparison
-source_build,validation,validation/compare_bombus_national_projections.R,independent repeated-build national projection comparison
+source_build,validation,validation/compare_bombus_national_projections.R,earlier national projection comparison prototype
 source_build_test,python,tests/python/test_extract_color.py,colour extraction utility test

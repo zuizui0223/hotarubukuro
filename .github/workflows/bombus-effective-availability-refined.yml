@@ -1,0 +1,200 @@
+name: Refined effective-Bombus availability analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/bombus-effective-availability-refined
+    paths:
+      - .github/workflows/bombus-effective-availability-refined.yml
+      - scripts/run_bombus_effective_availability_refined.R
+      - reproducibility/bombus_effective_availability_refinement_spec_2026-08-08.md
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GOTO_NUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+  FRESH_REANALYSIS_ARTIFACT_ID: "9022276431"
+  FRESH_REANALYSIS_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  FRESH_BOMBUS_SDM_ARTIFACT_ID: "9020226937"
+  FRESH_BOMBUS_SDM_SHA256: "d5d639e8e00d1ccc2f887c53fa8041465905b29f6bca1127f816e8c7a649d708"
+
+jobs:
+  refined-effective-availability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: effective-bombus-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            reanalysis-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            bombus-source-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility
+          --scopes analysis,acquisition,reproducibility,testing
+
+      - name: Download checksum-locked fresh flower reanalysis
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_REANALYSIS_ARTIFACT_ID}/zip" \
+            -o /tmp/fresh-reanalysis.zip
+          actual="$(sha256sum /tmp/fresh-reanalysis.zip | awk '{print $1}')"
+          echo "fresh flower artifact sha256=${actual}"
+          [[ "$actual" == "$FRESH_REANALYSIS_SHA256" ]]
+          unzip -q -o /tmp/fresh-reanalysis.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s results/ecological_v16_predictive_replication/checkpoints/national_environment_spde_presence_draws1000.rds
+          test -s results/ecological_v16_predictive_replication/checkpoints/national_environment_spde_intensity_draws1000.rds
+
+      - name: Download checksum-locked seeded Bombus SDM artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source_bombus
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_BOMBUS_SDM_ARTIFACT_ID}/zip" \
+            -o /tmp/fresh-bombus.zip
+          actual="$(sha256sum /tmp/fresh-bombus.zip | awk '{print $1}')"
+          echo "fresh Bombus artifact sha256=${actual}"
+          [[ "$actual" == "$FRESH_BOMBUS_SDM_SHA256" ]]
+          unzip -q -o /tmp/fresh-bombus.zip -d source_bombus
+          test -s source_bombus/results/bombus_sdm_rebuild_A/models/ardens_ENMeval.rds
+          test -s source_bombus/results/bombus_sdm_rebuild_A/models/diversus_ENMeval.rds
+          test -s source_bombus/results/bombus_sdm_rebuild_A/evaluation/ardens_selected_model.csv
+          test -s source_bombus/results/bombus_sdm_rebuild_A/evaluation/diversus_selected_model.csv
+
+      - name: Verify refinement specification is locked before computation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s reproducibility/bombus_effective_availability_refinement_spec_2026-08-08.md
+          git log --format='%H %s' -- reproducibility/bombus_effective_availability_refinement_spec_2026-08-08.md | head
+          grep -q "post-null hypothesis-refining" reproducibility/bombus_effective_availability_refinement_spec_2026-08-08.md
+          grep -q "effective_occmax" reproducibility/bombus_effective_availability_refinement_spec_2026-08-08.md
+
+      - name: Run refined local effective-Bombus analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_bombus_effective_availability_refined.R \
+            --sdm-root source_bombus/results/bombus_sdm_rebuild_A \
+            --env-match 0.75 \
+            --radii 10,25,50 \
+            --primary-radius 25 \
+            --output results/ecological_v17_bombus_effective_availability_refined
+
+      - name: Validate locked result family
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          p <- "results/ecological_v17_bombus_effective_availability_refined/effective_availability_summary.csv"
+          x <- read.csv(p, check.names = FALSE)
+          stopifnot(sum(x$is_primary) == 1L)
+          primary <- x[x$is_primary, ]
+          stopifnot(primary$radius_km == 25)
+          stopifnot(primary$design == "all_edges")
+          stopifnot(primary$response == "presence")
+          stopifnot(primary$exposure == "effective_occmax")
+          expected <- c(
+            "effective_occmax", "effective_occmean", "effective_rawmax",
+            "all5_occmax", "all5_occmean", "ardens_occ", "diversus_occ"
+          )
+          stopifnot(all(expected %in% unique(x$exposure)))
+          scales <- x[x$design == "all_edges" & x$response == "presence" &
+                        x$exposure == "effective_occmax", "radius_km"]
+          stopifnot(all(c(10, 25, 50) %in% scales))
+          stopifnot(file.exists("reproducibility/bombus_relaxation_results_2026-08-08.md"))
+          cat("Primary refined result:\n")
+          print(primary)
+          RS
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p results/ecological_v17_bombus_effective_availability_refined
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "fresh_reanalysis_artifact_id=${FRESH_REANALYSIS_ARTIFACT_ID}"
+            echo "fresh_reanalysis_sha256=${FRESH_REANALYSIS_SHA256}"
+            echo "fresh_bombus_sdm_artifact_id=${FRESH_BOMBUS_SDM_ARTIFACT_ID}"
+            echo "fresh_bombus_sdm_sha256=${FRESH_BOMBUS_SDM_SHA256}"
+            echo "analysis_timing=post-null exploratory refinement"
+          } > results/ecological_v17_bombus_effective_availability_refined/workflow_provenance.txt
+
+      - name: Show concise result
+        if: always()
+        shell: bash
+        run: |
+          if [[ -s results/ecological_v17_bombus_effective_availability_refined/interpretation_summary.csv ]]; then
+            cat results/ecological_v17_bombus_effective_availability_refined/interpretation_summary.csv
+          fi
+          if [[ -s results/ecological_v17_bombus_effective_availability_refined/effective_availability_summary.csv ]]; then
+            echo
+            grep -E 'effective_occmax|effective_rawmax' results/ecological_v17_bombus_effective_availability_refined/effective_availability_summary.csv | head -20
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bombus-effective-availability-refined-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/ecological_v17_bombus_effective_availability_refined
+            reproducibility/bombus_effective_availability_refinement_spec_2026-08-08.md
+            reproducibility/bombus_relaxation_results_2026-08-08.md
+          if-no-files-found: warn
+          retention-days: 90

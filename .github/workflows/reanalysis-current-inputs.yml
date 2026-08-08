@@ -8,6 +8,7 @@ on:
     paths:
       - .github/workflows/reanalysis-current-inputs.yml
       - scripts/run_reanalysis_current_inputs.sh
+      - scripts/run_downstream_current_inputs.sh
       - scripts/report_reanalysis_current_inputs.R
 
 permissions:
@@ -125,9 +126,16 @@ jobs:
           test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/consobrinus.tif
           test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/honshuensis.tif
 
-      - name: Run full current-input analysis
+      - name: Rebuild fresh upstream boundary and run strict audit attempt
+        id: upstream_run
+        continue-on-error: true
         shell: bash
         run: bash scripts/run_reanalysis_current_inputs.sh "$GITHUB_WORKSPACE/upstream" "$GITHUB_WORKSPACE/source-artifact"
+
+      - name: Complete unchanged downstream computations
+        if: always()
+        shell: bash
+        run: bash scripts/run_downstream_current_inputs.sh
 
       - name: Record workflow provenance
         if: always()
@@ -146,6 +154,7 @@ jobs:
             echo "bombus_artifact_sha256=${BOMBUS_ARTIFACT_SHA256}"
             echo "source_rows=1965"
             echo "historical_n_target=none"
+            echo "strict_audit_attempt_outcome=${{ steps.upstream_run.outcome }}"
           } > reanalysis_status/workflow_provenance.txt
           find reanalysis_inputs reanalysis_status results manuscript/figures \
             -type f -printf '%p\t%s\n' 2>/dev/null | sort \

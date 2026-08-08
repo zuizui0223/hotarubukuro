@@ -1,0 +1,485 @@
+name: Reanalyse 1965 with seeded Bombus SDMs
+
+on:
+  push:
+    branches:
+      - agent/reanalysis-1965-new-bombus
+    paths:
+      - .github/workflows/reanalysis-1965-new-bombus.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: reanalysis-1965-new-bombus-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reanalyse:
+    name: Rebuild the flower analysis population from the 1,965-row source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      HOTARUBUKURO_R_SEED: "42"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      GOTO_NUM_THREADS: "1"
+      BLIS_NUM_THREADS: "1"
+      GDAL_NUM_THREADS: "1"
+      OMP_DYNAMIC: "FALSE"
+      BOMBUS_ARTIFACT_ID: "9020226937"
+      BOMBUS_ARTIFACT_SHA256: "d5d639e8e00d1ccc2f887c53fa8041465905b29f6bca1127f816e8c7a649d708"
+      PUBLIC_CACHE: ${{ github.workspace }}/reanalysis_inputs/public_environment_cache
+      MLIT_CACHE: ${{ github.workspace }}/reanalysis_inputs/mlit_l03_2021
+      WORLDPOP_URL: https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/2020/JPN/jpn_ppp_2020_1km_Aggregated.tif
+      LEGACY_RUNTIME: ${{ github.workspace }}/reanalysis_runtime
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: reanalysis-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            bombus-source-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility/reanalysis_1965
+          --scopes analysis,acquisition,reproducibility,testing
+
+      - name: Restore public-source caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/cache/rasters
+            data/processed/rasters
+            reanalysis_inputs/mlit_l03_2021
+          key: reanalysis-raw-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R') }}
+          restore-keys: |
+            raw-sources-
+            bombus-source-rasters-
+
+      - name: Download the successful seeded Bombus source-build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/bombus-source /tmp/bombus-source.zip
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BOMBUS_ARTIFACT_ID}/zip" \
+            > /tmp/bombus-source.zip
+          echo "${BOMBUS_ARTIFACT_SHA256}  /tmp/bombus-source.zip" | sha256sum -c -
+          mkdir -p /tmp/bombus-source
+          unzip -q /tmp/bombus-source.zip -d /tmp/bombus-source
+          test -s /tmp/bombus-source/results/bombus_sdm_rebuild_A/flower_prediction_coverage.csv
+          test -s /tmp/bombus-source/results/bombus_occurrence_snapshot/ardens_gbif.csv
+          for species in ardens diversus beaticola consobrinus honshuensis; do
+            test -s "/tmp/bombus-source/results/bombus_sdm_rebuild_A/predictions/${species}.tif"
+          done
+          awk -F, 'NR>1 && $2 != "PASS" {bad=1} END {exit bad}' \
+            /tmp/bombus-source/reproducibility/bombus_sdm_rebuild_comparison.csv
+
+      - name: Download and prepare the historical flower-analysis environment layers
+        shell: bash
+        run: |
+          set -euo pipefail
+          IDS="chelsa_bio05,chelsa_bio10,chelsa_gdd5,chelsa_cmimean,chelsa_bio12,chelsa_bio14,chelsa_bio15,chelsa_bio04,chelsa_rsdsmean,soilgrids_bdod_0_5cm,soilgrids_cfvo_0_5cm,soilgrids_sand_0_5cm,soilgrids_silt_0_5cm,soilgrids_nitrogen_0_5cm,soilgrids_ocd_0_5cm,soilgrids_soc_0_5cm,soilgrids_phh2o_0_5cm,worldclim_elevation_30s"
+          Rscript source_build/download_rasters.R --only "$IDS"
+          Rscript source_build/prepare_rasters.R --only "$IDS" --no-download
+          mkdir -p "$PUBLIC_CACHE"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, shutil
+          p = Path("data/processed/rasters")
+          c = Path(os.environ["PUBLIC_CACHE"])
+          aliases = {
+              "chelsa_bio05.tif": "bio5_Japan_crop_30s.tif",
+              "chelsa_bio10.tif": "bio10_Japan_crop_30s.tif",
+              "chelsa_bio04.tif": "bio4_Japan_crop_30s.tif",
+              "chelsa_gdd5.tif": "gdd5_Japan_crop_30s.tif",
+              "chelsa_cmimean.tif": "CMI_Japan_crop_30s.tif",
+              "chelsa_bio12.tif": "bio12_Japan_crop_30s.tif",
+              "chelsa_bio14.tif": "bio14_Japan_crop_30s.tif",
+              "chelsa_bio15.tif": "bio15_Japan_crop_30s.tif",
+              "chelsa_rsdsmean.tif": "RSDS_Japan_crop_30s.tif",
+              "soilgrids_bdod_0_5cm_mean.tif": "bdod_0-5cm_mean_30s.tif",
+              "soilgrids_cfvo_0_5cm_mean.tif": "cfvo_0-5cm_mean_30s.tif",
+              "soilgrids_sand_0_5cm_mean.tif": "sand_0-5cm_mean_30s.tif",
+              "soilgrids_silt_0_5cm_mean.tif": "silt_0-5cm_mean_30s.tif",
+              "soilgrids_nitrogen_0_5cm_mean.tif": "nitrogen_0-5cm_mean_30s.tif",
+              "soilgrids_ocd_0_5cm_mean.tif": "ocd_0-5cm_mean_30s.tif",
+              "soilgrids_soc_0_5cm_mean.tif": "soc_0-5cm_mean_30s.tif",
+              "soilgrids_phh2o_0_5cm_mean.tif": "phh2o_0-5cm_mean_30s.tif",
+              "elevation_30s.tif": "elevation_Japan_crop.tif",
+          }
+          missing = [src for src in aliases if not (p / src).is_file()]
+          if missing:
+              raise SystemExit("missing prepared rasters: " + ", ".join(missing))
+          for src, dst in aliases.items():
+              shutil.copy2(p / src, c / dst)
+          PY
+
+      - name: Restore WorldPop and MLIT response-blind context layers
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$PUBLIC_CACHE" "$MLIT_CACHE"
+          if [[ ! -s "$PUBLIC_CACHE/population_count_Japan_crop.tif" ]]; then
+            curl --fail --location --retry 5 --retry-all-errors \
+              --connect-timeout 30 --max-time 900 \
+              "$WORLDPOP_URL" \
+              -o "$PUBLIC_CACHE/population_count_Japan_crop.tif"
+          fi
+          Rscript source_build/build_human_raster.R \
+            --observation-csv Data_S1.csv \
+            --cache-dir "$MLIT_CACHE" \
+            --output-dir results/public_rasters/mlit_human_forest_edge_2021
+
+      - name: Create an isolated compatibility runtime for the historical upstream sequence
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$LEGACY_RUNTIME"
+          mkdir -p "$LEGACY_RUNTIME/R" "$LEGACY_RUNTIME/scripts" "$LEGACY_RUNTIME/results"
+          cp legacy/implementations/frozen-upstream/R/*.R "$LEGACY_RUNTIME/R/"
+          cp legacy/implementations/frozen-upstream/scripts/*.R "$LEGACY_RUNTIME/scripts/"
+          cp legacy/reconstruction-prototypes/build_environment_input.R \
+            "$LEGACY_RUNTIME/scripts/build_environment_input.R"
+          ln -s "$GITHUB_WORKSPACE/Data_S1.csv" "$LEGACY_RUNTIME/Data_S1.csv"
+          cat > "$LEGACY_RUNTIME/R/pipeline_support.R" <<'RS'
+          hb_arg_value <- function(args, name, default = NULL) {
+            exact <- match(name, args)
+            if (!is.na(exact) && exact < length(args)) return(args[[exact + 1L]])
+            prefix <- paste0(name, "=")
+            hit <- args[startsWith(args, prefix)]
+            if (length(hit)) sub(prefix, "", hit[[1L]], fixed = TRUE) else default
+          }
+          hb_as_bool <- function(x) tolower(trimws(as.character(x))) %in% c("1", "true", "yes", "y")
+          hb_require_packages <- function(packages) {
+            missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]
+            if (length(missing)) stop("Missing packages: ", paste(missing, collapse = ", "), call. = FALSE)
+            invisible(TRUE)
+          }
+          hb_package_groups <- list(phenotype = character())
+          hb_stage_packages <- list(
+            phenotype = "phenotype", environment_input = "phenotype",
+            multiscale_hotspots = "phenotype"
+          )
+          hb_require_stage_packages <- function(stage) invisible(TRUE)
+          hb_load_modules <- function(stage, root = ".") {
+            files <- list.files(file.path(root, "R"), pattern = "[.]R$", full.names = TRUE)
+            files <- files[basename(files) != "pipeline_support.R"]
+            for (path in sort(files)) sys.source(path, envir = .GlobalEnv)
+            invisible(TRUE)
+          }
+          RS
+
+      - name: Rebuild the 1,965-row flower input and apply primary colour eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$LEGACY_RUNTIME"
+          Rscript scripts/build_environment_input.R \
+            --raw-colour-csv Data_S1.csv \
+            --cache-root "$PUBLIC_CACHE" \
+            --output-csv results/environment_v3/ecological_input_v2.csv
+
+      - name: Apply environment and new Bombus support in the historical order
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$LEGACY_RUNTIME"
+          Rscript scripts/run_environment_spatial.R \
+            --anomaly-csv results/environment_v3/ecological_input_v2.csv \
+            --raw-colour-csv Data_S1.csv \
+            --bombus-dir /tmp/bombus-source/results/bombus_sdm_rebuild_A/predictions \
+            --H-raster "$PUBLIC_CACHE/population_count_Japan_crop.tif" \
+            --R-raster "$GITHUB_WORKSPACE/results/public_rasters/mlit_human_forest_edge_2021/mlit_human_forest_edge_1km.tif" \
+            --N-raster "$PUBLIC_CACHE/gdd5_Japan_crop_30s.tif" \
+            --A-raster "$GITHUB_WORKSPACE/results/public_rasters/mlit_human_forest_edge_2021/mlit_major_road_distance_1km.tif" \
+            --output-dir results/ecological_v9_final_public_HRNA_50km \
+            --run-inla=false \
+            --author-review-confirmed=true
+
+      - name: Audit population attrition without fixing a target row count
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          raw <- utils::read.csv("Data_S1.csv", check.names = FALSE, stringsAsFactors = FALSE)
+          env_input <- utils::read.csv(
+            file.path(Sys.getenv("LEGACY_RUNTIME"), "results/environment_v3/ecological_input_v2.csv"),
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          completeness <- utils::read.csv(
+            file.path(Sys.getenv("LEGACY_RUNTIME"), "results/ecological_v9_final_public_HRNA_50km/analysis_completeness_audit.csv"),
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          final <- utils::read.csv(
+            file.path(Sys.getenv("LEGACY_RUNTIME"), "results/ecological_v9_final_public_HRNA_50km/analysis_data.csv"),
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          coverage <- utils::read.csv(
+            "/tmp/bombus-source/results/bombus_sdm_rebuild_A/flower_prediction_coverage.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          species <- c("ardens", "diversus", "beaticola", "consobrinus", "honshuensis")
+          stopifnot(nrow(raw) == nrow(coverage))
+          raw$observation_index <- seq_len(nrow(raw))
+          primary_ids <- as.character(env_input$observation_id)
+          coverage$observation_id <- as.character(raw$observation_id[coverage$observation_index])
+          coverage$all_five_finite_recomputed <- stats::complete.cases(coverage[species])
+          qc_coverage <- coverage[coverage$observation_id %in% primary_ids, , drop = FALSE]
+
+          env_finite_columns <- grep(
+            "^(response|longitude|latitude|x_km|y_km|Temperature_PC1|precip_PC1|TemperatureSeasonality|PrecipSeasonality|topo_PC1|soil_|RSDS|env_).+_finite$|^(response|longitude|latitude|x_km|y_km)_finite$",
+            names(completeness), value = TRUE
+          )
+          env_finite_columns <- setdiff(
+            env_finite_columns,
+            c("Bombus_W_finite", "Bombus_A_finite", "bee_ardens_finite", "bee_diversus_finite")
+          )
+          environment_finite <- if (length(env_finite_columns)) {
+            rowSums(!as.data.frame(lapply(completeness[env_finite_columns], as.logical))) == 0L
+          } else rep(TRUE, nrow(completeness))
+
+          final_ids <- as.character(final$observation_id)
+          included_ids <- as.character(completeness$observation_id[as.logical(completeness$included)])
+          if (!setequal(final_ids, included_ids)) {
+            stop("Historical complete-case audit and resulting analysis_data disagree.", call. = FALSE)
+          }
+          expected_final_ids <- intersect(
+            as.character(completeness$observation_id[environment_finite]),
+            as.character(qc_coverage$observation_id[
+              qc_coverage$all_five_finite_recomputed
+            ])
+          )
+          if (!setequal(final_ids, expected_final_ids)) {
+            stop(
+              "Final analysis population is not the response-blind intersection of primary QC,",
+              " finite environment, and the common new-SDM support.", call. = FALSE
+            )
+          }
+
+          flow <- data.frame(
+            stage = c(
+              "raw_Data_S1", "primary_colour_eligibility", "finite_environment_after_primary_QC",
+              "new_Bombus_all_five_finite_after_primary_QC", "final_complete_case_analysis"
+            ),
+            n = c(
+              nrow(raw), nrow(env_input), sum(environment_finite),
+              sum(qc_coverage$all_five_finite_recomputed), nrow(final)
+            ),
+            rule = c(
+              "all source rows; no target population size",
+              "historical primary QC: hard failures/non-formable colour/exact duplicate only",
+              "all required environmental/coordinate/response fields finite",
+              "all five newly rebuilt Bombus surfaces finite; identical common-domain support",
+              "intersection of primary QC, finite environment, and required Bombus support"
+            ),
+            stringsAsFactors = FALSE
+          )
+          dir.create("reproducibility/reanalysis_1965", recursive = TRUE, showWarnings = FALSE)
+          utils::write.csv(flow, "reproducibility/reanalysis_1965/population_flow.csv", row.names = FALSE)
+          utils::write.csv(
+            completeness,
+            "reproducibility/reanalysis_1965/analysis_completeness_audit.csv",
+            row.names = FALSE
+          )
+          print(flow)
+          RS
+
+      - name: Continue the historical upstream sequence to the two-part phenotype and 1-km cells
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$LEGACY_RUNTIME"
+          Rscript scripts/run_natural_biotic_covariates.R \
+            --analysis-data results/ecological_v9_final_public_HRNA_50km/analysis_data.csv \
+            --occurrence-dir /tmp/bombus-source/results/bombus_occurrence_snapshot \
+            --raw-colour-csv Data_S1.csv \
+            --output-dir results/ecological_v10_final_mechanism_HRNA \
+            --tail-bootstraps=199 \
+            --random-seed=42
+          # The superseded observation-level INLA fit is skipped; the active
+          # environment+SPDE model is fitted afresh in the next stage instead.
+          Rscript scripts/run_phenotype_hurdle.R \
+            --analysis-data results/ecological_v10_final_mechanism_HRNA/analysis_data_mechanism_v3.csv \
+            --output-dir results/ecological_v11_pigmentation_hurdle \
+            --run-inla=false
+          Rscript scripts/run_multiscale_hotspots.R \
+            --input results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+            --output-dir results/ecological_v15_multiscale_hotspots \
+            --environment-cache "$PUBLIC_CACHE" \
+            --worldpop-raster "$PUBLIC_CACHE/population_count_Japan_crop.tif" \
+            --bootstrap=1000
+
+      - name: Promote fresh upstream products into the isolated current-stage workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf results/ecological_v11_pigmentation_hurdle \
+                 results/ecological_v15_multiscale_hotspots \
+                 results/ecological_v16_predictive_replication \
+                 results/ecological_v17_bombus_limitation_gate
+          cp -a "$LEGACY_RUNTIME/results/ecological_v11_pigmentation_hurdle" results/
+          cp -a "$LEGACY_RUNTIME/results/ecological_v15_multiscale_hotspots" results/
+
+      - name: Fit the current flower-only environment plus SPDE natural reference
+        run: >-
+          Rscript scripts/run_natural_predictive_model.R
+          --draws=1000
+          --seed=20260725
+          --force=true
+
+      - name: Re-run the current local Bombus-limitation analysis
+        run: |
+          Rscript scripts/run_bombus_limitation_gate.R \
+            --artifact-root . \
+            --output results/ecological_v17_bombus_limitation_gate \
+            --env-match 0.75 \
+            --low-thresholds 0.10,0.20,0.25,0.33 \
+            --primary-low-threshold 0.33 \
+            --available-threshold 0.50
+          Rscript validation/validate_bombus_limitation_gate.R \
+            --output results/ecological_v17_bombus_limitation_gate
+
+      - name: Summarize the fresh reanalysis and historical comparisons
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          out <- "reproducibility/reanalysis_1965"
+          dir.create(out, recursive = TRUE, showWarnings = FALSE)
+          measurement <- utils::read.csv(
+            "results/ecological_v11_pigmentation_hurdle/pigmentation_measurement_summary.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          performance <- utils::read.csv(
+            "results/ecological_v16_predictive_replication/predictive_replication_model_performance.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          gate <- utils::read.csv(
+            "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          cells <- utils::read.csv(
+            "results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          flow <- utils::read.csv(file.path(out, "population_flow.csv"), stringsAsFactors = FALSE)
+          current_n <- flow$n[flow$stage == "final_complete_case_analysis"]
+          primary <- gate[gate$is_primary_gate, , drop = FALSE]
+          p <- primary[primary$response == "pigmentation_share", , drop = FALSE]
+          i <- primary[primary$response == "pigmented_only_intensity", , drop = FALSE]
+          pres <- performance[performance$model == "national_environment_spde_presence", , drop = FALSE]
+          inten <- performance[performance$model == "national_environment_spde_intensity", , drop = FALSE]
+          summary <- data.frame(
+            metric = c(
+              "analysis_observations", "analysis_cells_1km", "white_like", "pigmented",
+              "mixture_boundary_a", "national_presence_AUC", "national_intensity_RMSE",
+              "primary_gate_pairs", "primary_gate_pigmentation_difference",
+              "primary_gate_upper_tail_p", "primary_gate_across_grid_BH_q",
+              "primary_gate_intensity_pairs", "primary_gate_intensity_difference",
+              "primary_gate_intensity_upper_tail_p"
+            ),
+            value = c(
+              current_n, nrow(cells), measurement$n_white, measurement$n_pigmented,
+              measurement$decision_boundary_a, pres$AUC, inten$RMSE,
+              p$n_pairs, p$observed_directed_difference, p$upper_tail_p,
+              p$BH_q_all_gate_tests, i$n_pairs, i$observed_directed_difference,
+              i$upper_tail_p
+            ),
+            stringsAsFactors = FALSE
+          )
+          utils::write.csv(summary, file.path(out, "core_reanalysis_summary.csv"), row.names = FALSE)
+
+          comparison <- data.frame(
+            population = c("fresh_from_1965", "active_1909", "archived_published_1923"),
+            n = c(current_n, 1909, 1923),
+            role = c(
+              "current response-blind sequential rebuild with new seeded SDMs",
+              "historical active manuscript reconstruction; comparison only",
+              "archived published analysis; comparison only"
+            ),
+            stringsAsFactors = FALSE
+          )
+          utils::write.csv(comparison, file.path(out, "population_comparison_only.csv"), row.names = FALSE)
+          print(summary)
+          RS
+          {
+            echo '### 1,965-source sequential flower-colour reanalysis'
+            echo '```csv'
+            cat reproducibility/reanalysis_1965/population_flow.csv
+            echo '```'
+            echo '### Fresh core results'
+            echo '```csv'
+            cat reproducibility/reanalysis_1965/core_reanalysis_summary.csv
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p reproducibility/reanalysis_1965
+          printf '%s\n' \
+            "source_rows=Data_S1.csv; target_n=none" \
+            "base_seed=42" \
+            "Bombus_artifact_id=${BOMBUS_ARTIFACT_ID}" \
+            "Bombus_artifact_sha256=${BOMBUS_ARTIFACT_SHA256}" \
+            "threads=1" \
+            "upstream_order=primary colour QC -> environment -> new Bombus support -> natural biotic covariates -> two-part phenotype -> 1-km cells" \
+            "active_core=flower-only environment+SPDE -> local Bombus limitation gate" \
+            "historical_1909_and_1923=descriptive comparisons only" \
+            "commit=${GITHUB_SHA}" \
+            > reproducibility/reanalysis_1965/provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reanalysis-1965-new-bombus-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            reproducibility/reanalysis_1965
+            reanalysis_runtime/results/environment_v3
+            reanalysis_runtime/results/ecological_v9_final_public_HRNA_50km/analysis_completeness_audit.csv
+            reanalysis_runtime/results/ecological_v9_final_public_HRNA_50km/analysis_exclusions_by_first_variable.csv
+            reanalysis_runtime/results/ecological_v11_pigmentation_hurdle
+            results/ecological_v15_multiscale_hotspots
+            results/ecological_v16_predictive_replication
+            results/ecological_v17_bombus_limitation_gate
+          if-no-files-found: warn
+          retention-days: 90

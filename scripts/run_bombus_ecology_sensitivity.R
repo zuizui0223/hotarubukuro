@@ -102,6 +102,20 @@ occurrence_ecdf_support <- function(site_value, occurrence_value) {
   out
 }
 
+# terra's SpatRaster,matrix extract method does not accept ID.  Keep the
+# coordinate input as a numeric matrix and normalize the one-layer return shape
+# explicitly so this source-build remains compatible with the pinned terra API.
+extract_single_layer <- function(r, xy, method = "simple") {
+  value <- terra::extract(r, xy, method = method)
+  if (is.data.frame(value) || is.matrix(value)) {
+    if (ncol(value) != 1L) {
+      stop("Expected one extracted raster layer; found ", ncol(value), call. = FALSE)
+    }
+    return(as.numeric(value[, 1]))
+  }
+  as.numeric(value)
+}
+
 site_raw <- matrix(NA_real_, nrow(cells), length(species), dimnames = list(NULL, species))
 site_cell_rank <- site_raw
 site_occ_ecdf <- site_raw
@@ -116,7 +130,7 @@ for (j in seq_along(species)) {
   if (!file.exists(occurrence_path)) stop("Missing occurrence snapshot: ", occurrence_path, call. = FALSE)
 
   r <- terra::rast(raster_path)
-  site_value <- as.numeric(terra::extract(r, site_xy, method = "bilinear", ID = FALSE)[[1]])
+  site_value <- extract_single_layer(r, site_xy, method = "bilinear")
   site_raw[, j] <- site_value
   site_cell_rank[, j] <- rank_finite(site_value)
 
@@ -133,16 +147,16 @@ for (j in seq_along(species)) {
     , drop = FALSE
   ]
   occ <- occ[order(as.character(occ$key)), , drop = FALSE]
-  occ_cell <- terra::cellFromXY(
-    r, cbind(occ$decimalLongitude, occ$decimalLatitude)
-  )
+  occ_xy <- cbind(occ$decimalLongitude, occ$decimalLatitude)
+  occ_cell <- terra::cellFromXY(r, occ_xy)
   keep_occ <- !is.na(occ_cell)
   occ <- occ[keep_occ, , drop = FALSE]
   occ_cell <- occ_cell[keep_occ]
-  occ <- occ[!duplicated(occ_cell), , drop = FALSE]
-  occ_value <- as.numeric(terra::extract(
-    r, cbind(occ$decimalLongitude, occ$decimalLatitude), ID = FALSE
-  )[[1]])
+  keep_unique <- !duplicated(occ_cell)
+  occ <- occ[keep_unique, , drop = FALSE]
+  occ_value <- extract_single_layer(
+    r, cbind(occ$decimalLongitude, occ$decimalLatitude), method = "simple"
+  )
   occ_value <- occ_value[is.finite(occ_value)]
   if (length(occ_value) < 20L) {
     stop("Too few finite occurrence-cell predictions for ", sh, call. = FALSE)
@@ -190,11 +204,10 @@ edges <- v17_pair_graph(
   cells, radius_km = 25, k = 5L,
   same_fold_only = TRUE, common_support_only = TRUE
 )
+n_edges_before_environment_gate <- nrow(edges)
 env_matrix <- v17_environment_matrix(cells)
 if (nrow(edges)) {
-  edges$environmental_distance <- v17_pair_distance(
-    env_matrix, edges$i, edges$j
-  )
+  edges$environmental_distance <- v17_pair_distance(env_matrix, edges$i, edges$j)
   edges <- edges[
     is.finite(edges$environmental_distance) & edges$environmental_distance <= env_match,
     , drop = FALSE
@@ -303,10 +316,8 @@ for (normalization in normalizations) {
         candidate$species_set <- paste(group_species, collapse = ";")
         candidate$low_threshold <- low_threshold
         candidate$available_threshold <- available_threshold
-        candidate$observed_presence_diff <-
-          share[candidate$high_i] - share[candidate$low_i]
-        candidate$observed_intensity_diff <-
-          obs_intensity[candidate$high_i] - obs_intensity[candidate$low_i]
+        candidate$observed_presence_diff <- share[candidate$high_i] - share[candidate$low_i]
+        candidate$observed_intensity_diff <- obs_intensity[candidate$high_i] - obs_intensity[candidate$low_i]
         candidate$intensity_pair <- is.finite(candidate$observed_intensity_diff)
         pair_rows[[length(pair_rows) + 1L]] <- candidate
 
@@ -401,15 +412,13 @@ summary$BH_q_within_group_threshold <- NA_real_
 summary$BH_q_within_group_grid <- NA_real_
 for (normalization in unique(summary$normalization)) {
   for (group_name in unique(summary$exposure_group)) {
-    group_rows <- summary$normalization == normalization &
-      summary$exposure_group == group_name
+    group_rows <- summary$normalization == normalization & summary$exposure_group == group_name
     finite_group <- group_rows & is.finite(summary$upper_tail_p)
     summary$BH_q_within_group_grid[finite_group] <- stats::p.adjust(
       summary$upper_tail_p[finite_group], method = "BH"
     )
     for (threshold in low_thresholds) {
-      idx <- group_rows & summary$low_threshold == threshold &
-        is.finite(summary$upper_tail_p)
+      idx <- group_rows & summary$low_threshold == threshold & is.finite(summary$upper_tail_p)
       summary$BH_q_within_group_threshold[idx] <- stats::p.adjust(
         summary$upper_tail_p[idx], method = "BH"
       )
@@ -429,10 +438,7 @@ support_diagnostic <- do.call(rbind, support_rows)
 readr::write_csv(summary, file.path(output_dir, "bombus_ecology_sensitivity_summary.csv"), na = "")
 readr::write_csv(pairs, file.path(output_dir, "bombus_ecology_sensitivity_pairs.csv"), na = "")
 readr::write_csv(null, file.path(output_dir, "bombus_ecology_sensitivity_null.csv"), na = "")
-readr::write_csv(
-  support_diagnostic,
-  file.path(output_dir, "bombus_group_support_diagnostic.csv"), na = ""
-)
+readr::write_csv(support_diagnostic, file.path(output_dir, "bombus_group_support_diagnostic.csv"), na = "")
 readr::write_csv(data.frame(
   metric = c(
     "n_active_cells", "n_rebuilt_sdm_common_support_cells",
@@ -441,7 +447,8 @@ readr::write_csv(data.frame(
     "AUC_weighting_used"
   ),
   value = c(
-    nrow(cells), sum(common_support), NA_character_, nrow(edges), "FALSE"
+    nrow(cells), sum(common_support), n_edges_before_environment_gate,
+    nrow(edges), "FALSE"
   ),
   stringsAsFactors = FALSE
 ), file.path(output_dir, "bombus_ecology_sensitivity_design.csv"), na = "")

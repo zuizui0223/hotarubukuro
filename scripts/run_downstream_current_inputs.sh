@@ -5,6 +5,21 @@ SUBMISSION_DRAWS="${HOTARUBUKURO_SUBMISSION_DRAWS:-10000}"
 JOINT_LATENT_DRAWS="${HOTARUBUKURO_JOINT_LATENT_DRAWS:-10000}"
 JOINT_OBS_REPS="${HOTARUBUKURO_JOINT_OBS_REPS:-20}"
 
+# Never fall back to the repository's historical frozen boundary. This script is
+# allowed to run only after the fresh 1,965-row upstream reconstruction has
+# produced and copied its v11/v15 outputs into the active results tree.
+for path in \
+  reanalysis_inputs/upstream_data_manifest.json \
+  reanalysis_status/upstream_run_phenotype_hurdle.log \
+  reanalysis_status/upstream_run_multiscale_hotspots.log \
+  results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+  results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv; do
+  [[ -s "$path" ]] || { echo "Fresh upstream prerequisite missing: $path" >&2; exit 1; }
+done
+grep -q "Completed two-part phenotype model" reanalysis_status/upstream_run_phenotype_hurdle.log || {
+  echo "Fresh phenotype reconstruction did not complete." >&2; exit 1;
+}
+
 run_stage() {
   local label="$1"
   shift

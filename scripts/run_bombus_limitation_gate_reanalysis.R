@@ -4,6 +4,11 @@
 # scripts/run_bombus_limitation_gate.R; only its module-loading line is replaced
 # so the current R/local_bombus_turnover.R is sourced explicitly. This prevents
 # an archived compatibility helper from leaking into the fresh 1,965-source run.
+options(error = function() {
+  traceback(50)
+  quit(save = "no", status = 1L, runLast = FALSE)
+})
+
 script_path <- "scripts/run_bombus_limitation_gate.R"
 code <- readLines(script_path, warn = FALSE, encoding = "UTF-8")
 needle <- 'hb_load_modules("bombus_limitation_gate")'

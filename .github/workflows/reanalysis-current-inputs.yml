@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   group: current-input-reanalysis-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   OMP_NUM_THREADS: "1"
@@ -132,6 +132,21 @@ jobs:
         shell: bash
         run: bash scripts/run_reanalysis_current_inputs.sh "$GITHUB_WORKSPACE/upstream" "$GITHUB_WORKSPACE/source-artifact"
 
+      - name: Remove historical downstream checkpoints
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf \
+            results/ecological_v16_* \
+            results/ecological_v17_* \
+            results/ecological_v18_* \
+            results/ecological_v19_* \
+            results/ecological_v2[0-9]_* \
+            results/final_analysis_pipeline
+          rm -rf manuscript/figures
+          mkdir -p manuscript/figures reanalysis_status
+
       - name: Complete unchanged downstream computations
         if: always()
         shell: bash
@@ -154,6 +169,7 @@ jobs:
             echo "bombus_artifact_sha256=${BOMBUS_ARTIFACT_SHA256}"
             echo "source_rows=1965"
             echo "historical_n_target=none"
+            echo "downstream_checkpoint_policy=fresh_v16_plus"
             echo "strict_audit_attempt_outcome=${{ steps.upstream_run.outcome }}"
           } > reanalysis_status/workflow_provenance.txt
           find reanalysis_inputs reanalysis_status results manuscript/figures \

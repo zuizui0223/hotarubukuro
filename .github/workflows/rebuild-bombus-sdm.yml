@@ -31,6 +31,7 @@ jobs:
       GOTO_NUM_THREADS: "1"
       BLIS_NUM_THREADS: "1"
       GDAL_NUM_THREADS: "1"
+      INLA_NUM_THREADS: "1"
       OMP_DYNAMIC: "FALSE"
       BOMBUS_RASTER_IDS: >-
         chelsa_bio04,chelsa_bio06,chelsa_bio13,chelsa_cmimean,chelsa_rsdsmean,
@@ -146,7 +147,20 @@ jobs:
           set -euo pipefail
           REF_ROOT="${RUNNER_TEMP}/analysis_1909_reference"
           bash scripts/canonical_snapshot.sh restore inputs/canonical_snapshot.json "$REF_ROOT"
-          echo "BOMBUS_FLOWER_REFERENCE=$REF_ROOT" >> "$GITHUB_ENV"
+          test -d "$REF_ROOT/analysis_inputs"
+          echo "BOMBUS_FLOWER_REFERENCE=$REF_ROOT/analysis_inputs" >> "$GITHUB_ENV"
+
+      - name: Rebuild 1000-map natural flower reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_natural_predictive_model.R \
+            --observations "$BOMBUS_FLOWER_REFERENCE/results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv" \
+            --cells "$BOMBUS_FLOWER_REFERENCE/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv" \
+            --output "$BOMBUS_FLOWER_REFERENCE/results/ecological_v16_predictive_replication" \
+            --draws 1000 \
+            --seed 20260725 \
+            --force true
 
       - name: Run ecology-aligned flower-side Bombus sensitivities
         shell: bash
@@ -174,10 +188,14 @@ jobs:
             'base_seed=42' \
             'RNGkind=Mersenne-Twister;Inversion;Rejection' \
             'threads=1' \
+            'INLA_threads=1' \
             'study_domain=common Honshu-Shikoku-Kyushu mainland domain' \
             'background=genus-wide Bombus target-group occurrence cells' \
             'predictor_screen=shared across five focal species' \
             'AUC_weighting=false' \
+            'flower_natural_reference=rebuilt_from_immutable_1909_snapshot' \
+            'flower_natural_reference_draws=1000' \
+            'flower_natural_reference_seed=20260725' \
             'flower_sensitivity_normalizations=flower_cell_rank,occurrence_site_ecdf' \
             'flower_sensitivity_groups=all_five,widespread,montane_alpine,leave_one_out' \
             > reproducibility/bombus_sdm_compute_lock.txt

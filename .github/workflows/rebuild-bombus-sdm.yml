@@ -18,7 +18,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.head_ref == 'agent/rebuild-bombus-sdm-seeded'
-    name: Rebuild five Bombus SDMs twice
+    name: Rebuild five ecology-aligned Bombus SDMs twice
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
@@ -97,7 +97,7 @@ jobs:
           IDS="$(echo "$BOMBUS_RASTER_IDS" | tr -d '[:space:]')"
           Rscript source_build/prepare_rasters.R --only "$IDS" --no-download
 
-      - name: Fetch current GBIF occurrence snapshot
+      - name: Fetch focal and genus-wide Bombus occurrence snapshot
         run: >-
           Rscript source_build/fetch_bombus_occurrences.R
           --output-dir results/bombus_occurrence_live
@@ -110,9 +110,9 @@ jobs:
           --input-dir results/bombus_occurrence_live
           --output-dir results/bombus_occurrence_snapshot
 
-      - name: Seeded SDM rebuild A
+      - name: Ecology-aligned seeded SDM rebuild A
         run: >-
-          Rscript source_build/build_bombus_sdm.R
+          Rscript source_build/build_bombus_sdm_mainland.R
           --config config/bombus_sdm.yml
           --occurrence-dir results/bombus_occurrence_snapshot
           --raster-dir data/processed/rasters
@@ -120,17 +120,9 @@ jobs:
           --flower-data Data_S1.csv
           --seed 42
 
-      - name: Project rebuild A to national grid
+      - name: Ecology-aligned seeded SDM rebuild B
         run: >-
-          Rscript source_build/project_bombus_sdm_national.R
-          --config config/bombus_sdm.yml
-          --build-dir results/bombus_sdm_rebuild_A
-          --raster-dir data/processed/rasters
-          --flower-data Data_S1.csv
-
-      - name: Seeded SDM rebuild B
-        run: >-
-          Rscript source_build/build_bombus_sdm.R
+          Rscript source_build/build_bombus_sdm_mainland.R
           --config config/bombus_sdm.yml
           --occurrence-dir results/bombus_occurrence_snapshot
           --raster-dir data/processed/rasters
@@ -138,29 +130,13 @@ jobs:
           --flower-data Data_S1.csv
           --seed 42
 
-      - name: Project rebuild B to national grid
-        run: >-
-          Rscript source_build/project_bombus_sdm_national.R
-          --config config/bombus_sdm.yml
-          --build-dir results/bombus_sdm_rebuild_B
-          --raster-dir data/processed/rasters
-          --flower-data Data_S1.csv
-
-      - name: Compare independent calibration rebuilds
+      - name: Compare independent rebuilds
         run: >-
           Rscript validation/compare_bombus_sdm_rebuilds.R
           --a results/bombus_sdm_rebuild_A
           --b results/bombus_sdm_rebuild_B
           --tolerance 1e-12
           --output reproducibility/bombus_sdm_rebuild_comparison.csv
-
-      - name: Compare independent national projections
-        run: >-
-          Rscript validation/compare_bombus_national_projections.R
-          --a results/bombus_sdm_rebuild_A
-          --b results/bombus_sdm_rebuild_B
-          --tolerance 1e-12
-          --output reproducibility/bombus_national_projection_comparison.csv
 
       - name: Record session information
         shell: bash
@@ -170,8 +146,10 @@ jobs:
             'base_seed=42' \
             'RNGkind=Mersenne-Twister;Inversion;Rejection' \
             'threads=1' \
-            'calibration_domain=species-specific accessible area M' \
-            'projection_domain=full prepared national predictor grid' \
+            'study_domain=common Honshu-Shikoku-Kyushu mainland domain' \
+            'background=genus-wide Bombus target-group occurrence cells' \
+            'predictor_screen=shared across five focal species' \
+            'AUC_weighting=false' \
             > reproducibility/bombus_sdm_compute_lock.txt
 
       - name: Publish source-build summary
@@ -179,27 +157,27 @@ jobs:
         shell: bash
         run: |
           if [[ -s results/bombus_sdm_rebuild_A/bombus_sdm_manifest.csv ]]; then
-            echo '### Bombus SDM selected models' >> "$GITHUB_STEP_SUMMARY"
+            echo '### Bombus SDM ecological diagnostics and selected models' >> "$GITHUB_STEP_SUMMARY"
             echo '```csv' >> "$GITHUB_STEP_SUMMARY"
             cat results/bombus_sdm_rebuild_A/bombus_sdm_manifest.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
-          if [[ -s results/bombus_sdm_rebuild_A/flower_prediction_coverage_national_summary.csv ]]; then
-            echo '### National flower-point prediction coverage' >> "$GITHUB_STEP_SUMMARY"
+          if [[ -s results/bombus_sdm_rebuild_A/auc_range_breadth_diagnostic.csv ]]; then
+            echo '### AUC versus occurrence-range breadth (descriptive only)' >> "$GITHUB_STEP_SUMMARY"
             echo '```csv' >> "$GITHUB_STEP_SUMMARY"
-            cat results/bombus_sdm_rebuild_A/flower_prediction_coverage_national_summary.csv >> "$GITHUB_STEP_SUMMARY"
+            cat results/bombus_sdm_rebuild_A/auc_range_breadth_diagnostic.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s results/bombus_sdm_rebuild_A/flower_prediction_coverage_summary.csv ]]; then
+            echo '### Flower-point prediction coverage' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat results/bombus_sdm_rebuild_A/flower_prediction_coverage_summary.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
           if [[ -s reproducibility/bombus_sdm_rebuild_comparison.csv ]]; then
-            echo '### Repeated-build calibration reproducibility' >> "$GITHUB_STEP_SUMMARY"
+            echo '### Repeated-build reproducibility' >> "$GITHUB_STEP_SUMMARY"
             echo '```csv' >> "$GITHUB_STEP_SUMMARY"
             cat reproducibility/bombus_sdm_rebuild_comparison.csv >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [[ -s reproducibility/bombus_national_projection_comparison.csv ]]; then
-            echo '### Repeated-build national projection reproducibility' >> "$GITHUB_STEP_SUMMARY"
-            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
-            cat reproducibility/bombus_national_projection_comparison.csv >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -217,7 +195,6 @@ jobs:
             data/processed/raster_download_manifest.csv
             data/processed/raster_manifest.csv
             reproducibility/bombus_sdm_*
-            reproducibility/bombus_national_*
             config/bombus_sdm.yml
             config/raster_sources.csv
           if-no-files-found: warn

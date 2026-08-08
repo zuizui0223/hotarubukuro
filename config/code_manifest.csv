@@ -18,6 +18,7 @@ active,entrypoint,scripts/run_publication_pipeline.R,ordered numerical stages an
 active,stage,scripts/run_natural_predictive_model.R,stage 02 runner
 active,stage,scripts/run_bombus_limitation_gate.R,stage 03 local Bombus limitation-gate runner
 sensitivity,analysis,scripts/run_local_bombus_turnover.R,superseded unsigned Bombus turnover sensitivity
+sensitivity,analysis,scripts/run_bombus_ecology_sensitivity.R,ecology-aligned group and occurrence-calibrated Bombus availability sensitivity
 active,stage,scripts/run_human_landscape_features.R,stage 04 feature runner
 active,stage,scripts/run_local_pigmented_isolates.R,stage 04 candidate runner
 supplementary,stage,scripts/run_candidate_doy_check.R,held-out DOY runner
@@ -45,6 +46,7 @@ validation,stage,validation/validate_bombus_limitation_gate.R,stage 03 limitatio
 validation,stage,validation/audit_bombus_limitation_gate.R,stage 03 limitation-gate inference audit
 sensitivity_validation,stage,validation/validate_local_bombus_turnover.R,superseded turnover sensitivity validator
 sensitivity_validation,stage,validation/audit_local_bombus_turnover.R,superseded turnover sensitivity audit
+sensitivity_validation,analysis,validation/validate_bombus_ecology_sensitivity.R,validator for ecology-aligned Bombus availability sensitivity
 validation,stage,validation/validate_human_landscape_features.R,stage 04 feature validator
 validation,stage,validation/audit_human_landscape_features.R,stage 04 independent audit
 validation,stage,validation/validate_local_pigmented_isolates.R,stage 04 candidate validator

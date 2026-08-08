@@ -1,0 +1,85 @@
+version: 1
+
+reproducibility:
+  base_seed: 42
+  rng_kind: Mersenne-Twister
+  normal_kind: Inversion
+  sample_kind: Rejection
+  threads: 1
+  repeated_rebuilds: 2
+  raster_value_tolerance: 1.0e-12
+
+occurrence:
+  country: JP
+  occurrence_status: present
+  has_coordinate: true
+  max_coordinate_uncertainty_m: 10000
+  accepted_basis_of_record:
+    - HUMAN_OBSERVATION
+    - OBSERVATION
+    - PRESERVED_SPECIMEN
+    - MATERIAL_SAMPLE
+    - MACHINE_OBSERVATION
+
+species:
+  - scientific_name: Bombus ardens
+    short: ardens
+  - scientific_name: Bombus diversus
+    short: diversus
+  - scientific_name: Bombus beaticola
+    short: beaticola
+  - scientific_name: Bombus consobrinus
+    short: consobrinus
+  - scientific_name: Bombus honshuensis
+    short: honshuensis
+
+accessible_area:
+  crs_equal_area: EPSG:6933
+  min_buffer_km: 100
+  max_buffer_km: 300
+  range_fraction: 0.15
+
+background:
+  target_group_n: 10000
+  minimum_n: 500
+  fallback_random_within_M: true
+
+predictor_screening:
+  vif_threshold: 10
+  domain_sample_n: 20000
+  minimum_complete_cells: 200
+
+model:
+  algorithm: maxnet
+  partitions: block
+  feature_classes:
+    - L
+    - LQ
+    - LQH
+  regularization_multipliers:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+  selection_rule: minimum_finite_AICc
+  prediction_scale: cloglog
+  minimum_occurrence_cells: 20
+
+predictors:
+  bio4: chelsa_bio04.tif
+  bio6: chelsa_bio06.tif
+  bio13: chelsa_bio13.tif
+  CMI: chelsa_cmimean.tif
+  RSDS: chelsa_rsdsmean.tif
+  bdod: soilgrids_bdod_0_5cm_mean.tif
+  cfvo: soilgrids_cfvo_0_5cm_mean.tif
+  sand: soilgrids_sand_0_5cm_mean.tif
+  silt: soilgrids_silt_0_5cm_mean.tif
+  nitrogen: soilgrids_nitrogen_0_5cm_mean.tif
+  soil_pH: soilgrids_phh2o_0_5cm_mean.tif
+  soc: soilgrids_soc_0_5cm_mean.tif
+  elevation: elevation_30s.tif
+  derived:
+    - slope
+    - roughness

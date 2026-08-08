@@ -1,0 +1,216 @@
+name: Resume 1965 reanalysis at Bombus stage 03
+
+on:
+  push:
+    branches:
+      - agent/reanalysis-1965-new-bombus
+    paths:
+      - .github/workflows/reanalysis-1965-resume-stage03.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  resume-stage03:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      HOTARUBUKURO_R_SEED: "42"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      GOTO_NUM_THREADS: "1"
+      BLIS_NUM_THREADS: "1"
+      GDAL_NUM_THREADS: "1"
+      OMP_DYNAMIC: "FALSE"
+      FRESH_STAGE02_ARTIFACT_ID: "9021172765"
+      FRESH_STAGE02_ARTIFACT_SHA256: "3b2e01a2edd6ccc1b3797ed4438dc4c0f1a4aaa9bee472658e7af6e116485bab"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Restore successful 1,965-source upstream and fresh flower SPDE outputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/fresh-stage02 /tmp/fresh-stage02.zip
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_STAGE02_ARTIFACT_ID}/zip" \
+            > /tmp/fresh-stage02.zip
+          echo "${FRESH_STAGE02_ARTIFACT_SHA256}  /tmp/fresh-stage02.zip" | sha256sum -c -
+          mkdir -p /tmp/fresh-stage02
+          unzip -q /tmp/fresh-stage02.zip -d /tmp/fresh-stage02
+          rm -rf results/ecological_v11_pigmentation_hurdle \
+                 results/ecological_v15_multiscale_hotspots \
+                 results/ecological_v16_predictive_replication \
+                 results/ecological_v17_bombus_limitation_gate \
+                 reproducibility/reanalysis_1965
+          mkdir -p results reproducibility
+          cp -a /tmp/fresh-stage02/reanalysis_runtime/results/ecological_v11_pigmentation_hurdle results/
+          cp -a /tmp/fresh-stage02/results/ecological_v15_multiscale_hotspots results/
+          cp -a /tmp/fresh-stage02/results/ecological_v16_predictive_replication results/
+          cp -a /tmp/fresh-stage02/reproducibility/reanalysis_1965 reproducibility/
+
+      - name: Assert the current 50-km environmental matching interface
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          sys.source("R/local_bombus_turnover.R", envir = .GlobalEnv)
+          cells <- utils::read.csv(
+            "results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          required <- c(
+            "broad50km_pc1", "broad50km_pc2",
+            "within50km_pc1", "within50km_pc2"
+          )
+          missing <- setdiff(required, names(cells))
+          if (length(missing)) {
+            stop("Fresh v15 cells lack current environmental axes: ", paste(missing, collapse = ", "), call. = FALSE)
+          }
+          if (!all(vapply(cells[required], function(x) all(is.finite(x)), logical(1)))) {
+            stop("Fresh v15 50-km environmental axes contain non-finite values.", call. = FALSE)
+          }
+          helper_text <- paste(deparse(body(v17_add_pair_features)), collapse = " ")
+          if (!grepl("v17_environment_matrix", helper_text, fixed = TRUE)) {
+            stop("Current pair helper is not using v17_environment_matrix.", call. = FALSE)
+          }
+          cat("Current environmental interface PASS: ", paste(required, collapse = ", "), "\n", sep = "")
+          RS
+
+      - name: Run fresh local Bombus-limitation stage with explicit current helper
+        run: |
+          Rscript scripts/run_bombus_limitation_gate_reanalysis.R \
+            --artifact-root . \
+            --output results/ecological_v17_bombus_limitation_gate \
+            --env-match 0.75 \
+            --low-thresholds 0.10,0.20,0.25,0.33 \
+            --primary-low-threshold 0.33 \
+            --available-threshold 0.50
+          Rscript validation/validate_bombus_limitation_gate.R \
+            --output results/ecological_v17_bombus_limitation_gate
+
+      - name: Summarize the fresh 1,965-source core reanalysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          out <- "reproducibility/reanalysis_1965"
+          dir.create(out, recursive = TRUE, showWarnings = FALSE)
+          flow <- utils::read.csv(file.path(out, "population_flow.csv"), stringsAsFactors = FALSE)
+          measurement <- utils::read.csv(
+            "results/ecological_v11_pigmentation_hurdle/pigmentation_measurement_summary.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          performance <- utils::read.csv(
+            "results/ecological_v16_predictive_replication/predictive_replication_model_performance.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          gate <- utils::read.csv(
+            "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          cells <- utils::read.csv(
+            "results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
+          primary <- gate[gate$is_primary_gate, , drop = FALSE]
+          p <- primary[primary$response == "pigmentation_share", , drop = FALSE]
+          i <- primary[primary$response == "pigmented_only_intensity", , drop = FALSE]
+          pres <- performance[performance$model == "national_environment_spde_presence", , drop = FALSE]
+          inten <- performance[performance$model == "national_environment_spde_intensity", , drop = FALSE]
+          current_n <- flow$n[flow$stage == "final_complete_case_analysis"]
+          summary <- data.frame(
+            metric = c(
+              "analysis_observations", "analysis_cells_1km", "white_like", "pigmented",
+              "mixture_boundary_a", "national_presence_AUC", "national_intensity_RMSE",
+              "primary_gate_pairs", "primary_gate_pigmentation_difference",
+              "primary_gate_natural_null_mean", "primary_gate_upper_tail_p",
+              "primary_gate_within_threshold_BH_q", "primary_gate_across_grid_BH_q",
+              "primary_gate_intensity_pairs", "primary_gate_intensity_difference",
+              "primary_gate_intensity_upper_tail_p"
+            ),
+            value = c(
+              current_n, nrow(cells), measurement$n_white, measurement$n_pigmented,
+              measurement$decision_boundary_a, pres$AUC, inten$RMSE,
+              p$n_pairs, p$observed_directed_difference, p$natural_null_mean,
+              p$upper_tail_p, p$BH_q_within_threshold, p$BH_q_all_gate_tests,
+              i$n_pairs, i$observed_directed_difference, i$upper_tail_p
+            ),
+            stringsAsFactors = FALSE
+          )
+          utils::write.csv(summary, file.path(out, "core_reanalysis_summary.csv"), row.names = FALSE)
+          comparison <- data.frame(
+            population = c("fresh_from_1965", "active_1909", "archived_published_1923"),
+            n = c(current_n, 1909, 1923),
+            role = c(
+              "current response-blind sequential rebuild with new seeded SDMs",
+              "historical active reconstruction; comparison only",
+              "archived published analysis; comparison only"
+            ),
+            stringsAsFactors = FALSE
+          )
+          utils::write.csv(comparison, file.path(out, "population_comparison_only.csv"), row.names = FALSE)
+          print(flow)
+          print(summary)
+          RS
+          {
+            echo '### Population flow (no target n)'
+            echo '```csv'
+            cat reproducibility/reanalysis_1965/population_flow.csv
+            echo '```'
+            echo '### Fresh core results'
+            echo '```csv'
+            cat reproducibility/reanalysis_1965/core_reanalysis_summary.csv
+            echo '```'
+            echo '### Bombus gate grid'
+            echo '```csv'
+            cat results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record resume provenance
+        shell: bash
+        run: |
+          printf '%s\n' \
+            "source_rows=1965; target_n=none" \
+            "upstream_artifact_id=${FRESH_STAGE02_ARTIFACT_ID}" \
+            "upstream_artifact_sha256=${FRESH_STAGE02_ARTIFACT_SHA256}" \
+            "stage03_loader=explicit current R/local_bombus_turnover.R" \
+            "environment_matching_axes=broad50km_pc1,broad50km_pc2,within50km_pc1,within50km_pc2" \
+            "science_spec=unchanged" \
+            "commit=${GITHUB_SHA}" \
+            > reproducibility/reanalysis_1965/stage03_resume_provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reanalysis-1965-stage03-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            reproducibility/reanalysis_1965
+            results/ecological_v11_pigmentation_hurdle/pigmentation_measurement_summary.csv
+            results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+            results/ecological_v15_multiscale_hotspots/multiscale_environment_pca_loadings.csv
+            results/ecological_v16_predictive_replication/predictive_replication_model_performance.csv
+            results/ecological_v17_bombus_limitation_gate
+          if-no-files-found: error
+          retention-days: 90

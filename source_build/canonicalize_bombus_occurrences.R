@@ -17,9 +17,14 @@ input_dir <- arg_value("--input-dir", "results/bombus_occurrence_live")
 output_dir <- arg_value("--output-dir", "results/bombus_occurrence_snapshot")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-species <- c("ardens", "diversus", "beaticola", "consobrinus", "honshuensis")
+members <- c(
+  "ardens", "diversus", "beaticola", "consobrinus", "honshuensis",
+  "bombus_target_group"
+)
+roles <- c(rep("focal_species", 5L), "target_group_background")
 rows <- list()
-for (sh in species) {
+for (i in seq_along(members)) {
+  sh <- members[[i]]
   src <- file.path(input_dir, paste0(sh, "_gbif.csv"))
   if (!file.exists(src)) stop("Missing occurrence source: ", src, call. = FALSE)
   x <- readr::read_csv(src, show_col_types = FALSE)
@@ -32,6 +37,7 @@ for (sh in species) {
   readr::write_csv(x, dst, na = "")
   rows[[sh]] <- data.frame(
     short = sh,
+    role = roles[[i]],
     n_records = nrow(x),
     first_key = as.character(x$key[[1]]),
     last_key = as.character(x$key[[nrow(x)]]),
@@ -50,7 +56,12 @@ for (name in c("manifest.csv", "query_manifest.json")) {
 jsonlite::write_json(
   list(
     canonicalization = "sort by GBIF occurrence key; deduplicate exact occurrence key",
-    species = species,
+    members = members,
+    roles = stats::setNames(as.list(roles), members),
+    target_group_background = paste(
+      "bombus_target_group is a frozen genus-wide Japanese Bombus occurrence",
+      "snapshot used as a spatial observation-effort background"
+    ),
     manifest_sha256 = unname(digest::digest(
       file = file.path(output_dir, "occurrence_snapshot_manifest.csv"), algo = "sha256"
     ))

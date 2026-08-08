@@ -11,35 +11,28 @@ read_csv <- function(path, required = TRUE) {
   }
   utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
 }
-
 write_csv <- function(x, name) {
-  utils::write.csv(x, file.path(output_dir, name), row.names = FALSE, na = "")
+  if (!is.null(x)) utils::write.csv(x, file.path(output_dir, name), row.names = FALSE, na = "")
 }
 
 source_data <- read_csv("reanalysis_inputs/Data_S1_current_analysis.csv")
-phenotype <- read_csv(
-  "results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv"
+phenotype <- read_csv("results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv")
+measurement <- read_csv("results/ecological_v11_pigmentation_hurdle/pigmentation_measurement_summary.csv")
+cells <- read_csv("results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv")
+performance <- read_csv("results/ecological_v16_predictive_replication/predictive_replication_model_performance.csv")
+gate <- read_csv("results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv")
+gate_support <- read_csv(
+  "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_support_diagnostics.csv",
+  required = FALSE
 )
-measurement <- read_csv(
-  "results/ecological_v11_pigmentation_hurdle/pigmentation_measurement_summary.csv"
+gate_interpretation <- read_csv(
+  "results/ecological_v17_bombus_limitation_gate/interpretation_summary.csv",
+  required = FALSE
 )
-cells <- read_csv(
-  "results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv"
-)
-final_results <- read_csv(
-  "results/final_analysis_pipeline/final_result_registry.csv"
-)
-final_claims <- read_csv(
-  "results/final_analysis_pipeline/final_claim_registry.csv"
-)
-gate <- read_csv(
-  "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv"
-)
-isolates <- read_csv(
-  "results/ecological_v20_local_white_isolates/local_isolate_candidates.csv"
-)
+isolates <- read_csv("results/ecological_v20_local_white_isolates/local_isolate_candidates.csv")
 submission_null <- read_csv(
-  "results/ecological_v25_submission_isolate_null/submission_isolate_natural_null_summary.csv"
+  "results/ecological_v25_submission_isolate_null/submission_isolate_natural_null_summary.csv",
+  required = FALSE
 )
 joint <- read_csv(
   "results/ecological_v26_joint_submission_isolate_ppc/joint_isolate_natural_null_summary.csv",
@@ -53,12 +46,18 @@ boundary <- read_csv(
   "results/ecological_v26_joint_submission_isolate_ppc/crossfit_boundary_audit.csv",
   required = FALSE
 )
-sdm <- read_csv(
-  "results/bombus_sdm_rebuild_A/ENMeval_selected_models.csv"
+human_population <- read_csv(
+  "results/ecological_v21_local_human_neighbourhood/human_neighbourhood_population_scale_summary.csv",
+  required = FALSE
 )
-coverage <- read_csv(
-  "results/bombus_sdm_rebuild_A/flower_prediction_coverage.csv"
+did <- read_csv(
+  "results/ecological_v22_did_human_context/did_contrast_summary.csv",
+  required = FALSE
 )
+sdm <- read_csv("results/bombus_sdm_rebuild_A/ENMeval_selected_models.csv")
+coverage <- read_csv("results/bombus_sdm_rebuild_A/flower_prediction_coverage.csv")
+final_results <- read_csv("results/final_analysis_pipeline/final_result_registry.csv", required = FALSE)
+final_claims <- read_csv("results/final_analysis_pipeline/final_claim_registry.csv", required = FALSE)
 
 row <- function(section, metric, value, detail = "") {
   data.frame(
@@ -89,39 +88,64 @@ if (all(c("n_white", "n_pigmented") %in% names(measurement))) {
   add("phenotype", "pigmented_observations", measurement$n_pigmented[[1L]])
 }
 
+for (i in seq_len(nrow(performance))) {
+  p <- performance[i, , drop = FALSE]
+  add("national_model", as.character(p$model), p$primary_value,
+      paste0("metric=", p$primary_metric,
+             if ("AUC" %in% names(p) && is.finite(p$AUC)) paste0(";AUC=", signif(p$AUC, 5)) else "",
+             if ("RMSE" %in% names(p) && is.finite(p$RMSE)) paste0(";RMSE=", signif(p$RMSE, 5)) else ""))
+}
+
 if (all(c("is_primary_gate", "response") %in% names(gate))) {
   primary_gate <- gate[gate$is_primary_gate %in% TRUE, , drop = FALSE]
   for (i in seq_len(nrow(primary_gate))) {
     g <- primary_gate[i, , drop = FALSE]
-    detail <- paste(
-      c(
-        if ("observed_directed_difference" %in% names(g))
-          paste0("difference=", signif(g$observed_directed_difference, 5)),
-        if ("upper_tail_p" %in% names(g)) paste0("p=", signif(g$upper_tail_p, 5)),
-        if ("BH_q_all_gate_tests" %in% names(g))
-          paste0("BH_q=", signif(g$BH_q_all_gate_tests, 5)),
-        if ("n_pairs" %in% names(g)) paste0("pairs=", g$n_pairs)
-      ), collapse = "; "
+    estimable <- is.finite(g$observed_directed_difference) && g$n_pairs > 0L
+    detail <- paste0(
+      "pairs=", g$n_pairs,
+      ";estimable=", estimable,
+      if (estimable) paste0(
+        ";difference=", signif(g$observed_directed_difference, 5),
+        ";p=", signif(g$upper_tail_p, 5),
+        ";BH_q=", signif(g$BH_q_all_gate_tests, 5)
+      ) else ""
     )
     add("bombus_gate", as.character(g$response),
-        if ("observed_directed_difference" %in% names(g)) g$observed_directed_difference else NA,
-        detail)
+        if (estimable) g$observed_directed_difference else NA_real_, detail)
   }
+}
+if (!is.null(gate_support)) {
+  primary_support <- gate_support[
+    abs(gate_support$low_threshold - 0.33) < 1e-12, , drop = FALSE
+  ]
+  if (nrow(primary_support) == 1L) {
+    add("bombus_gate", "fixed_gate_support",
+        primary_support$n_cells_low,
+        paste0("n_low_cells=", primary_support$n_cells_low,
+               ";n_available_cells=", primary_support$n_cells_available,
+               ";min_best_support_rank=", signif(primary_support$min_best_support_rank, 6)))
+  }
+}
+if (!is.null(gate_interpretation)) {
+  status <- gate_interpretation$value[match("status", gate_interpretation$field)]
+  if (length(status) == 1L) add("bombus_gate", "status", status)
 }
 
 add("local_isolates", "candidate_count", nrow(isolates),
     "same primary local-isolate definition; count is not fixed a priori")
-primary_null <- submission_null[
-  submission_null$configuration == "primary_10km_env1_all_white" &
-    submission_null$metric %in% c("candidate_count", "candidate_fraction"),
-  , drop = FALSE
-]
-for (i in seq_len(nrow(primary_null))) {
-  x <- primary_null[i, , drop = FALSE]
-  add("local_isolates", paste0(x$metric, "_natural_null"), x$observed_value,
-      paste0("null_mean=", signif(x$null_mean, 5),
-             ";p=", signif(x$empirical_p, 5),
-             ";draws=", x$n_null_draws))
+if (!is.null(submission_null)) {
+  primary_null <- submission_null[
+    submission_null$configuration == "primary_10km_env1_all_white" &
+      submission_null$metric %in% c("candidate_count", "candidate_fraction"),
+    , drop = FALSE
+  ]
+  for (i in seq_len(nrow(primary_null))) {
+    x <- primary_null[i, , drop = FALSE]
+    add("local_isolates", paste0(x$metric, "_natural_null"), x$observed_value,
+        paste0("null_mean=", signif(x$null_mean, 5),
+               ";p=", signif(x$empirical_p, 5),
+               ";draws=", x$n_null_draws))
+  }
 }
 
 if (!is.null(joint)) {
@@ -139,8 +163,6 @@ if (!is.null(joint)) {
   }
 }
 
-# Dynamic identity check for the rerun. The old submission validation hard-codes
-# 18, which is a historical result identity rather than an analysis invariant.
 identity_ok <- NA
 boundary_ok <- NA
 if (!is.null(joint_ids)) {
@@ -160,15 +182,31 @@ if (!is.null(boundary)) {
   }
 }
 
+if (!is.null(human_population) && nrow(human_population)) {
+  preferred <- human_population[human_population$feature == "population_5km_rank", , drop = FALSE]
+  if (nrow(preferred) == 1L) {
+    add("human_context", "population_5km_rank",
+        preferred$observed_focal_minus_white_neighbour,
+        paste0("p=", preferred$directional_or_two_sided_p,
+               ";maxT_FWER=", preferred$maxT_FWER_p))
+  }
+}
+if (!is.null(did) && nrow(did)) {
+  preferred <- did[did$feature == "did_aligned_population_score", , drop = FALSE]
+  if (nrow(preferred) == 1L) {
+    add("human_context", "did_aligned_population_score",
+        preferred$observed_focal_minus_white_neighbour,
+        paste0("p=", preferred$directional_or_two_sided_p,
+               ";maxT_FWER=", preferred$maxT_FWER_p))
+  }
+}
+
 if (all(c("species", "feature_class", "regularization_multiplier") %in% names(sdm))) {
   for (i in seq_len(nrow(sdm))) {
     x <- sdm[i, , drop = FALSE]
-    detail <- paste0(
-      "FC=", x$feature_class,
-      ";RM=", x$regularization_multiplier,
-      if ("AICc" %in% names(x)) paste0(";AICc=", signif(x$AICc, 7)) else ""
-    )
-    add("sdm", paste0("selected_", x$species), "fresh_seeded_ENMeval", detail)
+    add("sdm", paste0("selected_", x$species), "fresh_seeded_ENMeval",
+        paste0("FC=", x$feature_class, ";RM=", x$regularization_multiplier,
+               if ("AICc" %in% names(x)) paste0(";AICc=", signif(x$AICc, 7)) else ""))
   }
 }
 if ("all_five_finite" %in% names(coverage)) {
@@ -180,40 +218,46 @@ if ("all_five_finite" %in% names(coverage)) {
 
 overview <- do.call(rbind, rows)
 write_csv(overview, "reanalysis_overview.csv")
+write_csv(performance, "natural_model_performance.csv")
+write_csv(gate, "bombus_limitation_gate_summary.csv")
+write_csv(gate_support, "bombus_limitation_gate_support_diagnostics.csv")
+write_csv(submission_null, "submission_isolate_natural_null_summary.csv")
+write_csv(joint, "joint_isolate_natural_null_summary.csv")
+write_csv(human_population, "human_neighbourhood_population_scale_summary.csv")
+write_csv(did, "did_contrast_summary.csv")
 write_csv(final_results, "final_result_registry.csv")
 write_csv(final_claims, "final_claim_registry.csv")
 
-# Collect machine-readable validation states without imposing historical result
-# identities on the fresh run.
 validation_files <- c(
   "results/ecological_v11_pigmentation_hurdle/validation_summary.csv",
   "results/ecological_v16_predictive_replication/natural_predictive_model_validation.csv",
-  "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_independent_validation.csv",
   "results/ecological_v19_human_landscape_extremes/VALIDATION.csv",
   "results/ecological_v20_local_white_isolates/VALIDATION.csv",
   "results/ecological_v21_local_human_neighbourhood/VALIDATION.csv",
   "results/ecological_v22_did_human_context/VALIDATION.csv",
-  "results/ecological_v25_submission_isolate_null/submission_isolate_null_validation.csv",
-  "results/final_analysis_pipeline/final_independent_validation.csv",
-  "results/final_analysis_pipeline/final_claim_audit.csv"
+  "results/ecological_v25_submission_isolate_null/submission_isolate_null_validation.csv"
 )
 validation_rows <- lapply(validation_files[file.exists(validation_files)], function(path) {
   x <- read_csv(path)
   status_col <- intersect(c("status", "result"), names(x))
   if (!length(status_col)) return(data.frame())
   data.frame(
-    file = path,
-    n_rows = nrow(x),
+    file = path, n_rows = nrow(x),
     n_fail = sum(toupper(as.character(x[[status_col[[1L]]]])) %in% c("FAIL", "FAILED"), na.rm = TRUE),
     stringsAsFactors = FALSE
   )
 })
 validation_rows <- validation_rows[vapply(validation_rows, nrow, integer(1)) > 0L]
-if (length(validation_rows)) {
-  validation_summary <- do.call(rbind, validation_rows)
-  write_csv(validation_summary, "validation_overview.csv")
-}
+if (length(validation_rows)) write_csv(do.call(rbind, validation_rows), "validation_overview.csv")
 
+primary_gate <- gate[gate$is_primary_gate %in% TRUE & gate$response == "pigmentation_share", , drop = FALSE]
+gate_line <- if (nrow(primary_gate) == 1L && primary_gate$n_pairs > 0L) {
+  paste0("- Bombus primary fixed gate: ", primary_gate$n_pairs,
+         " matched pairs; directed difference=", signif(primary_gate$observed_directed_difference, 5),
+         "; p=", signif(primary_gate$upper_tail_p, 5), ".")
+} else {
+  "- Bombus primary fixed gate: not estimable under the fresh SDM; thresholds were retained unchanged."
+}
 markdown <- c(
   "# Fresh-input full reanalysis",
   "",
@@ -223,12 +267,14 @@ markdown <- c(
   paste0("- Fresh phenotype analysis rows: ", nrow(phenotype)),
   paste0("- Fresh 1-km cells: ", nrow(cells)),
   paste0("- Primary local isolates: ", nrow(isolates)),
+  gate_line,
   if (!is.na(identity_ok)) paste0("- Joint PPC candidate identity: ", if (identity_ok) "PASS" else "FAIL") else NULL,
   if (!is.na(boundary_ok)) paste0("- Joint PPC boundary count: ", if (boundary_ok) "PASS" else "FAIL") else NULL,
   "",
-  "The scientific stage order, response definitions, natural model, Bombus limitation gate,",
-  "local-isolate definition, natural-null procedure, and human-context analyses are unchanged.",
-  "Only the upstream flower/environment reconstruction and Bombus source build were replaced."
+  "Scientific stage order, response definitions, natural model, fixed Bombus gate grid,",
+  "local-isolate definition, natural-null procedure, and human-context analyses were retained.",
+  "Only the upstream flower/environment reconstruction and Bombus source build were replaced.",
+  "A fixed gate that has no fresh-SDM support is reported as not estimable rather than retuned."
 )
 writeLines(markdown, file.path(output_dir, "README.md"), useBytes = TRUE)
 

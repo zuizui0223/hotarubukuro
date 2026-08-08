@@ -6,6 +6,8 @@ on:
       - agent/reanalysis-1965-new-bombus
     paths:
       - .github/workflows/reanalysis-1965-resume-stage03.yml
+      - scripts/run_bombus_limitation_gate_reanalysis.R
+      - validation/validate_bombus_limitation_reanalysis.R
   workflow_dispatch:
 
 permissions:
@@ -98,7 +100,7 @@ jobs:
           cat("Current environmental interface PASS: ", paste(required, collapse = ", "), "\n", sep = "")
           RS
 
-      - name: Run fresh local Bombus-limitation stage with explicit current helper
+      - name: Apply the unchanged local Bombus-limitation gate
         run: |
           Rscript scripts/run_bombus_limitation_gate_reanalysis.R \
             --artifact-root . \
@@ -107,7 +109,7 @@ jobs:
             --low-thresholds 0.10,0.20,0.25,0.33 \
             --primary-low-threshold 0.33 \
             --available-threshold 0.50
-          Rscript validation/validate_bombus_limitation_gate.R \
+          Rscript validation/validate_bombus_limitation_reanalysis.R \
             --output results/ecological_v17_bombus_limitation_gate
 
       - name: Summarize the fresh 1,965-source core reanalysis
@@ -130,6 +132,10 @@ jobs:
             "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv",
             check.names = FALSE, stringsAsFactors = FALSE
           )
+          interpretation <- utils::read.csv(
+            "results/ecological_v17_bombus_limitation_gate/interpretation_summary.csv",
+            check.names = FALSE, stringsAsFactors = FALSE
+          )
           cells <- utils::read.csv(
             "results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv",
             check.names = FALSE, stringsAsFactors = FALSE
@@ -140,6 +146,7 @@ jobs:
           pres <- performance[performance$model == "national_environment_spde_presence", , drop = FALSE]
           inten <- performance[performance$model == "national_environment_spde_intensity", , drop = FALSE]
           current_n <- flow$n[flow$stage == "final_complete_case_analysis"]
+          stage03_status <- interpretation$value[interpretation$field == "status"]
           summary <- data.frame(
             metric = c(
               "analysis_observations", "analysis_cells_1km", "white_like", "pigmented",
@@ -160,6 +167,7 @@ jobs:
             stringsAsFactors = FALSE
           )
           utils::write.csv(summary, file.path(out, "core_reanalysis_summary.csv"), row.names = FALSE)
+          writeLines(stage03_status, file.path(out, "stage03_status.txt"))
           comparison <- data.frame(
             population = c("fresh_from_1965", "active_1909", "archived_published_1923"),
             n = c(current_n, 1909, 1923),
@@ -173,6 +181,7 @@ jobs:
           utils::write.csv(comparison, file.path(out, "population_comparison_only.csv"), row.names = FALSE)
           print(flow)
           print(summary)
+          cat("stage03_status=", stage03_status, "\n", sep = "")
           RS
           {
             echo '### Population flow (no target n)'
@@ -183,9 +192,13 @@ jobs:
             echo '```csv'
             cat reproducibility/reanalysis_1965/core_reanalysis_summary.csv
             echo '```'
-            echo '### Bombus gate grid'
+            echo '### Bombus gate eligibility'
             echo '```csv'
-            cat results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv
+            cat results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_eligibility.csv
+            echo '```'
+            echo '### Bombus rank diagnostic'
+            echo '```csv'
+            cat results/ecological_v17_bombus_limitation_gate/bombus_limitation_rank_diagnostic.csv
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -196,9 +209,11 @@ jobs:
             "source_rows=1965; target_n=none" \
             "upstream_artifact_id=${FRESH_STAGE02_ARTIFACT_ID}" \
             "upstream_artifact_sha256=${FRESH_STAGE02_ARTIFACT_SHA256}" \
-            "stage03_loader=explicit current R/local_bombus_turnover.R" \
+            "stage03_helper=current R/local_bombus_turnover.R" \
             "environment_matching_axes=broad50km_pc1,broad50km_pc2,within50km_pc1,within50km_pc2" \
-            "science_spec=unchanged" \
+            "gate_grid=0.10,0.20,0.25,0.33; primary=0.33; available=0.50" \
+            "gate_thresholds_changed=false" \
+            "science_spec=unchanged; non-estimability is retained as a result" \
             "commit=${GITHUB_SHA}" \
             > reproducibility/reanalysis_1965/stage03_resume_provenance.txt
 

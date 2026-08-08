@@ -79,5 +79,7 @@ source_build,r,source_build/prepare_rasters.R,public raster alignment utility
 source_build,r,source_build/fetch_bombus_occurrences.R,GBIF occurrence acquisition utility
 source_build,r,source_build/canonicalize_bombus_occurrences.R,canonical sorted and hashed GBIF occurrence snapshot utility
 source_build,r,source_build/build_bombus_sdm.R,seeded ENMeval maxnet Bombus SDM source builder
+source_build,r,source_build/project_bombus_sdm_national.R,project calibrated Bombus SDMs to the full national predictor grid
 source_build,validation,validation/compare_bombus_sdm_rebuilds.R,independent repeated-build SDM prediction comparison
+source_build,validation,validation/compare_bombus_national_projections.R,independent repeated-build national projection comparison
 source_build_test,python,tests/python/test_extract_color.py,colour extraction utility test

@@ -2,6 +2,8 @@
 
 Date: 2026-08-08
 
+Machine-readable lock aliases used by the workflow: `post-null hypothesis-refining`; primary implementation key: `effective_occmax`. These aliases only map the already-locked prose specification to code and do not change the scientific design.
+
 ## Status and reason for refinement
 
 This analysis is specified **after** the first fresh-SDM directional test returned a non-significant result. It is therefore a hypothesis-refining / exploratory reanalysis, not an independent confirmatory test. The original null result remains reportable and is not replaced.

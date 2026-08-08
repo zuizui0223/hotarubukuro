@@ -66,6 +66,12 @@ model:
   prediction_scale: cloglog
   minimum_occurrence_cells: 20
 
+projection:
+  domain: full_prepared_grid
+  clamp: true
+  calibration_domain: species_specific_accessible_area_M
+  interpretation: model_transfer_outside_M_not_observed_occurrence
+
 predictors:
   bio4: chelsa_bio04.tif
   bio6: chelsa_bio06.tif

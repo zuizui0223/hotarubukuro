@@ -11,7 +11,20 @@ output_dir <- arg_value(
 refresh <- as_bool(arg_value("--refresh", "false"))
 page_size <- as.integer(arg_value("--page-size", "300"))
 max_uncertainty_m <- as.numeric(arg_value("--max-coordinate-uncertainty-m", "10000"))
+gbif_max_attempts <- as.integer(arg_value("--gbif-max-attempts", "8"))
+gbif_initial_backoff_s <- as.numeric(arg_value("--gbif-initial-backoff-s", "2"))
+gbif_max_backoff_s <- as.numeric(arg_value("--gbif-max-backoff-s", "60"))
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+if (!is.finite(gbif_max_attempts) || gbif_max_attempts < 1L) {
+  stop("--gbif-max-attempts must be an integer >= 1")
+}
+if (!is.finite(gbif_initial_backoff_s) || gbif_initial_backoff_s < 0) {
+  stop("--gbif-initial-backoff-s must be >= 0")
+}
+if (!is.finite(gbif_max_backoff_s) || gbif_max_backoff_s < gbif_initial_backoff_s) {
+  stop("--gbif-max-backoff-s must be >= --gbif-initial-backoff-s")
+}
 
 species <- data.frame(
   scientific_name = c(
@@ -35,13 +48,49 @@ extract_key <- function(x) {
   NA_character_
 }
 
+gbif_retry <- function(request, label) {
+  last_error <- NULL
+  for (attempt in seq_len(gbif_max_attempts)) {
+    value <- tryCatch(
+      request(),
+      error = function(e) {
+        last_error <<- e
+        NULL
+      }
+    )
+    if (!is.null(value)) return(value)
+    if (attempt >= gbif_max_attempts) break
+
+    wait_s <- min(
+      gbif_max_backoff_s,
+      gbif_initial_backoff_s * (2 ^ (attempt - 1L))
+    )
+    message(
+      "[GBIF] request failed for ", label,
+      " (attempt ", attempt, "/", gbif_max_attempts, "): ",
+      conditionMessage(last_error),
+      "; retrying in ", format(wait_s, trim = TRUE), " s"
+    )
+    if (wait_s > 0) Sys.sleep(wait_s)
+  }
+
+  stop(
+    "GBIF request failed after ", gbif_max_attempts,
+    " attempts for ", label, ": ", conditionMessage(last_error),
+    call. = FALSE
+  )
+}
+
 fetch_one <- function(scientific_name, short) {
   path <- file.path(output_dir, paste0(short, "_gbif.csv"))
   if (file.exists(path) && !refresh) {
     return(readr::read_csv(path, show_col_types = FALSE))
   }
-  backbone <- rgbif::name_backbone(
-    name = scientific_name, kingdom = "Animalia", rank = "species", strict = FALSE
+  backbone <- gbif_retry(
+    function() rgbif::name_backbone(
+      name = scientific_name, kingdom = "Animalia", rank = "species", strict = FALSE
+    ),
+    paste0(short, " taxon backbone")
   )
   taxon_key <- extract_key(backbone)
   if (is.na(taxon_key)) stop("GBIF taxon key unresolved for ", scientific_name)
@@ -50,14 +99,17 @@ fetch_one <- function(scientific_name, short) {
   start <- 0L
   repeat {
     message("[GBIF] ", short, " start=", start)
-    ans <- rgbif::occ_search(
-      taxonKey = taxon_key, country = "JP", hasCoordinate = TRUE,
-      occurrenceStatus = "present", limit = page_size, start = start,
-      fields = c(
-        "key", "scientificName", "decimalLongitude", "decimalLatitude",
-        "coordinateUncertaintyInMeters", "basisOfRecord", "year", "month",
-        "day", "eventDate", "datasetKey", "publishingOrgKey", "issues"
-      )
+    ans <- gbif_retry(
+      function() rgbif::occ_search(
+        taxonKey = taxon_key, country = "JP", hasCoordinate = TRUE,
+        occurrenceStatus = "present", limit = page_size, start = start,
+        fields = c(
+          "key", "scientificName", "decimalLongitude", "decimalLatitude",
+          "coordinateUncertaintyInMeters", "basisOfRecord", "year", "month",
+          "day", "eventDate", "datasetKey", "publishingOrgKey", "issues"
+        )
+      ),
+      paste0(short, " occurrence page start=", start)
     )
     if (!nrow(ans$data)) break
     pages[[length(pages) + 1L]] <- ans$data
@@ -119,7 +171,14 @@ jsonlite::write_json(
     accessed_utc = format(Sys.time(), tz = "UTC", usetz = TRUE),
     gbif_query = list(
       country = "JP", hasCoordinate = TRUE, occurrenceStatus = "present",
-      maximum_coordinate_uncertainty_m = max_uncertainty_m
+      maximum_coordinate_uncertainty_m = max_uncertainty_m,
+      page_size = page_size
+    ),
+    retry_policy = list(
+      maximum_attempts_per_request = gbif_max_attempts,
+      initial_backoff_seconds = gbif_initial_backoff_s,
+      maximum_backoff_seconds = gbif_max_backoff_s,
+      schedule = "deterministic exponential backoff; no random jitter"
     ),
     temporal_use = paste(
       "month/day is used only for response-blind seasonal availability;",

@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 script_argument <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-script_path <- if (length(script_argument)) sub("^--file=", "", script_argument[[1]]) else "scripts/download_rasters.R"
+script_path <- if (length(script_argument)) sub("^--file=", "", script_argument[[1]]) else "source_build/download_rasters.R"
 default_root <- normalizePath(file.path(dirname(script_path), ".."), winslash = "/", mustWork = TRUE)
 repo_root <- Sys.getenv("HOTARUBUKURO_ROOT", unset = default_root)
 source(file.path(repo_root, "R", "raster_sources.R"))
@@ -11,7 +11,7 @@ usage <- function() {
     "Download or spatially subset the pinned public raster sources into data/cache.",
     "",
     "Usage:",
-    "  Rscript scripts/download_rasters.R [--only id1,id2] [--force] [--dry-run]",
+    "  Rscript source_build/download_rasters.R [--only id1,id2] [--force] [--dry-run]",
     "      [--pipeline config/pipeline.yml] [--config config/raster_sources.csv]",
     "      [--cache-dir data/cache/rasters]",
     "",
@@ -54,7 +54,7 @@ raster_processing_code_sha256 <- sha256_file(
   file.path(repo_root, "R", "raster_sources.R")
 )
 raster_download_script_sha256 <- sha256_file(
-  file.path(repo_root, "scripts", "download_rasters.R")
+  file.path(repo_root, "source_build", "download_rasters.R")
 )
 bbox <- pipeline_bbox(pipeline)
 force <- if (is.null(args$force)) FALSE else as_flag(args$force, "force")

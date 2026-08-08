@@ -1,7 +1,7 @@
 status,area,path,purpose
 active,interface,R/pipeline_support.R,only loader available to the 1909 pipeline
 active,model,R/natural_predictive_model.R,national environment and INLA-SPDE predictive baseline
-active,model,R/local_bombus_turnover.R,local Bombus fingerprint turnover test
+active,support,R/local_bombus_turnover.R,response-blind local pair utilities used by Bombus limitation gate
 active,support,R/candidate_null_tools.R,selection-aware predictive null helpers
 active,model,R/human_landscape_features.R,human landscape feature construction
 active,model,R/local_pigmented_isolates.R,primary pigmented-in-white candidate event
@@ -16,7 +16,9 @@ source_build,support,R/raster_sources.R,public raster acquisition and alignment 
 active,entrypoint,scripts/run_analysis_1909.sh,supported complete local runner
 active,entrypoint,scripts/run_publication_pipeline.R,ordered numerical stages and validation
 active,stage,scripts/run_natural_predictive_model.R,stage 02 runner
-active,stage,scripts/run_local_bombus_turnover.R,stage 03 runner
+active,stage,scripts/run_bombus_limitation_gate.R,stage 03 local Bombus limitation-gate runner
+sensitivity,analysis,scripts/run_local_bombus_turnover.R,superseded unsigned Bombus turnover sensitivity
+sensitivity,analysis,scripts/run_bombus_ecology_sensitivity.R,ecology-aligned group and occurrence-calibrated Bombus availability sensitivity
 active,stage,scripts/run_human_landscape_features.R,stage 04 feature runner
 active,stage,scripts/run_local_pigmented_isolates.R,stage 04 candidate runner
 supplementary,stage,scripts/run_candidate_doy_check.R,held-out DOY runner
@@ -34,15 +36,19 @@ support,validation,scripts/check_analysis_population.R,1909 row and colour-state
 support,reporting,scripts/report_analysis_arc.R,read fresh outputs as manuscript argument
 support,reporting,scripts/write_reproducibility_report.R,write run provenance report
 support,figures,scripts/build_publication_figures.R,public figure-generation interface
-support,figures,scripts/internal/build_publication_figures_core.R,figure implementation
+support,figures,scripts/internal/build_publication_figures_core.R,retained base implementation for Figures 1 2 and 4
+support,figures,scripts/internal/build_bombus_limitation_figure.R,active Figure 3 limitation-gate implementation
 validation,input,validation/audit_phenotype.R,audit frozen phenotype snapshot member
 validation,input,validation/audit_multiscale_hotspots.R,audit frozen 1-km cell snapshot member
 validation,stage,validation/validate_natural_predictive_model.R,stage 02 validator
 validation,stage,validation/audit_natural_predictive_model.R,stage 02 independent audit
-validation,stage,validation/validate_local_bombus_turnover.R,stage 03 validator
-validation,stage,validation/audit_local_bombus_turnover.R,stage 03 independent audit
+validation,stage,validation/validate_bombus_limitation_gate.R,stage 03 limitation-gate validator
+validation,stage,validation/audit_bombus_limitation_gate.R,stage 03 limitation-gate inference audit
+sensitivity_validation,stage,validation/validate_local_bombus_turnover.R,superseded turnover sensitivity validator
+sensitivity_validation,stage,validation/audit_local_bombus_turnover.R,superseded turnover sensitivity audit
+sensitivity_validation,analysis,validation/validate_bombus_ecology_sensitivity.R,validator for ecology-aligned Bombus availability sensitivity
 validation,stage,validation/validate_human_landscape_features.R,stage 04 feature validator
-validation,stage,validation/audit_human_landscape_features.R,stage 04 feature audit
+validation,stage,validation/audit_human_landscape_features.R,stage 04 independent audit
 validation,stage,validation/validate_local_pigmented_isolates.R,stage 04 candidate validator
 validation,stage,validation/audit_local_pigmented_isolates.R,stage 04 candidate audit
 validation,supplementary,validation/validate_candidate_doy_check.R,supplementary DOY validator
@@ -60,7 +66,7 @@ active_test,r,tests/testthat/test-candidate-null-tools.R,candidate null helper t
 active_test,r,tests/testthat/test-did-sensitivity.R,DID tests
 active_test,r,tests/testthat/test-human-landscape-features.R,human feature tests
 active_test,r,tests/testthat/test-human-raster-features.R,human raster tests
-active_test,r,tests/testthat/test-local-bombus-turnover.R,local Bombus tests
+active_test,r,tests/testthat/test-local-bombus-turnover.R,shared local-pair utility tests
 active_test,r,tests/testthat/test-local-human-context.R,local human-context tests
 active_test,r,tests/testthat/test-local-pigmented-isolates.R,local isolate tests
 active_test,r,tests/testthat/test-natural-predictive-model.R,natural model tests
@@ -72,5 +78,11 @@ source_build,r,source_build/audit_bombus_extraction.R,Bombus surface extraction 
 source_build,r,source_build/build_human_raster.R,MLIT raster builder
 source_build,r,source_build/download_rasters.R,public raster downloader
 source_build,r,source_build/prepare_rasters.R,public raster alignment utility
-source_build,r,source_build/fetch_bombus_occurrences.R,GBIF occurrence acquisition utility
+source_build,r,source_build/fetch_bombus_occurrences.R,GBIF focal occurrence and genus-wide Bombus target-group acquisition utility
+source_build,r,source_build/canonicalize_bombus_occurrences.R,canonical sorted and hashed focal plus target-group GBIF snapshot utility
+source_build,r,source_build/build_bombus_sdm.R,earlier species-specific-M seeded ENMeval source-build prototype
+source_build,r,source_build/project_bombus_sdm_national.R,earlier species-specific-M national projection prototype
+source_build,r,source_build/build_bombus_sdm_mainland.R,ecology-aligned common-mainland target-group ENMeval source builder
+source_build,validation,validation/compare_bombus_sdm_rebuilds.R,independent repeated-build SDM prediction comparison
+source_build,validation,validation/compare_bombus_national_projections.R,earlier national projection comparison prototype
 source_build_test,python,tests/python/test_extract_color.py,colour extraction utility test

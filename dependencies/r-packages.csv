@@ -28,6 +28,7 @@ dplyr,cran,acquisition,Occurrence-cache assembly
 readr,cran,acquisition,Occurrence-cache assembly
 ENMeval,cran,acquisition,Bombus species distribution model selection
 maxnet,cran,acquisition,Maxent-style fitting engine used by ENMeval
+usdm,cran,acquisition,Deterministic VIF predictor screening for Bombus SDMs
 testthat,cran,testing,Unit test framework
 knitr,cran,reporting,Report rendering
 rmarkdown,cran,reporting,Report rendering

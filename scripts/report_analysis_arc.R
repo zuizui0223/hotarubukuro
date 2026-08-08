@@ -1,28 +1,13 @@
-# Report the reconstruction as the paper's narrative arc.
-#
-# The pipeline reports itself as a list of stages, which is the right shape for
-# debugging and the wrong shape for reading. This walks the five steps of the
-# manuscript's argument in order and prints what the run actually produced at
-# each one, so the arc can be checked end to end rather than reassembled from
-# stage logs.
-#
-# It computes nothing. Every number here is read from a file another stage
-# wrote; if a stage did not run, its step is reported as absent rather than
-# filled in from anywhere else.
-
+# Report the active 1,909 reconstruction as the paper's narrative arc.
 args <- commandArgs(trailingOnly = TRUE)
 source("R/pipeline_support.R")
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
-
 report_dir <- arg_value("--report-dir", "reproducibility")
 dir.create(report_dir, recursive = TRUE, showWarnings = FALSE)
 
 read_if <- function(path) {
   if (!file.exists(path)) return(NULL)
-  out <- try(
-    utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE),
-    silent = TRUE
-  )
+  out <- try(utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE), silent = TRUE)
   if (inherits(out, "try-error")) NULL else out
 }
 fmt <- function(x, digits = 3) {
@@ -31,24 +16,18 @@ fmt <- function(x, digits = 3) {
   }
   format(round(as.numeric(x[[1L]]), digits), nsmall = 0L)
 }
+step <- function(number, title, body) c(paste0("## ", number, ". ", title), "", body, "")
 
 lines <- c(
-  "# The reconstruction, read as the paper's argument",
-  "",
+  "# The reconstruction, read as the paper's argument", "",
   paste(
-    "Five steps, in the order the manuscript makes them. Every value below was",
-    "read from a file this run produced. A step whose stage did not run is",
-    "reported as absent; nothing is carried over from a previous run or from",
-    "the published outputs."
-  ),
-  ""
+    "The paper uses one measurement framework, one national natural baseline,",
+    "a directional local Bombus-limitation hypothesis, and a separate",
+    "post-selection human-context extension. Every number below is read from",
+    "fresh outputs from this run."
+  ), ""
 )
 
-step <- function(number, title, body) {
-  c(paste0("## ", number, ". ", title), "", body, "")
-}
-
-# --- 1. Broad environmental and spatial structure ---------------------------
 performance <- read_if(
   "results/ecological_v16_predictive_replication/predictive_replication_model_performance.csv"
 )
@@ -56,166 +35,95 @@ if (is.null(performance)) {
   lines <- c(lines, step(1, "Broad environmental and spatial structure",
     "Absent: the natural predictive model stage produced no performance table."))
 } else {
-  presence <- performance[
-    performance$model == "national_environment_spde_presence", , drop = FALSE
-  ]
-  intensity <- performance[
-    performance$model == "national_environment_spde_intensity", , drop = FALSE
-  ]
+  presence <- performance[performance$model == "national_environment_spde_presence", , drop = FALSE]
+  intensity <- performance[performance$model == "national_environment_spde_intensity", , drop = FALSE]
   lines <- c(lines, step(1, "Broad environmental and spatial structure", c(
-    paste0(
-      "Cross-fitted over five response-blind 100-km folds, 1,000 predictive ",
-      "draws per held-out cell."
-    ),
-    "",
+    "Five response-blind 100-km folds with 1,000 predictive draws per held-out cell.", "",
     paste0("- pigmentation presence AUC: ", fmt(presence$AUC)),
     paste0("- conditional intensity RMSE: ", fmt(intensity$RMSE)),
     paste0("- components fitted: ", nrow(performance))
   )))
 }
 
-# --- 2. Correspondence with the local bumblebee community -------------------
-turnover <- read_if(
-  "results/ecological_v17_local_pair_turnover/local_pair_predictive_summary.csv"
+gate <- read_if(
+  "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_summary.csv"
 )
-if (is.null(turnover)) {
-  lines <- c(lines, step(2, "Correspondence with the local bumblebee community",
-    "Absent: the local turnover stage produced no summary."))
+meta <- read_if(
+  "results/ecological_v17_bombus_limitation_gate/bombus_limitation_gate_metadata.csv"
+)
+if (is.null(gate)) {
+  lines <- c(lines, step(2, "Local Bombus limitation and pigmentation benefit",
+    "Absent: the Bombus limitation-gate stage produced no summary."))
 } else {
-  primary <- turnover[turnover$radius_km %in% 25, , drop = FALSE]
-  if (!nrow(primary)) primary <- turnover
-  rows <- vapply(seq_len(nrow(primary)), function(i) {
-    paste0(
-      "- ", primary$response[i], ": partial beta=",
-      fmt(primary$observed_partial_beta[i]),
-      ", p=", fmt(primary$beta_empirical_p[i], 4),
-      ", BH q=", fmt(primary$BH_q_primary_25km[i], 4)
-    )
-  }, character(1))
-  lines <- c(lines, step(2, "Correspondence with the local bumblebee community",
-    c("At the pre-specified 25-km scale:", "", rows)))
-}
-
-# --- 3. Local departure from the natural baseline ---------------------------
-isolate_summary <- read_if(
-  "results/ecological_v20_local_white_isolates/local_isolate_natural_null_summary.csv"
-)
-candidates <- read_if(
-  "results/ecological_v20_local_white_isolates/local_isolate_candidates.csv"
-)
-directional <- if (is.null(candidates)) {
-  "Absent: the local-isolate stage produced no candidate table."
-} else {
-  c(
-    paste0(
-      "Directional event, as in the manuscript: a pigmented 1-km cell whose ",
-      "environment-similar neighbours within 10 km are all observed white."
-    ),
-    "",
-    paste0("- candidates: ", nrow(candidates)),
-    paste0(
-      "- candidate cells: ",
-      paste(utils::head(candidates$exact_site_id, 40), collapse = ", ")
-    )
-  )
-}
-lines <- c(lines, step(3, "Local departure from the natural baseline", directional))
-
-# --- 3b. The same departure without assuming a direction --------------------
-asymmetry <- read_if(
-  "results/ecological_v23_local_state_asymmetry/local_state_asymmetry_summary.csv"
-)
-agnostic <- if (is.null(asymmetry)) {
-  paste(
-    "Absent: the symmetry diagnostic did not run. The directional result above",
-    "therefore stands without a direction-agnostic comparison."
-  )
-} else {
-  rows <- vapply(seq_len(nrow(asymmetry)), function(i) {
-    paste0(
-      "- ", asymmetry$metric[i], ": observed=",
-      fmt(asymmetry$observed_value[i]),
-      ", null mean=", fmt(asymmetry$null_mean[i]),
-      ", two-sided p=", fmt(asymmetry$two_sided_p[i], 4)
-    )
-  }, character(1))
-  c(
+  primary <- gate[gate$is_primary_gate, , drop = FALSE]
+  p <- primary[primary$response == "pigmentation_share", , drop = FALSE]
+  i <- primary[primary$response == "pigmented_only_intensity", , drop = FALSE]
+  lines <- c(lines, step(2, "Local Bombus limitation and pigmentation benefit", c(
     paste(
-      "The step above assumes pigmented-among-white is the signal. This",
-      "replays the same neighbourhood graph and the same natural null without",
-      "that assumption, counting a white cell among pigmented neighbours as",
-      "the same kind of departure. Post hoc symmetry diagnostic; it selects no",
-      "candidates and changes nothing downstream."
-    ),
+      "Nearby cells were matched before reading flower colour. The active",
+      "lower-third gate contrasts cells where all five focal Bombus species",
+      "have low within-species predicted support against cells where at least",
+      "one species is at or above median support."
+    ), "",
+    paste0("- matched pigmentation pairs: ", p$n_pairs),
+    paste0("- pigmentation difference, available - limited: ", fmt(p$observed_directed_difference)),
+    paste0("- natural-map upper-tail p: ", fmt(p$upper_tail_p, 4)),
+    paste0("- across-grid BH q: ", fmt(p$BH_q_all_gate_tests, 4)),
+    paste0("- pigmented-only intensity difference: ", fmt(i$observed_directed_difference)),
+    paste0("- intensity upper-tail p: ", fmt(i$upper_tail_p, 4)),
     "",
-    rows
-  )
-}
-lines <- c(
-  lines,
-  step("3b", "The same departure without assuming a direction", agnostic)
-)
-
-# --- 4. Human-landscape characterisation of the candidates ------------------
-human <- read_if(
-  paste0(
-    "results/ecological_v21_local_human_neighbourhood/",
-    "human_neighbourhood_contrast_summary.csv"
-  )
-)
-if (is.null(human)) {
-  lines <- c(lines, step(4, "Human-landscape characterisation of the candidates",
-    "Absent: the human-context stage produced no contrast summary."))
-} else {
-  passed <- sum(human$maxT_FWER_p < 0.05, na.rm = TRUE)
-  lines <- c(lines, step(4, "Human-landscape characterisation of the candidates", c(
     paste(
-      "Computed only after the candidates and their white-neighbour",
-      "comparison sets were fixed."
-    ),
-    "",
-    paste0("- contrasts tested: ", nrow(human)),
-    paste0("- passing familywise maxT at 0.05: ", passed),
-    paste0(
-      "- smallest maxT p: ",
-      fmt(min(human$maxT_FWER_p, na.rm = TRUE), 4)
+      "The gate was adopted after exploratory design development for biological",
+      "interpretability; the full threshold grid and its multiplicity remain",
+      "visible. SDM support is predicted availability, not visitation pressure."
     )
   )))
 }
 
-# --- 5. The light DOY check on the horticultural hypothesis -----------------
-doy <- read_if(
-  "results/ecological_v24_candidate_doy_check/candidate_doy_summary.csv"
+candidates <- read_if(
+  "results/ecological_v20_local_white_isolates/local_isolate_candidates.csv"
 )
+if (is.null(candidates)) {
+  lines <- c(lines, step(3, "Local departure from the natural baseline",
+    "Absent: the local-isolate stage produced no candidate table."))
+} else {
+  lines <- c(lines, step(3, "Local departure from the natural baseline", c(
+    paste(
+      "A separate event asks where a pigmented 1-km cell occurs among",
+      "environment-similar white neighbours. This does not use the Bombus gate."
+    ), "",
+    paste0("- candidates: ", nrow(candidates)),
+    paste0("- candidate cells: ", paste(utils::head(candidates$exact_site_id, 40), collapse = ", "))
+  )))
+}
+
+human <- read_if(
+  "results/ecological_v21_local_human_neighbourhood/human_neighbourhood_contrast_summary.csv"
+)
+if (is.null(human)) {
+  lines <- c(lines, step(4, "Human-landscape characterisation of candidates",
+    "Absent: the human-context stage produced no contrast summary."))
+} else {
+  lines <- c(lines, step(4, "Human-landscape characterisation of candidates", c(
+    "Computed only after candidates and comparison neighbourhoods were fixed.", "",
+    paste0("- contrasts tested: ", nrow(human)),
+    paste0("- passing familywise maxT at 0.05: ", sum(human$maxT_FWER_p < 0.05, na.rm = TRUE)),
+    paste0("- smallest maxT p: ", fmt(min(human$maxT_FWER_p, na.rm = TRUE), 4))
+  )))
+}
+
+doy <- read_if("results/ecological_v24_candidate_doy_check/candidate_doy_summary.csv")
 if (is.null(doy)) {
-  lines <- c(lines, step(5, "The light DOY check on the horticultural hypothesis",
+  lines <- c(lines, step(5, "Held-out flowering-date description",
     "Absent: the supplementary flowering-date stage produced no summary."))
 } else {
-  rows <- vapply(seq_len(nrow(doy)), function(i) {
-    paste0(
-      "- ", doy$role[i], " (", doy$neighbour_set[i], " neighbours): mean ",
-      fmt(doy$mean_difference_days[i], 2), " days, ",
-      doy$n_earlier_than_neighbours[i], " earlier / ",
-      doy$n_later_than_neighbours[i], " later, ",
-      doy$n_with_usable_neighbours[i], " of ", doy$n_focal_cells[i],
-      " cells with usable neighbours"
-    )
-  }, character(1))
-  lines <- c(lines, step(5, "The light DOY check on the horticultural hypothesis", c(
-    paste(
-      "Supplementary. Each candidate's median flowering day-of-year minus the",
-      "mean of its environment-similar neighbours under the locked graph;",
-      "negative means earlier. The matched controls carry the same statistic",
-      "so the candidate values can be read against something."
-    ),
-    "",
-    paste(
-      "No model is fitted and the withdrawn national phenology component is",
-      "not restored. Flowering date reaches no selection, no ranking and no",
-      "main claim."
-    ),
-    "",
-    rows
+  rows <- vapply(seq_len(nrow(doy)), function(i) paste0(
+    "- ", doy$role[i], " (", doy$neighbour_set[i], " neighbours): mean ",
+    fmt(doy$mean_difference_days[i], 2), " days; ",
+    doy$n_with_usable_neighbours[i], " usable cells"
+  ), character(1))
+  lines <- c(lines, step(5, "Held-out flowering-date description", c(
+    "Supplementary only; no model, selection, ranking, or main claim.", "", rows
   )))
 }
 

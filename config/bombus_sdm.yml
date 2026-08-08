@@ -1,0 +1,119 @@
+version: 2
+
+reproducibility:
+  base_seed: 42
+  rng_kind: Mersenne-Twister
+  normal_kind: Inversion
+  sample_kind: Rejection
+  threads: 1
+  repeated_rebuilds: 2
+  raster_value_tolerance: 1.0e-12
+
+occurrence:
+  country: JP
+  occurrence_status: present
+  has_coordinate: true
+  max_coordinate_uncertainty_m: 10000
+  accepted_basis_of_record:
+    - HUMAN_OBSERVATION
+    - OBSERVATION
+    - PRESERVED_SPECIMEN
+    - MATERIAL_SAMPLE
+    - MACHINE_OBSERVATION
+  one_record_per_predictor_cell: true
+
+species:
+  - scientific_name: Bombus ardens
+    short: ardens
+    ecological_group: widespread
+  - scientific_name: Bombus diversus
+    short: diversus
+    ecological_group: widespread
+  - scientific_name: Bombus beaticola
+    short: beaticola
+    ecological_group: alpine
+  - scientific_name: Bombus consobrinus
+    short: consobrinus
+    ecological_group: high_montane
+  - scientific_name: Bombus honshuensis
+    short: honshuensis
+    ecological_group: montane
+
+study_domain:
+  interpretation: common_mainland_domain_matching_the_flower_colour_question
+  longitude_min: 128.0
+  longitude_max: 144.0
+  latitude_min: 30.0
+  latitude_max: 41.5
+  note: >-
+    Common Honshu-Shikoku-Kyushu study domain. Species are not assumed to occupy
+    every cell: broad versus montane/alpine distributions are learned from
+    occurrence-environment contrasts within the same observation-effort domain.
+
+background:
+  source: genus_wide_bombus_target_group
+  target_group_n: 10000
+  minimum_n: 1000
+  fallback_random_within_domain: false
+  note: >-
+    Background consists of unique predictor cells containing any filtered
+    Japanese Bombus GBIF record in the common mainland domain. It represents
+    heterogeneous bumblebee observation effort and is not pseudo-absence.
+
+predictor_screening:
+  vif_threshold: 10
+  domain_sample_n: 20000
+  minimum_complete_cells: 1000
+  shared_predictor_set_across_species: true
+
+model:
+  algorithm: maxnet
+  partitions: block
+  feature_classes:
+    - L
+    - LQ
+    - LQH
+  regularization_multipliers:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+  selection_rule: minimum_finite_AICc
+  prediction_scale: cloglog
+  clamp: true
+  minimum_occurrence_cells: 20
+
+availability_exposure:
+  primary: maximum_within_species_support_rank
+  interpretation: >-
+    At least one focal Bombus taxon has moderate or high predicted habitat
+    support. This is a proxy for potential availability, not abundance,
+    visitation, pollen transfer, attraction strength or selection pressure.
+  auc_weighting: false
+  reason_not_auc_weighted: >-
+    Cross-species AUC reflects niche breadth, background contrast and sampling
+    structure as well as prediction error; high AUC in narrow alpine species
+    must not automatically give that species greater biological weight.
+  planned_sensitivities:
+    - widespread_only_ardens_diversus
+    - montane_alpine_only_beaticola_consobrinus_honshuensis
+    - leave_one_species_out
+
+predictors:
+  bio4: chelsa_bio04.tif
+  bio6: chelsa_bio06.tif
+  bio13: chelsa_bio13.tif
+  CMI: chelsa_cmimean.tif
+  RSDS: chelsa_rsdsmean.tif
+  bdod: soilgrids_bdod_0_5cm_mean.tif
+  cfvo: soilgrids_cfvo_0_5cm_mean.tif
+  sand: soilgrids_sand_0_5cm_mean.tif
+  silt: soilgrids_silt_0_5cm_mean.tif
+  nitrogen: soilgrids_nitrogen_0_5cm_mean.tif
+  soil_pH: soilgrids_phh2o_0_5cm_mean.tif
+  soc: soilgrids_soc_0_5cm_mean.tif
+  elevation: elevation_30s.tif
+  derived:
+    - slope
+    - roughness

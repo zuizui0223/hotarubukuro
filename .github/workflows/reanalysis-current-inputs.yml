@@ -1,0 +1,169 @@
+name: Full reanalysis with current upstream inputs
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/reanalyse-from-1965-new-bombus
+    paths:
+      - .github/workflows/reanalysis-current-inputs.yml
+      - scripts/run_reanalysis_current_inputs.sh
+      - scripts/report_reanalysis_current_inputs.R
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: current-input-reanalysis-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GOTO_NUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+  HOTARUBUKURO_R_SEED: "20260725"
+  HOTARUBUKURO_SUBMISSION_DRAWS: "10000"
+  HOTARUBUKURO_JOINT_LATENT_DRAWS: "10000"
+  HOTARUBUKURO_JOINT_OBS_REPS: "20"
+  BOMBUS_ARTIFACT_ID: "9020226937"
+  BOMBUS_ARTIFACT_SHA256: "d5d639e8e00d1ccc2f887c53fa8041465905b29f6bca1127f816e8c7a649d708"
+  UPSTREAM_COMMIT: "1d7c575f1191e4e035db01a617f52b75eeaca313"
+
+jobs:
+  reanalyse:
+    name: Rebuild upstream and rerun complete analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout current analysis branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact upstream implementation
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.UPSTREAM_COMMIT }}
+          path: upstream
+          fetch-depth: 1
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: reanalysis-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            reanalysis-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore public raster source cache
+        uses: actions/cache@v4
+        with:
+          path: data/cache/rasters
+          key: current-upstream-rasters-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R') }}
+          restore-keys: |
+            raw-sources-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R') }}
+            raw-sources-
+            current-upstream-rasters-
+
+      - name: Restore declared R environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility
+          --scopes analysis,reproducibility,acquisition,testing,figures,reporting
+
+      - name: Download validated Bombus source-build artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf source-artifact /tmp/bombus-source.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BOMBUS_ARTIFACT_ID}/zip" \
+            -o /tmp/bombus-source.zip
+          actual="$(sha256sum /tmp/bombus-source.zip | awk '{print $1}')"
+          echo "Bombus artifact sha256=${actual}"
+          [[ "$actual" == "$BOMBUS_ARTIFACT_SHA256" ]] || {
+            echo "Bombus artifact digest mismatch" >&2
+            exit 1
+          }
+          mkdir -p source-artifact
+          unzip -q /tmp/bombus-source.zip -d source-artifact
+          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/ardens.tif
+          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/diversus.tif
+          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/beaticola.tif
+          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/consobrinus.tif
+          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/honshuensis.tif
+
+      - name: Run full current-input analysis
+        shell: bash
+        run: bash scripts/run_reanalysis_current_inputs.sh "$GITHUB_WORKSPACE/upstream" "$GITHUB_WORKSPACE/source-artifact"
+
+      - name: Record workflow provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p reanalysis_status
+          {
+            echo "workflow=reanalysis-current-inputs"
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "commit=${GITHUB_SHA}"
+            echo "upstream_implementation_commit=${UPSTREAM_COMMIT}"
+            echo "bombus_artifact_id=${BOMBUS_ARTIFACT_ID}"
+            echo "bombus_artifact_sha256=${BOMBUS_ARTIFACT_SHA256}"
+            echo "source_rows=1965"
+            echo "historical_n_target=none"
+          } > reanalysis_status/workflow_provenance.txt
+          find reanalysis_inputs reanalysis_status results manuscript/figures \
+            -type f -printf '%p\t%s\n' 2>/dev/null | sort \
+            > reanalysis_status/result_inventory.tsv
+
+      - name: Upload complete reanalysis outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-input-reanalysis-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            reanalysis_inputs
+            reanalysis_status
+            reproducibility
+            data/processed/raster_download_manifest.csv
+            data/processed/raster_manifest.csv
+            results
+            manuscript/figures
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

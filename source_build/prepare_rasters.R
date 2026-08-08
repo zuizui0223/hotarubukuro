@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 script_argument <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-script_path <- if (length(script_argument)) sub("^--file=", "", script_argument[[1]]) else "scripts/prepare_rasters.R"
+script_path <- if (length(script_argument)) sub("^--file=", "", script_argument[[1]]) else "source_build/prepare_rasters.R"
 default_root <- normalizePath(file.path(dirname(script_path), ".."), winslash = "/", mustWork = TRUE)
 repo_root <- Sys.getenv("HOTARUBUKURO_ROOT", unset = default_root)
 source(file.path(repo_root, "R", "raster_sources.R"))
@@ -11,7 +11,7 @@ usage <- function() {
     "Prepare public predictors on the canonical EPSG:4326 30 arc-second grid.",
     "",
     "Usage:",
-    "  Rscript scripts/prepare_rasters.R [--only id1,id2] [--force] [--no-download]",
+    "  Rscript source_build/prepare_rasters.R [--only id1,id2] [--force] [--no-download]",
     "      [--dry-run] [--pipeline config/pipeline.yml]",
     "      [--config config/raster_sources.csv]",
     "",
@@ -40,7 +40,7 @@ raster_processing_code_sha256 <- sha256_file(
   file.path(repo_root, "R", "raster_sources.R")
 )
 raster_preparation_script_sha256 <- sha256_file(
-  file.path(repo_root, "scripts", "prepare_rasters.R")
+  file.path(repo_root, "source_build", "prepare_rasters.R")
 )
 pipeline_config_sha256 <- sha256_file(pipeline_path)
 raster_registry_sha256 <- sha256_file(registry_path)

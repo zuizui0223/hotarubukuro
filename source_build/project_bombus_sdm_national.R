@@ -8,6 +8,7 @@ arg_value <- function(flag, default = NULL) {
   hit <- args[startsWith(args, prefix)]
   if (length(hit)) sub(prefix, "", hit[[1L]], fixed = TRUE) else default
 }
+`%||%` <- function(x, y) if (is.null(x)) y else x
 
 required_packages <- c("yaml", "terra", "ENMeval", "readr", "digest", "jsonlite")
 missing_packages <- required_packages[
@@ -30,7 +31,6 @@ if (!identical(projection_domain, "full_prepared_grid")) {
   stop("Only projection.domain=full_prepared_grid is supported.", call. = FALSE)
 }
 
-`%||%` <- function(x, y) if (is.null(x)) y else x
 sha256_file <- function(path) unname(digest::digest(file = path, algo = "sha256"))
 write_csv <- function(x, path) {
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
@@ -129,7 +129,7 @@ for (i in seq_len(nrow(species))) {
     gdal = c("COMPRESS=DEFLATE", "TILED=YES")
   )
 
-  finite_n <- as.numeric(terra::global(is.finite(pred), "sum", na.rm = TRUE)[1, 1])
+  finite_n <- as.numeric(terra::global(!is.na(pred), "sum", na.rm = TRUE)[1, 1])
   manifest_rows[[i]] <- data.frame(
     species = sp,
     short = sh,

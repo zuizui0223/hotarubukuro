@@ -1,0 +1,69 @@
+name: Trace 1965 Bombus stage 03
+
+on:
+  push:
+    branches: [agent/reanalysis-1965-new-bombus]
+    paths: [.github/workflows/reanalysis-1965-trace-stage03.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  trace-stage03:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      HOTARUBUKURO_R_SEED: "42"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      GOTO_NUM_THREADS: "1"
+      BLIS_NUM_THREADS: "1"
+      GDAL_NUM_THREADS: "1"
+      OMP_DYNAMIC: "FALSE"
+      FRESH_ARTIFACT_ID: "9021172765"
+      FRESH_ARTIFACT_SHA256: "3b2e01a2edd6ccc1b3797ed4438dc4c0f1a4aaa9bee472658e7af6e116485bab"
+    steps:
+      - uses: actions/checkout@v4
+      - id: rversion
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+      - name: Restore fresh upstream artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_ARTIFACT_ID}/zip" > /tmp/fresh.zip
+          echo "${FRESH_ARTIFACT_SHA256}  /tmp/fresh.zip" | sha256sum -c -
+          rm -rf /tmp/fresh && mkdir -p /tmp/fresh
+          unzip -q /tmp/fresh.zip -d /tmp/fresh
+          rm -rf results/ecological_v15_multiscale_hotspots results/ecological_v16_predictive_replication results/ecological_v17_bombus_limitation_gate
+          mkdir -p results
+          cp -a /tmp/fresh/results/ecological_v15_multiscale_hotspots results/
+          cp -a /tmp/fresh/results/ecological_v16_predictive_replication results/
+      - name: Verify current helper and fresh axes
+        run: |
+          Rscript - <<'RS'
+          sys.source("R/local_bombus_turnover.R", envir=.GlobalEnv)
+          cells <- read.csv("results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv", check.names=FALSE)
+          required <- c("broad50km_pc1","broad50km_pc2","within50km_pc1","within50km_pc2")
+          stopifnot(all(required %in% names(cells)))
+          stopifnot(all(vapply(cells[required], function(x) all(is.finite(x)), logical(1))))
+          cat("cells=", nrow(cells), "; helper=current; axes=PASS\n", sep="")
+          RS
+      - name: Trace Bombus limitation stage
+        run: |
+          Rscript scripts/run_bombus_limitation_gate_reanalysis.R \
+            --artifact-root . \
+            --output results/ecological_v17_bombus_limitation_gate \
+            --env-match 0.75 \
+            --low-thresholds 0.10,0.20,0.25,0.33 \
+            --primary-low-threshold 0.33 \
+            --available-threshold 0.50

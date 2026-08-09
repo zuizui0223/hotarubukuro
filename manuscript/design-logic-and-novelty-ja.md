@@ -14,9 +14,31 @@
 
 従来の市民科学データベースだけを見るのではなく、本来は登山記録のために蓄積されたYAMAP写真を利用する。これは、別目的で蓄積されたデジタル情報を生態学に再利用するiEcologyの発想である。
 
-重要なのは「YAMAPの方が偏りがない」と主張することではない。YAMAPには登山道・アクセス・被写体選択の偏りが残る。一方で、写真が山行・GPS軌跡と結びつくため、山岳域の写真を空間情報付きで回収し、著者が種・花・花弁領域を確認した上で定量形質に変換できる。
+重要なのは「YAMAPの方が偏りがない」と主張することではない。YAMAPには登山道・アクセス・被写体選択・花の目立ちやすさの偏りが残る。一方で、写真が山行・GPS軌跡と結びつくため、山岳域の写真を空間情報付きで回収し、著者が種・花・花弁領域を確認した上で定量形質に変換できる。
 
-したがって方法上の成果は、**生物多様性記録用ではないアプリから、再現可能な定量形質地理データを構築するワークフロー**を示したことにある。
+さらに、この「別目的のデータ源」は単なる補助データではなかった。同じ日本・2023–2025年・写真＋座標という条件を固定したSupplementary benchmarkでは、YAMAP由来の著者確認済みsource rowは **1,964件（unique image hash 1,963）**、iNaturalistは **516 observations / 882 attached photos（Research Grade 472）**、GBIFのhuman-observation画像recordsは **393件**だった。したがってYAMAPは、同じ3年間だけでiNaturalistのphoto+geo observation数の **3.81倍**、全attached photo数と比べても **2.23倍**の画像を供給した。GBIF 393件のうち **389件（99.0%）はiNaturalistからのsyndication**だったため、GBIFとiNaturalistを独立な二つの画像poolとして足してはいけない。
+
+YAMAPの年別件数は2023/2024/2025年で **642 / 687 / 635** と非常に均衡しており（annual CV=0.043）、短い同時代windowで全国解析を組める。古い標本記録と近年写真を何十年分も混ぜる必要がなく、年を明示的なprovenanceとして保持できるのも利点である。
+
+ただし、この比較から「YAMAPのobserver biasが小さい」と一般化はしない。より限定して、**YAMAP利用者は生物種を報告することではなく山行を記録しているため、少なくともtaxon-reportingや研究目的そのものに条件づけられた選択は弱まり得る**、と考える。一方で、どの山へ行くか、何を撮るか、目立つ花を撮りやすいかという一般的なobserver biasは残る。iNaturalistにはcommunity identification / Research GradeというYAMAPにはない強いquality mechanismもある。したがって「優劣」ではなく、**異なるobservation processを持つ補完的データ源**として比較する。
+
+### 山岳samplingは欠点であると同時に、この研究では利点
+
+YAMAPは山・登山道中心なので、都市・庭園まで含む一般occurrence databaseに比べて、ホタルブクロの自生・半自然的な山地個体群を含む確率が高いsampling frameになると期待できる。これは「全レコードがwild」と保証するものではないが、**自然の花色地理を復元するMain 1/2にはむしろ目的に合ったenrichment**である。
+
+逆に、この特徴はMain 3のhuman-context解析ではurban-rural gradientを圧縮し、人為影響を検出するpowerを弱める可能性がある。ただし登山口、道路沿い、寺社、観光地などへのaccess biasは逆方向に働き得る。したがって弱いhuman signalは「人為影響がない」ではなく、**山岳sampling frameの中ではそれ以上の強い主張を支持しなかった**と読む。
+
+### データ量だけでなく、Data_S1までの「質の作り方」が方法論的成果
+
+YAMAPのnative metadataをそのまま解析したわけではない。定義した2023–2025年の取得枠内で回収した候補を間引かず著者が確認し、ホタルブクロではない写真や類似したツリガネニンジン類（*Adenophora*）などを除き、対象花・花弁領域を確認した。その後、画像hashで重複を監査し、写真と座標の対応をQCし、同じdeterministic pipelineでRGBからCIELABへ変換した。
+
+つまり `Data_S1` はoccurrence downloadではなく、
+
+`hiking photo -> date/GPS provenance -> exhaustive candidate review -> taxon/subject/ROI validation -> image-hash duplicate audit -> deterministic pixel summary -> RGB/CIELAB -> QC -> two-part phenotype`
+
+という加工履歴を持つ**定量形質データセット**である。一般市民科学DBの画像でも同じ処理は理論上可能だが、petal-levelの花色数値はnative fieldではなく、同じ追加の画像検証・形質化工程が必要になる。
+
+したがって方法上の成果は、**生物多様性記録用ではないアプリから、量・時空間provenance・著者確認・定量画像形質を組み合わせた再現可能なtrait-geography datasetを構築するワークフロー**を示したことにある。
 
 ## 1. 次に「色を分類するだけ」を超える：二段階の花色形質
 
@@ -83,7 +105,7 @@ Bombus SDMは環境から予測された地理情報である。したがって�
 
 ## 6. YAMAP samplingと人為影響の弱さの解釈
 
-YAMAPは山・登山道を中心とするため、全国の完全なurban-rural gradientより人為改変の幅が狭くなり、人為効果を検出するpowerが低下する可能性がある。
+YAMAPは山・登山道を中心とするため、全国の完全なurban-rural gradientより人為改変の幅が狭くなり、人為効果を検出するpowerが低下する可能性がある。これはMain 1/2ではnatural/semi-natural mountain populationを多く含む方向に働くため、同じsampling propertyが研究段階によって利点にも制約にもなる。
 
 一方、登山口・道路・アクセスしやすい山縁は人為環境と写真機会の両方が増える可能性がある。
 
@@ -93,13 +115,14 @@ YAMAPは山・登山道を中心とするため、全国の完全なurban-rural 
 
 この論文はモデルを増やして花色を説明し尽くそうとした研究ではない。
 
-1. 別目的のデジタル写真から広域定量形質を作る。
-2. 白/有色と有色内濃淡を分ける。
-3. 環境と空間で全国テンプレートを作る。
-4. SDMとの全国相関を避け、局所境界へスケールを変えて送粉仮説を問う。
-5. 高山ニッチの共有をguardrailで切り分ける。
-6. 残差ではなく反復可能なecological eventとして逸脱を定義する。
-7. その後にだけ人為的contextを特徴づける。
+1. 生物多様性記録用ではない登山写真streamを発掘し、同期間の一般市民科学DBよりも多量の対象画像を得る。
+2. それを全候補の著者確認・座標/重複QC・deterministic image phenotypingによって再現可能な `Data_S1` に変える。
+3. 白/有色と有色内濃淡を分ける。
+4. 環境と空間で全国テンプレートを作る。
+5. SDMとの全国相関を避け、局所境界へスケールを変えて送粉仮説を問う。
+6. 高山ニッチの共有をguardrailで切り分ける。
+7. 残差ではなく反復可能なecological eventとして逸脱を定義する。
+8. その後にだけ人為的contextを特徴づける。
 
 つまり、**花色多型の地理を一層ずつ剥がしながら、各層で「何なら言えて、何はまだ言えないか」を明示する論文**である。
 

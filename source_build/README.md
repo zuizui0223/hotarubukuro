@@ -1,32 +1,47 @@
-# Source-build utilities
+# Source-build utilities used by the current paper
 
-These utilities construct derived colour tables and public environmental or occurrence inputs. They remain separate from the current manuscript pipeline until a new source build is validated and explicitly adopted.
+These utilities construct the derived flower-colour table and the public environmental, Bombus and human-landscape inputs that feed the manuscript-facing workflows.
 
-- `extract_color.py` and `build_data_s1.py`: visible-colour and public-table utilities.
-- `download_rasters.R` and `prepare_rasters.R`: public-raster acquisition and alignment.
-- `fetch_bombus_occurrences.R`: live GBIF occurrence acquisition.
-- `canonicalize_bombus_occurrences.R`: sorted, deduplicated, hashed occurrence snapshot.
-- `build_bombus_sdm.R`: seeded five-species ENMeval/maxnet SDM source build.
-- `build_human_raster.R`: MLIT human-landscape raster preparation.
-- `audit_bombus_extraction.R`: prediction-surface extraction audit utility.
+For the scientific hierarchy, start with `paper/README.md`. Source construction is a data layer, not a separate manuscript story after the trait table has been built.
 
-## Seeded Bombus SDM source build
+## Flower-colour trait construction
 
-`.github/workflows/rebuild-bombus-sdm.yml` reconstructs all five Bombus SDMs from public inputs rather than consuming the manuscript's archived prediction TIFFs. The workflow uses `config/bombus_sdm.yml` as the complete model specification.
+- `extract_color.py` — deterministic visible-colour extraction from the validated focal flower/petal region.
+- `build_data_s1.py` — constructs the auditable derived `Data_S1` table with source/date/coordinate/image-hash/QC provenance.
 
-The recovered source-build design is:
+The active JBI Supporting Information treats this conversion from recreational photographs to quantitative traits as a methodological contribution.
+
+## Environmental and human inputs
+
+- `download_rasters.R` and `prepare_rasters.R` — public-raster acquisition and alignment.
+- `build_human_raster.R` — human-landscape raster preparation.
+
+## Fresh Bombus source build
+
+- `fetch_bombus_occurrences.R` — GBIF occurrence acquisition.
+- `canonicalize_bombus_occurrences.R` — sorted, deduplicated occurrence snapshot.
+- `build_bombus_sdm.R` — seeded five-species ENMeval/maxnet SDM build.
+- `audit_bombus_extraction.R` — prediction-surface extraction audit.
+
+`.github/workflows/rebuild-bombus-sdm.yml` reconstructs all five focal Bombus SDMs over the common study domain. The model specification is in `config/bombus_sdm.yml`.
+
+The recovered design is:
 
 1. acquire the declared CHELSA v2.1, SoilGrids 2.0 and WorldClim 2.1 predictors on one 30-arc-second grid;
-2. query Japanese GBIF occurrences for the five focal species, apply the declared coordinate and basis-of-record filters, then freeze the returned records by GBIF occurrence key;
+2. query Japanese GBIF occurrences for the five focal species and apply the declared filters;
 3. thin occurrences to one record per predictor cell;
-4. define species-specific accessible area M as an equal-area convex hull buffered by 15% of range diagonal, bounded to 100-300 km;
-5. screen predictors with VIF <= 10 from a seeded environmental-domain sample;
-6. build a target-group background from pooled focal-Bombus occurrence cells, with a seeded random cap of 10,000 cells and a seeded within-M fallback when necessary;
-7. fit ENMeval `maxnet` candidates with block partitioning, feature classes L/LQ/LQH and regularization multipliers 1-5;
-8. select the minimum finite AICc candidate and write a cloglog relative-suitability surface.
+4. define species-specific accessible areas;
+5. screen environmental predictors;
+6. build a target-group background;
+7. fit ENMeval `maxnet` candidates under spatial block partitioning; and
+8. select the minimum finite AICc candidate and write cloglog support surfaces.
 
-The reproducibility lock is explicit: base seed 42, Mersenne-Twister/Inversion/Rejection RNG, one computational thread, per-species/per-stage derived seeds, a pinned dated CRAN snapshot, configuration hashes and file hashes. The GitHub workflow performs two independent SDM rebuilds from the same frozen occurrence and raster inputs and fails unless selected-model tables and raster predictions agree within `1e-12`.
+For the manuscript, these SDMs are **environment-derived predicted habitat support**, not visitation, abundance, pollen transfer or selection pressure. Species surfaces are subsequently calibrated against the prediction distribution at observed occurrence cells before the local flower-colour test.
 
-A live GBIF refresh is not itself a permanent frozen input because GBIF can gain or revise records. Therefore the first successful source-build artifact must be promoted to an immutable source snapshot before its SDMs are adopted by the manuscript pipeline. The frozen snapshot should contain the canonical occurrence CSVs, prepared predictor rasters or equivalent immutable source assets and checksums, configuration, selected-model tables, fitted ENMeval objects and final prediction surfaces.
+## Frozen manuscript evidence versus live refreshes
 
-The existing 1,909 manuscript analysis remains unchanged until this new source build passes repeated-build validation and the downstream flower-colour analysis is rerun deliberately with the newly generated surfaces.
+GBIF and other public inputs can change. A live source refresh is therefore a new source-build exercise, not an automatic replacement for the manuscript evidence. The current paper uses checksum-locked successful artifacts listed in `paper/analysis-map.md`.
+
+The current directional pollinator analysis uses *B. ardens* and *B. diversus* because they define the documented broad focal-pollinator availability estimand. The other three taxa remain available for Supporting Information community-turnover and montane/elevation guardrails.
+
+Historical source-reconstruction prototypes and superseded analysis architectures are under `legacy/`.

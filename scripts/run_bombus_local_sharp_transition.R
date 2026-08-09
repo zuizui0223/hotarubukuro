@@ -2,8 +2,8 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 source("R/pipeline_support.R")
+source("R/local_pair_graph.R")
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
-hb_load_modules("local_bombus_turnover")
 
 cells_path <- arg_value(
   "--cells",
@@ -17,8 +17,7 @@ support_path <- arg_value(
   )
 )
 output_dir <- arg_value(
-  "--output",
-  "results/ecological_v18_bombus_local_sharp_transition"
+  "--output", "results/ecological_v18_bombus_local_sharp_transition"
 )
 radii <- as.numeric(strsplit(arg_value("--radii", "5,10,25"), ",")[[1]])
 k <- as.integer(arg_value("--k", "5"))
@@ -44,52 +43,38 @@ cells <- utils::read.csv(cells_path, check.names = FALSE, stringsAsFactors = FAL
 support <- utils::read.csv(support_path, check.names = FALSE, stringsAsFactors = FALSE)
 idx <- match(cells$exact_site_id, support$exact_site_id)
 if (anyNA(idx) || anyDuplicated(idx)) {
-  stop("Effective-Bombus support cannot be aligned one-to-one with cells.", call. = FALSE)
+  stop("Focal-pollinator support cannot be aligned one-to-one with cells.", call. = FALSE)
 }
 support <- support[idx, , drop = FALSE]
 
-v17_require_columns(
+lp_require_columns(
   cells,
   c(
     "exact_site_id", "x_km", "y_km", "longitude", "latitude",
     "bombus_fingerprint_common_support", "pigment_share", "n_observations",
-    "elevation", "bee_ardens", "bee_diversus",
-    "broad50km_pc1", "broad50km_pc2", "within50km_pc1", "within50km_pc2"
+    "elevation", "broad50km_pc1", "broad50km_pc2",
+    "within50km_pc1", "within50km_pc2"
   ),
-  "fresh cells"
+  "fresh flower cells"
 )
-v17_require_columns(
+lp_require_columns(
   support,
-  c(
-    "exact_site_id", "effective_occmax", "effective_rawmax", "all5_occmax",
-    "beaticola_occurrence_reference", "consobrinus_occurrence_reference",
-    "honshuensis_occurrence_reference"
-  ),
-  "effective-Bombus support"
+  c("exact_site_id", "effective_occmax", "effective_rawmax"),
+  "focal-pollinator support"
 )
 
-support$montane_occmax <- pmax(
-  as.numeric(support$beaticola_occurrence_reference),
-  as.numeric(support$consobrinus_occurrence_reference),
-  as.numeric(support$honshuensis_occurrence_reference)
-)
-exposure_names <- c(
-  "effective_occmax", "effective_rawmax", "montane_occmax", "all5_occmax"
-)
+exposure_names <- c("effective_occmax", "effective_rawmax")
 exposure_role <- c(
-  effective_occmax = "documented_effective_guild_primary",
-  effective_rawmax = "documented_effective_guild_raw_sensitivity",
-  montane_occmax = "potential_montane_substitution_diagnostic",
-  all5_occmax = "any_focal_bombus_sensitivity"
+  effective_occmax = "primary_occurrence_referenced_focal_pollinators",
+  effective_rawmax = "raw_cloglog_focal_pollinator_sensitivity"
 )
-
 for (nm in exposure_names) {
   if (any(!is.finite(as.numeric(support[[nm]])))) {
     stop("Non-finite exposure values in ", nm, call. = FALSE)
   }
 }
 
-environment <- v17_environment_matrix(cells)
+environment <- lp_environment_matrix(cells)
 colour <- as.numeric(cells$pigment_share)
 elevation <- as.numeric(cells$elevation)
 
@@ -129,54 +114,6 @@ signflip_mean_test <- function(values, B, seed_value) {
   )
 }
 
-joint_substitution_test <- function(delta_effective, delta_montane, B, seed_value) {
-  de <- as.numeric(delta_effective)
-  dm <- as.numeric(delta_montane)
-  keep <- is.finite(de) & is.finite(dm)
-  de <- de[keep]
-  dm <- dm[keep]
-  observed_subset <- de <= 0
-  if (!length(de) || !any(observed_subset)) {
-    return(c(
-      n_pairs = length(de), n_subset = sum(observed_subset), observed = NA_real_,
-      p = NA_real_, null_mean = NA_real_, null_sd = NA_real_
-    ))
-  }
-  observed <- mean(dm[observed_subset])
-  set.seed(seed_value)
-  ge <- 0L
-  total <- 0L
-  null_sum <- 0
-  null_sum_sq <- 0
-  chunk <- 2500L
-  while (total < B) {
-    m <- min(chunk, B - total)
-    signs <- matrix(sample(c(-1, 1), m * length(de), replace = TRUE), nrow = m)
-    de_null <- sweep(signs, 2, de, "*")
-    dm_null <- sweep(signs, 2, dm, "*")
-    use <- de_null <= 0
-    counts <- rowSums(use)
-    numerator <- rowSums(dm_null * use)
-    simulated <- numerator / pmax(counts, 1L)
-    valid <- counts > 0
-    simulated <- simulated[valid]
-    ge <- ge + sum(simulated >= observed)
-    null_sum <- null_sum + sum(simulated)
-    null_sum_sq <- null_sum_sq + sum(simulated^2)
-    total <- total + length(simulated)
-  }
-  null_mean <- null_sum / total
-  null_var <- max(0, (null_sum_sq - total * null_mean^2) / max(1, total - 1L))
-  c(
-    n_pairs = length(de),
-    n_subset = sum(observed_subset),
-    observed = observed,
-    p = (ge + 1) / (total + 1),
-    null_mean = null_mean,
-    null_sd = sqrt(null_var)
-  )
-}
-
 greedy_nonoverlap <- function(edges) {
   if (!nrow(edges)) return(edges)
   d <- edges[order(
@@ -208,11 +145,13 @@ pair_details <- function(edges, radius, threshold) {
   d$colour_difference <- d_colour[sharp]
   d$abs_colour_difference <- abs(d$colour_difference)
   d <- greedy_nonoverlap(d)
+
   i <- as.integer(d$i)
   j <- as.integer(d$j)
   j_pigmented <- d$colour_difference > 0
   pig <- ifelse(j_pigmented, j, i)
   white <- ifelse(j_pigmented, i, j)
+
   out <- data.frame(
     radius_km = radius,
     transition_threshold = threshold,
@@ -230,9 +169,8 @@ pair_details <- function(edges, radius, threshold) {
     pigmented_latitude = as.numeric(cells$latitude[pig]),
     white_elevation = elevation[white],
     pigmented_elevation = elevation[pig],
-    signed_elevation_difference = elevation[pig] - elevation[white],
     absolute_elevation_difference = abs(elevation[pig] - elevation[white]),
-    environmental_distance = v17_pair_distance(environment, white, pig),
+    environmental_distance = lp_pair_distance(environment, white, pig),
     stringsAsFactors = FALSE
   )
   for (nm in exposure_names) {
@@ -247,15 +185,13 @@ pair_details <- function(edges, radius, threshold) {
 summary_rows <- list()
 all_edge_rows <- list()
 pair_rows <- list()
-substitution_rows <- list()
 row_id <- 0L
 all_id <- 0L
 pair_id <- 0L
-sub_id <- 0L
 
 for (radius in radii) {
   message("[sharp-transition] local graph radius = ", radius, " km")
-  edges <- v17_pair_graph(
+  edges <- lp_pair_graph(
     cells,
     radius_km = radius,
     k = k,
@@ -265,7 +201,7 @@ for (radius in radii) {
   if (!nrow(edges)) next
   i_all <- as.integer(edges$i)
   j_all <- as.integer(edges$j)
-  edges$environmental_distance <- v17_pair_distance(environment, i_all, j_all)
+  edges$environmental_distance <- lp_pair_distance(environment, i_all, j_all)
   all_graph_env_median <- stats::median(edges$environmental_distance, na.rm = TRUE)
   all_graph_elev_median <- stats::median(
     abs(elevation[i_all] - elevation[j_all]), na.rm = TRUE
@@ -279,7 +215,6 @@ for (radius in radii) {
     sharp_edges$colour_difference <- d_colour[sharp]
     sharp_edges$abs_colour_difference <- abs(sharp_edges$colour_difference)
 
-    # All sharp edges are descriptive only because endpoints can repeat.
     i <- as.integer(sharp_edges$i)
     j <- as.integer(sharp_edges$j)
     pig <- ifelse(sharp_edges$colour_difference > 0, j, i)
@@ -342,53 +277,16 @@ for (radius in radii) {
         stringsAsFactors = FALSE
       )
     }
-
-    de <- as.numeric(details$delta_effective_occmax)
-    dm <- as.numeric(details$delta_montane_occmax)
-    substitution <- joint_substitution_test(
-      de, dm,
-      B = randomisations,
-      seed_value = seed + 900000L + as.integer(radius * 100) +
-        as.integer(round(threshold * 1000))
-    )
-    subset <- de <= 0
-    sub_id <- sub_id + 1L
-    substitution_rows[[sub_id]] <- data.frame(
-      radius_km = radius,
-      transition_threshold = threshold,
-      n_nonoverlapping_pairs = nrow(details),
-      n_effective_not_higher = sum(subset),
-      proportion_effective_higher = mean(de > 0),
-      proportion_either_effective_or_montane_higher = mean(de > 0 | dm > 0),
-      mean_montane_difference_when_effective_not_higher =
-        if (any(subset)) mean(dm[subset]) else NA_real_,
-      median_montane_difference_when_effective_not_higher =
-        if (any(subset)) stats::median(dm[subset]) else NA_real_,
-      substitution_joint_signflip_p = unname(substitution[["p"]]),
-      mean_pigmented_minus_white_elevation_when_effective_not_higher =
-        if (any(subset)) mean(details$signed_elevation_difference[subset]) else NA_real_,
-      median_pigmented_minus_white_elevation_when_effective_not_higher =
-        if (any(subset)) stats::median(details$signed_elevation_difference[subset]) else NA_real_,
-      spearman_montane_delta_vs_elevation_delta =
-        if (sum(subset) >= 3L) suppressWarnings(stats::cor(
-          dm[subset], details$signed_elevation_difference[subset],
-          method = "spearman", use = "complete.obs"
-        )) else NA_real_,
-      stringsAsFactors = FALSE
-    )
   }
 }
 
 summary <- do.call(rbind, summary_rows)
 all_edges <- do.call(rbind, all_edge_rows)
 pairs <- do.call(rbind, pair_rows)
-substitution <- do.call(rbind, substitution_rows)
 if (is.null(summary) || !nrow(summary)) {
   stop("No sharp-transition analysis results were produced.", call. = FALSE)
 }
 
-# Multiplicity columns are diagnostic. The focal strict-local row remains
-# explicitly exploratory because the whole refinement was designed post-null.
 summary$BH_q_within_exposure_threshold <- NA_real_
 for (nm in unique(summary$exposure)) {
   for (threshold in unique(summary$transition_threshold)) {
@@ -398,30 +296,16 @@ for (nm in unique(summary$exposure)) {
     )
   }
 }
-summary$BH_q_all_tests <- stats::p.adjust(
-  summary$signflip_one_sided_p, method = "BH"
-)
-substitution$BH_q_across_scales_within_threshold <- NA_real_
-for (threshold in unique(substitution$transition_threshold)) {
-  use <- substitution$transition_threshold == threshold
-  substitution$BH_q_across_scales_within_threshold[use] <- stats::p.adjust(
-    substitution$substitution_joint_signflip_p[use], method = "BH"
-  )
-}
+summary$BH_q_all_tests <- stats::p.adjust(summary$signflip_one_sided_p, method = "BH")
 
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 utils::write.csv(summary, file.path(output_dir, "sharp_transition_summary.csv"), row.names = FALSE)
 utils::write.csv(all_edges, file.path(output_dir, "sharp_transition_all_edges_descriptive.csv"), row.names = FALSE)
 utils::write.csv(pairs, file.path(output_dir, "sharp_transition_nonoverlapping_pairs.csv"), row.names = FALSE)
-utils::write.csv(substitution, file.path(output_dir, "montane_substitution_diagnostic.csv"), row.names = FALSE)
 
 focal <- summary[summary$focal_strict_local_test, , drop = FALSE]
 pure_effective <- summary[
   abs(summary$transition_threshold - 1) < 1e-12 & summary$exposure == "effective_occmax",
-  , drop = FALSE
-]
-pure_montane <- substitution[
-  abs(substitution$transition_threshold - 1) < 1e-12,
   , drop = FALSE
 ]
 interpretation <- data.frame(
@@ -434,9 +318,7 @@ interpretation <- data.frame(
     "focal_5km_selected_env_distance_median",
     "focal_5km_all_local_env_distance_median",
     "pure_effective_direction_positive_all_scales",
-    "pure_effective_significant_all_scales",
-    "montane_substitution_10km_p",
-    "montane_substitution_25km_p"
+    "pure_effective_significant_all_scales"
   ),
   value = c(
     focal$n_nonoverlapping_pairs,
@@ -447,32 +329,26 @@ interpretation <- data.frame(
     focal$median_environmental_distance_selected,
     focal$median_environmental_distance_all_local_edges,
     all(pure_effective$mean_signed_bombus_difference > 0),
-    all(pure_effective$signflip_one_sided_p < 0.05),
-    pure_montane$substitution_joint_signflip_p[pure_montane$radius_km == 10],
-    pure_montane$substitution_joint_signflip_p[pure_montane$radius_km == 25]
+    all(pure_effective$signflip_one_sided_p < 0.05)
   ),
   stringsAsFactors = FALSE
 )
 utils::write.csv(interpretation, file.path(output_dir, "interpretation_summary.csv"), row.names = FALSE)
 
-readme <- c(
-  "# Local sharp-transition Bombus analysis",
+writeLines(c(
+  "# Local sharp-transition focal-Bombus analysis",
   "",
-  "This analysis intentionally does not use the environment+SPDE predictive null.",
-  "It asks a narrower descriptive/directional question within geographically local",
-  "observed white-pigmented transitions. Environment is reported only as a pair",
-  "similarity diagnostic. SDM-derived Bombus support remains environmentally entangled.",
+  "Primary question: do abrupt nearby white-pigmented boundaries align directionally",
+  "with occurrence-referenced availability of B. ardens/B. diversus?",
   "",
-  "Inferential rows use non-overlapping, Bombus-blind, sign-blind transition pairs",
-  "and a 100,000-replicate sign-flip randomisation of transition orientation.",
+  "Pair construction is Bombus-blind and sign-blind. Environment is reported only",
+  "as a local-similarity diagnostic. The analysis does not use an environment+SPDE",
+  "predictive null because the Bombus SDMs are themselves environment-derived.",
   "",
-  "The montane substitution table is diagnostic and does not establish that the",
-  "montane/alpine Bombus taxa are effective pollinators of Campanula punctata."
-)
-writeLines(readme, file.path(output_dir, "README.md"))
+  "Primary exposure: effective_occmax. Raw-cloglog effective_rawmax is the direct",
+  "exposure-scale sensitivity. Montane/alpine community effects are tested separately",
+  "as Supporting Information guardrails."
+), file.path(output_dir, "README.md"))
 
-cat("Completed local sharp-transition Bombus analysis at ", output_dir, "\n", sep = "")
-cat("\nFocal 5-km pure-transition result:\n")
+cat("Completed current local sharp-transition analysis at ", output_dir, "\n", sep = "")
 print(focal)
-cat("\nPotential montane substitution, pure transitions:\n")
-print(pure_montane)

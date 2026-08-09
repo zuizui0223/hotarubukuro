@@ -1,24 +1,39 @@
 # Supporting Information plan for the final 1,922-observation analysis
 
-The Supporting Information should preserve all analyses needed to keep the Main story narrow and interpretable.
+The Supporting Information should preserve all analyses and provenance needed to keep the Main story narrow, ecological and interpretable.
 
-## S1. Phenotype and broad natural model
+## S1. YAMAP / iEcology sampling provenance and phenotype validation
 
+- description of YAMAP as a hiking/navigation/activity platform rather than a purpose-built biodiversity database;
+- activity/route/photo spatial-provenance rules used by the study;
+- treatment of hidden or unusable locations;
+- source-row audit from 1,965 records to the final analysis population;
+- author taxonomic, duplicate and flower-region review protocol;
+- explicit sampling-frame caveat: route/access and subject-selection bias remain after author review;
+- distinction between taxonomic/image-validation error and observer/sampling bias;
 - colour-extraction diagnostics;
-- full Gaussian-mixture model/BIC table, component-collapse rule and classification-confidence diagnostics;
+- full Gaussian-mixture model/BIC table, component-collapse rule and classification-confidence diagnostics.
+
+Recommended wording: YAMAP is a **complementary iEcology image stream**, not an unbiased or universally superior substitute for iNaturalist/GBIF.
+
+## S2. Broad environmental and spatial model
+
 - environmental PCA loadings and source registry;
 - INLA mesh/prior rationale, full coefficient tables and hyperparameters;
-- blocked-fold performance, calibration and predictive-coverage tables.
+- blocked-fold performance, calibration and predictive-coverage tables;
+- explicit explanation that predictive AUC is not variance decomposition;
+- two-part phenotype results kept separate for pigmentation state and pigmented-only intensity.
 
-## S2. Fresh Bombus SDMs and exposure calibration
+## S3. Fresh Bombus SDMs and exposure calibration
 
 - occurrence snapshots/background definition and ENMeval/maxnet selection settings;
 - species AUCs and selected models;
 - occurrence-referenced empirical-CDF calibration details;
 - explicit statement that occurrence-referenced support is not occurrence probability, abundance or visitation;
-- explanation of why *B. ardens* + *B. diversus* define the primary broad focal-pollinator exposure.
+- explanation of why *B. ardens* + *B. diversus* define the primary broad focal-pollinator exposure;
+- explicit warning that adding montane/alpine taxa changes the estimand toward geographical niche replacement.
 
-## S3. Availability robustness family
+## S4. Availability robustness family
 
 - 5/10/25-km pure-transition results;
 - transition thresholds 1.0/0.75/0.50;
@@ -27,9 +42,10 @@ The Supporting Information should preserve all analyses needed to keep the Main 
 - species-specific *ardens* and *diversus* sensitivities;
 - all-edge descriptive summaries;
 - one-to-one/non-overlap sensitivity where relevant;
-- multiplicity summaries.
+- multiplicity summaries;
+- environmental-similarity diagnostic showing that the focal sharp-transition set is not more environmentally divergent than generic local edges.
 
-## S4. Community-boundary correspondence
+## S5. Community-boundary correspondence
 
 - five-species occurrence-referenced Hellinger turnover;
 - within-species-rank Hellinger sensitivity;
@@ -38,14 +54,15 @@ The Supporting Information should preserve all analyses needed to keep the Main 
 - 100-km spatial blocks, shifted blocks and leave-one-block-out summaries;
 - language restricted to biogeographic correspondence, not a directional flower-colour mechanism.
 
-## S5. Montane/alpine guardrails
+## S6. Montane/alpine guardrails
 
 - *B. beaticola*, *B. consobrinus* and *B. honshuensis* support summaries;
 - equal-elevation (<=50 m and <=100 m) pure-transition comparisons;
 - conditional "effective guild not higher" diagnostics;
-- explicit conclusion: no additional montane/alpine effect beyond shared elevational geography in the present data.
+- explicit conclusion: no additional montane/alpine effect beyond shared elevational geography in the present data;
+- use this negative result to explain why the main availability exposure is not an all-five maximum.
 
-## S6. Event-based anomaly calibration
+## S7. Event-based anomaly calibration
 
 - primary 10-km/env<=1/all-white-neighbour definition;
 - 5/25-km and environmental-caliper sensitivities;
@@ -54,17 +71,21 @@ The Supporting Information should preserve all analyses needed to keep the Main 
 - candidate identities and local support diagnostics;
 - clear distinction between event-based departures and raw residual tails.
 
-## S7. Human-context family
+## S8. Human-context family and YAMAP sampling-frame sensitivity
 
 - WorldPop scale family;
 - DID feature family;
 - land-use/road diagnostics where retained;
 - raw and maxT familywise P-values;
 - candidate DOY check only after candidate selection;
-- no horticultural/provenance claim.
+- no horticultural/provenance claim;
+- explicit discussion that mountain-route sampling may compress the available urban-rural gradient and therefore reduce power for a broad human-context association;
+- countervailing access bias: trailheads, roads and accessible mountain margins may be overrepresented;
+- horticultural use of *C. punctata* is motivation for follow-up, not evidence used to select candidates.
 
-## S8. Historical method-development provenance
+## S9. Historical method-development provenance
 
 - earlier environment+SPDE Bombus null;
-- superseded five-species lower-third gate and why it became structurally non-estimable under fresh SDMs;
-- archived 1,909/1,923 analyses clearly marked as non-manuscript-facing.
+- superseded five-species lower-third Bombus limitation gate and why it became structurally non-estimable under fresh SDMs;
+- archived 1,909/1,923 analyses clearly marked as non-manuscript-facing;
+- earlier community-turnover developments retained as provenance rather than promoted because of statistical strength alone.

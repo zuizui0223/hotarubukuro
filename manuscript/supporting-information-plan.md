@@ -2,19 +2,34 @@
 
 The Supporting Information should preserve all analyses and provenance needed to keep the Main story narrow, ecological and interpretable.
 
-## S1. YAMAP / iEcology sampling provenance and phenotype validation
+## S1. YAMAP / iEcology sampling provenance, public-database benchmark and phenotype validation
 
 - description of YAMAP as a hiking/navigation/activity platform rather than a purpose-built biodiversity database;
 - activity/route/photo spatial-provenance rules used by the study;
 - treatment of hidden or unusable locations;
 - source-row audit from 1,965 records to the final analysis population;
-- author taxonomic, duplicate and flower-region review protocol;
-- explicit sampling-frame caveat: route/access and subject-selection bias remain after author review;
+- exhaustive author screening of recovered candidate records within the predefined 2023-2025 retrieval frame, including removal of taxonomic look-alikes/incorrect subjects and confirmation of the focal flower/petal region;
+- image-hash duplicate and photo-coordinate audit;
+- **matched-period data-volume benchmark** for *Campanula punctata* in Japan, 2023-2025: YAMAP versus iNaturalist and GBIF under fixed image+georeference filters;
+- report observations and attached/unique image objects separately rather than treating them as the same unit;
+- annual-count comparison to document temporal balance across 2023, 2024 and 2025;
+- iNaturalist Research Grade, geoprivacy and reported positional-accuracy summaries;
+- GBIF dataset/provider-overlap audit, explicitly showing that GBIF and iNaturalist are not independent additive photo pools in this focal comparison;
+- data-quality matrix separating identification, date/coordinate provenance, study-specific trait readiness and observation-process bias rather than assigning a single platform "quality score";
+- explicit sampling-frame caveat: route/access, flower conspicuousness and subject-selection bias remain after author review;
 - distinction between taxonomic/image-validation error and observer/sampling bias;
-- colour-extraction diagnostics;
+- mountain-route interpretation: YAMAP enriches natural/semi-natural mountain sampling for the focal wild herb but does not guarantee that every record is wild;
+- colour-extraction diagnostics from validated source photographs to `Data_S1`;
 - full Gaussian-mixture model/BIC table, component-collapse rule and classification-confidence diagnostics.
 
-Recommended wording: YAMAP is a **complementary iEcology image stream**, not an unbiased or universally superior substitute for iNaturalist/GBIF.
+Benchmark lock and results:
+
+- `reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md`;
+- `reproducibility/yamap_public_database_benchmark_results_2026-08-09.md`;
+- retrieval workflow run `31289927019`, artifact `9031041034`;
+- independent GBIF-provider audit run `31290095532`, artifact `9031085975`.
+
+Recommended wording: YAMAP is a **complementary iEcology image stream with an unusually productive mountain sampling frame for this focal species**, not an unbiased or universally superior substitute for iNaturalist/GBIF. Any claim that non-research use reduces bias should be restricted to possible taxon-reporting/research-purpose-conditioned selection; general observer bias remains.
 
 ## S2. Broad environmental and spatial model
 

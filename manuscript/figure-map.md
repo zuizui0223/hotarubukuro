@@ -15,10 +15,47 @@ The schematic should show why YAMAP adds a different observation stream: photogr
 
 Do **not** imply that YAMAP is inherently less biased or universally better than iNaturalist/GBIF. State visually or in the caption that:
 
-- trail/access and subject-selection bias remain;
+- trail/access, flower-conspicuousness and subject-selection bias remain;
 - users may hide photo locations;
 - author review controls taxon, duplicate and flower-region errors, not the original sampling process;
+- mountain-route sampling enriches the natural/semi-natural mountain habitats relevant to the focal wild plant but does not guarantee wild provenance;
 - the contribution is the repurposing of a non-biodiversity recreational platform for quantitative trait geography.
+
+## Supplementary data-source benchmark products
+
+The YAMAP-versus-public-source comparison should be explicit rather than left as prose.
+
+### Table S1 - Matched 2023-2025 data volume and quality dimensions
+
+Recommended rows/columns:
+
+| Source | 2023 | 2024 | 2025 | photo+geo observations/rows | attached or unique images | quality/identification layer | trait-ready after native export? | key sampling caveat |
+|---|---:|---:|---:|---:|---:|---|---|---|
+| YAMAP study retrieval | 642 | 687 | 635 | 1,964 | 1,963 unique hashes | exhaustive study author screening + image/coordinate QC | yes, after study pipeline | mountain-route/access/conspicuousness bias |
+| iNaturalist | 95 | 156 | 265 | 516 | 882 attached photos | community ID; 472 Research Grade | no petal-level colour natively | purpose-built reporting + access/observer bias |
+| GBIF | 69 | 112 | 212 | 393 | 679 media entries | provider-dependent aggregation | no petal-level colour natively | heterogeneous/syndicated records |
+
+Caption must state that 389/393 matched GBIF records are syndicated from iNaturalist, so GBIF and iNaturalist counts are not additive independent samples.
+
+### Figure S1 - Annual matched-period image-record counts
+
+A simple 2023/2024/2025 count plot can show that the YAMAP sampling frame is both larger and more temporally balanced over the study period. Treat this as a sampling/provenance figure, not a biological trend analysis. If attached-photo totals are shown, keep observation counts and image-object counts visibly distinct.
+
+### Table S2 - Data-quality / observation-process matrix
+
+Compare dimensions rather than assigning a single quality score:
+
+- observation purpose;
+- taxonomic validation mechanism;
+- date/coordinate provenance;
+- public geoprivacy or uncertainty where available;
+- duplicate/image-hash audit;
+- flower/petal-region validation;
+- availability of quantitative RGB/CIELAB trait fields;
+- mountain-habitat enrichment;
+- remaining observer/access biases.
+
+The point is that iNaturalist has a strong native community-identification system, whereas the YAMAP study adds a strong **study-specific trait-validation pipeline**. Neither should be declared universally higher quality.
 
 ## Figure 2 communication rule: the conventional layer still closes a real gap
 

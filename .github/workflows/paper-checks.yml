@@ -1,0 +1,82 @@
+name: Current paper checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/repository-cleanup-legacy
+    paths:
+      - paper/**
+      - submission/jbi/**
+      - .github/workflows/paper-checks.yml
+      - .github/workflows/jbi-submission-format.yml
+      - README.md
+      - legacy/README.md
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  current-paper-map:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate active file map
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+
+          rows = list(csv.DictReader(open('paper/active-file-map.csv', encoding='utf-8')))
+          assert rows, 'paper/active-file-map.csv is empty'
+          paths = [r['path'].strip() for r in rows if r.get('status') == 'active']
+          assert len(paths) == len(set(paths)), 'duplicate active paths'
+          missing = [p for p in paths if not Path(p).is_file()]
+          assert not missing, 'missing active paper files: ' + ', '.join(missing)
+          legacy = [p for p in paths if p.startswith('legacy/')]
+          assert not legacy, 'active paper map points into legacy: ' + ', '.join(legacy)
+          print('active paper files:', len(paths))
+          PY
+
+      - name: Confirm legacy separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -d manuscript
+          for path in \
+            .github/workflows/analysis-1909.yml \
+            .github/workflows/bombus-limitation-gate.yml \
+            .github/workflows/bombus-relaxation-local-current-inputs.yml \
+            scripts/run_analysis_1909.sh \
+            scripts/run_bombus_limitation_gate.R \
+            scripts/run_bombus_limitation_gate_current_inputs.R \
+            scripts/run_bombus_relaxation_local_contrast.R \
+            scripts/run_publication_pipeline.R \
+            R/local_bombus_turnover.R \
+            R/final_registry.R; do
+            test ! -e "$path" || { echo "superseded file remains active: $path" >&2; exit 1; }
+          done
+          test -s legacy/README.md
+          test -d legacy/manuscript-development
+          test -d legacy/method-development
+          test -d legacy/workflows
+
+      - name: Validate JBI package
+        run: python submission/jbi/validate_jbi_submission.py
+
+      - name: Confirm manuscript-facing entry points
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s paper/README.md
+          test -s paper/analysis-map.md
+          test -s submission/jbi/JBI_main_manuscript_anonymized.md
+          test -s submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md
+          grep -q 'single entry point' paper/README.md
+          grep -q 'Current paper — start here' README.md

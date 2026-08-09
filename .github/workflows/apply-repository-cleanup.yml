@@ -19,10 +19,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply cleanup
+      - name: Apply non-workflow cleanup
         run: python scripts/repository_cleanup_once.py
 
-      - name: Validate staged tree
+      - name: Validate staged non-workflow tree
         shell: bash
         run: |
           set -euo pipefail
@@ -31,7 +31,6 @@ jobs:
           test -d legacy/manuscript-development
           test ! -e scripts/run_bombus_limitation_gate.R
           test ! -e scripts/run_publication_pipeline.R
-          test ! -e .github/workflows/analysis-1909.yml
           test -s paper/README.md
           test -s submission/jbi/JBI_main_manuscript_anonymized.md
           python submission/jbi/validate_jbi_submission.py
@@ -39,12 +38,12 @@ jobs:
           bash -n scripts/run_reanalysis_current_inputs.sh
           bash -n scripts/run_downstream_current_inputs.sh
 
-      - name: Commit cleanup
+      - name: Commit non-workflow cleanup
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'Archive superseded analysis development under legacy'
+          git commit -m 'Archive superseded non-workflow development under legacy'
           git push origin "HEAD:${GITHUB_REF_NAME}"

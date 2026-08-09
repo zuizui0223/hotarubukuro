@@ -1,23 +1,26 @@
-# Active scripts
+# Current manuscript-facing scripts
 
-## Supported entry points
+Start with [`../paper/README.md`](../paper/README.md). This directory contains current reusable infrastructure plus scripts feeding the active broad/anomaly or local-pollinator analyses. Superseded runners and estimands are under `legacy/method-development/`.
 
-- `run_analysis_1909.sh`: restores inputs, verifies the 1,909 population, runs all stages, builds figures and writes the run summary.
-- `run_publication_pipeline.R`: ordered numerical-stage and validation orchestrator.
+## Broad natural template + event-based departures
 
-## Numerical stages
-
+- `run_reanalysis_current_inputs.sh` — rebuild the fresh 1,965-row upstream environment/phenotype boundary only.
+- `run_downstream_current_inputs.sh` — natural predictive reference, event-based departure calibration and post-selection human context.
+- `report_reanalysis_current_inputs.R` — fresh 1,922-observation manuscript summary.
 - `run_natural_predictive_model.R`
-- `run_local_bombus_turnover.R`
-- `run_human_landscape_features.R`
 - `run_local_pigmented_isolates.R`
+- `run_joint_submission_isolate_ppc.R`
+- `run_human_landscape_features.R`
 - `run_local_human_context.R`
 - `run_did_sensitivity.R`
+- `run_candidate_doy_check.R`
 
-`run_candidate_doy_check.R` is supplementary and cannot select candidates.
+## Local pollinator analysis
 
-## Reproducibility support
+- `run_bombus_effective_availability_refined.R` — occurrence-reference calibration for focal broad pollinators.
+- `run_bombus_local_sharp_transition.R` — manuscript-facing 5-km white-pigmented boundary test.
+- `run_bombus_spatial_replication_test.R` — Supporting Information community-boundary and montane/elevation guardrails.
 
-Snapshot, environment, preflight, population-check, reporting and figure scripts remain here because they are called by the supported complete runner.
+## Infrastructure
 
-Raw/public-data construction utilities are under `source_build/`. Superseded runners, reconstruction experiments and the post-hoc asymmetry runner are under `legacy/`.
+Snapshot/environment/setup helpers remain outside `legacy/` only when used by a current workflow.

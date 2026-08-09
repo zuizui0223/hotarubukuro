@@ -288,9 +288,9 @@ run_logged upstream_run_multiscale_hotspots \
 popd >/dev/null
 
 # ---------------------------------------------------------------------------
-# 6. Replace only the active pipeline's upstream boundary and run the same
-#    downstream stages in reconstruction mode. Historical n identity checks are
-#    explicitly not applicable; structural/scientific validations still run.
+# 6. Publish only the freshly rebuilt broad-analysis boundary.
+#    Downstream anomaly analyses are run once by run_downstream_current_inputs.sh;
+#    the manuscript-facing Bombus test is a separate local-transition pipeline.
 # ---------------------------------------------------------------------------
 for stage in \
   environment_v3 \
@@ -302,30 +302,4 @@ for stage in \
   cp -a "${UPSTREAM_DIR}/results/${stage}" results/
 done
 
-export HOTARUBUKURO_INPUT_ROOT="$BASE_INPUTS"
-export HOTARUBUKURO_MLIT_CACHE="$MLIT_CACHE"
-export HOTARUBUKURO_DID_CACHE="$DID_CACHE"
-export HOTARUBUKURO_WORLDPOP_RASTER="$WORLDPOP"
-export HOTARUBUKURO_SUBMISSION_DRAWS="$SUBMISSION_DRAWS"
-
-run_logged active_publication_pipeline \
-  Rscript scripts/run_publication_pipeline.R \
-    --mode full --baseline reconstruction \
-    --submission-draws "$SUBMISSION_DRAWS" --tests true
-
-# Same joint full-data PPC method is rerun as a sensitivity. The legacy
-# submission validator is not invoked because it asserts the old result identity
-# (exactly 18 candidates), which is not a valid acceptance criterion here.
-run_logged joint_submission_isolate_ppc \
-  Rscript scripts/run_joint_submission_isolate_ppc.R \
-    --latent-draws "$JOINT_LATENT_DRAWS" \
-    --observation-replicates "$JOINT_OBS_REPS"
-
-run_logged build_publication_figures \
-  Rscript scripts/build_publication_figures.R
-
-run_logged report_reanalysis \
-  Rscript scripts/report_reanalysis_current_inputs.R \
-    --output results/reanalysis_current_inputs
-
-echo "=== full current-input reanalysis complete ==="
+echo "=== fresh current-input broad-analysis boundary complete ==="

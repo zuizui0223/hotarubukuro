@@ -56,11 +56,8 @@ run_stage 02_run_submission_presence_checkpoint \
     --force=true \
     --output=results/ecological_v25_submission_presence
 
-# Same stage-03 analysis definition. The current-input wrapper differs only in
-# making a zero-eligible-pair fixed gate a valid 'not estimable' result rather
-# than an output-shape error; it does not move any threshold or matching rule.
-run_stage 03_run_bombus_limitation_gate_current_inputs \
-  Rscript scripts/run_bombus_limitation_gate_current_inputs.R
+# The manuscript-facing Bombus analysis is intentionally separate from this broad/anomaly
+# reconstruction and is evaluated only at sharp local colour boundaries.
 
 run_stage 04_run_human_landscape_features \
   Rscript scripts/run_human_landscape_features.R

@@ -1,0 +1,31 @@
+name: Validate JBI submission package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/jbi-submission-manuscript
+    paths:
+      - submission/jbi/**
+      - .github/workflows/jbi-submission-format.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate-jbi-package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manuscript format and anonymity guards
+        run: python submission/jbi/validate_jbi_submission.py
+      - name: Confirm JBI package files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s submission/jbi/JBI_main_manuscript_anonymized.md
+          test -s submission/jbi/JBI_title_page_template.md
+          test -s submission/jbi/JBI_cover_letter.md
+          test -s submission/jbi/JBI_supporting_information_outline.md
+          test -s submission/jbi/JBI_submission_checklist.md
+          test -s submission/jbi/JBI_translated_abstract_ja.md

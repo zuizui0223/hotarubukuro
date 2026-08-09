@@ -2,8 +2,8 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 source("R/pipeline_support.R")
+source("R/local_pair_graph.R")
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
-hb_load_modules("local_bombus_turnover")
 
 cells_path <- arg_value(
   "--cells",
@@ -56,7 +56,7 @@ species <- c("ardens", "diversus", "beaticola", "consobrinus", "honshuensis")
 occ_cols <- paste0(species, "_occurrence_reference")
 rank_cols <- paste0(species, "_within_species_rank")
 
-v17_require_columns(
+lp_require_columns(
   cells,
   c(
     "exact_site_id", "x_km", "y_km", "longitude", "latitude", "elevation",
@@ -64,7 +64,7 @@ v17_require_columns(
   ),
   "fresh flower cells"
 )
-v17_require_columns(
+lp_require_columns(
   support,
   c("exact_site_id", occ_cols, "effective_occmax"),
   "occurrence-referenced Bombus support"
@@ -160,7 +160,7 @@ greedy_nonoverlap <- function(edges) {
 }
 
 build_edge_table <- function(radius) {
-  edges <- v17_pair_graph(
+  edges <- lp_pair_graph(
     cells,
     radius_km = radius,
     k = k,

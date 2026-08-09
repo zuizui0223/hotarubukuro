@@ -1,15 +1,18 @@
-name: Full reanalysis with current upstream inputs
+name: Rebuild current broad and anomaly analysis
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - agent/reanalyse-from-1965-new-bombus
+      - main
     paths:
       - .github/workflows/reanalysis-current-inputs.yml
       - scripts/run_reanalysis_current_inputs.sh
       - scripts/run_downstream_current_inputs.sh
       - scripts/report_reanalysis_current_inputs.R
+      - R/**
+      - source_build/**
+      - config/**
 
 permissions:
   contents: read
@@ -39,17 +42,17 @@ env:
 
 jobs:
   reanalyse:
-    name: Rebuild upstream and rerun complete analysis
+    name: Fresh 1,965-row broad/anomaly reconstruction
     runs-on: ubuntu-24.04
     timeout-minutes: 360
 
     steps:
-      - name: Checkout current analysis branch
+      - name: Checkout current paper code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Checkout exact upstream implementation
+      - name: Checkout exact frozen upstream implementation
         uses: actions/checkout@v4
         with:
           ref: ${{ env.UPSTREAM_COMMIT }}
@@ -61,8 +64,7 @@ jobs:
         shell: bash
         run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
 
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ steps.rversion.outputs.version }}
           use-public-rspm: true
@@ -79,20 +81,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: reanalysis-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          key: current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
           restore-keys: |
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
             r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
-            reanalysis-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
 
-      - name: Restore public raster source cache
+      - name: Restore public raster cache
         uses: actions/cache@v4
         with:
           path: data/cache/rasters
-          key: current-upstream-rasters-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R') }}
+          key: current-paper-rasters-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R') }}
           restore-keys: |
-            raw-sources-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R') }}
             raw-sources-
-            current-upstream-rasters-
+            current-paper-rasters-
 
       - name: Restore declared R environment
         run: >-
@@ -100,7 +101,7 @@ jobs:
           --report-dir reproducibility
           --scopes analysis,reproducibility,acquisition,testing,figures,reporting
 
-      - name: Download validated Bombus source-build artifact
+      - name: Restore checksum-locked fresh Bombus source build
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
@@ -113,27 +114,18 @@ jobs:
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BOMBUS_ARTIFACT_ID}/zip" \
             -o /tmp/bombus-source.zip
           actual="$(sha256sum /tmp/bombus-source.zip | awk '{print $1}')"
-          echo "Bombus artifact sha256=${actual}"
-          [[ "$actual" == "$BOMBUS_ARTIFACT_SHA256" ]] || {
-            echo "Bombus artifact digest mismatch" >&2
-            exit 1
-          }
+          [[ "$actual" == "$BOMBUS_ARTIFACT_SHA256" ]]
           mkdir -p source-artifact
           unzip -q /tmp/bombus-source.zip -d source-artifact
-          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/ardens.tif
-          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/diversus.tif
-          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/beaticola.tif
-          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/consobrinus.tif
-          test -s source-artifact/results/bombus_sdm_rebuild_A/predictions/honshuensis.tif
+          for species in ardens diversus beaticola consobrinus honshuensis; do
+            test -s "source-artifact/results/bombus_sdm_rebuild_A/predictions/${species}.tif"
+          done
 
-      - name: Rebuild fresh upstream boundary and run strict audit attempt
-        id: upstream_run
-        continue-on-error: true
+      - name: Rebuild fresh broad-analysis boundary
         shell: bash
         run: bash scripts/run_reanalysis_current_inputs.sh "$GITHUB_WORKSPACE/upstream" "$GITHUB_WORKSPACE/source-artifact"
 
-      - name: Remove historical downstream checkpoints
-        if: always()
+      - name: Clear downstream outputs
         shell: bash
         run: |
           set -euo pipefail
@@ -144,11 +136,9 @@ jobs:
             results/ecological_v19_* \
             results/ecological_v2[0-9]_* \
             results/final_analysis_pipeline
-          rm -rf manuscript/figures
-          mkdir -p manuscript/figures reanalysis_status
+          mkdir -p reanalysis_status
 
-      - name: Complete unchanged downstream computations
-        if: always()
+      - name: Run current anomaly and human-context downstream stages
         shell: bash
         run: bash scripts/run_downstream_current_inputs.sh
 
@@ -168,15 +158,14 @@ jobs:
             echo "bombus_artifact_id=${BOMBUS_ARTIFACT_ID}"
             echo "bombus_artifact_sha256=${BOMBUS_ARTIFACT_SHA256}"
             echo "source_rows=1965"
-            echo "historical_n_target=none"
-            echo "downstream_checkpoint_policy=fresh_v16_plus"
-            echo "strict_audit_attempt_outcome=${{ steps.upstream_run.outcome }}"
+            echo "manuscript_scope=broad_natural_template;event_departure;human_context"
+            echo "bombus_main_scope=separate_local_transition_pipeline"
           } > reanalysis_status/workflow_provenance.txt
-          find reanalysis_inputs reanalysis_status results manuscript/figures \
+          find reanalysis_inputs reanalysis_status results \
             -type f -printf '%p\t%s\n' 2>/dev/null | sort \
             > reanalysis_status/result_inventory.tsv
 
-      - name: Upload complete reanalysis outputs
+      - name: Upload complete current-input outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -188,7 +177,6 @@ jobs:
             data/processed/raster_download_manifest.csv
             data/processed/raster_manifest.csv
             results
-            manuscript/figures
           if-no-files-found: warn
           compression-level: 6
           retention-days: 90

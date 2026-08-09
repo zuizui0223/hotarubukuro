@@ -1,0 +1,31 @@
+name: Apply one-time current-paper map patch
+
+on:
+  push:
+    branches:
+      - agent/repository-cleanup-legacy
+    paths:
+      - scripts/patch_paper_maps_once.py
+      - .github/workflows/apply-paper-map-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch current paper maps
+        run: |
+          python scripts/patch_paper_maps_once.py
+          git diff --check
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add paper/README.md paper/analysis-map.md paper/active-file-map.csv
+          git commit -m 'Point current paper maps to cleaned Main 2 files'
+          git push origin "HEAD:${GITHUB_REF_NAME}"

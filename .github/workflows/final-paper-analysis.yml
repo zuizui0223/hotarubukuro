@@ -10,6 +10,8 @@ on:
       - scripts/run_bombus_local_sharp_transition.R
       - scripts/run_bombus_spatial_replication_test.R
       - reproducibility/final_paper_pipeline_2026-08-09.md
+      - reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md
+      - reproducibility/yamap_public_database_benchmark_results_2026-08-09.md
       - manuscript/**
       - docs/yamap-iecology-rationale.md
       - README.md
@@ -23,6 +25,10 @@ env:
   FRESH_REANALYSIS_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
   EFFECTIVE_BOMBUS_ARTIFACT_ID: "9023137743"
   EFFECTIVE_BOMBUS_SHA256: "d04c561b09b652591b9b479f6e26a779bb562c7c1b5f9b14e61d5e7ca8e2794b"
+  YAMAP_BENCHMARK_ARTIFACT_ID: "9031041034"
+  YAMAP_BENCHMARK_SHA256: "3e53669395cfd926a0942b3488f844720dca2cb97b9ea210627262691e69f31a"
+  YAMAP_BENCHMARK_AUDIT_ARTIFACT_ID: "9031085975"
+  YAMAP_BENCHMARK_AUDIT_SHA256: "d0318948afd82895f2452ab9e89a549e285d0dd347220db15ea4d6ecae060bde"
 
 jobs:
   integrate-final-paper:
@@ -79,6 +85,41 @@ jobs:
           unzip -q -o /tmp/effective-bombus.zip -d "$GITHUB_WORKSPACE"
           test -s results/ecological_v17_bombus_effective_availability_refined/cell_effective_bombus_support.csv
 
+      - name: Restore frozen YAMAP public-database benchmark
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${YAMAP_BENCHMARK_ARTIFACT_ID}/zip" \
+            -o /tmp/yamap-benchmark.zip
+          actual="$(sha256sum /tmp/yamap-benchmark.zip | awk '{print $1}')"
+          echo "YAMAP benchmark sha256=${actual}"
+          [[ "$actual" == "$YAMAP_BENCHMARK_SHA256" ]]
+          unzip -q -o /tmp/yamap-benchmark.zip -d "$GITHUB_WORKSPACE"
+          test -s results/yamap_public_database_benchmark/matched_period_source_comparison.csv
+          test -s results/yamap_public_database_benchmark/source_summaries.json
+
+      - name: Restore frozen YAMAP benchmark overlap audit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${YAMAP_BENCHMARK_AUDIT_ARTIFACT_ID}/zip" \
+            -o /tmp/yamap-benchmark-audit.zip
+          actual="$(sha256sum /tmp/yamap-benchmark-audit.zip | awk '{print $1}')"
+          echo "YAMAP benchmark audit sha256=${actual}"
+          [[ "$actual" == "$YAMAP_BENCHMARK_AUDIT_SHA256" ]]
+          unzip -q -o /tmp/yamap-benchmark-audit.zip -d "$GITHUB_WORKSPACE"
+          test -s results/yamap_public_database_benchmark_audit/corrected_overlap_summary.json
+
       - name: Run manuscript-facing fine-scale availability analysis
         shell: bash
         run: |
@@ -109,7 +150,25 @@ jobs:
         run: |
           set -euo pipefail
           test -s manuscript/ecology-and-evolution-manuscript-final.md
+          test -s manuscript/design-logic-and-novelty-ja.md
           test -s docs/yamap-iecology-rationale.md
+          test -s reproducibility/yamap_public_database_benchmark_results_2026-08-09.md
+          grep -q '1,964 georeferenced focal-species photo records' manuscript/ecology-and-evolution-manuscript-final.md
+          grep -q '389 of which were syndicated from iNaturalist' manuscript/ecology-and-evolution-manuscript-final.md
+          grep -q 'including \*Adenophora\* where encountered' manuscript/ecology-and-evolution-manuscript-final.md
+          python - <<'PY'
+          import json
+          p='results/yamap_public_database_benchmark_audit/corrected_overlap_summary.json'
+          with open(p, encoding='utf-8') as f:
+              x=json.load(f)
+          assert x['YAMAP_author_screened_rows'] == 1964
+          assert x['YAMAP_unique_image_hashes'] == 1963
+          assert x['iNaturalist_photo_geo_observations'] == 516
+          assert x['iNaturalist_research_grade'] == 472
+          assert x['GBIF_human_observation_photo_geo_records'] == 393
+          assert x['GBIF_provider_overlap']['iNaturalist_syndicated'] == 389
+          assert x['GBIF_provider_overlap']['Pl@ntNet_linked'] == 4
+          PY
           Rscript - <<'RS'
           overview <- read.csv("results/reanalysis_current_inputs/reanalysis_overview.csv", stringsAsFactors = FALSE)
           getv <- function(section, metric) overview$value[overview$section == section & overview$metric == metric][1]
@@ -167,9 +226,9 @@ jobs:
           out <- data.frame(
             stage = c("yamap_iecology_data_layer", "broad_natural_template", "fine_bombus_availability", "event_anomaly_human_context", "supp_community_turnover", "supp_montane_guardrail"),
             manuscript_role = c("CROSS_CUTTING", "MAIN_1", "MAIN_2", "MAIN_3", "SUPPLEMENT", "SUPPLEMENT"),
-            status = c("PASS_SAMPLING_FRAME_EXPLICIT", "PASS", "PASS_WEAK_EXPLORATORY", "PASS_NO_ROBUST_EXCESS", "PASS_CONTEXT_ONLY", "PASS_NO_ADDITIONAL_EFFECT"),
+            status = c("PASS_BENCHMARKED_TRAIT_READY", "PASS", "PASS_WEAK_EXPLORATORY", "PASS_NO_ROBUST_EXCESS", "PASS_CONTEXT_ONLY", "PASS_NO_ADDITIONAL_EFFECT"),
             key_value = c(
-              "GPS-linked hiking photographs; author-reviewed; route/access bias retained",
+              "YAMAP=1964 rows/1963 images; iNat=516 observations/882 photos; GBIF=393 records, 389 iNat-syndicated",
               paste0("n=", getv("population", "phenotype_analysis_rows"), ";AUC=0.86348;intensity_RMSE=0.91924"),
               paste0("n_pairs=", focal$n_nonoverlapping_pairs, ";mean_delta=", signif(focal$mean_signed_bombus_difference, 6), ";p=", signif(focal$signflip_one_sided_p, 6)),
               paste0("candidates=", getv("local_isolates", "candidate_count"), ";population5km_maxT=0.08991;DID_alignment_maxT=0.07592"),
@@ -196,9 +255,13 @@ jobs:
             echo "fresh_reanalysis_sha256=${FRESH_REANALYSIS_SHA256}"
             echo "effective_bombus_artifact_id=${EFFECTIVE_BOMBUS_ARTIFACT_ID}"
             echo "effective_bombus_sha256=${EFFECTIVE_BOMBUS_SHA256}"
-            echo "data_layer=yamap_iecology_gps_linked_author_reviewed"
+            echo "yamap_benchmark_artifact_id=${YAMAP_BENCHMARK_ARTIFACT_ID}"
+            echo "yamap_benchmark_sha256=${YAMAP_BENCHMARK_SHA256}"
+            echo "yamap_benchmark_audit_artifact_id=${YAMAP_BENCHMARK_AUDIT_ARTIFACT_ID}"
+            echo "yamap_benchmark_audit_sha256=${YAMAP_BENCHMARK_AUDIT_SHA256}"
+            echo "data_layer=yamap_iecology_gps_linked_author_reviewed_benchmarked"
             echo "main_hierarchy=broad_natural_template;fine_effective_bombus_availability;event_anomaly_human_context"
-            echo "supp_hierarchy=community_turnover;montane_guardrail;availability_sensitivities"
+            echo "supp_hierarchy=data_source_benchmark;community_turnover;montane_guardrail;availability_sensitivities"
           } > results/final_paper_pipeline/workflow_provenance.txt
 
       - uses: actions/upload-artifact@v4
@@ -208,11 +271,16 @@ jobs:
           path: |
             results/final_paper_pipeline
             results/reanalysis_current_inputs
+            results/yamap_public_database_benchmark
+            results/yamap_public_database_benchmark_audit
             results/ecological_v18_bombus_local_sharp_transition
             results/ecological_v19_bombus_spatial_replication_test
             reproducibility/final_paper_pipeline_2026-08-09.md
+            reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md
+            reproducibility/yamap_public_database_benchmark_results_2026-08-09.md
             manuscript/ecology-and-evolution-manuscript-final.md
             manuscript/ecology-and-evolution-manuscript.md
+            manuscript/design-logic-and-novelty-ja.md
             manuscript/figure-map.md
             manuscript/supporting-information-plan.md
             docs/yamap-iecology-rationale.md

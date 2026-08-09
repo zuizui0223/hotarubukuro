@@ -1,0 +1,139 @@
+name: Build occurrence-referenced Bombus support
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/bombus-occurrence-reference-support.yml
+      - scripts/build_bombus_occurrence_reference_support.R
+      - reproducibility/bombus_occurrence_reference_support_2026-08-09.md
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FRESH_REANALYSIS_ARTIFACT_ID: "9022276431"
+  FRESH_REANALYSIS_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  FRESH_BOMBUS_SDM_ARTIFACT_ID: "9020226937"
+  FRESH_BOMBUS_SDM_SHA256: "d5d639e8e00d1ccc2f887c53fa8041465905b29f6bca1127f816e8c7a649d708"
+
+jobs:
+  occurrence-reference-support:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore declared R environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility
+          --scopes analysis,acquisition,reproducibility
+
+      - name: Restore frozen flower-cell table
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_REANALYSIS_ARTIFACT_ID}/zip" \
+            -o /tmp/fresh-reanalysis.zip
+          [[ "$(sha256sum /tmp/fresh-reanalysis.zip | awk '{print $1}')" == "$FRESH_REANALYSIS_SHA256" ]]
+          unzip -q -o /tmp/fresh-reanalysis.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+
+      - name: Restore frozen seeded Bombus SDMs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source_bombus
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_BOMBUS_SDM_ARTIFACT_ID}/zip" \
+            -o /tmp/fresh-bombus.zip
+          [[ "$(sha256sum /tmp/fresh-bombus.zip | awk '{print $1}')" == "$FRESH_BOMBUS_SDM_SHA256" ]]
+          unzip -q -o /tmp/fresh-bombus.zip -d source_bombus
+          for species in ardens diversus beaticola consobrinus honshuensis; do
+            test -s "source_bombus/results/bombus_sdm_rebuild_A/models/${species}_ENMeval.rds"
+            test -s "source_bombus/results/bombus_sdm_rebuild_A/evaluation/${species}_selected_model.csv"
+          done
+
+      - name: Build occurrence-referenced support table
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/build_bombus_occurrence_reference_support.R \
+            --sdm-root source_bombus/results/bombus_sdm_rebuild_A \
+            --output results/bombus_occurrence_reference_support
+
+      - name: Validate support output
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          p <- "results/bombus_occurrence_reference_support/cell_effective_bombus_support.csv"
+          x <- read.csv(p, check.names = FALSE)
+          required <- c(
+            "exact_site_id", "ardens_occurrence_reference", "diversus_occurrence_reference",
+            "beaticola_occurrence_reference", "consobrinus_occurrence_reference",
+            "honshuensis_occurrence_reference", "effective_occmax", "effective_occmean",
+            "effective_rawmax", "all5_occmax", "all5_occmean"
+          )
+          stopifnot(all(required %in% names(x)))
+          stopifnot(nrow(x) == 1305L)
+          stopifnot(all(is.finite(x$effective_occmax)))
+          stopifnot(all(x$effective_occmax >= 0 & x$effective_occmax <= 1))
+          RS
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p results/bombus_occurrence_reference_support
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "flower_artifact_id=${FRESH_REANALYSIS_ARTIFACT_ID}"
+            echo "bombus_sdm_artifact_id=${FRESH_BOMBUS_SDM_ARTIFACT_ID}"
+            echo "primary_exposure=max(A_ardens,A_diversus)"
+            echo "interpretation=occurrence-referenced predicted habitat support; not visitation or selection"
+          } > results/bombus_occurrence_reference_support/workflow_provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bombus-occurrence-reference-support-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/bombus_occurrence_reference_support
+            reproducibility/bombus_occurrence_reference_support_2026-08-09.md
+          if-no-files-found: warn
+          retention-days: 90

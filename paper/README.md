@@ -1,6 +1,6 @@
 # Current paper — start here
 
-This directory is the **single entry point for the manuscript-facing analysis**. Files not listed here are either implementation details needed to reproduce one of the stages below or historical material archived under `legacy/`.
+This directory is the **single entry point for the manuscript-facing analysis**. Files not listed here are either implementation dependencies needed to reproduce one of the stages below or historical material archived under `legacy/`.
 
 ## Target paper
 
@@ -13,6 +13,7 @@ Current submission package:
 - cover letter: `submission/jbi/JBI_cover_letter.md`
 - four-main-figure plan: `submission/jbi/JBI_main_figure_plan.md`
 - Supporting Information outline: `submission/jbi/JBI_supporting_information_outline.md`
+- manuscript-ready YAMAP benchmark: `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md`
 - Japanese translated abstract: `submission/jbi/JBI_translated_abstract_ja.md`
 - submission-format validator: `submission/jbi/validate_jbi_submission.py`
 
@@ -61,7 +62,7 @@ Primary reconstruction:
 - `scripts/run_reanalysis_current_inputs.sh`
 - `scripts/run_downstream_current_inputs.sh`
 - `scripts/report_reanalysis_current_inputs.R`
-- `reproducibility/current_input_reanalysis_2026-08-08.md`
+- `reproducibility/current_broad_anomaly_reference_2026-08-09.md`
 
 Canonical manuscript artifact: workflow run `31258851297`, artifact `9022276431`, SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
 
@@ -75,12 +76,15 @@ Primary result: 67 pairs, median separation 2.0 km, mean pigmented-minus-white s
 
 Primary files:
 
-- `scripts/run_bombus_effective_availability_refined.R`
+- `scripts/build_bombus_occurrence_reference_support.R`
 - `scripts/run_bombus_local_sharp_transition.R`
-- `.github/workflows/bombus-effective-availability-refined.yml`
+- `.github/workflows/bombus-occurrence-reference-support.yml`
 - `.github/workflows/bombus-local-sharp-transition.yml`
-- `reproducibility/bombus_effective_availability_refinement_spec_2026-08-08.md`
+- `reproducibility/bombus_occurrence_reference_support_2026-08-09.md`
 - `reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md`
+- `reproducibility/bombus_local_sharp_transition_results_2026-08-08.md`
+
+The frozen support artifact used by the manuscript was originally produced during a broader exploratory refinement; only its occurrence-reference support table is retained as current evidence. The superseded environment+SPDE directional refinement is under `legacy/`.
 
 ### Main 3 — Event-based departures and human context
 
@@ -90,7 +94,18 @@ Primary event: a pigmented cell embedded among geographically close, environment
 
 Primary result: 17 candidates; their count/fraction are compatible with repeated natural predictive maps. Population/DID contrasts are suggestive but familywise inconclusive. These are provenance/field targets, not demonstrated anthropogenic anomalies.
 
-Primary code is the current-input downstream pipeline listed under Main 1.
+Primary current scripts:
+
+- `scripts/run_natural_predictive_model.R`
+- `scripts/run_local_pigmented_isolates.R`
+- `scripts/refine_submission_isolate_null.R`
+- `scripts/run_joint_submission_isolate_ppc.R`
+- `scripts/run_human_landscape_features.R`
+- `scripts/run_local_human_context.R`
+- `scripts/run_did_sensitivity.R`
+- `scripts/run_candidate_doy_check.R`
+
+These are orchestrated by `scripts/run_downstream_current_inputs.sh` after Main 1's fresh broad boundary is rebuilt.
 
 ## Supporting Information
 
@@ -109,6 +124,10 @@ Primary supplementary pollinator files:
 - `.github/workflows/bombus-spatial-replication-test.yml`
 - `reproducibility/bombus_spatial_replication_test_spec_2026-08-09.md`
 - `reproducibility/bombus_spatial_replication_test_results_2026-08-09.md`
+
+## Infrastructure that remains active but is not a paper result
+
+`inputs/canonical_snapshot.json` and `scripts/canonical_snapshot.sh` are retained only to restore static WorldPop/MLIT/DID support files for the current human-context stage. The old 1,909 flower-population identity associated with that snapshot is not a current manuscript constraint.
 
 ## Final integration
 

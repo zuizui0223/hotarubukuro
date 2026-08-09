@@ -9,7 +9,8 @@ if old not in text:
 text = text.replace(old, new, 1)
 text = text.replace('v17_require_columns(', 'lp_require_columns(')
 text = text.replace('v17_pair_graph(', 'lp_pair_graph(')
-if 'v17_' in text:
-    raise SystemExit('unresolved v17_ dependency remains in spatial replication script')
+for token in ('v17_require_columns(', 'v17_pair_graph(', 'hb_load_modules("local_bombus_turnover")'):
+    if token in text:
+        raise SystemExit(f'unresolved legacy dependency remains: {token}')
 p.write_text(text, encoding='utf-8')
 print('Patched spatial replication to current local_pair_graph module.')

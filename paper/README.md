@@ -81,8 +81,8 @@ Primary files:
 - `.github/workflows/bombus-occurrence-reference-support.yml`
 - `.github/workflows/bombus-local-sharp-transition.yml`
 - `reproducibility/bombus_occurrence_reference_support_2026-08-09.md`
-- `reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md`
-- `reproducibility/bombus_local_sharp_transition_results_2026-08-08.md`
+- `reproducibility/bombus_local_sharp_transition_current_spec_2026-08-09.md`
+- `reproducibility/bombus_local_sharp_transition_current_results_2026-08-09.md`
 
 The frozen support artifact used by the manuscript was originally produced during a broader exploratory refinement; only its occurrence-reference support table is retained as current evidence. The superseded environment+SPDE directional refinement is under `legacy/`.
 

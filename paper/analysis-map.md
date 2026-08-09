@@ -41,8 +41,8 @@ Main 3 sub-stages are the current natural predictive model, local ecological-eve
 - `reproducibility/bombus_occurrence_reference_support_2026-08-09.md`
 - `scripts/run_bombus_local_sharp_transition.R`
 - `.github/workflows/bombus-local-sharp-transition.yml`
-- `reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md`
-- `reproducibility/bombus_local_sharp_transition_results_2026-08-08.md`
+- `reproducibility/bombus_local_sharp_transition_current_spec_2026-08-09.md`
+- `reproducibility/bombus_local_sharp_transition_current_results_2026-08-09.md`
 
 ### Supporting Bombus biogeography
 

@@ -33,6 +33,7 @@ analysis,Main3,scripts/run_local_human_context.R,active
 analysis,Main3,scripts/run_did_sensitivity.R,active
 analysis,Main3,scripts/run_candidate_doy_check.R,active
 analysis,Main2,scripts/build_bombus_occurrence_reference_support.R,active
+analysis,Main2,R/local_pair_graph.R,active
 analysis,Main2,scripts/run_bombus_local_sharp_transition.R,active
 workflow,Main2,.github/workflows/bombus-occurrence-reference-support.yml,active
 workflow,Main2,.github/workflows/bombus-local-sharp-transition.yml,active
@@ -47,8 +48,8 @@ workflow,repository,.github/workflows/paper-checks.yml,active
 reproducibility,Main1_Main3,reproducibility/current_broad_anomaly_reference_2026-08-09.md,active
 reproducibility,integration,reproducibility/final_paper_pipeline_2026-08-09.md,active
 reproducibility,Main2,reproducibility/bombus_occurrence_reference_support_2026-08-09.md,active
-reproducibility,Main2,reproducibility/bombus_local_sharp_transition_spec_2026-08-08.md,active
-reproducibility,Main2,reproducibility/bombus_local_sharp_transition_results_2026-08-08.md,active
+reproducibility,Main2,reproducibility/bombus_local_sharp_transition_current_spec_2026-08-09.md,active
+reproducibility,Main2,reproducibility/bombus_local_sharp_transition_current_results_2026-08-09.md,active
 reproducibility,Supplement,reproducibility/bombus_spatial_replication_test_spec_2026-08-09.md,active
 reproducibility,Supplement,reproducibility/bombus_spatial_replication_test_results_2026-08-09.md,active
 reproducibility,YAMAP,reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md,active

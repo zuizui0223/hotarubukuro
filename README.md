@@ -1,110 +1,94 @@
 # hotarubukuro
 
-Reproducible nationwide analysis of flower-colour geography in *Campanula punctata* from author-reviewed YAMAP photographs.
+Reproducible multiscale analysis of flower-colour geography in *Campanula punctata* from author-reviewed YAMAP photographs.
 
-## Supported analysis
+## Manuscript-facing analysis: broad -> fine -> anomaly
 
-The repository has one active and rerunnable baseline: the **1,909-observation analysis** reconstructed from `Data_S1.csv` and the immutable snapshot declared in `inputs/canonical_snapshot.json`.
+The active paper no longer uses the historical 1,909-observation five-species limitation gate. The manuscript-facing numerical baseline is the fresh current-input rerun derived from the 1,965-row source table:
 
-| Quantity | Required |
+| Quantity | Active value |
 |---|---:|
-| observations | 1,909 |
-| white-like observations | 955 |
-| pigmented observations | 954 |
+| source rows | 1,965 |
+| final two-part phenotype observations | 1,922 |
+| white-like observations | 966 |
+| pigmented observations | 956 |
+| ambiguous mixture assignments retained | 124 |
+| 1-km analysis cells | 1,305 |
+| response-blind a* boundary | 4.968780 |
 
-The active paper is organized as one measurement framework, one national natural baseline, and two bounded local challenges to that baseline:
+The paper is organized into three main questions and one supplementary family.
 
-1. audit the frozen two-part phenotype and 1-km cell inputs;
-2. fit the national environment-plus-INLA-SPDE natural baseline;
-3. test a **local Bombus-limitation hypothesis**: among nearby environmentally matched cells, is pigmentation lower where all five focal *Bombus* species have low predicted availability than where at least one species is moderately supported?;
-4. define pigmented-in-white local isolates and replay the same event on natural maps;
-5. characterize population, land use and DID context only after candidates are fixed;
-6. describe candidate flowering date as a held-out supplementary check; and
-7. write independent validation, claim and artifact locks.
+### Main 1 - Broad natural template
 
-### Bombus inference ceiling
+National environment-plus-INLA-SPDE models describe the broad geography of:
 
-The active paper contains **no national Bombus increment analysis**. Bombus enters only at stage 03, where the hypothesis is local, directional and biologically motivated. Its active lower-third gate compares a cell where **all five focal species have within-species predicted-support rank <=0.33** with an environmentally similar cell where **at least one focal species has rank >=0.50**. Pairs are within 25 km, in the same held-out fold, and matched one-to-one before flower colour is read. Environment and an SPDE field are not fitted a second time locally; the 1,000 flower natural-model maps are replayed only as a predictive reference.
+1. whether visible pigmentation is expressed; and
+2. visible intensity conditional on pigmentation.
 
-The lower-third gate was adopted for biological interpretability **after exploratory design development**. The full 0.10/0.20/0.25/0.33 threshold grid and its across-grid multiplicity correction remain visible in the outputs and claim lock. The result is therefore reported as a mechanistically motivated local sensitivity, not retrospectively described as a preregistered confirmatory test.
+The broad model is a geographical reference, not a claim that environment alone explains the phenotype. Five blocked folds give AUC=0.863 for pigmentation state and RMSE=0.919 for conditional intensity.
 
-The checksum-locked *Bombus* surfaces represent **predicted habitat availability**, not abundance, visitation, pollen transfer, pollination effectiveness or selection pressure. Uncertainty from GBIF sampling, ENMeval model selection, fitted SDM parameters and alternative prediction surfaces is not propagated through the current stage. Shared or unmeasured environmental structure can therefore remain even after local matching. See [`docs/bombus-sdm-inference.md`](docs/bombus-sdm-inference.md) and [`docs/bombus-pollinator-opportunity-proxy.md`](docs/bombus-pollinator-opportunity-proxy.md).
+### Main 2 - Fine-scale pollinator hypothesis
 
-The older unsigned flower-colour/*Bombus*-community turnover analysis is not run by the active pipeline and remains only as historical method-development code.
+The primary pollinator exposure is occurrence-referenced predicted availability of **two documented broad focal pollinators**, *Bombus ardens* and *B. diversus*:
 
-Human-context outputs prioritize follow-up sites and do not establish horticultural origin.
+`effective_occmax = max(A_ardens, A_diversus)`.
 
-## Supported entry points
+The final local test does not regress national flower colour on environmentally derived Bombus SDMs. It instead selects non-overlapping **pure white-versus-pigmented transitions** without Bombus information among the five nearest neighbours within 5 km, then asks whether the Bombus contrast points from the whiter to the more pigmented side. The primary 5-km set contains 67 pairs (median separation 2 km). The mean occurrence-referenced contrast is +0.0359 (one-sided sign-flip P=0.027), but the median is -0.0028, only 49.3% of pairs are positive, across-scale q=0.081, and raw SDM support / 10-25 km sensitivities are null. The claim ceiling is **weak, local exploratory consistency with the pigmentation-benefit relaxation hypothesis**, not pollinator-mediated selection.
 
-| Purpose | Command or file |
-|---|---|
-| GitHub-hosted complete run | `.github/workflows/analysis-1909.yml` |
-| Local complete run | `bash scripts/run_analysis_1909.sh` |
-| Ordered numerical stages | `Rscript scripts/run_publication_pipeline.R --mode full --baseline analysis_1909` |
-| Active code declaration | `config/code_manifest.csv` |
-| Stage declaration | `reproducibility/pipeline_stage_registry.csv` |
+Why only two species in the main availability metric? Adding *B. beaticola*, *B. consobrinus* and *B. honshuensis* changes the estimand from local availability of documented broad focal pollinators to geographical replacement among lowland/montane Bombus niches. In the fresh data, the maximum rank across all five species never becomes low (minimum=0.489), and apparent montane-Bombus/pigmentation associations disappear in near-equal-elevation comparisons. High-elevation taxa are therefore sensitivity/guardrail analyses, not primary mechanistic evidence.
 
-Everything called by the active pipeline is declared in the loader or stage registry and the code manifest. CI fails when an undeclared executable file is added to the non-legacy code roots.
+### Main 3 - Event-based anomaly screen and human context
 
-## Run on GitHub Actions
+The final anomaly stage does **not** define unusual cells by a raw residual cutoff. A candidate is a pigmented cell embedded among geographically close, environmentally similar white neighbours. The same local event is replayed on repeated natural predictive maps before any human variable is examined.
 
-1. Open **Actions**.
-2. Select **1909 analysis pipeline**.
-3. Select **Run workflow** on the desired ref.
-4. Leave `build_figures=true` and start the run.
-5. Download `analysis-1909-<commit>-<run-id>`.
+The fresh data contain 17 primary candidates. Their count/fraction are compatible with both held-out cross-fitted and joint posterior-predictive natural references, so the candidate set is **not evidence that an additional process is required**. Post-selection human context is suggestive: 5-km population and population-DID alignment have nominal P<0.03, but maxT familywise P=0.090 and 0.076. These locations are follow-up targets, not evidence of horticultural origin.
 
-A successful artifact contains:
+### Supplement - broader Bombus biogeography and robustness
 
-- `reproducibility/analysis_population_check.csv` with three `PASS` rows;
-- `results/final_analysis_pipeline/final_stage_manifest.csv` with all stages `PASS`;
-- `results/ecological_v17_bombus_limitation_gate/` with the matched-pair result, full gate grid, validation and audit;
-- `final_independent_validation.csv` and `final_claim_audit.csv`;
-- newly generated result tables; and
-- newly generated manuscript figures when requested.
+Supplementary analyses contain:
 
-## Run locally
+- five-species Bombus community turnover at flower-colour boundaries;
+- spatial/elevational matched-background and spatial-block replication diagnostics;
+- montane/alpine equal-elevation guardrails;
+- all-five, raw-SDM and scale/transition-threshold availability sensitivities;
+- full anomaly natural-map and human-context sensitivity families; and
+- historical environment+SPDE Bombus-null analyses as method-development provenance.
 
-```bash
-git clone https://github.com/zuizui0223/hotarubukuro.git
-cd hotarubukuro
+Five-species turnover is treated as **biogeographic correspondence between flower-colour and predicted pollinator-community boundaries**, not as a directional flower-colour mechanism.
 
-Rscript scripts/setup_r_environment.R \
-  --report-dir reproducibility \
-  --scopes analysis,reproducibility,testing,figures,reporting
+## Final integration workflow
 
-bash scripts/run_analysis_1909.sh
-```
+The manuscript-facing integration workflow is:
 
-See [`docs/reproduction-guide.md`](docs/reproduction-guide.md) for exact checks and outputs and [`docs/pipeline-dag.md`](docs/pipeline-dag.md) for the stage graph.
+`.github/workflows/final-paper-analysis.yml`
 
-## Repository layout
+It restores checksum-locked upstream artifacts for the fresh broad/anomaly rerun and occurrence-referenced Bombus support, reruns the final local availability test and supplementary community-boundary guardrails, validates the final stage family, and uploads one integration artifact.
 
-```text
-R/                               active analysis modules and support helpers
-scripts/                         active runners and reproducibility support
-validation/                      active input, stage and final validators
-tests/                           tests for active code and source-build utilities
-source_build/                    optional raw/public-data construction utilities; not canonical input
-inputs/                          immutable 1,909 snapshot descriptor and population expectations
-config/code_manifest.csv         exact non-legacy executable-file declaration
-reproducibility/                 stage registry and generated run reports
-results/                         generated output; never a committed source of truth
-manuscript/                      active 1,909 manuscript and figure map
-legacy/published-1923/           archived 1,923 manuscript, outputs and historical workflows
-legacy/implementations/          superseded upstream implementations and their tests
-legacy/diagnostics/              non-paper or withdrawn diagnostics
-legacy/reconstruction-prototypes/ historical reconstruction experiments
-```
+The locked numerical provenance and the Main/Supp claim hierarchy are documented in:
 
-`source_build/` is deliberately outside the canonical DAG. It documents how public or derived inputs were assembled, but a standard 1,909 reproduction restores checksum-locked inputs instead of downloading or rebuilding them.
+`reproducibility/final_paper_pipeline_2026-08-09.md`
 
-## Legacy boundary
+The active manuscript is:
 
-No active loader, stage, validator or test imports a historical implementation from `legacy/`. Frozen upstream result-directory names remain inside the immutable snapshot because changing them would alter the preserved input package.
+`manuscript/ecology-and-evolution-manuscript.md`
 
-## Reproducibility ceiling
+with figure and Supporting Information roles in:
 
-The target is method and statistical reproducibility, not guaranteed bitwise identity of INLA posterior samples. Seeds, folds, draw counts, input hashes, candidate definitions and validators are fixed. Report each run's realised estimates and Monte Carlo uncertainty with its commit rather than treating a rounded threshold-adjacent p-value as immutable.
+- `manuscript/figure-map.md`
+- `manuscript/supporting-information-plan.md`
 
-For the *Bombus* component, reproducibility currently begins at the archived prediction surfaces rather than at ENMeval model selection. Rebuilding alternative SDMs from occurrences constitutes a new source-build analysis and must carry its own occurrence snapshot, background definition, tuning grid, model objects or equivalent selection table, prediction hashes and uncertainty analysis.
+## Repository status
+
+Historical workflows such as `analysis-1909.yml`, `run_analysis_1909.sh` and the earlier five-species limitation gate remain in the repository for provenance and compatibility. They are **not manuscript-facing final estimands**. Do not infer the current paper from those historical entry points.
+
+The branches used to develop the final analysis remain unmerged unless explicitly requested. The current integration branch is `agent/final-broad-fine-anomaly-pipeline`.
+
+## Inference ceilings
+
+- CIELAB a* is an image-derived visible phenotype, not anthocyanin concentration or Bombus visual contrast.
+- National environment/SPDE models describe broad geography; predictive AUC is not variance decomposition.
+- Bombus SDMs are predictions from environment and represent potential habitat availability, not visitation, abundance, pollen transfer or selection.
+- Changing to local sharp transitions reduces broad spatial/environmental confounding by design but does not eliminate unmeasured environmental confounding.
+- Montane/alpine Bombus associations are adequately explained by shared elevational geography in the present data.
+- Local departure frequency is not robustly greater than the natural predictive reference.
+- Human-context results are post-selection and familywise-inconclusive; horticultural provenance is not demonstrated.

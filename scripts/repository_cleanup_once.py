@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""One-time repository cleanup for the current JBI paper branch.
+"""One-time non-workflow cleanup for the current JBI paper branch.
 
-Moves superseded development material to legacy/, removes obsolete analysis stages
-from current drivers, updates current workflows, and then deletes itself plus its
-one-time workflow before committing.
+Workflow files are handled separately through the GitHub connector because the
+Actions token is not allowed to modify .github/workflows/.
 """
 from __future__ import annotations
 
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -26,16 +24,7 @@ def mv(src: str, dst: str) -> None:
     run("git", "mv", src, dst)
 
 
-def replace_once(path: str, old: str, new: str) -> None:
-    p = ROOT / path
-    text = p.read_text(encoding="utf-8")
-    if text.count(old) != 1:
-        raise SystemExit(f"{path}: expected one replacement, found {text.count(old)}")
-    p.write_text(text.replace(old, new), encoding="utf-8")
-
-
 for d in [
-    "legacy/workflows",
     "legacy/method-development/scripts",
     "legacy/method-development/R",
     "legacy/method-development/validation",
@@ -50,16 +39,7 @@ for d in [
 mv("manuscript", "legacy/manuscript-development")
 mv("reports", "legacy/reporting")
 
-for f in [
-    "analysis-1909.yml",
-    "bombus-limitation-gate.yml",
-    "bombus-relaxation-local-current-inputs.yml",
-    "resume-reanalysis-current-inputs.yml",
-    "pr-checks.yml",
-    "repository-checks.yml",
-]:
-    mv(f".github/workflows/{f}", f"legacy/workflows/{f}")
-
+# Superseded scripts and estimands.
 for f in [
     "run_analysis_1909.sh",
     "run_bombus_limitation_gate.R",
@@ -106,7 +86,7 @@ for f in [
     mv(f"reproducibility/{f}", f"legacy/reproducibility-development/{f}")
 mv("reproducibility/patches", "legacy/reproducibility-development/patches")
 
-# Clean the broad current-input driver so it stops after rebuilding v11/v15.
+# The upstream current-input driver now stops after producing the fresh v11/v15 boundary.
 p = ROOT / "scripts/run_reanalysis_current_inputs.sh"
 text = p.read_text(encoding="utf-8")
 marker = """# ---------------------------------------------------------------------------
@@ -137,7 +117,7 @@ echo "=== fresh current-input broad-analysis boundary complete ==="
 """
 p.write_text(prefix + clean_tail, encoding="utf-8")
 
-# Current downstream no longer computes the obsolete all-five limitation gate.
+# Remove obsolete all-five limitation-gate stage from current broad/anomaly downstream work.
 p = ROOT / "scripts/run_downstream_current_inputs.sh"
 text = p.read_text(encoding="utf-8")
 start = text.find("# Same stage-03 analysis definition.")
@@ -150,7 +130,7 @@ text = text[:start] + (
 ) + text[end:]
 p.write_text(text, encoding="utf-8")
 
-# Current reanalysis report must not depend on or describe the old gate/final-lock registry.
+# Remove obsolete limitation-gate/final-lock reporting from the fresh summary.
 p = ROOT / "scripts/report_reanalysis_current_inputs.R"
 text = p.read_text(encoding="utf-8")
 for block in [
@@ -203,111 +183,11 @@ if old_lines not in text:
 text = text.replace(old_lines, new_lines)
 p.write_text(text, encoding="utf-8")
 
-# Current-input workflow becomes a clean broad/anomaly reconstruction workflow.
-p = ROOT / ".github/workflows/reanalysis-current-inputs.yml"
-text = p.read_text(encoding="utf-8")
-text = text.replace("      - agent/reanalyse-from-1965-new-bombus\n", "      - main\n")
-old_step = '''      - name: Rebuild fresh upstream boundary and run strict audit attempt
-        id: upstream_run
-        continue-on-error: true
-        shell: bash
-        run: bash scripts/run_reanalysis_current_inputs.sh "$GITHUB_WORKSPACE/upstream" "$GITHUB_WORKSPACE/source-artifact"
-'''
-new_step = '''      - name: Rebuild fresh broad-analysis boundary
-        shell: bash
-        run: bash scripts/run_reanalysis_current_inputs.sh "$GITHUB_WORKSPACE/upstream" "$GITHUB_WORKSPACE/source-artifact"
-'''
-if old_step not in text:
-    raise SystemExit("old reanalysis upstream step not found")
-text = text.replace(old_step, new_step)
-old_cleanup = '''      - name: Remove historical downstream checkpoints
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf \\
-            results/ecological_v16_* \\
-            results/ecological_v17_* \\
-            results/ecological_v18_* \\
-            results/ecological_v19_* \\
-            results/ecological_v2[0-9]_* \\
-            results/final_analysis_pipeline
-          rm -rf manuscript/figures
-          mkdir -p manuscript/figures reanalysis_status
-
-'''
-new_cleanup = '''      - name: Clear downstream outputs before the fresh pass
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf \\
-            results/ecological_v16_* \\
-            results/ecological_v17_* \\
-            results/ecological_v18_* \\
-            results/ecological_v19_* \\
-            results/ecological_v2[0-9]_* \\
-            results/final_analysis_pipeline
-          mkdir -p reanalysis_status
-
-'''
-if old_cleanup not in text:
-    raise SystemExit("old reanalysis cleanup block not found")
-text = text.replace(old_cleanup, new_cleanup)
-text = text.replace('            echo "strict_audit_attempt_outcome=${{ steps.upstream_run.outcome }}"\n', "")
-text = text.replace("          find reanalysis_inputs reanalysis_status results manuscript/figures \\\n", "          find reanalysis_inputs reanalysis_status results \\\n")
-text = text.replace("            manuscript/figures\n", "")
-p.write_text(text, encoding="utf-8")
-
-# Final integration consumes current JBI/paper entry points rather than old E&E drafts.
-p = ROOT / ".github/workflows/final-paper-analysis.yml"
-text = p.read_text(encoding="utf-8")
-text = text.replace("      - agent/final-broad-fine-anomaly-pipeline\n", "      - main\n")
-text = text.replace("      - manuscript/**\n", "      - paper/**\n      - submission/jbi/**\n")
-old_tests = '''          test -s manuscript/ecology-and-evolution-manuscript-final.md
-          test -s manuscript/design-logic-and-novelty-ja.md
-'''
-new_tests = '''          test -s paper/README.md
-          test -s paper/active-file-map.csv
-          test -s submission/jbi/JBI_main_manuscript_anonymized.md
-          test -s submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md
-'''
-if old_tests not in text:
-    raise SystemExit("old final-paper manuscript checks not found")
-text = text.replace(old_tests, new_tests)
-text = text.replace("          grep -q '1,964 georeferenced focal-species photo records' manuscript/ecology-and-evolution-manuscript-final.md\n", "          grep -q '1,964' submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md\n")
-text = text.replace("          grep -q '389 of which were syndicated from iNaturalist' manuscript/ecology-and-evolution-manuscript-final.md\n", "          grep -q '389/393' submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md\n")
-text = text.replace("          grep -q 'including \\*Adenophora\\* where encountered' manuscript/ecology-and-evolution-manuscript-final.md\n", "")
-for old_path in [
-    "            manuscript/ecology-and-evolution-manuscript-final.md\n",
-    "            manuscript/ecology-and-evolution-manuscript.md\n",
-    "            manuscript/design-logic-and-novelty-ja.md\n",
-    "            manuscript/figure-map.md\n",
-    "            manuscript/supporting-information-plan.md\n",
-]:
-    text = text.replace(old_path, "")
-marker = "            reproducibility/yamap_public_database_benchmark_results_2026-08-09.md\n"
-if marker not in text:
-    raise SystemExit("final integration artifact marker not found")
-text = text.replace(marker, marker + "            paper\n            submission/jbi\n")
-p.write_text(text, encoding="utf-8")
-
-# JBI validation follows cleaned branch and main.
-p = ROOT / ".github/workflows/jbi-submission-format.yml"
-text = p.read_text(encoding="utf-8")
-text = text.replace("      - agent/jbi-submission-manuscript\n", "      - main\n      - agent/repository-cleanup-legacy\n")
-text = text.replace(
-    "          test -s submission/jbi/JBI_translated_abstract_ja.md\n",
-    "          test -s submission/jbi/JBI_translated_abstract_ja.md\n"
-    "          test -s submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md\n"
-    "          test -s paper/active-file-map.csv\n",
-)
-p.write_text(text, encoding="utf-8")
-
-# Current scripts README is deliberately short and manuscript-facing.
+# Short manuscript-facing script guide.
 (ROOT / "scripts/README.md").write_text(
     """# Current manuscript-facing scripts
 
-Start with [`../paper/README.md`](../paper/README.md). This directory contains current reusable infrastructure plus scripts that feed the active broad/anomaly or local-pollinator analyses. Superseded runners and estimands are under `legacy/method-development/`.
+Start with [`../paper/README.md`](../paper/README.md). This directory contains current reusable infrastructure plus scripts feeding the active broad/anomaly or local-pollinator analyses. Superseded runners and estimands are under `legacy/method-development/`.
 
 ## Broad natural template + event-based departures
 
@@ -330,7 +210,7 @@ Start with [`../paper/README.md`](../paper/README.md). This directory contains c
 
 ## Infrastructure
 
-Snapshot/environment/setup helpers remain outside `legacy/` only when they are used by a current workflow.
+Snapshot/environment/setup helpers remain outside `legacy/` only when used by a current workflow.
 """,
     encoding="utf-8",
 )
@@ -346,16 +226,13 @@ This cleanup separates the current JBI paper from method-development history.
 - old all-five Bombus limitation gate -> `legacy/method-development/`
 - relaxation/local-contrast and old local-turnover variants -> `legacy/method-development/`
 - old E&E figure builder and final-lock code -> `legacy/method-development/`
-- workflows tied to old populations/estimands -> `legacy/workflows/`
 - old code manifest, stage registry, 1,909 expectations, relaxation specs and one-time patches -> `legacy/reproducibility-development/`
 
-Current manuscript evidence is listed in `paper/active-file-map.csv`.
+Current manuscript evidence is listed in `paper/active-file-map.csv`. Historical workflow definitions are archived separately under `legacy/workflows/` by the repository cleanup commit sequence.
 """,
     encoding="utf-8",
 )
 
-# Self-delete one-time cleanup machinery before commit.
-(ROOT / ".github/workflows/apply-repository-cleanup.yml").unlink()
+# Self-delete only this temporary script. Workflow cleanup is performed through the connector.
 Path(__file__).unlink()
-
-print("Repository cleanup staged successfully.")
+print("Non-workflow repository cleanup staged successfully.")

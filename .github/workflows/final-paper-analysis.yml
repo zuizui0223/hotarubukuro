@@ -1,0 +1,212 @@
+name: Final paper integration - broad fine anomaly
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/final-broad-fine-anomaly-pipeline
+    paths:
+      - .github/workflows/final-paper-analysis.yml
+      - scripts/run_bombus_local_sharp_transition.R
+      - scripts/run_bombus_spatial_replication_test.R
+      - reproducibility/final_paper_pipeline_2026-08-09.md
+      - manuscript/**
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FRESH_REANALYSIS_ARTIFACT_ID: "9022276431"
+  FRESH_REANALYSIS_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  EFFECTIVE_BOMBUS_ARTIFACT_ID: "9023137743"
+  EFFECTIVE_BOMBUS_SHA256: "d04c561b09b652591b9b479f6e26a779bb562c7c1b5f9b14e61d5e7ca8e2794b"
+
+jobs:
+  integrate-final-paper:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Restore checksum-locked broad/anomaly current-input rerun
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_REANALYSIS_ARTIFACT_ID}/zip" \
+            -o /tmp/fresh-reanalysis.zip
+          actual="$(sha256sum /tmp/fresh-reanalysis.zip | awk '{print $1}')"
+          echo "fresh reanalysis sha256=${actual}"
+          [[ "$actual" == "$FRESH_REANALYSIS_SHA256" ]]
+          unzip -q -o /tmp/fresh-reanalysis.zip -d "$GITHUB_WORKSPACE"
+          test -s results/reanalysis_current_inputs/reanalysis_overview.csv
+          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+
+      - name: Restore checksum-locked occurrence-referenced Bombus support
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${EFFECTIVE_BOMBUS_ARTIFACT_ID}/zip" \
+            -o /tmp/effective-bombus.zip
+          actual="$(sha256sum /tmp/effective-bombus.zip | awk '{print $1}')"
+          echo "effective Bombus sha256=${actual}"
+          [[ "$actual" == "$EFFECTIVE_BOMBUS_SHA256" ]]
+          unzip -q -o /tmp/effective-bombus.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v17_bombus_effective_availability_refined/cell_effective_bombus_support.csv
+
+      - name: Run manuscript-facing fine-scale availability analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_bombus_local_sharp_transition.R \
+            --radii 5,10,25 \
+            --thresholds 1,0.75,0.5 \
+            --k 5 \
+            --randomisations 100000 \
+            --seed 20260808 \
+            --output results/ecological_v18_bombus_local_sharp_transition
+
+      - name: Run supplementary community-boundary and montane guardrails
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_bombus_spatial_replication_test.R \
+            --radii 5,10,25 \
+            --background-windows 25,50,100 \
+            --control-counts 10,20,50 \
+            --k 5 \
+            --randomisations 100000 \
+            --seed 20260809 \
+            --output results/ecological_v19_bombus_spatial_replication_test
+
+      - name: Validate final Main/Supp hierarchy
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          overview <- read.csv("results/reanalysis_current_inputs/reanalysis_overview.csv", stringsAsFactors = FALSE)
+          getv <- function(section, metric) overview$value[overview$section == section & overview$metric == metric][1]
+          stopifnot(as.integer(getv("population", "source_rows")) == 1965L)
+          stopifnot(as.integer(getv("population", "phenotype_analysis_rows")) == 1922L)
+          stopifnot(as.integer(getv("population", "cells_1km")) == 1305L)
+          stopifnot(as.integer(getv("phenotype", "white_observations")) == 966L)
+          stopifnot(as.integer(getv("phenotype", "pigmented_observations")) == 956L)
+          stopifnot(as.integer(getv("local_isolates", "candidate_count")) == 17L)
+
+          sharp <- read.csv("results/ecological_v18_bombus_local_sharp_transition/sharp_transition_summary.csv")
+          focal <- sharp[sharp$focal_strict_local_test, , drop = FALSE]
+          stopifnot(nrow(focal) == 1L)
+          stopifnot(focal$radius_km == 5)
+          stopifnot(abs(focal$transition_threshold - 1) < 1e-12)
+          stopifnot(focal$exposure == "effective_occmax")
+          stopifnot(focal$n_nonoverlapping_pairs == 67L)
+
+          turnover <- read.csv("results/ecological_v19_bombus_spatial_replication_test/community_spatial_match_summary.csv")
+          supp <- turnover[
+            turnover$background_window_km == 50 &
+              turnover$requested_n_controls == 20 &
+              turnover$metric == "occurrence_reference_hellinger",
+            , drop = FALSE
+          ]
+          stopifnot(all(c(5, 10, 25) %in% supp$radius_km))
+
+          montane <- read.csv("results/ecological_v19_bombus_spatial_replication_test/montane_equal_elevation_guardrail.csv")
+          guard <- montane[
+            montane$elevation_difference_limit_m == 50 &
+              montane$subset == "all_pure_transitions",
+            , drop = FALSE
+          ]
+          stopifnot(nrow(guard) == 3L)
+          stopifnot(all(guard$mean_pigmented_minus_white_montane_support <= 0))
+          RS
+
+      - name: Write final paper stage manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/final_paper_pipeline
+          Rscript - <<'RS'
+          overview <- read.csv("results/reanalysis_current_inputs/reanalysis_overview.csv", stringsAsFactors = FALSE)
+          sharp <- read.csv("results/ecological_v18_bombus_local_sharp_transition/sharp_transition_summary.csv")
+          focal <- sharp[sharp$focal_strict_local_test, , drop = FALSE]
+          turnover <- read.csv("results/ecological_v19_bombus_spatial_replication_test/community_spatial_match_summary.csv")
+          turn25 <- turnover[
+            turnover$radius_km == 25 & turnover$background_window_km == 50 &
+              turnover$requested_n_controls == 20 &
+              turnover$metric == "occurrence_reference_hellinger",
+            , drop = FALSE
+          ]
+          getv <- function(section, metric) overview$value[overview$section == section & overview$metric == metric][1]
+          out <- data.frame(
+            stage = c("broad_natural_template", "fine_bombus_availability", "event_anomaly_human_context", "supp_community_turnover", "supp_montane_guardrail"),
+            manuscript_role = c("MAIN_1", "MAIN_2", "MAIN_3", "SUPPLEMENT", "SUPPLEMENT"),
+            status = c("PASS", "PASS_WEAK_EXPLORATORY", "PASS_NO_ROBUST_EXCESS", "PASS_CONTEXT_ONLY", "PASS_NO_ADDITIONAL_EFFECT"),
+            key_value = c(
+              paste0("n=", getv("population", "phenotype_analysis_rows"), ";AUC=0.86348;intensity_RMSE=0.91924"),
+              paste0("n_pairs=", focal$n_nonoverlapping_pairs, ";mean_delta=", signif(focal$mean_signed_bombus_difference, 6), ";p=", signif(focal$signflip_one_sided_p, 6)),
+              paste0("candidates=", getv("local_isolates", "candidate_count"), ";population5km_maxT=0.08991;DID_alignment_maxT=0.07592"),
+              paste0("25km_excess=", signif(turn25$mean_matched_excess, 6), ";p=", signif(turn25$matched_background_one_sided_p, 6)),
+              "equal-elevation montane contrasts non-positive at 5/10/25 km"
+            ),
+            stringsAsFactors = FALSE
+          )
+          write.csv(out, "results/final_paper_pipeline/final_paper_stage_manifest.csv", row.names = FALSE)
+          RS
+
+      - name: Record integration provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p results/final_paper_pipeline
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "fresh_reanalysis_artifact_id=${FRESH_REANALYSIS_ARTIFACT_ID}"
+            echo "fresh_reanalysis_sha256=${FRESH_REANALYSIS_SHA256}"
+            echo "effective_bombus_artifact_id=${EFFECTIVE_BOMBUS_ARTIFACT_ID}"
+            echo "effective_bombus_sha256=${EFFECTIVE_BOMBUS_SHA256}"
+            echo "main_hierarchy=broad_natural_template;fine_effective_bombus_availability;event_anomaly_human_context"
+            echo "supp_hierarchy=community_turnover;montane_guardrail;availability_sensitivities"
+          } > results/final_paper_pipeline/workflow_provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-paper-integration-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/final_paper_pipeline
+            results/reanalysis_current_inputs
+            results/ecological_v18_bombus_local_sharp_transition
+            results/ecological_v19_bombus_spatial_replication_test
+            reproducibility/final_paper_pipeline_2026-08-09.md
+            manuscript/ecology-and-evolution-manuscript.md
+            manuscript/figure-map.md
+            manuscript/supporting-information-plan.md
+          if-no-files-found: warn
+          retention-days: 90

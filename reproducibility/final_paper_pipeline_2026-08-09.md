@@ -10,11 +10,32 @@ The paper treats the use of YAMAP as a methodological contribution, not merely a
 
 **Observation process:** YAMAP is a hiking/navigation and activity-diary platform rather than a purpose-built biodiversity-recording database. Public activities can retain route-linked photograph positions. The study repurposes those recreational digital traces to recover incidental *C. punctata* photographs with spatial provenance.
 
-**Human validation:** the author reviews taxon identity, focal flower/petal region, repeated photographs and image suitability before colour values enter the analysis.
+**Exhaustive study screening within the predefined frame:** all recovered YAMAP candidate records from the 2023-2025 study window were taken through author screening rather than subsampled. The author checked the focal organism/flower and petal ROI, excluded incorrect/similar campanuloid subjects where encountered, and the pipeline audited image hashes and photo-coordinate mappings before colour phenotyping.
 
-**Claim ceiling:** this does not make YAMAP an unbiased or universally superior alternative to GBIF/iNaturalist. Route/access, recreational-use, subject-selection and flower-conspicuousness bias remain; users can hide locations and GPS can be imperfect. Author review reduces identification/ROI/duplicate error, not the original sampling bias.
+**Matched-period benchmark:** a query specification was committed before public-source retrieval for Japan, 2023-01-01 through 2025-12-31, with image+georeference requirements.
 
-**Relation to Main 3:** because YAMAP is concentrated on mountain-route geography, the full urban-rural gradient may be compressed, potentially reducing power for a broad human-context association. Trailheads, roads and accessible mountain margins can create observation-opportunity bias in the opposite direction. Both are discussed explicitly.
+- YAMAP: 1,964 author-screened source rows; 1,963 unique image hashes; 1,922 final trait-analysis observations;
+- iNaturalist: 516 public photo+geo observations; 882 attached photographs; 472 Research Grade;
+- GBIF: 393 HUMAN_OBSERVATION + StillImage + coordinate records; independent raw-record audit showed 389/393 (99.0%) were syndicated from iNaturalist and 4 were Pl@ntNet-linked.
+
+The focal YAMAP retrieval therefore contained 3.81x the matched iNaturalist observation count and 2.23x the total attached iNaturalist photo count within the same three recent years. GBIF and iNaturalist are not additive independent image pools in this comparison.
+
+**Temporal density:** YAMAP annual counts were 642/687/635 for 2023/2024/2025 (annual CV=0.043), giving a dense and unusually balanced short contemporary series. This is interpreted as a study-design advantage, not as a general platform-performance claim.
+
+**Mountain sampling frame:** YAMAP enriches trail-connected mountain and semi-natural habitat. For the focal wild herb, that is useful for reconstructing natural mountain trait geography, while not proving that each plant is wild. The same restriction can compress the available urban-rural gradient and reduce power in the human-context layer; access infrastructure can produce countervailing bias.
+
+**Observation-bias ceiling:** because users document hikes rather than submit a focal-species record, the initial image stream may reduce taxon-reporting/research-purpose-conditioned selection relative to a purpose-built focal-species dataset. It does not eliminate observer bias. Route choice, flower conspicuousness, subject choice, uneven visitation, hidden locations and GPS error remain.
+
+**Data-product contribution:** `Data_S1` is not a direct occurrence export. It retains date/coordinate/source provenance, image hashes, deterministic colour extraction and QC after study-specific taxon/flower/ROI validation, converting a recreational image stream into a quantitative trait table.
+
+**Benchmark provenance:** 
+
+- specification `reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md`, commit `80dd344c93e5bc4b634634458f3c1b49ad0a9435`;
+- retrieval workflow run `31289927019`, artifact `9031041034`, SHA-256 `3e53669395cfd926a0942b3488f844720dca2cb97b9ea210627262691e69f31a`;
+- independent GBIF-provider audit run `31290095532`, artifact `9031085975`;
+- result note `reproducibility/yamap_public_database_benchmark_results_2026-08-09.md`.
+
+**Claim ceiling:** YAMAP supplied substantially more same-period focal-species image material under the locked comparison and offered a useful mountain-route observation process that the study converted into a trait-ready dataset. Do not claim universal superiority, absence of observer bias, higher native platform taxonomic quality or guaranteed wild provenance.
 
 ## 1. Main/Supp scientific hierarchy
 
@@ -105,27 +126,33 @@ Occurrence-referenced Hellinger mean matched excess: +0.03303 at 5 km (P=0.06283
 
 The paper should be read as a sequence of changing representations and comparison units:
 
-1. **Data source:** repurpose a recreational GPS/photo stream and validate it ecologically;
-2. **Phenotype:** replace one coarse colour class with a two-part quantitative trait;
-3. **Broad scale:** estimate environmental associations while explicitly retaining residual spatial geography;
-4. **Fine scale:** avoid treating environmentally generated SDMs as independent national predictors; test a directional pollinator hypothesis at abrupt nearby boundaries;
-5. **Biogeographic guardrail:** show that visually striking high-elevation Bombus/pigmentation overlap does not persist beyond shared elevation;
-6. **Anomaly object:** replace a raw residual tail with a repeatable local ecological event;
-7. **Human context:** characterize pre-fixed departures rather than using human variables to create them.
+1. **Data source:** repurpose a recreational GPS/photo stream, show that it supplies an unusually dense same-period focal-species image set, and validate it ecologically;
+2. **Trait construction:** convert author-screened images into an auditable `Data_S1` rather than using occurrence labels as phenotypes;
+3. **Phenotype:** replace one coarse colour class with a two-part quantitative trait;
+4. **Broad scale:** estimate environmental associations while explicitly retaining residual spatial geography;
+5. **Fine scale:** avoid treating environmentally generated SDMs as independent national predictors; test a directional pollinator hypothesis at abrupt nearby boundaries;
+6. **Biogeographic guardrail:** show that visually striking high-elevation Bombus/pigmentation overlap does not persist beyond shared elevation;
+7. **Anomaly object:** replace a raw residual tail with a repeatable local ecological event;
+8. **Human context:** characterize pre-fixed departures rather than using human variables to create them.
 
-The paper's novelty is therefore not the number of predictor families. It is the deliberate alignment of **data source, phenotype representation, spatial scale and inferential object** with the ecological question.
+The paper's novelty is therefore not the number of predictor families. It is the deliberate alignment of **data source, trait construction, phenotype representation, spatial scale and inferential object** with the ecological question.
 
 ## 4. Manuscript-facing versus historical files
 
 Manuscript-facing:
 
 - `manuscript/ecology-and-evolution-manuscript-final.md`
+- `manuscript/design-logic-and-novelty-ja.md`
 - `manuscript/figure-map.md`
 - `manuscript/supporting-information-plan.md`
 - `docs/yamap-iecology-rationale.md`
+- `reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md`
+- `reproducibility/yamap_public_database_benchmark_results_2026-08-09.md`
 - `scripts/run_bombus_local_sharp_transition.R`
 - `scripts/run_bombus_spatial_replication_test.R` (Supplement)
 - `.github/workflows/final-paper-analysis.yml`
+- `.github/workflows/yamap-public-database-benchmark.yml`
+- `.github/workflows/yamap-public-database-overlap-audit.yml`
 
 Immediately preceding draft/provenance:
 

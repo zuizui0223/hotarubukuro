@@ -6,6 +6,7 @@ on:
       - agent/jbi-submission-manuscript
     paths:
       - submission/jbi/rewrite_background_once.py
+      - .github/workflows/apply-jbi-background-rewrite.yml
 
 permissions:
   contents: write

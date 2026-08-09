@@ -4,37 +4,89 @@
 
 The use of YAMAP is a methodological contribution because it recovers a spatially structured image stream created for **hiking and activity documentation**, not for biodiversity recording. This fits the iEcology concept of extracting ecological information from digital resources accumulated for other purposes.
 
-The defensible novelty is **not** that YAMAP is unbiased, universally better than iNaturalist/GBIF, or guaranteed to contain more usable photographs. The defensible novelty is that it provides a **complementary observation process** with route/activity provenance that can be repurposed for quantitative mountain-trait geography.
+The defensible novelty is **not** that YAMAP is unbiased or globally better than iNaturalist/GBIF. The defensible novelty is stronger and more specific: for this focal mountain plant and recent time window, YAMAP provides a **complementary observation process** that was empirically much more image-rich, while route/activity provenance and exhaustive study-specific visual screening make the images suitable for quantitative trait geography.
+
+## Matched-period benchmark: this is not merely a hypothetical data source
+
+The benchmark was specified before public-source retrieval for *Campanula punctata* in Japan, 2023-01-01 through 2025-12-31, requiring images and georeferences in the public comparators.
+
+- YAMAP study retrieval: **1,964** author-screened rows, **1,963** unique image hashes, 1,922 final trait observations.
+- iNaturalist: **516** photo+geo observations, **882** attached photos, **472** Research Grade.
+- GBIF: **393** human-observation + StillImage + coordinate records; **389/393 (99.0%)** were syndicated from iNaturalist and 4 were Pl@ntNet-linked.
+
+Thus YAMAP supplied **3.81 times** the matched iNaturalist observation count and **2.23 times** the total number of attached iNaturalist photos within the same three-year window. GBIF and iNaturalist are not additive independent image pools here.
+
+Annual YAMAP counts were **642 / 687 / 635** for 2023/2024/2025 (annual CV=0.043), providing a dense and temporally balanced recent series. The corresponding iNaturalist counts were 95 / 156 / 265. These trends are descriptive and should not be interpreted as biological change or general platform performance.
+
+Frozen benchmark documentation:
+
+- `reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md`
+- `reproducibility/yamap_public_database_benchmark_results_2026-08-09.md`
+- retrieval artifact `9031041034`
+- independent GBIF-provider audit artifact `9031085975`
 
 ## Why YAMAP is useful here
 
 1. Public hiking activities can retain GPS-linked routes and photograph positions.
 2. The original user task is documenting a hike, not submitting a formal *C. punctata* record or scoring flower colour.
-3. Mountain/activity organization makes it possible to search across geographically repeated mountain systems and retain local route context.
-4. The author can review taxon identity, focal flower, petal region and repeated images before quantitative phenotyping.
-5. The result is suitable for local neighbourhood and transition analyses because photographs retain spatial provenance at the level required by the design.
+3. Mountain/activity organization creates a sampling frame concentrated in mountain and semi-natural habitats relevant to wild *C. punctata* geography.
+4. Within the predefined three-year retrieval frame, recovered candidates were not subsampled before author screening.
+5. The author reviewed taxon identity, focal flower and petal region, removing incorrect/similar campanuloid subjects where encountered.
+6. Image hashes, photo-coordinate mappings, extraction method and QC provenance were retained before RGB/CIELAB phenotyping.
+7. The result is suitable for local neighbourhood and transition analyses because photographs retain spatial provenance at the level required by the design.
 
-## What author review does and does not solve
+## Mountain sampling: a targeted advantage, not proof of wild provenance
 
-Author review can reduce:
+YAMAP's mountain/trail concentration is often described only as sampling bias, but for this study it also aligns the sample with the biological target. A mountain-route frame enriches natural or semi-natural habitats where self-sustaining wild *C. punctata* populations are plausible, compared with a general occurrence portal spanning the full garden-to-urban continuum.
 
-- taxonomic misidentification;
-- non-focal flowers or petal regions;
-- exact/repeated image problems;
-- image-processing ROI error.
+This does **not** establish that every YAMAP photograph is a wild plant. Planted individuals, roadsides, trailheads, temples, tourist facilities and horticultural escape can occur in mountain activities. The correct claim is enrichment of the relevant natural-habitat sampling frame, not certainty of provenance.
 
-It cannot remove:
+The same property has an important consequence for Main 3: because YAMAP undersamples the full urban-rural continuum, it can compress human-modification variation and reduce power to detect a broad anthropogenic gradient. Conversely, access infrastructure can overrepresent human-modified mountain edges. This two-sided sampling effect belongs explicitly in the Discussion.
 
-- hiking-route/access bias;
+## Does a non-research platform have less observer bias?
+
+Do not say `observer bias was avoided`. A narrower argument is defensible.
+
+Because users are documenting hikes rather than participating in a focal-species survey, the initial photograph stream is not directly conditioned on the aim of submitting *C. punctata* to a biodiversity database or obtaining a community identification. This may reduce **taxon-reporting-, inventory-, or research-purpose-conditioned selection** relative to a purpose-built focal-species occurrence dataset.
+
+However, substantial observer bias remains:
+
+- route/access choice;
 - user and subject-selection bias;
 - flower-conspicuousness bias;
 - hidden/private location loss;
 - GPS error;
 - uneven mountain visitation.
 
-Therefore avoid wording such as `observer bias was avoided`. Prefer:
+Therefore the correct comparison is **different observation processes**, not `biased versus unbiased`.
 
-> The original observation process differs from a purpose-built biodiversity-recording task, and author review reduces identification and image-region error, while route/access and subject-selection biases remain.
+iNaturalist also has a native strength that YAMAP does not: community identification and Research Grade. This should be acknowledged explicitly. YAMAP's study-specific advantage comes from combining a different image stream with exhaustive author screening and quantitative trait extraction, not from claiming native platform identification is superior.
+
+## What author review and Data_S1 construction add
+
+Author review can reduce:
+
+- taxonomic misidentification, including similar campanuloid subjects such as *Adenophora* where encountered;
+- non-focal flowers or petal regions;
+- exact/repeated image problems;
+- image-processing ROI error.
+
+The subsequent pipeline retains:
+
+- source-row and observation IDs;
+- complete dates for the YAMAP benchmark rows;
+- coordinates and photo-coordinate QC;
+- SHA-256 image hashes;
+- deterministic colour-extraction method;
+- RGB and CIELAB values;
+- image/QC provenance;
+- the response-blind two-part phenotype.
+
+The study therefore constructs:
+
+`hiking activity/photo -> date/GPS provenance -> exhaustive candidate review -> taxon/subject/ROI validation -> image-hash duplicate audit -> deterministic pixel summary -> RGB/CIELAB -> QC -> pigmentation state + conditional intensity`.
+
+`Data_S1` is thus a curated quantitative-trait dataset, not a direct occurrence export. Purpose-built occurrence portals could also support this transformation, but petal-level colour is not a native occurrence field and would require an additional image-screening and phenotyping workflow.
 
 ## Relation to quantitative flower-colour geography
 
@@ -42,7 +94,7 @@ The YAMAP contribution becomes stronger when paired with the two-part phenotype.
 
 The manuscript therefore claims a combined methodological advance:
 
-`repurposed GPS-linked images -> human ecological validation -> quantitative two-part phenotype -> spatially explicit trait geography`.
+`repurposed GPS-linked images -> exhaustive human ecological validation -> quantitative two-part phenotype -> spatially explicit trait geography`.
 
 ## Relation to the pollinator analysis
 
@@ -64,16 +116,18 @@ However, this cannot be used as a one-directional excuse for a weak human result
 
 ## Reviewer-facing one-paragraph summary
 
-> We used YAMAP not because a recreational platform is assumed to be less biased than a biodiversity database, but because it provides a complementary iEcology observation stream. Public hiking activities retain route-linked photograph locations and include incidental plant images that were generated for recreation rather than formal species reporting. We combined this spatial provenance with author validation of taxon identity and the focal flower region to derive a reproducible image phenotype. Route/access and subject-selection biases remain explicit limitations. This design extends the set of digital sources available for range-wide quantitative trait ecology while preserving the sampling frame needed for spatially local comparisons.
+> We used YAMAP not because a recreational platform is assumed to be unbiased, but because it provides a complementary iEcology observation stream that was unusually productive for the focal mountain plant. In a matched 2023–2025 benchmark, the author-screened YAMAP retrieval contained 1,964 georeferenced records, compared with 516 iNaturalist photo+geo observations; the matched GBIF image set was almost entirely syndicated from iNaturalist. Public hiking activities provide route-linked photograph locations and incidental plant images generated for recreation rather than formal species reporting. We combined this alternative observation process with exhaustive author validation of taxon identity and the focal flower region, image-hash/coordinate audit and deterministic colour phenotyping. Route/access, conspicuousness and subject-selection biases remain explicit limitations. The methodological contribution is therefore both data acquisition and trait construction: a large recent mountain-image stream was converted into a reproducible quantitative phenotype suitable for spatially explicit ecological tests.
 
 ## Claims to avoid
 
 - `YAMAP is more accurate than iNaturalist/GBIF.`
 - `YAMAP removes observer bias.`
+- `All YAMAP records are wild.`
 - `All YAMAP photo coordinates are public.`
 - `Mountain sampling proves human influence is absent.`
 - `Author review makes the dataset representative of Japanese populations.`
+- `GBIF + iNaturalist provide 909 independent matched records` (they strongly overlap here).
 
 ## Preferred paper-level novelty sentence
 
-> The methodological novelty lies not in adding more predictor families, but in linking a repurposed recreational image stream to a quantitative trait representation and then changing spatial scale and inferential object as the ecological question narrows.
+> The methodological novelty lies not in adding more predictor families, but in recovering an unusually dense, recent mountain-trait image series from a non-biodiversity digital platform, converting it through exhaustive study-specific validation into a quantitative phenotype, and then changing spatial scale and inferential object as the ecological question narrows.

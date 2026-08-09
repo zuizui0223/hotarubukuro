@@ -11,6 +11,8 @@ on:
       - scripts/run_bombus_spatial_replication_test.R
       - reproducibility/final_paper_pipeline_2026-08-09.md
       - manuscript/**
+      - docs/yamap-iecology-rationale.md
+      - README.md
 
 permissions:
   contents: read
@@ -106,6 +108,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -s manuscript/ecology-and-evolution-manuscript-final.md
+          test -s docs/yamap-iecology-rationale.md
           Rscript - <<'RS'
           overview <- read.csv("results/reanalysis_current_inputs/reanalysis_overview.csv", stringsAsFactors = FALSE)
           getv <- function(section, metric) overview$value[overview$section == section & overview$metric == metric][1]
@@ -161,10 +165,11 @@ jobs:
           ]
           getv <- function(section, metric) overview$value[overview$section == section & overview$metric == metric][1]
           out <- data.frame(
-            stage = c("broad_natural_template", "fine_bombus_availability", "event_anomaly_human_context", "supp_community_turnover", "supp_montane_guardrail"),
-            manuscript_role = c("MAIN_1", "MAIN_2", "MAIN_3", "SUPPLEMENT", "SUPPLEMENT"),
-            status = c("PASS", "PASS_WEAK_EXPLORATORY", "PASS_NO_ROBUST_EXCESS", "PASS_CONTEXT_ONLY", "PASS_NO_ADDITIONAL_EFFECT"),
+            stage = c("yamap_iecology_data_layer", "broad_natural_template", "fine_bombus_availability", "event_anomaly_human_context", "supp_community_turnover", "supp_montane_guardrail"),
+            manuscript_role = c("CROSS_CUTTING", "MAIN_1", "MAIN_2", "MAIN_3", "SUPPLEMENT", "SUPPLEMENT"),
+            status = c("PASS_SAMPLING_FRAME_EXPLICIT", "PASS", "PASS_WEAK_EXPLORATORY", "PASS_NO_ROBUST_EXCESS", "PASS_CONTEXT_ONLY", "PASS_NO_ADDITIONAL_EFFECT"),
             key_value = c(
+              "GPS-linked hiking photographs; author-reviewed; route/access bias retained",
               paste0("n=", getv("population", "phenotype_analysis_rows"), ";AUC=0.86348;intensity_RMSE=0.91924"),
               paste0("n_pairs=", focal$n_nonoverlapping_pairs, ";mean_delta=", signif(focal$mean_signed_bombus_difference, 6), ";p=", signif(focal$signflip_one_sided_p, 6)),
               paste0("candidates=", getv("local_isolates", "candidate_count"), ";population5km_maxT=0.08991;DID_alignment_maxT=0.07592"),
@@ -191,6 +196,7 @@ jobs:
             echo "fresh_reanalysis_sha256=${FRESH_REANALYSIS_SHA256}"
             echo "effective_bombus_artifact_id=${EFFECTIVE_BOMBUS_ARTIFACT_ID}"
             echo "effective_bombus_sha256=${EFFECTIVE_BOMBUS_SHA256}"
+            echo "data_layer=yamap_iecology_gps_linked_author_reviewed"
             echo "main_hierarchy=broad_natural_template;fine_effective_bombus_availability;event_anomaly_human_context"
             echo "supp_hierarchy=community_turnover;montane_guardrail;availability_sensitivities"
           } > results/final_paper_pipeline/workflow_provenance.txt
@@ -205,8 +211,11 @@ jobs:
             results/ecological_v18_bombus_local_sharp_transition
             results/ecological_v19_bombus_spatial_replication_test
             reproducibility/final_paper_pipeline_2026-08-09.md
+            manuscript/ecology-and-evolution-manuscript-final.md
             manuscript/ecology-and-evolution-manuscript.md
             manuscript/figure-map.md
             manuscript/supporting-information-plan.md
+            docs/yamap-iecology-rationale.md
+            README.md
           if-no-files-found: warn
           retention-days: 90

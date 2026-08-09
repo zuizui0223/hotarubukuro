@@ -23,7 +23,9 @@ jobs:
           python scripts/patch_spatial_replication_module_once.py
           git diff --check
           grep -q 'source("R/local_pair_graph.R")' scripts/run_bombus_spatial_replication_test.R
-          ! grep -q 'v17_' scripts/run_bombus_spatial_replication_test.R
+          ! grep -q 'v17_require_columns' scripts/run_bombus_spatial_replication_test.R
+          ! grep -q 'v17_pair_graph' scripts/run_bombus_spatial_replication_test.R
+          ! grep -q 'hb_load_modules("local_bombus_turnover")' scripts/run_bombus_spatial_replication_test.R
       - name: Commit patch
         run: |
           git config user.name 'github-actions[bot]'

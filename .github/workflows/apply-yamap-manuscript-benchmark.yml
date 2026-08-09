@@ -12,105 +12,31 @@ permissions:
 
 jobs:
   patch-manuscript:
-    if: github.event.head_commit.message == 'Apply YAMAP benchmark to active manuscript'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Integrate benchmark and sampling-frame interpretation
+      - name: Apply locked manuscript patch
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-
-          p = Path('manuscript/ecology-and-evolution-manuscript-final.md')
-          text = p.read_text(encoding='utf-8')
-
-          replacements = []
-
-          replacements.append((
-          '''YAMAP provides one such source for mountain plants. It is primarily a hiking-navigation and activity-diary platform. During a recorded hike, photographs can retain positions along a GPS activity track and can be displayed at those photographed locations when an activity is shared. The unit of organization is therefore not a biodiversity checklist but a mountain activity and route. For a conspicuous flowering plant, this creates a potentially valuable stream of incidental, route-linked photographs across many mountain systems.
-
-This does not make YAMAP unbiased, nor do we regard it as universally superior to GBIF or iNaturalist. Users choose routes and subjects, trails differ in use, photograph locations can be hidden, GPS is imperfect and conspicuous flowers may be photographed preferentially. Instead, YAMAP changes the observation process: the original user goal is hiking documentation rather than taxon reporting. We therefore combine this source with manual ecological validation. Author review can reduce taxonomic errors, repeated-image problems and mistakes in defining the focal petal region, although it cannot remove route-access or subject-selection bias. The resulting data are best understood as an author-reviewed, GPS-linked hiking-photograph sample.
-''',
-          '''YAMAP provides one such source for mountain plants. It is primarily a hiking-navigation and activity-diary platform. During a recorded hike, photographs can retain positions along a GPS activity track and can be displayed at those photographed locations when an activity is shared. The unit of organization is therefore not a biodiversity checklist but a mountain activity and route. For a conspicuous flowering plant, this creates a potentially valuable stream of incidental, route-linked photographs across many mountain systems. The mountain focus is not only a sampling limitation: for a native wild herb whose geographical variation is concentrated in mountain and semi-natural habitats, it deliberately enriches the part of the landscape most relevant to reconstructing natural trait geography, although it does not guarantee that every photographed plant is wild.
-
-The volume of this non-specialist image stream was unexpectedly high. In a matched Supplementary benchmark for Japan in 2023–2025, the author-screened YAMAP retrieval contained 1,964 georeferenced focal-species photo records (1,963 unique image hashes), compared with 516 georeferenced iNaturalist observations with photographs (882 attached photos; 472 Research Grade). The matched GBIF human-observation image set contained 393 records, 389 of which were syndicated from iNaturalist. Thus, even within only three recent years, YAMAP supplied 3.8 times as many georeferenced focal-species records as the matched iNaturalist observation set and more than twice as many study images as all attached iNaturalist photos. These comparisons are taxon- and period-specific rather than platform-wide rankings (Supplementary Information).
-
-This does not make YAMAP unbiased, nor do we regard it as universally superior to GBIF or iNaturalist. Users choose routes and subjects, trails differ in use, photograph locations can be hidden, GPS is imperfect and conspicuous flowers may be photographed preferentially. Instead, YAMAP changes the observation process: users are documenting hikes rather than participating in a focal-species inventory. This may reduce selection conditioned specifically on taxon reporting or research purpose, but it does not remove observer bias in general. We therefore combine the alternative observation process with exhaustive study-specific validation. Author review can reduce taxonomic errors, repeated-image problems and mistakes in defining the focal petal region, although it cannot remove route-access, conspicuousness or subject-selection bias. The resulting data are best understood as an author-reviewed, GPS-linked hiking-photograph sample.
-'''))
-
-          replacements.append((
-          '''The source table contained 1,965 eligible *C. punctata* records recovered from publicly accessible YAMAP activity records during the flowering seasons of 2023-2025. YAMAP activities are GPS-linked hiking records in which photographs can be associated with positions along the recorded activity. Records without usable public coordinates could not enter the geographical analyses. We retained the activity/route provenance rather than treating each photograph as an areally random presence record.
-
-Before model fitting, the author reviewed the focal organism and flower, confirmed the petal region used for image phenotyping, removed taxonomic errors and audited repeated photographs. Exact image-hash duplicates were resolved using stable source-row order. These steps reduce identification and image-processing errors but do not remove hiking-route, access or subject-selection bias. After analysis-specific data-availability filtering, the final two-part phenotype contained 1,922 observations in 1,305 one-kilometre cells.
-
-Records were not selected using flower colour, fitted residuals, *Bombus* predictions or human-landscape variables. The analytical population is therefore the retained route-linked photographic sample rather than a random sample of all Japanese *C. punctata* populations.
-''',
-          '''The predefined source frame covered the flowering seasons of 2023–2025. Within that frame, all recovered YAMAP candidate records were retained for author screening rather than subsampled. The current source table contained 1,965 eligible records, including 1,964 YAMAP activity-photo rows representing 1,963 unique image hashes. YAMAP contributions were temporally dense and balanced across the three years (642 records in 2023, 687 in 2024 and 635 in 2025). All 1,964 retained YAMAP rows had complete calendar dates and finite latitude/longitude in the frozen source table. YAMAP activities are GPS-linked hiking records in which photographs can be associated with positions along the recorded activity; records without usable public coordinates could not enter the geographical analyses. We retained activity/route provenance rather than treating each photograph as an areally random presence record.
-
-Before an image entered the eligible focal-species table, the author visually checked every recovered candidate, confirmed that the focal organism and flower were *C. punctata*, excluded incorrect or similar campanuloid subjects (including *Adenophora* where encountered), and confirmed the petal region usable for image phenotyping. Repeated photographs and photo-coordinate mappings were then audited; exact image-hash duplicates were resolved using stable source-row order. These steps reduce identification and image-processing errors but do not remove hiking-route, access, flower-conspicuousness or subject-selection bias. After analysis-specific data-availability filtering, the final two-part phenotype contained 1,922 observations in 1,305 one-kilometre cells.
-
-The deliberately short and contemporaneous three-year window limits long-term temporal mixing, preserves calendar year as explicit provenance and permits annual sampling balance to be checked rather than combining records accumulated over many decades. Records were not selected using flower colour, fitted residuals, *Bombus* predictions or human-landscape variables. The analytical population is therefore the retained route-linked photographic sample rather than a random sample of all Japanese *C. punctata* populations. The matched YAMAP/iNaturalist/GBIF data-volume and metadata benchmark was specified before public-source retrieval and is reported in the Supporting Information.
-'''))
-
-          replacements.append((
-          '''The deterministic image pipeline measured the author-confirmed petal region from display-referred sRGB pixels. The channel-wise median RGB value was converted to CIELAB under D65 and a 2-degree standard-observer convention, and a* was used as the primary red-green optical phenotype. Image-specific radiometric calibration and white balance were impossible because neutral standards and standardized camera metadata were unavailable. The phenotype is therefore a reproducible image-derived visible-colour measure, not calibrated reflectance, ultraviolet contrast or anthocyanin concentration.
-''',
-          '''The deterministic image pipeline measured the author-confirmed petal region from display-referred sRGB pixels. Source-row identifiers, dates, coordinates, image SHA-256 hashes, extraction method and QC provenance were retained so that the transformation from a hiking photograph to a numerical trait record could be audited. The channel-wise median RGB value was converted to CIELAB under D65 and a 2-degree standard-observer convention, and a* was used as the primary red-green optical phenotype. Image-specific radiometric calibration and white balance were impossible because neutral standards and standardized camera metadata were unavailable. The phenotype is therefore a reproducible image-derived visible-colour measure, not calibrated reflectance, ultraviolet contrast or anthocyanin concentration. In this sense, `Data_S1` is not an occurrence download but a study-curated quantitative-trait product built through taxon/subject review, petal-region validation, image-hash auditing, deterministic colour extraction and explicit QC.
-'''))
-
-          replacements.append((
-          '''Repurposing YAMAP is a methodological contribution in its own right. Most digital biodiversity analyses begin with records that users intentionally submitted as biodiversity observations. YAMAP begins with a different behaviour: people document hikes. Photographs are organized by activities and routes and can retain photographed positions along GPS tracks. This allows incidental plant photographs to be recovered from a digital stream generated for recreation rather than ecological recording, fitting the broader logic of iEcology (Jarić et al., 2020).
-
-The value is not that YAMAP is intrinsically less biased than a biodiversity portal. Its biases are different and unusually transparent for mountain ecology. Sampling is concentrated on accessible hiking routes and mountains, users can suppress location information, and subject choice remains opportunistic. Conversely, route structure supplies spatial provenance that is useful for clustering, duplicate audits and local neighbourhood analyses. Human review can verify the focal taxon and petal region before image values are treated as phenotypes. Together, these features make YAMAP especially useful for geographically structured mountain traits when its sampling frame is stated explicitly.
-
-This distinction matters for reproducibility. We do not infer a species range from anonymous images or use photographs without coordinates. The analysis is tied to retained public coordinates, documented image screening, deterministic colour extraction and versioned source-row provenance. The resulting framework could be adapted to other hiking, outdoor recreation or route-tracking platforms wherever photographs and spatial provenance can be recovered ethically and reproducibly.
-''',
-          '''Repurposing YAMAP is a methodological contribution in its own right. Most digital biodiversity analyses begin with records that users intentionally submitted as biodiversity observations. YAMAP begins with a different behaviour: people document hikes. Photographs are organized by activities and routes and can retain photographed positions along GPS tracks. This allows incidental plant photographs to be recovered from a digital stream generated for recreation rather than ecological recording, fitting the broader logic of iEcology (Jarić et al., 2020).
-
-For this species, the gain was quantitative rather than hypothetical. Under the locked 2023–2025 Japan benchmark, YAMAP provided 1,964 author-screened georeferenced records, versus 516 iNaturalist photo+geo observations; the latter contained 882 attached photographs and 472 Research Grade observations. The 393 matched GBIF image-bearing human observations were not a third independent pool: 389 were syndicated iNaturalist records. YAMAP therefore provided about 3.8 times the matched iNaturalist observation count and 2.2 times the total number of attached iNaturalist photographs within the same short period. Its annual sample was also unusually even (642, 687 and 635 records; annual CV=0.043), whereas matched iNaturalist records increased from 95 to 156 to 265. We do not interpret those public-platform trends biologically; their relevance is that YAMAP supplied a dense, recent and temporally balanced photographic series without combining records across long historical periods.
-
-The value is also not that YAMAP is intrinsically less biased than a biodiversity portal. Its biases are different and unusually transparent for mountain ecology. Because users document hikes rather than submit a focal-species record, the initial image stream is less directly conditioned on participation in a biodiversity survey or on obtaining a community identification for *C. punctata*. That difference may reduce taxon-reporting- or research-purpose-conditioned selection, but general observer bias remains: hikers choose routes and subjects, flowers differ in conspicuousness, trail use is spatially uneven and hidden locations are unavailable. iNaturalist, conversely, provides a strong native community-identification/Research-Grade system that YAMAP does not. The comparison is therefore between complementary observation processes, not a claim of universal platform superiority.
-
-The mountain concentration itself is useful for the biological target. YAMAP enriches observations from trail-connected mountain and semi-natural habitats where self-sustaining wild *C. punctata* populations are plausible, rather than sampling the full garden-to-city continuum. This does not prove wild provenance for any individual record, but it makes the sampling frame well aligned with reconstructing natural mountain trait geography. The same restriction has a cost: it compresses the range of human modification represented and can reduce power to detect broad anthropogenic effects. Trailheads, roadsides and accessible mountain margins can simultaneously produce the opposite access bias, so the weak human-context result should be interpreted within this mountain-route sampling frame rather than as evidence that human influence is absent.
-
-Finally, the study-specific curation is part of the data contribution. Every recovered candidate in the defined frame was visually screened before inclusion, taxonomic look-alikes were removed, the focal flower and petal region were checked, image hashes and coordinates were audited, and the validated photographs were converted through one deterministic RGB–CIELAB/QC pipeline. Thus the added value is not only more photographs: it is the conversion of a recreational photo stream into an auditable quantitative trait table. Purpose-built occurrence portals could also support such phenotyping, but the petal-level colour variables are not native occurrence fields and require the same additional screening and image-analysis work.
-
-This distinction matters for reproducibility. We do not infer a species range from anonymous images or use photographs without coordinates. The analysis is tied to retained public coordinates, documented image screening, deterministic colour extraction and versioned source-row provenance. The resulting framework could be adapted to other hiking, outdoor recreation or route-tracking platforms wherever photographs and spatial provenance can be recovered ethically and reproducibly.
-'''))
-
-          replacements.append((
-          '''The YAMAP sampling frame also helps interpret this weak human signal. Sampling is concentrated on mountain and hiking-route geography rather than the full urban-rural continuum, which can compress the range of human modification represented in the dataset and reduce power to detect a broad anthropogenic gradient. At the same time, trailheads, roads and accessible mountain edges can create the opposite observation-opportunity bias. These two forces mean that a null or weak human-context signal should not be interpreted as evidence that human influence is absent. It is evidence that the present mountain-route sample does not support a stronger claim.
-''',
-          '''The YAMAP sampling frame also helps interpret this weak human signal. Its mountain-route enrichment is advantageous for studying natural mountain populations but samples a narrower human-modification gradient than a general urban-rural occurrence database; this can reduce power for a broad anthropogenic contrast. At the same time, trailheads, roads and accessible mountain edges can create the opposite observation-opportunity bias. These two forces mean that a null or weak human-context signal should not be interpreted as evidence that human influence is absent. It is evidence that the present mountain-route sample does not support a stronger claim.
-'''))
-
-          replacements.append((
-          '''The flower-colour geography of *C. punctata* can be read as a sequence of layers rather than a competition among coefficients. Repurposed YAMAP hiking photographs supplied a national, GPS-linked image sample from which a two-part quantitative colour phenotype could be recovered. Broad environmental and spatial models then established the main geographical template for pigmentation state and conditional visible intensity.
-''',
-          '''The flower-colour geography of *C. punctata* can be read as a sequence of layers rather than a competition among coefficients. Repurposed YAMAP hiking photographs supplied a national, GPS-linked image sample from which a two-part quantitative colour phenotype could be recovered; in a matched 2023–2025 benchmark, this non-biodiversity image stream yielded several-fold more georeferenced focal-species records than iNaturalist/GBIF comparators. Broad environmental and spatial models then established the main geographical template for pigmentation state and conditional visible intensity.
-'''))
-
-          for old, new in replacements:
-              if text.count(old) != 1:
-                  raise SystemExit(f'Expected exactly one manuscript block, found {text.count(old)}')
-              text = text.replace(old, new)
-
-          p.write_text(text, encoding='utf-8')
-          PY
+          patch='reproducibility/patches/yamap_manuscript_benchmark_2026-08-09.patch'
+          test -s "$patch"
+          git apply --check "$patch"
+          git apply "$patch"
+          git diff --check
+          grep -q '1,964 author-screened georeferenced records' manuscript/ecology-and-evolution-manuscript-final.md
+          grep -q '389 were syndicated iNaturalist records' manuscript/ecology-and-evolution-manuscript-final.md
+          grep -q 'including \*Adenophora\* where encountered' manuscript/ecology-and-evolution-manuscript-final.md
 
       - name: Commit manuscript integration
         shell: bash
         run: |
           set -euo pipefail
-          git diff --check
-          git diff -- manuscript/ecology-and-evolution-manuscript-final.md
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add manuscript/ecology-and-evolution-manuscript-final.md
-          git commit -m "Integrate YAMAP benchmark into active manuscript"
+          git commit -m 'Integrate YAMAP benchmark into active manuscript'
           git push origin "HEAD:${GITHUB_REF_NAME}"

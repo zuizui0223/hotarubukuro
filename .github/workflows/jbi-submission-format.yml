@@ -4,9 +4,11 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - agent/jbi-submission-manuscript
+      - main
+      - agent/repository-cleanup-legacy
     paths:
       - submission/jbi/**
+      - paper/**
       - .github/workflows/jbi-submission-format.yml
 
 permissions:
@@ -17,9 +19,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
       - name: Validate manuscript format and anonymity guards
         run: python submission/jbi/validate_jbi_submission.py
-      - name: Confirm JBI package files
+
+      - name: Confirm current submission package
         shell: bash
         run: |
           set -euo pipefail
@@ -29,3 +33,7 @@ jobs:
           test -s submission/jbi/JBI_supporting_information_outline.md
           test -s submission/jbi/JBI_submission_checklist.md
           test -s submission/jbi/JBI_translated_abstract_ja.md
+          test -s submission/jbi/JBI_main_figure_plan.md
+          test -s submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md
+          test -s paper/README.md
+          test -s paper/active-file-map.csv

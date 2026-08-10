@@ -51,6 +51,33 @@ The artifact contains four validated 600-dpi PNGs, four vector PDFs, source hash
 
 The GitHub workflow additionally converts all six DOCX files through LibreOffice and requires one non-empty PDF plus a rendered first-page PNG per document.
 
+## Successful main artifact lock
+
+The generated delivery layer was rebuilt successfully from the merged `main` commit:
+
+- source commit: `e9c129498fd8d0c17b4984534e076435e1f727b2`;
+- workflow run: `31381244625`;
+- Actions artifact: `9059952715`;
+- Actions artifact digest: `sha256:61411d89d2fb13acb6f1a69d853442ca99da30269069e6d902c584a210452c2a`;
+- inner delivery ZIP SHA-256: `ed1e77f5ac7201121844f944f8f16ff49c3681af1071923d0955d65902705811`;
+- inner delivery ZIP size: 8,646,444 bytes;
+- generated file-manifest entries: 20;
+- independent bundle-validation status: `PASS`;
+- anonymous scientific bundle complete: `true`;
+- portal ready: `false`.
+
+The main artifact contains:
+
+- Main manuscript: 13 rendered pages and four embedded figures;
+- combined Supporting Information: 24 rendered pages and Appendices S1–S6;
+- title page: 1 rendered page;
+- cover letter: 1 rendered page;
+- Japanese translated abstract: 1 rendered page;
+- SDM/model-building checklist: 3 rendered pages;
+- four separate 600-dpi PNG and four vector PDF figures.
+
+The complete generated package was reviewed page by page before merge. Scientific notation (`a*`, `L*`, `C*`), Markdown emphasis, Japanese glyphs, title-page numbering, wide candidate-table wrapping and final-page paragraph flow were checked in the rendered documents.
+
 ## Readiness semantics
 
 `review_science_bundle_complete=true` means the anonymous scientific files, figures and SI have been assembled and validated.

@@ -26,6 +26,12 @@ The validation routing and the distinction between structural PASS/FAIL checks a
 
 The current biological interpretation and claim ceiling are in `../docs/bombus-inference-current.md`.
 
+## JBI figure production
+
+- `build_jbi_figure_bundle.R` — generate the four current Main figures from the checksum-locked broad/anomaly and local-transition artifacts. It writes 600-dpi PNG and vector PDF copies, figure-data indices, source hashes and a numerical lock under `results/jbi_figure_bundle/`.
+
+The corresponding execution route is `.github/workflows/jbi-main-figures.yml`; `validation/validate_jbi_figure_bundle.R` verifies all eight figure files, their signatures and hashes, and the manuscript-facing numerical values before the bundle is uploaded as an Actions artifact.
+
 ## Current infrastructure
 
 - `setup_r_environment.R` — restore the pinned R/INLA environment used by current workflows.

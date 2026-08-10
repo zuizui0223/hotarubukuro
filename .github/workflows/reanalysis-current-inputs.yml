@@ -48,12 +48,12 @@ jobs:
 
     steps:
       - name: Checkout current paper code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Checkout exact frozen upstream implementation
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ env.UPSTREAM_COMMIT }}
           path: upstream

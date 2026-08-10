@@ -18,7 +18,7 @@ jobs:
   validate-jbi-package:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Validate manuscript format and anonymity guards
         run: python submission/jbi/validate_jbi_submission.py

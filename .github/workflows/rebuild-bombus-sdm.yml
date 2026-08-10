@@ -39,7 +39,7 @@ jobs:
         soilgrids_soc_0_5cm,worldclim_elevation_30s
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 

@@ -9,9 +9,11 @@ on:
     paths:
       - paper/**
       - submission/jbi/**
+      - R/**
       - scripts/**
       - source_build/**
       - validation/**
+      - tests/**
       - reproducibility/**
       - docs/**
       - inputs/**
@@ -51,6 +53,37 @@ jobs:
           legacy = [p for p in paths if p.startswith('legacy/')]
           assert not legacy, 'active paper map points into legacy: ' + ', '.join(legacy)
           print('active/current infrastructure files:', len(paths))
+          PY
+
+      - name: Validate current R loader boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path('R/pipeline_support.R')
+          text = path.read_text(encoding='utf-8')
+          forbidden = [
+              'active 1,909-observation analysis',
+              'R/local_bombus_turnover.R',
+              'R/final_registry.R',
+              'bombus_limitation_gate =',
+              'local_bombus_turnover =',
+              'final_registry = "final_registry"',
+          ]
+          found = [x for x in forbidden if x in text]
+          assert not found, 'stale loader entries remain: ' + ', '.join(found)
+
+          block = re.search(r'hb_module_files\s*<-\s*c\((.*?)\n\)', text, re.S)
+          assert block, 'could not parse hb_module_files'
+          modules = re.findall(r'=\s*"([^"]+)"', block.group(1))
+          assert modules, 'hb_module_files contains no paths'
+          assert not any(p.startswith('legacy/') for p in modules), 'loader points into legacy'
+          missing = [p for p in modules if not Path(p).is_file()]
+          assert not missing, 'loader points to missing modules: ' + ', '.join(missing)
+          print('current R loader modules:', len(modules))
           PY
 
       - name: Confirm legacy separation
@@ -134,4 +167,7 @@ jobs:
           grep -q 'Current paper — start here' README.md
           grep -q 'submission/jbi/JBI_background_architecture.md' paper/active-file-map.csv
           grep -q 'submission/jbi/JBI_narrative_dependency_architecture.md' paper/active-file-map.csv
+          grep -q 'R/pipeline_support.R' paper/active-file-map.csv
+          grep -q 'R/natural_predictive_model.R' paper/active-file-map.csv
+          grep -q 'source_build/build_bombus_sdm_mainland.R' paper/active-file-map.csv
           grep -q 'docs/bombus-inference-current.md' paper/active-file-map.csv

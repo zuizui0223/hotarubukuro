@@ -20,6 +20,7 @@ SUPPORTING = (
     ROOT / "supporting" / "Appendix_S3_broad_environment_spatial_model.md",
     ROOT / "supporting" / "Appendix_S4_bombus_sdm_occurrence_support.md",
     ROOT / "supporting" / "Appendix_S5_local_pollinator_robustness.md",
+    ROOT / "supporting" / "Appendix_S6_event_departures_human_context.md",
 )
 FORBIDDEN_IDENTIFIERS = ("zuizui0223", "rachelzhang", "ZHANG Ruiqi", "張瑞琪")
 

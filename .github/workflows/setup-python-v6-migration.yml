@@ -1,0 +1,164 @@
+name: One-time setup-python v6 migration
+
+on:
+  push:
+    branches:
+      - agent/repository-cleanup-legacy
+    paths:
+      - .github/workflows/setup-python-v6-migration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-blob:
+    if: github.ref_name == 'agent/repository-cleanup-legacy'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Upgrade setup-python and insert its permanent runtime guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/paper-checks.yml')
+          text = path.read_text(encoding='utf-8')
+          old = 'actions/setup-python@v5'
+          new = 'actions/setup-python@v6'
+          if text.count(old) != 1:
+              raise SystemExit(
+                  f'Expected one active setup-python v5 reference; found {text.count(old)}'
+              )
+          text = text.replace(old, new)
+
+          anchor = "          root_files = {\n"
+          marker = "          setup_python_v5 = 'actions/setup-python@' + 'v5'\n"
+          if text.count(anchor) != 1:
+              raise SystemExit(
+                  f'Expected one permanent-guard anchor; found {text.count(anchor)}'
+              )
+          if marker in text:
+              raise SystemExit('The setup-python runtime guard already exists.')
+
+          guard_lines = [
+              "          # Keep Python setup on the Node 24 runtime as well. The",
+              "          # old token is split so this guard does not match itself.",
+              "          setup_python_v5 = 'actions/setup-python@' + 'v5'",
+              "          setup_python_v6 = 'actions/setup-python@' + 'v6'",
+              "          stale_setup_python = [",
+              "              str(path) for path in workflow_files",
+              "              if setup_python_v5 in path.read_text(encoding='utf-8')",
+              "          ]",
+              "          assert not stale_setup_python, (",
+              "              'active workflows still use setup-python v5: ' +",
+              "              ', '.join(stale_setup_python)",
+              "          )",
+              "          unexpected_setup_python = [",
+              "              str(path) for path in workflow_files",
+              "              if 'actions/setup-python@' in path.read_text(encoding='utf-8')",
+              "              and setup_python_v6 not in path.read_text(encoding='utf-8')",
+              "          ]",
+              "          assert not unexpected_setup_python, (",
+              "              'active workflows use an unexpected setup-python runtime: ' +",
+              "              ', '.join(unexpected_setup_python)",
+              "          )",
+              "",
+          ]
+          guard = '\n'.join(guard_lines) + '\n'
+          updated = text.replace(anchor, guard + anchor, 1)
+          if updated.count(marker) != 1:
+              raise SystemExit('Setup-python guard insertion was not unique.')
+          if updated.count(new) != 1:
+              raise SystemExit('setup-python v6 replacement was not unique.')
+          path.write_text(updated, encoding='utf-8')
+          PY
+
+      - name: Validate exact migration scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff -- .github/workflows/paper-checks.yml > /tmp/setup-python-v6.patch
+          python3 - <<'PY'
+          from pathlib import Path
+
+          patch = Path('/tmp/setup-python-v6.patch').read_text(encoding='utf-8')
+          required = [
+              '-      - uses: actions/setup-python@v5',
+              '+      - uses: actions/setup-python@v6',
+              "setup_python_v5 = 'actions/setup-python@' + 'v5'",
+              "setup_python_v6 = 'actions/setup-python@' + 'v6'",
+              'active workflows still use setup-python v5',
+              'active workflows use an unexpected setup-python runtime',
+          ]
+          missing = [item for item in required if item not in patch]
+          if missing:
+              raise SystemExit('Migration patch is incomplete: ' + ', '.join(missing))
+          removed = [
+              line for line in patch.splitlines()
+              if line.startswith('-') and not line.startswith('---')
+              and line != '-      - uses: actions/setup-python@v5'
+          ]
+          if removed:
+              raise SystemExit(
+                  'Migration unexpectedly removes lines: ' + ' | '.join(removed)
+              )
+          PY
+
+      - name: Create detached Git blob
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          token = os.environ['GITHUB_TOKEN']
+          path = Path('.github/workflows/paper-checks.yml')
+          payload = json.dumps({
+              'content': base64.b64encode(path.read_bytes()).decode('ascii'),
+              'encoding': 'base64',
+          }).encode('utf-8')
+          request = Request(
+              f'https://api.github.com/repos/{repository}/git/blobs',
+              data=payload,
+              method='POST',
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'hotarubukuro-setup-python-v6-migration',
+              },
+          )
+          with urlopen(request, timeout=60) as response:
+              result = json.loads(response.read().decode('utf-8'))
+          mapping = [{
+              'path': str(path),
+              'mode': '100644',
+              'type': 'blob',
+              'sha': result['sha'],
+          }]
+          Path('setup-python-v6-blob-map.json').write_text(
+              json.dumps(mapping, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(mapping, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: setup-python-v6-blob-map-${{ github.sha }}-${{ github.run_id }}
+          path: setup-python-v6-blob-map.json
+          if-no-files-found: error
+          retention-days: 1

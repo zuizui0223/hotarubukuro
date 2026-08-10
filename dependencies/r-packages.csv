@@ -31,12 +31,13 @@ maxnet,cran,acquisition,Maxent-style fitting engine used by ENMeval
 usdm,cran,acquisition,Deterministic VIF predictor screening for Bombus SDMs
 testthat,cran,testing,Unit test framework
 FNN,cran,testing,Nearest-neighbour helper required by current human-raster unit tests
+ranger,cran,testing,Random-forest helper required by current human-landscape unit tests
 knitr,cran,reporting,Report rendering
 rmarkdown,cran,reporting,Report rendering
 ggplot2,cran,figures,Publication figures
-cowplot,cran,figures,Publication figures
-patchwork,cran,figures,Publication figures
-scales,cran,figures,Publication figures
+cowplot,cran,figures,Publication figure composition
+patchwork,cran,figures,Publication multi-panel composition
+scales,cran,figures,Axis and legend transformations
 rnaturalearth,cran,figures,Base map layers for publication figures
 rnaturalearthdata,cran,figures,Offline medium-scale country geometry served to rnaturalearth::ne_countries
 ragg,cran,figures,Raster device used by ggplot2::ggsave for the 600-dpi review copies

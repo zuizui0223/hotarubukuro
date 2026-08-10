@@ -18,6 +18,8 @@ on:
       - reproducibility/**
       - docs/**
       - inputs/**
+      - data/**
+      - results/**
       - dependencies/**
       - config/**
       - .github/workflows/**
@@ -58,17 +60,30 @@ jobs:
           legacy = [p for p in paths if p.startswith('legacy/')]
           assert not legacy, 'active paper map points into legacy: ' + ', '.join(legacy)
 
-          # Validation and test directories are closed current interfaces: every
-          # file there must be registered, otherwise an orphan can look current
-          # merely because it remains executable.
-          for root in ('validation', 'tests'):
+          # These directories are closed current interfaces. Every committed
+          # file under them must be registered, otherwise an orphan can look
+          # current merely because it remains executable or sits beside the
+          # current manuscript package.
+          closed_roots = (
+              '.github/workflows', 'paper', 'submission/jbi', 'R', 'scripts',
+              'source_build', 'validation', 'tests', 'config', 'dependencies',
+              'inputs', 'data', 'results', 'docs', 'reproducibility'
+          )
+          for root in closed_roots:
               files = {
                   str(path) for path in Path(root).rglob('*') if path.is_file()
               }
               unmapped = sorted(files - active)
               assert not unmapped, f'unmapped current files under {root}: ' + ', '.join(unmapped)
 
-          assert 'pyproject.toml' in active, 'Python test/build declaration is unmapped'
+          root_files = {
+              path for path in ('README.md', 'Data_S1.csv', 'Code_S1.py', 'pyproject.toml')
+              if Path(path).is_file()
+          }
+          unmapped_root = sorted(root_files - active)
+          assert not unmapped_root, (
+              'unmapped current root entry points: ' + ', '.join(unmapped_root)
+          )
 
           # Every active R validator must be reachable from a current driver or
           # source-build workflow. Unit tests are reached through testthat/pytest
@@ -125,6 +140,7 @@ jobs:
           )
 
           print('active/current infrastructure files:', len(paths))
+          print('closed current directories:', len(closed_roots))
           print('reachable current validators:', len(validators))
           print('declared package/scope rows:', len(dependencies))
           PY
@@ -174,6 +190,7 @@ jobs:
           for path in \
             docs/bombus-pollinator-opportunity-proxy.md \
             docs/bombus-sdm-inference.md \
+            dependencies/local-path-allowlist.txt \
             source_build/audit_population_flow_1965.R \
             source_build/build_bombus_sdm.R \
             source_build/project_bombus_sdm_national.R \
@@ -207,6 +224,7 @@ jobs:
           done
 
           for path in \
+            legacy/reproducibility-development/dependencies/local-path-allowlist.txt \
             legacy/reproducibility-development/scripts/preflight.R \
             legacy/reproducibility-development/scripts/write_reproducibility_report.R \
             legacy/reproducibility-development/scripts/write_submission_analysis_lock.R \
@@ -235,10 +253,16 @@ jobs:
           test -s submission/jbi/JBI_background_architecture.md
           test -s submission/jbi/JBI_narrative_dependency_architecture.md
           test -s docs/bombus-inference-current.md
+          test -s scripts/README.md
+          test -s source_build/README.md
+          test -s inputs/README.md
+          test -s results/README.md
           test -s scripts/setup_r_environment.R
           test -s scripts/canonical_snapshot.sh
           test -s scripts/build_bombus_occurrence_reference_support.R
           test -s source_build/build_bombus_sdm_mainland.R
+          test -s config/color_extraction.json
+          test -s data/processed/Data_S1_v2_manifest.json
           test -s validation/README.md
           test -s validation/validate_natural_predictive_model.R
           test -s validation/validate_joint_submission_isolate_ppc.R
@@ -277,6 +301,8 @@ jobs:
           grep -q 'R/natural_predictive_model.R' paper/active-file-map.csv
           grep -q 'scripts/setup_r_environment.R' paper/active-file-map.csv
           grep -q 'dependencies/inla.csv' paper/active-file-map.csv
+          grep -q 'config/color_extraction.json' paper/active-file-map.csv
+          grep -q 'data/processed/Data_S1_v2_manifest.json' paper/active-file-map.csv
           grep -q 'validation/README.md' paper/active-file-map.csv
           grep -q 'tests/testthat.R' paper/active-file-map.csv
           grep -q 'tests/python/test_extract_color.py' paper/active-file-map.csv

@@ -7,27 +7,31 @@ The image pipeline estimates a reproducible **human-visible, display-referred co
 The phenotype was constructed before geography, environmental predictors, Bombus surfaces, human-context variables or model residuals were used. The primary representation separates:
 
 1. **pigmentation state** — white-like versus visibly pigmented; and
+
 2. **conditional visible intensity** — variation in a* above the operational pigmentation boundary, analysed only among observations classified as pigmented.
 
 This separation prevents small red-green variation among white photographs from being treated as a continuous pigment-amount scale.
 
 ## Data lineage and auditability
 
-The public derived table retains source-row, date, coordinate, observation, image-hash, colour-method and quality-control provenance while excluding local file paths, diagnostic-image paths and raw activity URLs. Coordinates are carried from the source workbook under an assumed EPSG:4326 reference and are not presented as independently re-georeferenced because no separate GPX/photo-timestamp manifest was available.
+The public derived table begins after exhaustive author screening of the full YAMAP keyword-retrieved candidate pool. Misidentified or non-focal subjects were removed, the focal flower and usable petal region were confirmed, and identical-coordinate records were cross-checked using photographs, dates and activity provenance before the screened source table was finalized. Coordinate identity alone was not an exclusion rule. The derived table retains source-row, date, coordinate, observation, image-hash, colour-method and quality-control provenance while excluding local file paths, diagnostic-image paths and raw activity URLs. Coordinates are carried from the source workbook under an assumed EPSG:4326 reference and are not presented as independently re-georeferenced because no separate GPX/photo-timestamp manifest was available.
 
 **Table S2.1. Source-to-phenotype record flow.** Counts distinguish the complete source table from the YAMAP-only benchmark subset.
 
 | Stage | Records / images | Interpretation |
-|---|---:|---|
-| Complete eligible source table | 1,965 records | 1,964 YAMAP activity-photo rows plus one field/other record |
-| Unique image hashes in complete source table | 1,964 | One later exact-hash copy is marked by stable source-row order |
-| YAMAP-only benchmark subset | 1,964 rows; 1,963 unique hashes | Counts used in Appendix S1 |
-| Final phenotype-analysis observations | 1,922 | Current reconstructed two-part phenotype population |
+|---|---|---|
+| Keyword-retrieved YAMAP candidate pool | all returned records | Every candidate visually screened by the author; pre-screen exclusion counts were not retained as separate categories |
+| Complete author-screened source table | 1,965 records | 1,964 YAMAP activity-photo rows plus one field/other record |
+| Later exact-image duplicate removed | -1 | Stable source-row order retained the first occurrence of each SHA-256 image hash |
+| Incomplete topographic raster support | -40 | Derived slope–roughness–TRI composite unavailable |
+| Incomplete soil raster support | -2 | Required SoilGrids variables/composites unavailable |
+| Final environment-complete phenotype/model population | 1,922 | 1,965 - 1 - 40 - 2 |
+| YAMAP-only benchmark subset | 1,964 rows; 1,963 unique hashes | Source-frame counts used in Appendix S1, before the environmental complete-case boundary |
 | White-like observations | 966 | Primary univariate a* mixture classification |
 | Pigmented observations | 956 | Primary univariate a* mixture classification |
 | Ambiguity-flagged observations | 124 | Posterior class probability between 0.2 and 0.8; retained in the primary classification |
 
-Exact-image duplicate semantics are deterministic: observations are ordered by numeric source row and original row order, the first occurrence of a SHA-256 image hash is retained as canonical, and only later exact copies are marked. Image-response warning flags were not used as an automatic exclusion rule in the current source reconstruction.
+Exact-image duplicate semantics are deterministic: observations are ordered by numeric source row and original row order, the first occurrence of a SHA-256 image hash is retained as canonical, and only later exact copies are marked. The 42 additional losses between the deduplicated source and the 1,922-observation model population arose from incomplete topographic or soil covariates, not from colour values, image warning flags or post hoc phenotype screening. Image-response warning flags were not used as an automatic exclusion rule in the current source reconstruction.
 
 ## Deterministic visible-colour extraction
 
@@ -69,7 +73,7 @@ For each observation, posterior probabilities of the components assigned to the 
 **Table S2.3. Selected univariate a* mixture.**
 
 | Component | Mean a* | SD a* | Mixture proportion | Assigned regime |
-|---:|---:|---:|---:|---|
+|---|---|---|---|---|
 | 1 | -2.380341 | 4.140661 | 0.296566 | white-colour noise |
 | 2 | -1.037856 | 1.453589 | 0.180553 | white-colour noise |
 | 3 | 17.269477 | 10.381630 | 0.256821 | pigmented |
@@ -84,7 +88,7 @@ The primary 0.5 posterior classification retains all observations. A separate co
 **Table S2.4. Classification diagnostics.** Agreement is calculated against the primary four-component univariate a* classification.
 
 | Diagnostic rule | White | Pigmented | Ambiguous / unavailable | Agreement with primary |
-|---|---:|---:|---:|---:|
+|---|---|---|---|---|
 | Primary univariate a* mixture, posterior >=0.5 | 966 | 956 | 0 | reference |
 | High-confidence subset, posterior >=0.8 or <=0.2 | 885 | 913 | 124 | 100% among classified observations |
 | Joint standardized a*, -L* and C* mixture | 953 | 969 | 0 | 99.0% |
@@ -105,18 +109,27 @@ This quantity was standardized only across the 956 observations assigned to the 
 Primary data and source-build files:
 
 - `Data_S1.csv` — public derived trait/provenance table;
+
 - `Code_S1.py` — public extraction entry point;
+
 - `config/color_extraction.json` — fixed extraction parameters;
+
 - `source_build/extract_color.py` — deterministic colour extraction;
+
 - `source_build/build_data_s1.py` — public table, hashes and manifest construction;
+
 - `data/processed/Data_S1_v2_manifest.json` — record counts, schema, hashes, software versions and colour-method configuration.
 
 Current phenotype outputs are produced by the checksum-locked fresh reconstruction and include:
 
 - `pigmentation_measurement_summary.csv`;
+
 - `pigmentation_mixture_components.csv`;
+
 - `pigmentation_joint_lab_components.csv`;
+
 - `pigmentation_measurement_observations.csv`;
+
 - `pigmentation_classification_sensitivity.csv`.
 
 The manuscript claim is limited to an auditable two-part visible-colour phenotype. Mapping these classes to anthocyanin concentration, floral reflectance under controlled illumination or Bombus visual contrast remains a field/laboratory validation task.

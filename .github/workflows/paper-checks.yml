@@ -102,6 +102,28 @@ jobs:
               ', '.join(unexpected_checkout)
           )
 
+          # Keep Python setup on the Node 24 runtime as well. The
+          # old token is split so this guard does not match itself.
+          setup_python_v5 = 'actions/setup-python@' + 'v5'
+          setup_python_v6 = 'actions/setup-python@' + 'v6'
+          stale_setup_python = [
+              str(path) for path in workflow_files
+              if setup_python_v5 in path.read_text(encoding='utf-8')
+          ]
+          assert not stale_setup_python, (
+              'active workflows still use setup-python v5: ' +
+              ', '.join(stale_setup_python)
+          )
+          unexpected_setup_python = [
+              str(path) for path in workflow_files
+              if 'actions/setup-python@' in path.read_text(encoding='utf-8')
+              and setup_python_v6 not in path.read_text(encoding='utf-8')
+          ]
+          assert not unexpected_setup_python, (
+              'active workflows use an unexpected setup-python runtime: ' +
+              ', '.join(unexpected_setup_python)
+          )
+
           root_files = {
               path for path in ('README.md', 'Data_S1.csv', 'Code_S1.py', 'pyproject.toml')
               if Path(path).is_file()
@@ -402,7 +424,7 @@ jobs:
           grep -q 'source_build/build_bombus_sdm_mainland.R' paper/active-file-map.csv
           grep -q 'docs/bombus-inference-current.md' paper/active-file-map.csv
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 

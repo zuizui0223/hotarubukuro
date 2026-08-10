@@ -15,7 +15,8 @@ This directory contains the current JBI-facing version of the adopted broad → 
 - `JBI_submission_checklist.md` — current format/submission checklist;
 - `validate_jbi_submission.py` — stable-format and anonymity checks;
 - `supporting/Appendix_S1_yamap_public_benchmark.md` — manuscript-ready YAMAP/iNaturalist/GBIF benchmark;
-- `supporting/Appendix_S2_image_phenotyping.md` — manuscript-ready image extraction, QC and two-part phenotype specification.
+- `supporting/Appendix_S2_image_phenotyping.md` — manuscript-ready image extraction, QC and two-part phenotype specification;
+- `supporting/Appendix_S3_broad_environment_spatial_model.md` — manuscript-ready broad environment, INLA-SPDE and blocked-prediction specification.
 
 ## Current editorial-architecture files
 

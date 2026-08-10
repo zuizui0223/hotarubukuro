@@ -49,15 +49,24 @@ Remaining production item before final SI assembly:
 
 **Purpose:** support Main 1 without filling the Main text with model specification.
 
-Include:
+Manuscript-ready text and tables:
 
-- environmental source registry;
-- PCA loadings and interpretation;
-- INLA mesh, priors and hyperparameters;
-- complete coefficient tables for pigmentation state and conditional intensity;
-- blocked-fold design;
-- full prediction/calibration/coverage metrics;
-- clear statement that predictive AUC is not variance partitioning and the SPDE field is not a single historical mechanism.
+- `submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md`.
+
+Included there:
+
+- environmental source registry and response-blind PCA loadings;
+- distinction between observation-level coefficient/range models and the cell-level predictive reference;
+- INLA mesh, Matérn PC priors and structural East/West adjustment;
+- complete environment-plus-space coefficient tables for pigmentation state and conditional intensity;
+- spatial ranges and internal fit diagnostics;
+- 50-km broad/within environmental PCs used by the natural predictive reference;
+- five-fold blocked prediction, calibration and coverage metrics;
+- explicit statement that predictive performance is not variance partitioning and the SPDE field is unresolved geography rather than a single mechanism.
+
+Remaining production item before final SI assembly:
+
+- export the Main/SI coefficient, national prediction and blocked-calibration panels from the checksum-locked outputs. The Appendix text should be updated to the new clean re-execution artifact only after its outputs are verified against the current numerical lock.
 
 ## Appendix S4 — Bumblebee SDMs and occurrence-referenced exposure
 

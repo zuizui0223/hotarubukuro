@@ -36,24 +36,24 @@ The expected manuscript population is 1,922 phenotype observations in 1,305 1-km
 
 ### Main 2 local focal-pollinator test
 
-The manuscript-facing local test is implemented in:
+The manuscript-facing local test is built in two steps:
 
-- `scripts/run_bombus_effective_availability_refined.R`
-- `scripts/run_bombus_local_sharp_transition.R`
+1. create occurrence-referenced support from the selected fresh SDMs with `scripts/build_bombus_occurrence_reference_support.R`;
+2. test sharp nearby white-pigmented boundaries with `scripts/run_bombus_local_sharp_transition.R`.
 
-and the corresponding workflows:
+Corresponding workflows:
 
-- `.github/workflows/bombus-effective-availability-refined.yml`
-- `.github/workflows/bombus-local-sharp-transition.yml`
+- `.github/workflows/bombus-occurrence-reference-support.yml`;
+- `.github/workflows/bombus-local-sharp-transition.yml`.
 
-The primary contrast uses pure non-overlapping transitions within 5 km and occurrence-referenced support from *B. ardens* + *B. diversus*. Pair selection is Bombus-blind and sign-blind.
+The primary contrast uses pure non-overlapping transitions within 5 km and occurrence-referenced support from *B. ardens* + *B. diversus*. Pair selection is Bombus-blind and sign-blind. The current interpretation and claim ceiling are documented in `docs/bombus-inference-current.md`.
 
 ### Supporting Bombus biogeography
 
 Run:
 
-- `scripts/run_bombus_spatial_replication_test.R`
-- `.github/workflows/bombus-spatial-replication-test.yml`
+- `scripts/run_bombus_spatial_replication_test.R`;
+- `.github/workflows/bombus-spatial-replication-test.yml`.
 
 This produces the five-species community-boundary correspondence and near-equal-elevation montane guardrails used only in Supporting Information.
 
@@ -61,10 +61,10 @@ This produces the five-species community-boundary correspondence and near-equal-
 
 The frozen descriptive comparison is defined by:
 
-- `.github/workflows/yamap-public-database-benchmark.yml`
-- `.github/workflows/yamap-public-database-overlap-audit.yml`
-- `reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md`
-- `reproducibility/yamap_public_database_benchmark_results_2026-08-09.md`
+- `.github/workflows/yamap-public-database-benchmark.yml`;
+- `.github/workflows/yamap-public-database-overlap-audit.yml`;
+- `reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md`;
+- `reproducibility/yamap_public_database_benchmark_results_2026-08-09.md`.
 
 The manuscript-ready table is `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md`.
 
@@ -92,13 +92,13 @@ Rscript scripts/setup_r_environment.R \
   --scopes analysis,reproducibility,acquisition,testing,figures,reporting
 ```
 
-Then use the individual manuscript-facing scripts listed in `scripts/README.md`. Do not use scripts under `legacy/` as current entry points.
+Then use the individual manuscript-facing scripts listed in `paper/active-file-map.csv`. Do not use scripts under `legacy/` as current entry points.
 
 ## Data and source-build boundary
 
 - `Data_S1.csv` is the curated derived trait/source table distributed with the repository.
 - Original YAMAP photographs are third-party material and are not redistributed.
-- `source_build/` contains the current source-construction utilities for visible colour, environmental inputs, Bombus occurrences/SDMs and human rasters.
+- `source_build/` contains current source-construction utilities for visible colour, environmental inputs, Bombus occurrences/SDMs and human rasters.
 - External services such as GBIF can change. Live acquisition is therefore distinct from the frozen artifacts used by the manuscript.
 
 ## What moved to legacy
@@ -107,8 +107,8 @@ Historical 1,909 and 1,923 analyses, the all-five Bombus limitation gate, nation
 
 See:
 
-- `legacy/README.md`
-- `legacy/MOVED_2026-08-09.md`
+- `legacy/README.md`;
+- `legacy/MOVED_2026-08-09.md`.
 
 Nothing in `paper/active-file-map.csv` points into `legacy/`.
 

@@ -30,8 +30,13 @@ ENMeval,cran,acquisition,Bombus species distribution model selection
 maxnet,cran,acquisition,Maxent-style fitting engine used by ENMeval
 usdm,cran,acquisition,Deterministic VIF predictor screening for Bombus SDMs
 testthat,cran,testing,Unit test framework
+FNN,cran,testing,Nearest-neighbour helper required by current human-raster unit tests
 knitr,cran,reporting,Report rendering
 rmarkdown,cran,reporting,Report rendering
+ggplot2,cran,figures,Publication figures
+cowplot,cran,figures,Publication figure composition
+patchwork,cran,figures,Publication multi-panel composition
+scales,cran,figures,Axis and legend transformations
 ggplot2,cran,figures,Publication figures
 cowplot,cran,figures,Publication figures
 patchwork,cran,figures,Publication figures

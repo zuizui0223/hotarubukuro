@@ -1,6 +1,7 @@
 # Final paper pipeline lock — YAMAP data layer + broad -> fine -> departure
 
-Date: 2026-08-09
+Scientific lock created: 2026-08-09  
+Merged repository baseline: 2026-08-10, commit `8e60c6e01aa8929b6045691b9f8b908a967e856c`
 
 This file is the compact scientific lock for the current **Journal of Biogeography** manuscript. For the current repository entry point and complete file map, use `paper/README.md`, `paper/analysis-map.md` and `paper/active-file-map.csv`.
 
@@ -13,12 +14,15 @@ The paper treats YAMAP as a methodological contribution because recreational hik
 Current data facts:
 
 - predefined study window: 2023-2025;
-- YAMAP source rows: 1,964;
-- unique image hashes: 1,963;
+- eligible source-table records: 1,965;
+- YAMAP activity-photo rows: 1,964;
+- unique image hashes: 1,964 across the full source table and 1,963 within the YAMAP subset;
 - final phenotype observations: 1,922;
 - matched iNaturalist photo+geo observations: 516;
 - matched GBIF human-observation image records: 393, of which 389/393 were syndicated from iNaturalist;
 - YAMAP yearly counts: 642/687/635.
+
+The total source table and the YAMAP benchmark subset are intentionally different populations. Statements of 1,965 refer to all eligible source-table records; statements of 1,964 and 1,963 refer respectively to YAMAP activity-photo rows and unique YAMAP image hashes.
 
 The study-specific pipeline is:
 
@@ -208,4 +212,4 @@ Use only:
 
 Superseded Ecology & Evolution drafts, old 1,909/1,923 architectures, all-five limitation gates, broad Bombus-null refinements, montane-substitution developments, old local-turnover code and obsolete submission registries are under `legacy/`.
 
-Do not merge the cleanup branch into `main` without explicit approval.
+The repository cleanup and current JBI boundary were merged into `main` on 2026-08-10. Future scientific or editorial changes should be made as small reviewable branches against this merged baseline rather than by reviving superseded development branches.

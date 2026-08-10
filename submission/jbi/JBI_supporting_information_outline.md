@@ -17,7 +17,10 @@ Include:
 - image-hash and photo-coordinate audit;
 - explicit statement that mountain-route sampling enriches mountain/semi-natural habitat but does not prove wild provenance.
 
-Primary existing source: `manuscript/supplementary-table-s1-yamap-public-benchmark.md`.
+Primary current sources:
+
+- `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md`;
+- `reproducibility/yamap_public_database_benchmark_results_2026-08-09.md`.
 
 ## Appendix S2 — Image phenotyping and two-part colour response
 

@@ -33,11 +33,14 @@ Purpose: build a recent, georeferenced, quantitative flower-colour dataset from 
 
 Current evidence:
 
-- 2023-2025 YAMAP source rows: 1,964;
-- unique image hashes: 1,963;
+- eligible source-table records: 1,965;
+- YAMAP activity-photo rows: 1,964;
+- unique image hashes: 1,964 across the full source table and 1,963 within the YAMAP subset;
 - final phenotype observations: 1,922;
 - matched iNaturalist photo+geo observations: 516;
 - matched GBIF records: 393, of which 389 were syndicated from iNaturalist.
+
+The 1,965/1,964 distinction is intentional: the analysis source table contains one eligible record beyond the 1,964-row YAMAP benchmark subset. Manuscript and benchmark statements should therefore label the population being counted rather than use “source rows” without qualification.
 
 Manuscript role: methodological and sampling-frame innovation. The mountain-route frame is useful for natural/semi-natural mountain trait geography but does not remove observer bias or guarantee wild provenance.
 

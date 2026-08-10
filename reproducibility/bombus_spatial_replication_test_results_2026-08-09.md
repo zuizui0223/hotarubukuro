@@ -83,31 +83,36 @@ With the <=100-m restriction the means were approximately zero or negative and a
 
 **Interpretation:** the earlier montane/alpine association is adequately explained as shared high-elevation/spatial co-distribution in the present data. There is no evidence here for an additional montane Bombus effect or for a substitution mechanism. These species should remain Supplement-only and should not receive a mechanistic Discussion unless independent field evidence becomes available.
 
-## Main-text / Supplement decision
+## Current manuscript placement
 
-The split is based on connection to the central ecological hypothesis and interpretability, not on selecting only significant results.
+The current JBI architecture was finalized after this diagnostic was computed. Placement is based on inferential role and narrative dependence, not on selecting only nominally significant results.
 
 ### Main text
 
-1. **Broad-scale flower-colour geography:** abiotic environment plus spatial structure establish the nationwide geographic template.
-2. **Local effective-Bombus availability:** the sharp local white/pigmented transition analysis using the directly documented focal Bombus pollinators (*B. ardens* + *B. diversus*) remains the primary pollinator-mechanism test. Its 5-km signal is weak/suggestive and all robustness limitations must remain visible.
-3. **Community-boundary corroboration:** retain one concise main-text result/panel showing that sharp flower-colour boundaries have greater five-species community turnover than nearby spatial/elevationally matched background edges, with the strongest evidence at 10–25 km and a borderline strict 5-km occurrence-referenced test. Interpret this as a geographic pollinator-regime correspondence, not species-specific colour preference and not causal selection.
+1. **Broad-scale flower-colour geography:** environment plus continuous residual space establish the national template.
+2. **Local focal-Bombus availability:** the 5-km directional white-to-pigmented contrast using *B. ardens* and *B. diversus* remains the only Main pollinator hypothesis test. Its magnitude-driven result and all robustness limits stay visible.
+3. **No separate community-turnover mechanism:** five-species Hellinger turnover is unsigned and cannot identify which side of a boundary should be pigmented. It therefore does not receive a separate Main result or figure panel; the Main text may signpost Appendix S5 as a biogeographic context check.
 
-### Supplement
+### Supporting Information
 
-- all montane/alpine species/guild analyses;
-- full 25/50/100-km matching-window and 10/20/50-control sensitivity grid;
+- the primary five-species community-turnover matched-background result;
+- the full 5/10/25-km scale family;
+- all 25/50/100-km matching windows and 10/20/50-control sensitivity combinations;
 - within-species-rank versus occurrence-referenced community metrics;
-- detailed block/leave-one-block-out diagnostics;
-- raw SDM exposure sensitivities;
+- detailed block and leave-one-block-out diagnostics;
+- all montane/alpine species and guild analyses;
+- raw-SDM exposure sensitivities;
 - broader details of the earlier environment+SPDE Bombus-null analysis.
+
+This placement matches `paper/analysis-map.md`, `paper/README.md`, `submission/jbi/JBI_main_figure_plan.md` and the current manuscript. It supersedes the earlier development recommendation to retain a community-turnover panel in Main.
 
 ## Manuscript-level interpretation
 
-The cleanest integrated interpretation is now two-scale:
+The current integrated interpretation separates the directional mechanism-oriented test from unsigned community biogeography:
 
-- broad environmental and spatial structure describes where the major flower-colour geography occurs;
-- within that template, the most local sharp white/pigmented transitions show weak directional consistency with the predicted availability of documented effective Bombus pollinators;
-- at a somewhat broader local/landscape scale, sharp flower-colour boundaries also coincide repeatedly with predicted Bombus-community boundaries more strongly than nearby spatial/elevational background edges.
+- broad environment and spatial structure describe where the major flower-colour geography occurs;
+- within that template, the strictest local white-pigmented transitions show weak directional consistency with predicted availability of the two documented focal Bombus pollinators;
+- in Supporting Information, sharp flower-colour boundaries also coincide with predicted five-species Bombus-community boundaries more than some nearby spatial/elevational controls, indicating landscape-scale biogeographic correspondence rather than a second colour-selection mechanism;
+- the montane/alpine equal-elevation guardrail is negative and prevents high-elevation map overlap from being promoted as an additional mechanism.
 
-The community result therefore supplies geographic corroboration for heterogeneity in pollinator context, while the availability result remains the more directly interpretable ecological mechanism. Montane/alpine taxa are not needed for that main story.
+The community result is therefore corroborating context for heterogeneity in predicted pollinator assemblages. It does not strengthen the directional Main effect into causal evidence and does not alter the Main claim ceiling.

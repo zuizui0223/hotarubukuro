@@ -111,14 +111,58 @@ fig3b <- fig3b +
   ggplot2::labs(title = "Selected boundaries are environmentally local")
 fig3c <- fig3c +
   ggplot2::labs(title = "Focal-guild contrast across pairs")
-fig3d <- fig3d +
+sensitivity$display_p <- sprintf("%.3f", sensitivity$signflip_one_sided_p)
+sensitivity$label_x <- sensitivity$radius_km + ifelse(
+  sensitivity$radius_km == 5,
+  1.15,
+  ifelse(sensitivity$radius_km == 25, -1.15, 0)
+)
+fig3d <- ggplot2::ggplot(
+  sensitivity,
+  ggplot2::aes(
+    x = radius_km,
+    y = mean_signed_bombus_difference,
+    group = 1
+  )
+) +
+  ggplot2::geom_hline(
+    yintercept = 0,
+    linetype = "dashed",
+    colour = mid_grey
+  ) +
+  ggplot2::geom_line(colour = "#7A8690", linewidth = 0.52) +
+  ggplot2::geom_point(
+    ggplot2::aes(fill = radius_km == 5),
+    shape = 21,
+    colour = ink,
+    size = 2.05,
+    stroke = 0.35
+  ) +
+  ggplot2::geom_text(
+    ggplot2::aes(x = label_x, label = display_p),
+    nudge_y = 0.006,
+    size = 2.05,
+    colour = mid_grey
+  ) +
+  ggplot2::facet_wrap(~exposure_label, ncol = 2) +
+  ggplot2::scale_fill_manual(
+    values = c("TRUE" = pigmented, "FALSE" = paper),
+    guide = "none"
+  ) +
   ggplot2::scale_x_continuous(
     breaks = c(5, 10, 25),
-    expand = ggplot2::expansion(mult = c(0.06, 0.18))
+    expand = ggplot2::expansion(mult = c(0.05, 0.05))
   ) +
   ggplot2::scale_y_continuous(
     expand = ggplot2::expansion(mult = c(0.12, 0.24))
-  )
+  ) +
+  ggplot2::labs(
+    title = "Scale and exposure claim ceiling",
+    subtitle = "Point labels are one-sided sign-flip P values",
+    x = "Radius (km)",
+    y = "Mean signed contrast"
+  ) +
+  theme_publication(base_size = 7.2)
 figure_3 <- (tag_panel(fig3a, "A") | tag_panel(fig3b, "B")) /
   (tag_panel(fig3c, "C") | tag_panel(fig3d, "D"))
 

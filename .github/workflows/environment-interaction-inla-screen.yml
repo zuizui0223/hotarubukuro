@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/environment-interaction-inla-screen.yml
       - scripts/run_environment_interaction_inla_screen.R
+      - scripts/run_environment_interaction_inla_matrix_job.R
       - reproducibility/environment_interaction_inla_screen_spec_2026-08-11.md
       - dependencies/**
       - paper/active-file-map.csv
@@ -16,6 +17,7 @@ on:
     paths:
       - .github/workflows/environment-interaction-inla-screen.yml
       - scripts/run_environment_interaction_inla_screen.R
+      - scripts/run_environment_interaction_inla_matrix_job.R
       - reproducibility/environment_interaction_inla_screen_spec_2026-08-11.md
       - dependencies/**
       - paper/active-file-map.csv
@@ -114,7 +116,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          Rscript scripts/run_environment_interaction_inla_screen.R \
+          Rscript scripts/run_environment_interaction_inla_matrix_job.R \
             --input-csv reference-artifact/results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
             --outcome "${{ matrix.outcome }}" \
             --output-dir "results/environment_interaction_inla_screen/${{ matrix.outcome }}" \

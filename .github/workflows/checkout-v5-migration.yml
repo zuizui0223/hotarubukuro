@@ -27,10 +27,11 @@ jobs:
           from pathlib import Path
 
           root = Path('.github/workflows')
+          temporary_name = 'checkout-v5-migration.yml'
           changed = []
           replacements = 0
           for path in sorted(root.glob('*.yml')):
-              if path.name == 'checkout-v5-migration.yml':
+              if path.name == temporary_name:
                   continue
               text = path.read_text(encoding='utf-8')
               count = text.count('actions/checkout@v4')
@@ -63,7 +64,8 @@ jobs:
               )
           stale = [
               str(path) for path in root.glob('*.yml')
-              if 'actions/checkout@v4' in path.read_text(encoding='utf-8')
+              if path.name != temporary_name and
+              'actions/checkout@v4' in path.read_text(encoding='utf-8')
           ]
           if stale:
               raise SystemExit('checkout@v4 remains in: ' + ', '.join(stale))

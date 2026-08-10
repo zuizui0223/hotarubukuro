@@ -11,6 +11,7 @@ on:
       - submission/jbi/**
       - scripts/**
       - source_build/**
+      - validation/**
       - reproducibility/**
       - docs/**
       - inputs/**
@@ -93,6 +94,7 @@ jobs:
           test -d legacy/method-development
           test -d legacy/workflows
           test -d legacy/reproducibility-development
+          test -d legacy/source-build-prototypes
 
       - name: Confirm current replacements
         shell: bash
@@ -107,6 +109,9 @@ jobs:
           test -s .github/workflows/bombus-occurrence-reference-support.yml
           test -s inputs/canonical_snapshot.json
           test -s scripts/canonical_snapshot.sh
+          grep -q '2 species = directional local availability hypothesis' docs/bombus-inference-current.md
+          grep -q '5 species = supplementary community/biogeographic turnover' docs/bombus-inference-current.md
+          ! grep -q 'Active 1,909 question' docs/bombus-inference-current.md
 
       - name: Validate JBI package
         run: python submission/jbi/validate_jbi_submission.py

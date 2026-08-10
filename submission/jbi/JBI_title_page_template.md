@@ -14,8 +14,9 @@
 
 ## Affiliations
 
-1. [Department / Graduate School, Institution, City, Country]
-2. [Additional affiliation]
+[1] [Department / Graduate School, Institution, City, Country]
+
+[2] [Additional affiliation]
 
 **Corresponding author:** [One corresponding author only]
 
@@ -50,11 +51,3 @@ Use CRediT-style roles if convenient, for example:
 - Writing — original draft: [ ]
 - Writing — review & editing: [ ]
 - Supervision: [ ]
-
-## Taxon image
-
-JBI requests a taxon image at submission. Prepare a separate high-quality image of the study taxon with permission/ownership documented.
-
-## Double-anonymous review note
-
-Do not copy author names, affiliations, acknowledgements, identifying repository URLs or author-specific contribution statements into `JBI_main_manuscript_anonymized.md`.

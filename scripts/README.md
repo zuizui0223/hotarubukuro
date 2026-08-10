@@ -33,6 +33,13 @@ The current biological interpretation and claim ceiling are in `../docs/bombus-i
 
 The corresponding execution route is `.github/workflows/jbi-main-figures.yml`; `validation/validate_jbi_figure_bundle.R` verifies all eight final figure files, their signatures and hashes, and the manuscript-facing numerical values before the bundle is uploaded as an Actions artifact.
 
+## JBI submission delivery
+
+- `build_jbi_submission_bundle.py` — convert the current Markdown sources into an anonymized Main DOCX with embedded Figures 1–4, one combined Supporting Information DOCX, identifying templates, a translated abstract, an SDM checklist, separate figures, readiness records, hashes and a ZIP archive.
+- `validate_jbi_submission_bundle.py` — independently verify DOCX structure, anonymity, four embedded figures, Appendices S1–S6, separate PNG/PDF signatures, file hashes, known portal blockers and archive contents.
+
+`.github/workflows/jbi-submission-bundle.yml` restores the fixed Main-figure artifact, builds the editable package and converts all generated DOCX files through LibreOffice. The builder never fills author-controlled names, affiliations, ORCIDs, funding, conflicts, contributions, private repository links, disclosures or taxon-image information.
+
 ## Current infrastructure
 
 - `setup_r_environment.R` — restore the pinned R/INLA environment used by current workflows.

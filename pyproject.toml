@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hotarubukuro-analysis"
-version = "2.3.0"
-description = "Reproducible floral-colour source-build utilities"
+version = "2.4.0"
+description = "Reproducible floral-colour source-build and submission utilities"
 requires-python = ">=3.9"
 dependencies = [
   "numpy>=1.24,<3",
@@ -14,6 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 excel = ["openpyxl>=3.1,<4"]
+submission = ["python-docx>=1.1,<2"]
 test = ["pytest>=8,<10"]
 
 [project.scripts]

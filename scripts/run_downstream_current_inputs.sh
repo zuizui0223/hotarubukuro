@@ -137,4 +137,14 @@ run_stage report_reanalysis \
   Rscript scripts/report_reanalysis_current_inputs.R \
     --output results/reanalysis_current_inputs
 
+# Figure production is normally a separate checksum-locked workflow. When a
+# current figure bundle is present in the same integration workspace, validate
+# it here as well so the downstream integrator remains a legitimate execution
+# route for every current independent validator.
+if [[ -s results/jbi_figure_bundle/figure_manifest.csv ]]; then
+  run_stage validate_jbi_figure_bundle \
+    Rscript validation/validate_jbi_figure_bundle.R \
+      --output results/jbi_figure_bundle
+fi
+
 echo "=== current-input downstream computation and validation complete ==="

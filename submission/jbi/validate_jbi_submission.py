@@ -14,6 +14,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 MAIN = ROOT / "JBI_main_manuscript_anonymized.md"
 COVER = ROOT / "JBI_cover_letter.md"
+FIGURE_CAPTIONS = ROOT / "JBI_main_figure_captions.md"
+FIGURE_README = ROOT / "figures" / "README.md"
 SUPPORTING = (
     ROOT / "supporting" / "Appendix_S1_yamap_public_benchmark.md",
     ROOT / "supporting" / "Appendix_S2_image_phenotyping.md",
@@ -31,6 +33,12 @@ def words(text: str) -> list[str]:
 
 def fail(message: str) -> None:
     raise SystemExit(message)
+
+
+def assert_anonymous(label: str, body: str) -> None:
+    for forbidden in FORBIDDEN_IDENTIFIERS:
+        if forbidden.casefold() in body.casefold():
+            fail(f"Potential identifying string in {label}: {forbidden}")
 
 
 text = MAIN.read_text(encoding="utf-8")
@@ -62,6 +70,8 @@ if abstract_n > 300:
     fail(f"Abstract exceeds 300 words: {abstract_n}")
 
 keyword_line = re.search(r"\*\*Keywords:\*\*\s*(.+)", text)
+if not keyword_line:
+    fail("Missing keyword line")
 keywords = [x.strip() for x in keyword_line.group(1).split(",") if x.strip()]
 if not 6 <= len(keywords) <= 10:
     fail(f"Keyword count must be 6-10: {len(keywords)}")
@@ -90,10 +100,7 @@ body_n = len(words(main_body))
 if body_n > 6000:
     fail(f"Introduction-through-Discussion exceeds 6000 words: {body_n}")
 
-# Double-anonymous safety: known identifying repository/user strings should not appear.
-for forbidden in FORBIDDEN_IDENTIFIERS:
-    if forbidden.casefold() in text.casefold():
-        fail(f"Potential identifying string in anonymized manuscript: {forbidden}")
+assert_anonymous("anonymized manuscript", text)
 
 for appendix in SUPPORTING:
     if not appendix.is_file():
@@ -102,9 +109,22 @@ for appendix in SUPPORTING:
     appendix_lines = appendix_text.splitlines()
     if not appendix_lines or not appendix_lines[0].startswith("# Appendix S"):
         fail(f"Supporting Information file lacks an Appendix S title: {appendix.name}")
-    for forbidden in FORBIDDEN_IDENTIFIERS:
-        if forbidden.casefold() in appendix_text.casefold():
-            fail(f"Potential identifying string in Supporting Information: {appendix.name}: {forbidden}")
+    assert_anonymous(f"Supporting Information {appendix.name}", appendix_text)
+
+if not FIGURE_CAPTIONS.is_file():
+    fail("Missing current Main-figure captions")
+figure_text = FIGURE_CAPTIONS.read_text(encoding="utf-8")
+figure_headings = re.findall(r"^## Figure ([1-4])\.", figure_text, flags=re.MULTILINE)
+if figure_headings != ["1", "2", "3", "4"]:
+    fail(f"Figure captions must contain Figures 1-4 exactly once and in order: {figure_headings}")
+assert_anonymous("Main-figure captions", figure_text)
+
+if not FIGURE_README.is_file():
+    fail("Missing generated-figure policy README")
+figure_readme_text = FIGURE_README.read_text(encoding="utf-8")
+for required_phrase in ("600-dpi PNG", "vector PDF", "Actions artifact"):
+    if required_phrase not in figure_readme_text:
+        fail(f"Figure README is missing required output-policy phrase: {required_phrase}")
 
 cover = COVER.read_text(encoding="utf-8")
 cover_body = cover.split("Dear Senior Editors,", 1)[-1].split("Sincerely,", 1)[0]
@@ -118,4 +138,5 @@ print(f"PASS abstract_words={abstract_n}")
 print(f"PASS keywords={len(keywords)}")
 print(f"PASS intro_to_discussion_words={body_n}")
 print(f"PASS supporting_appendices={len(SUPPORTING)}")
+print(f"PASS main_figure_captions={len(figure_headings)}")
 print(f"PASS cover_interest_words={cover_n}")

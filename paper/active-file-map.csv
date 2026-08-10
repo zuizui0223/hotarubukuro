@@ -8,6 +8,8 @@ submission,manuscript,submission/jbi/JBI_main_manuscript_anonymized.md,active
 submission,title_page,submission/jbi/JBI_title_page_template.md,active
 submission,cover_letter,submission/jbi/JBI_cover_letter.md,active
 submission,figures,submission/jbi/JBI_main_figure_plan.md,active
+submission,figures,submission/jbi/JBI_main_figure_captions.md,active
+submission,figures,submission/jbi/figures/README.md,active
 submission,supporting_information,submission/jbi/JBI_supporting_information_outline.md,active
 submission,supporting_information,submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md,active
 submission,supporting_information,submission/jbi/supporting/Appendix_S2_image_phenotyping.md,active
@@ -49,6 +51,8 @@ infrastructure,Main3,inputs/canonical_snapshot.json,active_static_human_inputs_o
 infrastructure,Main3,scripts/canonical_snapshot.sh,active_static_human_inputs_only
 analysis,Main1,scripts/run_reanalysis_current_inputs.sh,active
 analysis,Main1,scripts/report_reanalysis_current_inputs.R,active
+analysis,figures,scripts/build_jbi_figure_bundle.R,active
+analysis,figures,scripts/render_jbi_main_figures.R,active
 workflow,Main1,.github/workflows/reanalysis-current-inputs.yml,active
 analysis,Main3,scripts/run_downstream_current_inputs.sh,active
 analysis,Main3,scripts/run_natural_predictive_model.R,active
@@ -62,6 +66,7 @@ analysis,Supplement,scripts/run_candidate_doy_check.R,active
 validation,documentation,validation/README.md,active
 validation,Main1,validation/validate_natural_predictive_model.R,active
 validation,Main1,validation/audit_natural_predictive_model.R,active
+validation,figures,validation/validate_jbi_figure_bundle.R,active
 validation,Main3,validation/validate_human_landscape_features.R,active
 validation,Main3,validation/validate_local_pigmented_isolates.R,active
 validation,Main3,validation/audit_local_pigmented_isolates.R,active
@@ -105,6 +110,7 @@ workflow,YAMAP_benchmark,.github/workflows/yamap-public-database-benchmark.yml,a
 workflow,YAMAP_benchmark,.github/workflows/yamap-public-database-overlap-audit.yml,active
 workflow,integration,.github/workflows/final-paper-analysis.yml,active
 workflow,submission,.github/workflows/jbi-submission-format.yml,active
+workflow,figures,.github/workflows/jbi-main-figures.yml,active
 workflow,repository,.github/workflows/paper-checks.yml,active
 reproducibility,Main1_Main3,reproducibility/current_broad_anomaly_reference_2026-08-09.md,active
 reproducibility,integration,reproducibility/final_paper_pipeline_2026-08-09.md,active

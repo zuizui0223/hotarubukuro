@@ -121,16 +121,26 @@ Remaining production item before final SI assembly:
 
 **Purpose:** demonstrate that candidate locations were defined independently of human variables and calibrated against the natural model.
 
-Include:
+Manuscript-ready text and tables:
 
-- primary event definition and threshold sensitivities;
-- 10,000 cross-fitted natural-map replays;
-- 200,000 joint posterior-predictive maps;
-- candidate count/fraction references;
-- 17 candidate identities and support diagnostics;
-- full WorldPop/DID/land-use/road families;
-- maxT familywise correction;
-- explicit distinction between field targets and evidence of anthropogenic provenance.
+- `submission/jbi/supporting/Appendix_S6_event_departures_human_context.md`.
+
+Included there:
+
+- the primary 10-km geographically close, environmentally similar all-white-neighbour event;
+- explicit separation of event membership from predictive q or residual thresholds;
+- 10,000 cross-fitted natural-map and 200,000 joint posterior-predictive calibrations;
+- fold, scale, neighbour-share and environmental-caliper sensitivities;
+- stable identities and support diagnostics for all 17 candidates;
+- WorldPop, MLIT land-use/road, DID and natural-alternative feature families;
+- maxT familywise correction and context-class composition;
+- sampling-effort, environment-balance, day-of-year and pigmented-intensity diagnostics;
+- explicit distinction between field/provenance targets and evidence of anthropogenic origin;
+- the successful post-cleanup end-to-end reconstruction as an execution verification rather than a replacement numerical lock.
+
+Remaining production item before final SI assembly:
+
+- export the observed-versus-null event distributions, candidate map/local-neighbourhood examples and population/DID context panels from the checksum-locked outputs.
 
 ## Material that stays in the repository but should not be submitted as JBI Supporting Information
 

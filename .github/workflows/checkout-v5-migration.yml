@@ -57,9 +57,9 @@ jobs:
                   'Unexpected checkout migration file set. '
                   f'expected={sorted(expected)} observed={changed}'
               )
-          if replacements != 11:
+          if replacements != 12:
               raise SystemExit(
-                  f'Expected 11 checkout replacements; observed {replacements}'
+                  f'Expected 12 checkout replacements; observed {replacements}'
               )
           stale = [
               str(path) for path in root.glob('*.yml')
@@ -79,24 +79,29 @@ jobs:
           from pathlib import Path
 
           patch = Path('/tmp/checkout-v5.patch').read_text(encoding='utf-8')
+          temporary = '.github/workflows/checkout-v5-migration.yml'
+          current = None
           forbidden = []
           for line in patch.splitlines():
+              if line.startswith('diff --git '):
+                  current = line.split(' b/', 1)[1]
+                  continue
               if not line.startswith(('+', '-')) or line.startswith(('+++', '---')):
                   continue
-              if 'checkout-v5-migration.yml' in patch:
-                  # The whole temporary file is expected to disappear.
-                  pass
-              if line in ('-      - uses: actions/checkout@v4',
-                          '+      - uses: actions/checkout@v5'):
+              payload = line[1:].strip()
+              if current == temporary and line.startswith('-'):
                   continue
-              # Permit all removed lines belonging to the temporary workflow;
-              # no added line from that file is allowed.
-              if line.startswith('-'):
+              if payload in {
+                  '- uses: actions/checkout@v4',
+                  'uses: actions/checkout@v4',
+                  '- uses: actions/checkout@v5',
+                  'uses: actions/checkout@v5',
+              }:
                   continue
-              forbidden.append(line)
+              forbidden.append(f'{current}: {line}')
           if forbidden:
               raise SystemExit(
-                  'Unexpected added migration diff lines: ' + ' | '.join(forbidden)
+                  'Unexpected migration diff lines: ' + ' | '.join(forbidden)
               )
           PY
 

@@ -18,6 +18,12 @@ Start with [`../paper/README.md`](../paper/README.md). This directory contains o
 
 The validation routing and the distinction between structural PASS/FAIL checks and reconstruction-specific `RESULT` findings are documented in [`../validation/README.md`](../validation/README.md).
 
+## Environmental interaction sensitivity
+
+- `run_environment_interaction_inla_screen.R` — compare the frozen additive observation-level INLA-SPDE models with ten predeclared ecologically motivated interactions, four mechanism bundles and one global interaction set for both pigmentation state and pigmented-only intensity.
+
+The corresponding workflow is `.github/workflows/environment-interaction-inla-screen.yml`. It restores the checksum-locked broad-analysis artifact, verifies that the independently reconstructed additive model matches the manuscript lock, then compares candidate models by WAIC/CPO, the same five geographical folds, spatial-block bootstrap loss gain, VIF, coefficient stability and SPDE-range stability. No interaction replaces the additive Main model automatically; see `../reproducibility/environment_interaction_inla_screen_spec_2026-08-11.md`.
+
 ## Local pollinator analysis
 
 - `build_bombus_occurrence_reference_support.R` — convert each selected fresh Bombus SDM to an occurrence-referenced support scale; the Main exposure uses *B. ardens* + *B. diversus*.

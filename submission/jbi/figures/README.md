@@ -9,7 +9,7 @@ Rscript scripts/build_jbi_figure_bundle.R --output results/jbi_figure_bundle
 Rscript validation/validate_jbi_figure_bundle.R --output results/jbi_figure_bundle
 ```
 
-The GitHub Actions workflow `.github/workflows/jbi-figure-bundle.yml` restores the exact frozen inputs, renders the four Main figures and uploads the complete bundle as an artifact.
+The GitHub Actions workflow `.github/workflows/jbi-main-figures.yml` restores the exact frozen inputs, renders the four Main figures and uploads the complete bundle as an **Actions artifact**.
 
 ## Main files
 
@@ -18,7 +18,7 @@ The GitHub Actions workflow `.github/workflows/jbi-figure-bundle.yml` restores t
 - `Figure_3_local_focal_bombus_boundaries.{png,pdf}`
 - `Figure_4_calibrated_local_departures.{png,pdf}`
 
-The PNG files are 600-dpi review copies. The PDFs are vector submission copies. The generated bundle also contains:
+Each figure is supplied as a **600-dpi PNG** review copy and a **vector PDF** submission copy. The generated bundle also contains:
 
 - `figure_manifest.csv` with dimensions, byte sizes and SHA-256 hashes;
 - `figure_source_manifest.csv` with hashes of every input table;

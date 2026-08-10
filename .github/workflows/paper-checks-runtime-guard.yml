@@ -1,0 +1,151 @@
+name: One-time paper checks runtime guard
+
+on:
+  push:
+    branches:
+      - agent/repository-cleanup-legacy
+    paths:
+      - .github/workflows/paper-checks-runtime-guard.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-blob:
+    if: github.ref_name == 'agent/repository-cleanup-legacy'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Insert the permanent checkout runtime guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/paper-checks.yml')
+          text = path.read_text(encoding='utf-8')
+          anchor = "          root_files = {\n"
+          marker = "          checkout_v4 = 'actions/checkout@' + 'v4'\n"
+          if text.count(anchor) != 1:
+              raise SystemExit(
+                  f'Expected one paper-checks insertion anchor; found {text.count(anchor)}'
+              )
+          if marker in text:
+              raise SystemExit('The permanent checkout runtime guard already exists.')
+
+          guard = """          # Keep every active workflow on the Node 24 checkout runtime. The
+          # legacy token is constructed rather than written literally so this
+          # guard cannot match its own source text.
+          checkout_v4 = 'actions/checkout@' + 'v4'
+          checkout_v5 = 'actions/checkout@' + 'v5'
+          workflow_files = sorted(Path('.github/workflows').glob('*.yml'))
+          stale_checkout = [
+              str(path) for path in workflow_files
+              if checkout_v4 in path.read_text(encoding='utf-8')
+          ]
+          assert not stale_checkout, (
+              'active workflows still use checkout v4: ' +
+              ', '.join(stale_checkout)
+          )
+          unexpected_checkout = [
+              str(path) for path in workflow_files
+              if 'actions/checkout@' in path.read_text(encoding='utf-8')
+              and checkout_v5 not in path.read_text(encoding='utf-8')
+          ]
+          assert not unexpected_checkout, (
+              'active workflows use an unexpected checkout runtime: ' +
+              ', '.join(unexpected_checkout)
+          )
+
+"""
+          updated = text.replace(anchor, guard + anchor, 1)
+          if updated.count(marker) != 1:
+              raise SystemExit('Checkout runtime guard insertion was not unique.')
+          path.write_text(updated, encoding='utf-8')
+          PY
+
+      - name: Validate exact patch scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff -- .github/workflows/paper-checks.yml > /tmp/runtime-guard.patch
+          python3 - <<'PY'
+          from pathlib import Path
+
+          patch = Path('/tmp/runtime-guard.patch').read_text(encoding='utf-8')
+          required = [
+              "checkout_v4 = 'actions/checkout@' + 'v4'",
+              "checkout_v5 = 'actions/checkout@' + 'v5'",
+              'active workflows still use checkout v4',
+              'active workflows use an unexpected checkout runtime',
+          ]
+          missing = [item for item in required if item not in patch]
+          if missing:
+              raise SystemExit('Runtime guard patch is incomplete: ' + ', '.join(missing))
+          removed = [
+              line for line in patch.splitlines()
+              if line.startswith('-') and not line.startswith('---')
+          ]
+          if removed:
+              raise SystemExit(
+                  'Runtime guard patch unexpectedly removes lines: ' + ' | '.join(removed)
+              )
+          PY
+
+      - name: Create detached Git blob
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          token = os.environ['GITHUB_TOKEN']
+          path = Path('.github/workflows/paper-checks.yml')
+          payload = json.dumps({
+              'content': base64.b64encode(path.read_bytes()).decode('ascii'),
+              'encoding': 'base64',
+          }).encode('utf-8')
+          request = Request(
+              f'https://api.github.com/repos/{repository}/git/blobs',
+              data=payload,
+              method='POST',
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'hotarubukuro-paper-checks-runtime-guard',
+              },
+          )
+          with urlopen(request, timeout=60) as response:
+              result = json.loads(response.read().decode('utf-8'))
+          mapping = [{
+              'path': str(path),
+              'mode': '100644',
+              'type': 'blob',
+              'sha': result['sha'],
+          }]
+          Path('paper-checks-runtime-guard-blob.json').write_text(
+              json.dumps(mapping, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(mapping, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paper-checks-runtime-guard-${{ github.sha }}-${{ github.run_id }}
+          path: paper-checks-runtime-guard-blob.json
+          if-no-files-found: error
+          retention-days: 1

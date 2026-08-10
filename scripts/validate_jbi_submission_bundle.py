@@ -7,7 +7,6 @@ import argparse
 import csv
 import hashlib
 import json
-import re
 import zipfile
 from pathlib import Path
 from typing import Sequence
@@ -105,6 +104,8 @@ def validate_bundle(root: Path) -> dict[str, object]:
 
     leaked = [token for token in FORBIDDEN_IDENTIFIERS if token.casefold() in main_xml.casefold()]
     assert_true(not leaked, "Identifying strings in anonymized Main DOCX: " + ", ".join(leaked))
+    assert_true("**" not in main_xml, "Generated Main DOCX exposes raw Markdown bold markers")
+    assert_true("**" not in supporting_xml, "Generated Supporting Information exposes raw Markdown bold markers")
     assert_true(len([name for name in main_names if name.startswith("word/media/")]) == 4,
                 "Main DOCX must embed exactly four Main figures")
     for heading in (

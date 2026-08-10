@@ -22,6 +22,12 @@ Active analysis hierarchy:
 
 The machine-readable map of manuscript-facing files is `paper/active-file-map.csv`; the biological evidence hierarchy is `paper/analysis-map.md`.
 
+## Current acceptance boundary
+
+`.github/workflows/paper-checks.yml` treats the current repository as a closed, explicitly classified interface. Manuscript, workflow, analysis, source-build, validation, test, configuration, dependency, input, result-documentation and reproducibility files must all be registered in `paper/active-file-map.csv`.
+
+The check also requires that current validators have an active execution route, parses every active R source, validates the JBI package, and runs the current R and Python unit tests. Reconstruction-specific numerical findings are kept distinct from structural PASS/FAIL checks; historical result-identity audits remain under `legacy/`.
+
 ## Legacy
 
 Historical manuscripts, abandoned estimands, obsolete Bombus gates, development diagnostics and superseded workflows belong under **`legacy/`**. They are retained for provenance only and are not current manuscript evidence.

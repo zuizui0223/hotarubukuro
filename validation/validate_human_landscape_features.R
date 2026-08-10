@@ -170,9 +170,19 @@ for (index in seq_len(nrow(summary))) {
   simulated <- simulated[is.finite(simulated)]
   null_mean_recomputed[index] <- mean(simulated)
   null_sd_recomputed[index] <- stats::sd(simulated)
-  upper <- (1 + sum(simulated >= observed_recomputed[index])) /
+
+  # Pair arithmetic is independently checked below with
+  # `observed_recomputed`. Empirical tail ranks must then use the persisted
+  # summary statistic that the stage used when it wrote the reported P value.
+  # Re-averaging a rounded pair CSV can move a statistic by machine epsilon;
+  # when a null draw is tied at that boundary, the inclusive >= / <= count can
+  # otherwise change by one and create a false validation failure.
+  observed_for_tail <- as.numeric(
+    summary$observed_case_control_difference[index]
+  )
+  upper <- (1 + sum(simulated >= observed_for_tail)) /
     (length(simulated) + 1)
-  lower <- (1 + sum(simulated <= observed_recomputed[index])) /
+  lower <- (1 + sum(simulated <= observed_for_tail)) /
     (length(simulated) + 1)
   direction <- summary$hypothesis_direction[index]
   p_recomputed[index] <- if (direction == "greater") {
@@ -202,7 +212,10 @@ add_check(
   close_enough(
     p_recomputed, summary$directional_or_two_sided_p
   ) && close_enough(two_sided_recomputed, summary$two_sided_p),
-  paste("comparisons=", nrow(summary))
+  paste(
+    "comparisons=", nrow(summary),
+    "reference=stored_observed_after_independent_pair_check"
+  )
 )
 
 for (tier in unique(summary$tier)) {

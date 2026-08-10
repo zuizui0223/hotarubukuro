@@ -26,15 +26,24 @@ Primary current sources:
 
 **Purpose:** demonstrate that the trait is reproducibly constructed rather than inherited from platform labels.
 
-Include:
+Manuscript-ready text and tables:
 
-- petal-region validation and pixel-summary method;
-- sRGB-to-CIELAB transformation;
-- image QC diagnostics;
-- mixture candidates/BIC table;
-- four-component collapse rule and a*=4.968780 boundary;
-- 124 ambiguity-flagged observations;
-- sensitivity of broad conclusions to ambiguity handling where available.
+- `submission/jbi/supporting/Appendix_S2_image_phenotyping.md`.
+
+Included there:
+
+- source-to-phenotype record flow and exact-hash duplicate semantics;
+- petal-region/pixel-summary method and fixed extraction settings;
+- sRGB-to-CIELAB transformation and optical inference ceiling;
+- automated image-QC diagnostics and their non-response-based role;
+- selected four-component univariate a* mixture and a*=4.968780 boundary;
+- 124 retained ambiguity flags;
+- high-confidence, joint-L*a*b* and naive-zero classification diagnostics;
+- exact conditional-intensity definition.
+
+Remaining production item before final SI assembly:
+
+- export the final mixture/QC figure panels from the locked phenotype outputs. A complete BIC-candidate table should be added only if it is exported from the fitted model provenance; the current repository supports the selected-model/component table but does not contain a frozen all-candidate BIC table.
 
 ## Appendix S3 — Broad environmental and spatial model
 

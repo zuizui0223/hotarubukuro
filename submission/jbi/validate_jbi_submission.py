@@ -14,6 +14,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 MAIN = ROOT / "JBI_main_manuscript_anonymized.md"
 COVER = ROOT / "JBI_cover_letter.md"
+SUPPORTING = (
+    ROOT / "supporting" / "Appendix_S1_yamap_public_benchmark.md",
+    ROOT / "supporting" / "Appendix_S2_image_phenotyping.md",
+)
+FORBIDDEN_IDENTIFIERS = ("zuizui0223", "rachelzhang", "ZHANG Ruiqi", "張瑞琪")
 
 
 def words(text: str) -> list[str]:
@@ -82,9 +87,20 @@ if body_n > 6000:
     fail(f"Introduction-through-Discussion exceeds 6000 words: {body_n}")
 
 # Double-anonymous safety: known identifying repository/user strings should not appear.
-for forbidden in ("zuizui0223", "rachelzhang", "ZHANG Ruiqi", "張瑞琪"):
+for forbidden in FORBIDDEN_IDENTIFIERS:
     if forbidden.casefold() in text.casefold():
         fail(f"Potential identifying string in anonymized manuscript: {forbidden}")
+
+for appendix in SUPPORTING:
+    if not appendix.is_file():
+        fail(f"Missing current Supporting Information file: {appendix.name}")
+    appendix_text = appendix.read_text(encoding="utf-8")
+    appendix_lines = appendix_text.splitlines()
+    if not appendix_lines or not appendix_lines[0].startswith("# Appendix S"):
+        fail(f"Supporting Information file lacks an Appendix S title: {appendix.name}")
+    for forbidden in FORBIDDEN_IDENTIFIERS:
+        if forbidden.casefold() in appendix_text.casefold():
+            fail(f"Potential identifying string in Supporting Information: {appendix.name}: {forbidden}")
 
 cover = COVER.read_text(encoding="utf-8")
 cover_body = cover.split("Dear Senior Editors,", 1)[-1].split("Sincerely,", 1)[0]
@@ -97,4 +113,5 @@ print(f"PASS running_title_chars={len(running)}")
 print(f"PASS abstract_words={abstract_n}")
 print(f"PASS keywords={len(keywords)}")
 print(f"PASS intro_to_discussion_words={body_n}")
+print(f"PASS supporting_appendices={len(SUPPORTING)}")
 print(f"PASS cover_interest_words={cover_n}")

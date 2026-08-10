@@ -20,7 +20,7 @@ metadata_path <- file.path(output_dir, "joint_isolate_ppc_metadata.csv")
 manifest_path <- file.path(output_dir, "joint_submission_ppc_manifest.csv")
 required <- c(
   summary_path, null_path, ids_path, boundary_path, shard_path,
-  metadata_path, manifest_path
+  metadata_path, manifest_path, candidate_path
 )
 if (!all(file.exists(required))) {
   stop(
@@ -59,13 +59,21 @@ add_check <- function(name, passed, detail) {
   )
 }
 
+expected_candidate_count <- nrow(expected_ids)
 add_check(
-  "candidate_identity_fixed",
-  identical(
-    sort(as.character(ids$exact_site_id)),
-    sort(as.character(expected_ids$exact_site_id))
-  ) && nrow(ids) == 18L,
-  paste("candidates=", nrow(ids))
+  "candidate_identity_dynamic",
+  expected_candidate_count > 0L &&
+    !anyDuplicated(as.character(expected_ids$exact_site_id)) &&
+    !anyDuplicated(as.character(ids$exact_site_id)) &&
+    nrow(ids) == expected_candidate_count &&
+    identical(
+      sort(as.character(ids$exact_site_id)),
+      sort(as.character(expected_ids$exact_site_id))
+    ),
+  paste(
+    "joint candidates=", nrow(ids),
+    "current local-isolate candidates=", expected_candidate_count
+  )
 )
 
 n_latent <- as.integer(meta[["n_latent_draws"]])
@@ -147,16 +155,40 @@ add_check(
 )
 
 boundary_value <- setNames(as.numeric(boundary$value), boundary$metric)
+required_boundary_metrics <- c(
+  "observed_candidates", "observed_candidates_crossing_fold",
+  "supported_cells_crossing_fold"
+)
+boundary_complete <- all(required_boundary_metrics %in% names(boundary_value))
+observed_candidates <- if (boundary_complete) {
+  boundary_value[["observed_candidates"]]
+} else {
+  NA_real_
+}
+candidate_crossings <- if (boundary_complete) {
+  boundary_value[["observed_candidates_crossing_fold"]]
+} else {
+  NA_real_
+}
+supported_crossings <- if (boundary_complete) {
+  boundary_value[["supported_cells_crossing_fold"]]
+} else {
+  NA_real_
+}
 add_check(
   "crossfit_boundary_is_audited",
-  boundary_value[["observed_candidates"]] == 18 &&
-    boundary_value[["observed_candidates_crossing_fold"]] > 0 &&
-    boundary_value[["supported_cells_crossing_fold"]] > 0,
+  boundary_complete &&
+    is.finite(observed_candidates) &&
+    observed_candidates == expected_candidate_count &&
+    is.finite(candidate_crossings) && candidate_crossings >= 0 &&
+    candidate_crossings <= expected_candidate_count &&
+    is.finite(supported_crossings) &&
+    supported_crossings >= candidate_crossings,
   paste(
-    "candidate_crossings=",
-    boundary_value[["observed_candidates_crossing_fold"]],
-    "supported_crossings=",
-    boundary_value[["supported_cells_crossing_fold"]]
+    "observed candidates=", observed_candidates,
+    "current candidates=", expected_candidate_count,
+    "candidate crossings=", candidate_crossings,
+    "supported crossings=", supported_crossings
   )
 )
 

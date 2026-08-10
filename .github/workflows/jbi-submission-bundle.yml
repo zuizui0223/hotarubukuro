@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/jbi-submission-bundle.yml
       - scripts/build_jbi_submission_bundle.py
+      - scripts/jbi_submission_bundle_core.py
       - scripts/validate_jbi_submission_bundle.py
       - submission/jbi/**
       - dependencies/submission-apt-packages.txt
@@ -17,6 +18,7 @@ on:
     paths:
       - .github/workflows/jbi-submission-bundle.yml
       - scripts/build_jbi_submission_bundle.py
+      - scripts/jbi_submission_bundle_core.py
       - scripts/validate_jbi_submission_bundle.py
       - submission/jbi/**
       - dependencies/submission-apt-packages.txt

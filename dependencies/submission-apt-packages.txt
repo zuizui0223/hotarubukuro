@@ -1,4 +1,5 @@
 # System packages used only by the generated JBI submission-bundle workflow.
 fonts-liberation
+fonts-noto-cjk
 libreoffice-writer
 poppler-utils

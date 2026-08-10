@@ -14,8 +14,9 @@
 
 ## Affiliations
 
-1. [Department / Graduate School, Institution, City, Country]
-2. [Additional affiliation]
+[1] [Department / Graduate School, Institution, City, Country]
+
+[2] [Additional affiliation]
 
 **Corresponding author:** [One corresponding author only]
 

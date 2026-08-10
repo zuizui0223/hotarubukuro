@@ -44,6 +44,8 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import csv
+          import json
+          import subprocess
           from collections import defaultdict
           from pathlib import Path
 
@@ -85,10 +87,70 @@ jobs:
               'unmapped current root entry points: ' + ', '.join(unmapped_root)
           )
 
+          # Validate lightweight file syntax before installing any dependencies.
+          # This catches malformed provenance/configuration files and syntax
+          # damage in current Python or shell entry points in a few seconds.
+          syntax_failures = []
+          json_count = python_count = shell_count = 0
+          for path_string in sorted(active):
+              path = Path(path_string)
+              try:
+                  if path.suffix == '.json':
+                      with path.open(encoding='utf-8') as handle:
+                          json.load(handle)
+                      json_count += 1
+                  elif path.suffix == '.py':
+                      compile(
+                          path.read_text(encoding='utf-8'),
+                          path_string,
+                          'exec'
+                      )
+                      python_count += 1
+                  elif path.suffix == '.sh':
+                      subprocess.run(
+                          ['bash', '-n', path_string],
+                          check=True,
+                          capture_output=True,
+                          text=True,
+                      )
+                      shell_count += 1
+              except Exception as error:
+                  syntax_failures.append(f'{path_string}: {error}')
+          assert not syntax_failures, (
+              'active file syntax validation failed: ' +
+              ' | '.join(syntax_failures)
+          )
+
+          # Every current top-level script must be reachable from an active
+          # workflow or from one of the two current orchestration scripts. A
+          # reusable source-build utility is classified separately and is not
+          # required to be a manuscript runner by itself.
+          script_route_files = sorted(
+              str(path) for path in Path('.github/workflows').glob('*.yml')
+          ) + [
+              'scripts/run_reanalysis_current_inputs.sh',
+              'scripts/run_downstream_current_inputs.sh',
+          ]
+          script_routing_text = '\n'.join(
+              Path(path).read_text(encoding='utf-8')
+              for path in script_route_files
+          )
+          current_scripts = sorted(
+              str(path) for path in Path('scripts').iterdir()
+              if path.is_file() and path.name != 'README.md'
+          )
+          unreachable_scripts = [
+              path for path in current_scripts if path not in script_routing_text
+          ]
+          assert not unreachable_scripts, (
+              'current scripts have no execution route: ' +
+              ', '.join(unreachable_scripts)
+          )
+
           # Every active R validator must be reachable from a current driver or
           # source-build workflow. Unit tests are reached through testthat/pytest
           # directory discovery and are checked separately below.
-          routing_text = '\n'.join(
+          validator_routing_text = '\n'.join(
               Path(path).read_text(encoding='utf-8')
               for path in (
                   'scripts/run_downstream_current_inputs.sh',
@@ -98,7 +160,9 @@ jobs:
           validators = sorted(
               str(path) for path in Path('validation').glob('*.R')
           )
-          unreachable = [path for path in validators if path not in routing_text]
+          unreachable = [
+              path for path in validators if path not in validator_routing_text
+          ]
           assert not unreachable, 'active validators have no execution route: ' + ', '.join(unreachable)
 
           # A package may intentionally serve more than one scope (for example
@@ -141,7 +205,12 @@ jobs:
 
           print('active/current infrastructure files:', len(paths))
           print('closed current directories:', len(closed_roots))
+          print('current script routes:', len(current_scripts))
           print('reachable current validators:', len(validators))
+          print(
+              'syntax checked:',
+              f'{json_count} JSON, {python_count} Python, {shell_count} shell'
+          )
           print('declared package/scope rows:', len(dependencies))
           PY
 

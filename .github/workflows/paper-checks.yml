@@ -42,6 +42,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import csv
+          from collections import defaultdict
           from pathlib import Path
 
           rows = list(csv.DictReader(open('paper/active-file-map.csv', encoding='utf-8')))
@@ -84,8 +85,48 @@ jobs:
           )
           unreachable = [path for path in validators if path not in routing_text]
           assert not unreachable, 'active validators have no execution route: ' + ', '.join(unreachable)
+
+          # A package may intentionally serve more than one scope (for example
+          # analysis and lightweight unit tests), but the same package/scope
+          # declaration must be unique and its source must not disagree across
+          # scopes.
+          dependency_path = Path('dependencies/r-packages.csv')
+          dependencies = list(csv.DictReader(dependency_path.open(encoding='utf-8')))
+          required_columns = {'package', 'source', 'scope', 'purpose'}
+          assert dependencies, 'dependencies/r-packages.csv is empty'
+          assert required_columns.issubset(dependencies[0]), (
+              'dependencies/r-packages.csv is missing required columns'
+          )
+          keys = [
+              (row['package'].strip(), row['scope'].strip())
+              for row in dependencies
+          ]
+          duplicate_keys = sorted({key for key in keys if keys.count(key) > 1})
+          assert not duplicate_keys, (
+              'duplicate package/scope declarations: ' +
+              ', '.join(f'{package}:{scope}' for package, scope in duplicate_keys)
+          )
+          blank_rows = [
+              index + 2 for index, row in enumerate(dependencies)
+              if any(not row[column].strip() for column in required_columns)
+          ]
+          assert not blank_rows, (
+              'blank dependency fields on rows: ' +
+              ', '.join(map(str, blank_rows))
+          )
+          sources = defaultdict(set)
+          for row in dependencies:
+              sources[row['package'].strip()].add(row['source'].strip())
+          conflicts = sorted(
+              package for package, values in sources.items() if len(values) != 1
+          )
+          assert not conflicts, (
+              'packages have conflicting declared sources: ' + ', '.join(conflicts)
+          )
+
           print('active/current infrastructure files:', len(paths))
           print('reachable current validators:', len(validators))
+          print('declared package/scope rows:', len(dependencies))
           PY
 
       - name: Validate current R loader boundary
@@ -268,6 +309,45 @@ jobs:
         with:
           r-version: ${{ steps.rversion.outputs.version }}
           use-public-rspm: true
+
+      - name: Parse every active R source
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          map <- utils::read.csv(
+            "paper/active-file-map.csv",
+            check.names = FALSE,
+            stringsAsFactors = FALSE
+          )
+          active <- startsWith(map$status, "active")
+          paths <- sort(unique(map$path[active & grepl("\\.R$", map$path)]))
+          if (!length(paths)) stop("No active R sources are registered.")
+          missing <- paths[!file.exists(paths)]
+          if (length(missing)) {
+            stop("Missing active R sources: ", paste(missing, collapse = ", "))
+          }
+          failures <- character()
+          for (path in paths) {
+            tryCatch(
+              parse(file = path, keep.source = FALSE),
+              error = function(error) {
+                failures <<- c(
+                  failures,
+                  paste0(path, ": ", conditionMessage(error))
+                )
+              }
+            )
+          }
+          if (length(failures)) {
+            stop(
+              "R syntax validation failed:\n  ",
+              paste(failures, collapse = "\n  "),
+              call. = FALSE
+            )
+          }
+          cat("Parsed", length(paths), "active R sources.\n")
+          RS
 
       - name: Restore test and reproducibility packages
         run: >-

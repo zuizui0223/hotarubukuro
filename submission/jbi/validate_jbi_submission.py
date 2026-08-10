@@ -17,6 +17,7 @@ COVER = ROOT / "JBI_cover_letter.md"
 SUPPORTING = (
     ROOT / "supporting" / "Appendix_S1_yamap_public_benchmark.md",
     ROOT / "supporting" / "Appendix_S2_image_phenotyping.md",
+    ROOT / "supporting" / "Appendix_S3_broad_environment_spatial_model.md",
 )
 FORBIDDEN_IDENTIFIERS = ("zuizui0223", "rachelzhang", "ZHANG Ruiqi", "張瑞琪")
 

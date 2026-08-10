@@ -18,7 +18,8 @@ This directory contains the current JBI-facing version of the adopted broad → 
 - `supporting/Appendix_S2_image_phenotyping.md` — manuscript-ready image extraction, QC and two-part phenotype specification;
 - `supporting/Appendix_S3_broad_environment_spatial_model.md` — manuscript-ready broad environment, INLA-SPDE and blocked-prediction specification;
 - `supporting/Appendix_S4_bombus_sdm_occurrence_support.md` — manuscript-ready five-species SDM source build and occurrence-reference calibration;
-- `supporting/Appendix_S5_local_pollinator_robustness.md` — manuscript-ready directional sensitivities, community-boundary correspondence and elevation guardrails.
+- `supporting/Appendix_S5_local_pollinator_robustness.md` — manuscript-ready directional sensitivities, community-boundary correspondence and elevation guardrails;
+- `supporting/Appendix_S6_event_departures_human_context.md` — manuscript-ready event calibration, candidate diagnostics and post-selection landscape context.
 
 ## Current editorial-architecture files
 

@@ -12,8 +12,6 @@ submission,supporting_information,submission/jbi/supporting/Appendix_S1_yamap_pu
 submission,checklist,submission/jbi/JBI_submission_checklist.md,active
 submission,translated_abstract,submission/jbi/JBI_translated_abstract_ja.md,active
 submission,format_validator,submission/jbi/validate_jbi_submission.py,active
-editorial,background,submission/jbi/JBI_background_architecture.md,active
-editorial,narrative,submission/jbi/JBI_narrative_dependency_architecture.md,active
 data,YAMAP,Data_S1.csv,active
 data,YAMAP,Code_S1.py,active
 data,YAMAP,source_build/build_data_s1.py,active

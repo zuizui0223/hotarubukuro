@@ -52,6 +52,7 @@ infrastructure,Main3,scripts/canonical_snapshot.sh,active_static_human_inputs_on
 analysis,Main1,scripts/run_reanalysis_current_inputs.sh,active
 analysis,Main1,scripts/report_reanalysis_current_inputs.R,active
 analysis,figures,scripts/build_jbi_figure_bundle.R,active
+analysis,figures,scripts/render_jbi_main_figures.R,active
 workflow,Main1,.github/workflows/reanalysis-current-inputs.yml,active
 analysis,Main3,scripts/run_downstream_current_inputs.sh,active
 analysis,Main3,scripts/run_natural_predictive_model.R,active

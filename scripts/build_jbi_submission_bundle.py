@@ -87,7 +87,7 @@ def normalize_delivery_markdown(text: str) -> str:
         "Human-context class is descriptive and was assigned only after candidate selection.",
         "Human-context class is descriptive and was assigned only after candidate selection. "
         "Table S6.4 abbreviates DID-proximate/high-population as `DID-high`, "
-        "intermediate context as `Mid`, and remote/low-population as `Remote-low`.",
+        "the intermediate class as `Mid`, and remote/low-population as `Remote-low`.",
     )
     text = text.replace("DID-proximate, high population", "DID-high")
     text = text.replace("intermediate context", "Mid")

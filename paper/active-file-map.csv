@@ -55,6 +55,5 @@ reproducibility,Supplement,reproducibility/bombus_spatial_replication_test_resul
 reproducibility,YAMAP,reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md,active
 reproducibility,YAMAP,reproducibility/yamap_public_database_benchmark_results_2026-08-09.md,active
 documentation,YAMAP,docs/yamap-iecology-rationale.md,active
-documentation,Bombus,docs/bombus-sdm-inference.md,active
-documentation,Bombus,docs/bombus-pollinator-opportunity-proxy.md,active
+documentation,Bombus,docs/bombus-inference-current.md,active
 documentation,reproduction,docs/reproduction-guide.md,active

@@ -5,8 +5,8 @@ Start with [`../paper/README.md`](../paper/README.md). This directory contains o
 ## Broad natural template + event-based departures
 
 - `run_reanalysis_current_inputs.sh` — rebuild the fresh 1,965-row upstream environment/phenotype boundary.
-- `run_downstream_current_inputs.sh` — natural predictive reference, event-based departure calibration and post-selection human context.
-- `report_reanalysis_current_inputs.R` — fresh 1,922-observation manuscript summary.
+- `run_downstream_current_inputs.sh` — run the natural predictive reference, event-based departure calibration and post-selection human context, with each current independent validator and reconstruction-aware claim audit executed immediately after the stage it checks.
+- `report_reanalysis_current_inputs.R` — write the fresh manuscript summary and collect the actual current validation/audit outputs rather than historical generic validation paths.
 - `run_natural_predictive_model.R`
 - `run_local_pigmented_isolates.R`
 - `refine_submission_isolate_null.R`
@@ -15,6 +15,8 @@ Start with [`../paper/README.md`](../paper/README.md). This directory contains o
 - `run_local_human_context.R`
 - `run_did_sensitivity.R`
 - `run_candidate_doy_check.R`
+
+The validation routing and the distinction between structural PASS/FAIL checks and reconstruction-specific `RESULT` findings are documented in [`../validation/README.md`](../validation/README.md).
 
 ## Local pollinator analysis
 
@@ -29,6 +31,6 @@ The current biological interpretation and claim ceiling are in `../docs/bombus-i
 - `setup_r_environment.R` — restore the pinned R/INLA environment used by current workflows.
 - `canonical_snapshot.sh` — restore the checksum-locked static human-context support bundle required downstream.
 
-The old full-canonical snapshot publisher/verifier, generic preflight/reproduction reporter and 18-candidate submission-lock writer are archived under `legacy/reproducibility-development/scripts/`. They are historical utilities, not current JBI acceptance criteria.
+The old full-canonical snapshot publisher/verifier, generic preflight/reproduction reporter and fixed-result submission-lock writer are archived under `legacy/reproducibility-development/scripts/`. Historical result-identity audits are under `legacy/reproducibility-development/validation/`; neither location supplies current JBI acceptance criteria.
 
 The authoritative list of manuscript-facing files is `../paper/active-file-map.csv`; files are not current merely because they remain executable.

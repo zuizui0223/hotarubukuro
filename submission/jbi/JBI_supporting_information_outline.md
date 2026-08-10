@@ -72,31 +72,50 @@ Remaining production item before final SI assembly:
 
 **Purpose:** make the local exposure reproducible and clarify its inferential ceiling.
 
-Include:
+Manuscript-ready text and tables:
 
-- five species, occurrence snapshot and common domain;
-- shared predictors and ENMeval/maxnet tuning;
-- AUCs and selected-model information;
+- `submission/jbi/supporting/Appendix_S4_bombus_sdm_occurrence_support.md`.
+
+Included there:
+
+- frozen five-species occurrence flow and common mainland domain;
+- genus-wide target-group background and one-record-per-predictor-cell rule;
+- shared response-blind VIF screen and retained predictor set;
+- fixed ENMeval/maxnet tuning grid, selected models, AUC and omission diagnostics;
+- deterministic two-build comparison with identical selected models and prediction rasters;
 - exact occurrence-referenced empirical-CDF transformation;
-- why *B. ardens* + *B. diversus* define the primary directional exposure;
-- explicit statement that support is not abundance, visitation, pollen deposition or selection pressure.
+- why *B. ardens* + *B. diversus* define the directional exposure;
+- explicit statement that habitat support is not abundance, visitation, pollen deposition or selection pressure.
+
+Remaining production item before final SI assembly:
+
+- export the five selected SDM maps and occurrence-reference calibration panels from the frozen source-build and support artifacts.
 
 ## Appendix S5 — Local pollinator robustness and biogeographic guardrails
 
-**Purpose:** answer “what if the scale/exposure/species set changes?” while keeping the directional Main test readable.
+**Purpose:** answer “what if the scale, exposure or species set changes?” while keeping the directional Main test readable.
 
-Include:
+Manuscript-ready text and tables:
 
-- 5/10/25-km availability results;
+- `submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md`.
+
+Included there:
+
+- 5/10/25-km focal availability results;
 - transition thresholds 1.0/0.75/0.50;
-- raw-cloglog sensitivity;
-- species-specific and all-five exposure sensitivities;
-- five-species Hellinger community turnover and local matched-background tests;
+- raw-cloglog, all-five and montane/alpine exposure sensitivities;
+- all-edge descriptive checks and the magnitude-driven focal mean;
+- five-species occurrence-referenced and rank-based Hellinger turnover;
+- 25/50/100-km background and 10/20/50-control matching families;
 - 100-km blocks, shifted blocks and leave-one-block-out summaries;
-- montane/alpine (*B. beaticola*, *B. consobrinus*, *B. honshuensis*) <=50 m and <=100 m elevation guardrails;
-- explicit conclusion: the visually strong high-elevation overlap does not support an additional montane-pollinator mechanism.
+- montane/alpine <=50-m and <=100-m elevation guardrails;
+- explicit conclusion that the visually strong high-elevation overlap does not support an additional montane-pollinator mechanism.
 
-Community turnover must remain labelled a **biogeographic boundary correspondence**, not a directional flower-colour mechanism.
+Community turnover remains labelled a **biogeographic boundary correspondence**, not a directional flower-colour mechanism.
+
+Remaining production item before final SI assembly:
+
+- export the scale/exposure, community-match and equal-elevation guardrail panels from the locked local-transition and spatial-replication outputs.
 
 ## Appendix S6 — Event-based local departures and human context
 

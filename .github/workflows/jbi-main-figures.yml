@@ -1,0 +1,171 @@
+name: Build JBI main figure bundle
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/jbi-main-figures.yml
+      - scripts/build_jbi_figure_bundle.R
+      - validation/validate_jbi_figure_bundle.R
+      - submission/jbi/JBI_main_figure_captions.md
+      - submission/jbi/figures/**
+      - paper/active-file-map.csv
+      - R/**
+      - dependencies/**
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/jbi-main-figures.yml
+      - scripts/build_jbi_figure_bundle.R
+      - validation/validate_jbi_figure_bundle.R
+      - submission/jbi/JBI_main_figure_captions.md
+      - submission/jbi/figures/**
+      - paper/active-file-map.csv
+      - R/**
+      - dependencies/**
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  BROAD_ARTIFACT_ID: "9022276431"
+  BROAD_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  LOCAL_TRANSITION_ARTIFACT_ID: "9023416810"
+  LOCAL_TRANSITION_ARTIFACT_SHA256: "3f7ac07ea90e2b732441a9f80a38ea49871014722d008769370524b947007e34"
+  HOTARUBUKURO_R_SEED: "20260725"
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GOTO_NUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+
+jobs:
+  build-main-figures:
+    name: Generate and validate four JBI main figures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout current paper code
+        uses: actions/checkout@v5
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: jbi-figures-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt') }}
+          restore-keys: |
+            jbi-figures-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared figure environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility/jbi-figure-environment
+          --scopes figures,reproducibility
+          --skip-inla true
+
+      - name: Restore checksum-locked broad and anomaly evidence
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BROAD_ARTIFACT_ID}/zip" \
+            -o /tmp/broad.zip
+          actual="$(sha256sum /tmp/broad.zip | awk '{print $1}')"
+          [[ "$actual" == "$BROAD_ARTIFACT_SHA256" ]]
+          unzip -q -o /tmp/broad.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv
+          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s results/ecological_v20_local_white_isolates/local_isolate_candidates.csv
+
+      - name: Restore checksum-locked local focal-pollinator evidence
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${LOCAL_TRANSITION_ARTIFACT_ID}/zip" \
+            -o /tmp/local-transition.zip
+          actual="$(sha256sum /tmp/local-transition.zip | awk '{print $1}')"
+          [[ "$actual" == "$LOCAL_TRANSITION_ARTIFACT_SHA256" ]]
+          unzip -q -o /tmp/local-transition.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v18_bombus_local_sharp_transition/sharp_transition_summary.csv
+          test -s results/ecological_v18_bombus_local_sharp_transition/sharp_transition_nonoverlapping_pairs.csv
+
+      - name: Build the four current JBI figures
+        shell: bash
+        run: >-
+          Rscript scripts/build_jbi_figure_bundle.R
+          --output results/jbi_figure_bundle
+
+      - name: Validate figure files, hashes and numerical lock
+        shell: bash
+        run: >-
+          Rscript validation/validate_jbi_figure_bundle.R
+          --output results/jbi_figure_bundle
+
+      - name: Validate the current JBI text package
+        run: python submission/jbi/validate_jbi_submission.py
+
+      - name: Record workflow provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > results/jbi_figure_bundle/workflow_provenance.txt <<EOF
+          workflow=jbi-main-figures
+          workflow_run=${GITHUB_RUN_ID}
+          workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          commit=${GITHUB_SHA}
+          broad_artifact_id=${BROAD_ARTIFACT_ID}
+          broad_artifact_sha256=${BROAD_ARTIFACT_SHA256}
+          local_transition_artifact_id=${LOCAL_TRANSITION_ARTIFACT_ID}
+          local_transition_artifact_sha256=${LOCAL_TRANSITION_ARTIFACT_SHA256}
+          EOF
+
+      - name: Upload JBI main-figure bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jbi-main-figures-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/jbi_figure_bundle
+            submission/jbi/JBI_main_figure_plan.md
+            submission/jbi/JBI_main_figure_captions.md
+            submission/jbi/figures/README.md
+            reproducibility/jbi-figure-environment
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 90

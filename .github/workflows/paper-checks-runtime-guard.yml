@@ -37,31 +37,33 @@ jobs:
           if marker in text:
               raise SystemExit('The permanent checkout runtime guard already exists.')
 
-          guard = """          # Keep every active workflow on the Node 24 checkout runtime. The
-          # legacy token is constructed rather than written literally so this
-          # guard cannot match its own source text.
-          checkout_v4 = 'actions/checkout@' + 'v4'
-          checkout_v5 = 'actions/checkout@' + 'v5'
-          workflow_files = sorted(Path('.github/workflows').glob('*.yml'))
-          stale_checkout = [
-              str(path) for path in workflow_files
-              if checkout_v4 in path.read_text(encoding='utf-8')
+          guard_lines = [
+              "          # Keep every active workflow on the Node 24 checkout runtime. The",
+              "          # legacy token is constructed rather than written literally so this",
+              "          # guard cannot match its own source text.",
+              "          checkout_v4 = 'actions/checkout@' + 'v4'",
+              "          checkout_v5 = 'actions/checkout@' + 'v5'",
+              "          workflow_files = sorted(Path('.github/workflows').glob('*.yml'))",
+              "          stale_checkout = [",
+              "              str(path) for path in workflow_files",
+              "              if checkout_v4 in path.read_text(encoding='utf-8')",
+              "          ]",
+              "          assert not stale_checkout, (",
+              "              'active workflows still use checkout v4: ' +",
+              "              ', '.join(stale_checkout)",
+              "          )",
+              "          unexpected_checkout = [",
+              "              str(path) for path in workflow_files",
+              "              if 'actions/checkout@' in path.read_text(encoding='utf-8')",
+              "              and checkout_v5 not in path.read_text(encoding='utf-8')",
+              "          ]",
+              "          assert not unexpected_checkout, (",
+              "              'active workflows use an unexpected checkout runtime: ' +",
+              "              ', '.join(unexpected_checkout)",
+              "          )",
+              "",
           ]
-          assert not stale_checkout, (
-              'active workflows still use checkout v4: ' +
-              ', '.join(stale_checkout)
-          )
-          unexpected_checkout = [
-              str(path) for path in workflow_files
-              if 'actions/checkout@' in path.read_text(encoding='utf-8')
-              and checkout_v5 not in path.read_text(encoding='utf-8')
-          ]
-          assert not unexpected_checkout, (
-              'active workflows use an unexpected checkout runtime: ' +
-              ', '.join(unexpected_checkout)
-          )
-
-"""
+          guard = "\n".join(guard_lines) + "\n"
           updated = text.replace(anchor, guard + anchor, 1)
           if updated.count(marker) != 1:
               raise SystemExit('Checkout runtime guard insertion was not unique.')

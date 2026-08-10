@@ -21,6 +21,12 @@ data,YAMAP,source_build/extract_color.py,active
 infrastructure,R_loader,R/README.md,active
 infrastructure,R_loader,R/pipeline_support.R,active
 infrastructure,reproducibility,R/reproducibility.R,active
+infrastructure,environment,scripts/setup_r_environment.R,active
+infrastructure,environment,dependencies/r-version.txt,active
+infrastructure,environment,dependencies/apt-packages.txt,active
+infrastructure,environment,dependencies/r-packages.csv,active
+infrastructure,environment,dependencies/cran-snapshot.txt,active
+infrastructure,environment,dependencies/inla.csv,active
 analysis,Main1,R/natural_predictive_model.R,active
 analysis,Main3,R/candidate_null_tools.R,active
 analysis,Main3,R/human_landscape_features.R,active
@@ -57,6 +63,8 @@ source,Bombus_SDM,source_build/canonicalize_bombus_occurrences.R,active
 source,Bombus_SDM,source_build/build_bombus_sdm_mainland.R,active
 validation,Bombus_SDM,source_build/audit_bombus_extraction.R,active
 validation,Bombus_SDM,validation/compare_bombus_sdm_rebuilds.R,active
+source,environment,config/pipeline.yml,active
+source,environment,config/raster_sources.csv,active
 source,environment,source_build/download_rasters.R,active
 source,environment,source_build/prepare_rasters.R,active
 source,environment,R/raster_sources.R,active

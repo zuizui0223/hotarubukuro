@@ -1,8 +1,10 @@
-# Shared interface for the active 1,909-observation analysis.
+# Shared interface for the current JBI paper analysis.
 #
-# Only modules named in hb_module_files are loadable by the active pipeline.
-# Historical implementations live under legacy/ and are deliberately absent
-# from this registry.
+# Only modules named in hb_module_files are loadable through the current paper
+# pipeline. Historical implementations live under legacy/ and are deliberately
+# absent from this registry. The current source boundary is the curated
+# 1,965-row Data_S1 table; downstream sample sizes are determined by current
+# QC/support rules rather than a fixed historical n.
 
 hb_configure_deterministic_compute <- function() {
   thread_variables <- c(
@@ -55,8 +57,6 @@ hb_package_groups <- list(
 
 hb_stage_packages <- list(
   natural_predictive_model = "natural_predictive_model",
-  local_bombus_turnover = character(),
-  bombus_limitation_gate = character(),
   human_landscape_features = "human_context",
   local_pigmented_isolates = "human_context",
   local_human_context = "human_context",
@@ -70,22 +70,18 @@ hb_stage_packages <- list(
 
 hb_module_files <- c(
   natural_predictive_model = "R/natural_predictive_model.R",
-  local_bombus_turnover = "R/local_bombus_turnover.R",
   candidate_null_tools = "R/candidate_null_tools.R",
   human_landscape_features = "R/human_landscape_features.R",
   local_pigmented_isolates = "R/local_pigmented_isolates.R",
   human_raster_features = "R/human_raster_features.R",
   local_human_context = "R/local_human_context.R",
   spatial_context = "R/spatial_context.R",
-  did_sensitivity = "R/did_sensitivity.R",
-  final_registry = "R/final_registry.R"
+  did_sensitivity = "R/did_sensitivity.R"
 )
 
 hb_stage_modules <- list(
   human_raster = "human_raster_features",
   natural_predictive_model = "natural_predictive_model",
-  local_bombus_turnover = "local_bombus_turnover",
-  bombus_limitation_gate = "local_bombus_turnover",
   human_landscape_features = c(
     "candidate_null_tools", "human_landscape_features"
   ),
@@ -102,27 +98,27 @@ hb_stage_modules <- list(
     "human_raster_features", "candidate_null_tools",
     "human_landscape_features", "local_pigmented_isolates",
     "local_human_context", "did_sensitivity"
-  ),
-  final_registry = "final_registry"
+  )
 )
 
 hb_publication_stage_registry <- function() {
   data.frame(
     stage_id = c(
       "01_phenotype", "02_natural_model", "03_local_bombus",
-      "04_candidate_definition", "05_human_context", "06_final_lock"
+      "04_candidate_definition", "05_human_context", "06_submission_lock"
     ),
     manuscript_role = c(
-      "measurement_model", "confirmatory_natural_baseline",
-      "local_pollinator_limitation_test", "candidate_definition",
-      "exploratory_human_context", "claim_and_artifact_lock"
+      "measurement_model", "broad_natural_template",
+      "local_focal_pollinator_transition_test", "candidate_definition",
+      "post_selection_human_context", "claim_and_artifact_lock"
     ),
     response = c(
       "pigmentation presence and pigmented-only intensity",
       "same two-part response",
-      "directed pigmentation contrast between Bombus-limited and Bombus-available local matches",
-      "pigmented isolates among environment-similar white neighbours",
-      "population and DID contrasts", "registered results and claim ceilings"
+      "white-to-pigmented direction across Bombus-blind 5-km sharp local transitions",
+      "repeatable local pigmentation-state events calibrated against natural predictive maps",
+      "population, landscape and DID context after candidate fixation",
+      "current manuscript claims and reproducibility references"
     ),
     stringsAsFactors = FALSE
   )
@@ -164,7 +160,7 @@ hb_require_packages <- function(packages) {
 hb_require_stage_packages <- function(stage) {
   groups <- hb_stage_packages[[stage]]
   if (is.null(groups)) {
-    stop("Unknown active package stage: ", stage, call. = FALSE)
+    stop("Unknown current package stage: ", stage, call. = FALSE)
   }
   hb_require_packages(unique(unlist(hb_package_groups[groups], use.names = FALSE)))
 }
@@ -172,13 +168,13 @@ hb_require_stage_packages <- function(stage) {
 hb_load_modules <- function(stage, envir = parent.frame(), root = ".") {
   modules <- hb_stage_modules[[stage]]
   if (is.null(modules)) {
-    stop("Unknown active module stage: ", stage, call. = FALSE)
+    stop("Unknown current module stage: ", stage, call. = FALSE)
   }
   paths <- file.path(root, unname(hb_module_files[modules]))
   missing <- paths[!file.exists(paths)]
   if (length(missing)) {
     stop(
-      "Missing active modules: ", paste(missing, collapse = ", "),
+      "Missing current modules: ", paste(missing, collapse = ", "),
       call. = FALSE
     )
   }

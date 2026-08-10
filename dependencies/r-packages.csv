@@ -34,10 +34,6 @@ FNN,cran,testing,Nearest-neighbour helper required by current human-raster unit 
 knitr,cran,reporting,Report rendering
 rmarkdown,cran,reporting,Report rendering
 ggplot2,cran,figures,Publication figures
-cowplot,cran,figures,Publication figure composition
-patchwork,cran,figures,Publication multi-panel composition
-scales,cran,figures,Axis and legend transformations
-ggplot2,cran,figures,Publication figures
 cowplot,cran,figures,Publication figures
 patchwork,cran,figures,Publication figures
 scales,cran,figures,Publication figures

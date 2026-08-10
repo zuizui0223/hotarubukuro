@@ -1,0 +1,56 @@
+name: Apply environmental manuscript revision
+
+on:
+  push:
+    branches:
+      - agent/strengthen-environmental-hypotheses
+    paths:
+      - .github/workflows/apply-environmental-manuscript-revision.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout revision branch
+        uses: actions/checkout@v5
+        with:
+          ref: agent/strengthen-environmental-hypotheses
+          fetch-depth: 0
+
+      - name: Apply the reviewed manuscript patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .tmp/environment-hypothesis/00_header.patch \
+              .tmp/environment-hypothesis/01_hunk.patch \
+              .tmp/environment-hypothesis/02_hunk.patch \
+              .tmp/environment-hypothesis/03_hunk.patch \
+              .tmp/environment-hypothesis/04_hunk.patch \
+              .tmp/environment-hypothesis/05_hunk.patch \
+              .tmp/environment-hypothesis/06_hunk.patch \
+              .tmp/environment-hypothesis/07_hunk.patch \
+              .tmp/environment-hypothesis/08_hunk.patch \
+              > /tmp/environment-main.patch
+          git apply --check /tmp/environment-main.patch
+          git apply /tmp/environment-main.patch
+          actual="$(sha256sum submission/jbi/JBI_main_manuscript_anonymized.md | awk '{print $1}')"
+          expected="4cb07ba13843d2137fb598c2fcbf9a4235509f931ab129e2c934afd2a4a4b68d"
+          [[ "$actual" == "$expected" ]]
+          python submission/jbi/validate_jbi_submission.py
+
+      - name: Remove one-time patch machinery and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .tmp/environment-hypothesis
+          rm -f .github/workflows/apply-environmental-manuscript-revision.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add submission/jbi/JBI_main_manuscript_anonymized.md \
+                  .tmp/environment-hypothesis \
+                  .github/workflows/apply-environmental-manuscript-revision.yml
+          git commit -m "Strengthen environmental and anthocyanin hypotheses"
+          git push origin HEAD:agent/strengthen-environmental-hypotheses

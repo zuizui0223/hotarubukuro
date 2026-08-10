@@ -1,4 +1,4 @@
-name: One-time checkout v5 migration
+name: One-time checkout v5 blob migration
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  migrate:
+  prepare-blobs:
     if: github.ref_name == 'agent/repository-cleanup-legacy'
     runs-on: ubuntu-24.04
     steps:
@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Replace only checkout v4 references and remove this workflow
+      - name: Replace only checkout v4 references
         shell: bash
         run: |
           set -euo pipefail
@@ -36,8 +36,10 @@ jobs:
               text = path.read_text(encoding='utf-8')
               count = text.count('actions/checkout@v4')
               if count:
-                  updated = text.replace('actions/checkout@v4', 'actions/checkout@v5')
-                  path.write_text(updated, encoding='utf-8')
+                  path.write_text(
+                      text.replace('actions/checkout@v4', 'actions/checkout@v5'),
+                      encoding='utf-8',
+                  )
                   changed.append(str(path))
                   replacements += count
 
@@ -69,19 +71,21 @@ jobs:
           ]
           if stale:
               raise SystemExit('checkout@v4 remains in: ' + ', '.join(stale))
+          Path('/tmp/checkout-v5-paths.txt').write_text(
+              '\n'.join(changed) + '\n', encoding='utf-8'
+          )
           print(f'Updated {len(changed)} workflows with {replacements} replacements.')
           PY
 
-          rm .github/workflows/checkout-v5-migration.yml
-
-          # Guard the exact scope of the one-time migration. Besides this
-          # workflow deleting itself, every changed line must be checkout v4/v5.
+      - name: Validate the exact diff scope
+        shell: bash
+        run: |
+          set -euo pipefail
           git diff -- .github/workflows > /tmp/checkout-v5.patch
           python3 - <<'PY'
           from pathlib import Path
 
           patch = Path('/tmp/checkout-v5.patch').read_text(encoding='utf-8')
-          temporary = '.github/workflows/checkout-v5-migration.yml'
           current = None
           forbidden = []
           for line in patch.splitlines():
@@ -91,8 +95,6 @@ jobs:
               if not line.startswith(('+', '-')) or line.startswith(('+++', '---')):
                   continue
               payload = line[1:].strip()
-              if current == temporary and line.startswith('-'):
-                  continue
               if payload in {
                   '- uses: actions/checkout@v4',
                   'uses: actions/checkout@v4',
@@ -107,8 +109,65 @@ jobs:
               )
           PY
 
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows
-          git commit -m 'Upgrade active checkout actions to v5'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+      - name: Create detached Git blobs for the migrated workflows
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          token = os.environ['GITHUB_TOKEN']
+          paths = [
+              line.strip()
+              for line in Path('/tmp/checkout-v5-paths.txt').read_text(
+                  encoding='utf-8'
+              ).splitlines()
+              if line.strip()
+          ]
+          mapping = []
+          for path_string in paths:
+              content = Path(path_string).read_bytes()
+              payload = json.dumps({
+                  'content': base64.b64encode(content).decode('ascii'),
+                  'encoding': 'base64',
+              }).encode('utf-8')
+              request = Request(
+                  f'https://api.github.com/repos/{repository}/git/blobs',
+                  data=payload,
+                  method='POST',
+                  headers={
+                      'Authorization': f'Bearer {token}',
+                      'Accept': 'application/vnd.github+json',
+                      'X-GitHub-Api-Version': '2022-11-28',
+                      'Content-Type': 'application/json',
+                      'User-Agent': 'hotarubukuro-checkout-v5-migration',
+                  },
+              )
+              with urlopen(request, timeout=60) as response:
+                  result = json.loads(response.read().decode('utf-8'))
+              mapping.append({
+                  'path': path_string,
+                  'mode': '100644',
+                  'type': 'blob',
+                  'sha': result['sha'],
+              })
+          Path('checkout-v5-blob-map.json').write_text(
+              json.dumps(mapping, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(mapping, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: checkout-v5-blob-map-${{ github.sha }}-${{ github.run_id }}
+          path: checkout-v5-blob-map.json
+          if-no-files-found: error
+          retention-days: 1

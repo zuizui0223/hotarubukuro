@@ -1,0 +1,75 @@
+name: Fix submission list numbering
+
+on:
+  push:
+    branches:
+      - agent/strengthen-environmental-hypotheses
+    paths:
+      - .github/workflows/fix-submission-list-numbering.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/strengthen-environmental-hypotheses
+          fetch-depth: 0
+
+      - name: Render ordered Markdown lists with literal source numbers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/jbi_submission_bundle_core.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''        list_match = re.match(r"^\\s*([-*+]|\\d+\\.)\\s+(.+)$", raw)
+        if list_match:
+            marker, value = list_match.groups()
+            style = "List Number" if marker[0].isdigit() else "List Bullet"
+            paragraph = document.add_paragraph(style=style)
+            paragraph.paragraph_format.space_after = Pt(2)
+            add_inline_runs(paragraph, value)
+            index += 1
+            continue
+'''
+          new = '''        list_match = re.match(r"^\\s*([-*+]|\\d+\\.)\\s+(.+)$", raw)
+        if list_match:
+            marker, value = list_match.groups()
+            if marker[0].isdigit():
+                # Word's built-in List Number style silently continues numbering
+                # across separately rendered appendices. Preserve the explicit
+                # Markdown number instead so every source list restarts exactly
+                # where its author wrote it.
+                paragraph = document.add_paragraph()
+                paragraph.paragraph_format.left_indent = Inches(0.25)
+                paragraph.paragraph_format.first_line_indent = Inches(-0.18)
+                marker_run = paragraph.add_run(f"{marker} ")
+                marker_run.bold = True
+            else:
+                paragraph = document.add_paragraph(style="List Bullet")
+            paragraph.paragraph_format.space_after = Pt(2)
+            add_inline_runs(paragraph, value)
+            index += 1
+            continue
+'''
+          if text.count(old) != 1:
+              raise SystemExit(f'Expected one list-rendering block, found {text.count(old)}')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          python -m py_compile scripts/jbi_submission_bundle_core.py
+
+      - name: Commit and remove the one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/fix-submission-list-numbering.yml
+          git config user.name "zuizui0223"
+          git config user.email "188828063+zuizui0223@users.noreply.github.com"
+          git add -A
+          git commit -m "Restart ordered lists in each generated appendix"
+          git push origin HEAD:agent/strengthen-environmental-hypotheses

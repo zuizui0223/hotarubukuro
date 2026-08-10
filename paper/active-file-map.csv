@@ -1,4 +1,5 @@
 role,section,path,status
+entrypoint,repository,README.md,active
 entrypoint,paper,paper/README.md,active
 entrypoint,paper,paper/analysis-map.md,active
 entrypoint,paper,paper/active-file-map.csv,active

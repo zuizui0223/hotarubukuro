@@ -86,12 +86,12 @@ def normalize_delivery_markdown(text: str) -> str:
     text = text.replace(
         "Human-context class is descriptive and was assigned only after candidate selection.",
         "Human-context class is descriptive and was assigned only after candidate selection. "
-        "In Table S6.4, DID-proximate/high-population and remote/low-population "
-        "are abbreviated as `DID-prox./high pop.` and `remote/low pop.`.",
+        "Table S6.4 abbreviates DID-proximate/high-population as `DID-high`, "
+        "intermediate context as `Mid`, and remote/low-population as `Remote-low`.",
     )
-    text = text.replace("DID-proximate, high population", "DID-prox./high pop.")
-    text = text.replace("intermediate context", "intermediate")
-    text = text.replace("remote, low population", "remote/low pop.")
+    text = text.replace("DID-proximate, high population", "DID-high")
+    text = text.replace("intermediate context", "Mid")
+    text = text.replace("remote, low population", "Remote-low")
     text = text.replace(
         "It is retained as an execution verification rather than silently replacing the frozen numerical reference.\n\n"
         "The causal ceiling is unchanged:",

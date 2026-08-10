@@ -1,6 +1,6 @@
 # Current manuscript-facing scripts
 
-Start with [`../paper/README.md`](../paper/README.md). This directory contains only current reusable infrastructure plus scripts feeding the active broad/anomaly or local-pollinator analyses. Superseded runners and estimands are under `legacy/method-development/`.
+Start with [`../paper/README.md`](../paper/README.md). This directory contains only current reusable infrastructure plus scripts feeding the active broad/anomaly or local-pollinator analyses. Superseded runners and estimands are under `legacy/`.
 
 ## Broad natural template + event-based departures
 
@@ -24,6 +24,11 @@ Start with [`../paper/README.md`](../paper/README.md). This directory contains o
 
 The current biological interpretation and claim ceiling are in `../docs/bombus-inference-current.md`.
 
-## Infrastructure
+## Current infrastructure
 
-Snapshot/environment/setup helpers remain outside `legacy/` only when a current workflow calls them. The authoritative list of manuscript-facing files is `../paper/active-file-map.csv`; files are not current merely because they remain executable.
+- `setup_r_environment.R` — restore the pinned R/INLA environment used by current workflows.
+- `canonical_snapshot.sh` — restore the checksum-locked static human-context support bundle required downstream.
+
+The old full-canonical snapshot publisher/verifier, generic preflight/reproduction reporter and 18-candidate submission-lock writer are archived under `legacy/reproducibility-development/scripts/`. They are historical utilities, not current JBI acceptance criteria.
+
+The authoritative list of manuscript-facing files is `../paper/active-file-map.csv`; files are not current merely because they remain executable.

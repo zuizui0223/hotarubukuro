@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/jbi-main-figures.yml
       - scripts/build_jbi_figure_bundle.R
+      - scripts/render_jbi_main_figures.R
       - validation/validate_jbi_figure_bundle.R
       - submission/jbi/JBI_main_figure_captions.md
       - submission/jbi/figures/**
@@ -18,6 +19,7 @@ on:
     paths:
       - .github/workflows/jbi-main-figures.yml
       - scripts/build_jbi_figure_bundle.R
+      - scripts/render_jbi_main_figures.R
       - validation/validate_jbi_figure_bundle.R
       - submission/jbi/JBI_main_figure_captions.md
       - submission/jbi/figures/**
@@ -128,7 +130,7 @@ jobs:
       - name: Build the four current JBI figures
         shell: bash
         run: >-
-          Rscript scripts/build_jbi_figure_bundle.R
+          Rscript scripts/render_jbi_main_figures.R
           --output results/jbi_figure_bundle
 
       - name: Validate figure files, hashes and numerical lock
@@ -149,6 +151,8 @@ jobs:
           workflow_run=${GITHUB_RUN_ID}
           workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
           commit=${GITHUB_SHA}
+          core_builder=scripts/build_jbi_figure_bundle.R
+          layout_renderer=scripts/render_jbi_main_figures.R
           broad_artifact_id=${BROAD_ARTIFACT_ID}
           broad_artifact_sha256=${BROAD_ARTIFACT_SHA256}
           local_transition_artifact_id=${LOCAL_TRANSITION_ARTIFACT_ID}

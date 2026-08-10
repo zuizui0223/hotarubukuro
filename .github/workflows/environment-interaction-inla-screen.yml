@@ -6,7 +6,6 @@ on:
     paths:
       - .github/workflows/environment-interaction-inla-screen.yml
       - scripts/run_environment_interaction_inla_screen.R
-      - scripts/run_environment_interaction_inla_matrix_job.R
       - reproducibility/environment_interaction_inla_screen_spec_2026-08-11.md
       - dependencies/**
       - paper/active-file-map.csv
@@ -17,7 +16,6 @@ on:
     paths:
       - .github/workflows/environment-interaction-inla-screen.yml
       - scripts/run_environment_interaction_inla_screen.R
-      - scripts/run_environment_interaction_inla_matrix_job.R
       - reproducibility/environment_interaction_inla_screen_spec_2026-08-11.md
       - dependencies/**
       - paper/active-file-map.csv
@@ -112,11 +110,30 @@ jobs:
           unzip -q /tmp/current-broad-reference.zip -d reference-artifact
           test -s reference-artifact/results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv
 
+      - name: Prepare response-specific frozen-lock check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/run_environment_interaction_inla_screen.R")
+          text = path.read_text(encoding="utf-8")
+          needle = "lock_rows <- lapply(seq_len(nrow(lock_targets)), function(i) {"
+          if text.count(needle) != 1:
+              raise SystemExit("Unable to locate the frozen-lock evaluation point")
+          filter_line = (
+              "lock_targets <- lock_targets[lock_targets$outcome %in% names(outcomes), "
+              ", drop = FALSE]\n"
+          )
+          path.write_text(text.replace(needle, filter_line + needle), encoding="utf-8")
+          PY
+
       - name: Fit all predeclared interaction models
         shell: bash
         run: |
           set -euo pipefail
-          Rscript scripts/run_environment_interaction_inla_matrix_job.R \
+          Rscript scripts/run_environment_interaction_inla_screen.R \
             --input-csv reference-artifact/results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
             --outcome "${{ matrix.outcome }}" \
             --output-dir "results/environment_interaction_inla_screen/${{ matrix.outcome }}" \

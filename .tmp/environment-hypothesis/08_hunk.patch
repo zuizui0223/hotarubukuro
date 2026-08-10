@@ -1,0 +1,9 @@
+@@ -184,6 +194,8 @@
+ 
+ van der Kooi, C. J., Elzenga, J. T. M., Staal, M., & Stavenga, D. G. (2016). How to colour a flower: On the optical principles of flower coloration. *Proceedings of the Royal Society B*, 283, 20160429. https://doi.org/10.1098/rspb.2016.0429
+ 
++Zhou, L.-J., Geng, Z., Wang, Y., Wang, Y., Liu, S., Chen, C., Song, A., Jiang, J., Chen, S., & Chen, F. (2021). A novel transcription factor CmMYB012 inhibits flavone and anthocyanin biosynthesis in response to high temperatures in chrysanthemum. *Horticulture Research*, 8, 248. https://doi.org/10.1038/s41438-021-00675-z
++
+ ## Data Accessibility Statement
+ 
+ For double-anonymous review, an anonymized private repository will contain the derived flower-colour tables, environmental source registry, Bombus SDM configuration and occurrence-referenced support, analysis code, seeds, local-transition specifications, anomaly-event definitions and workflow provenance. Original YAMAP photographs are third-party content and cannot be redistributed; the derived trait table retains the provenance and quantitative measurements needed to reproduce manuscript analyses. A permanent public repository and DOI will replace the private review link upon acceptance.

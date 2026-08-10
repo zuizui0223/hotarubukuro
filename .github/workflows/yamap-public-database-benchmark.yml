@@ -1,0 +1,452 @@
+name: YAMAP versus public biodiversity-image benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/final-broad-fine-anomaly-pipeline
+    paths:
+      - .github/workflows/yamap-public-database-benchmark.yml
+      - reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FRESH_REANALYSIS_ARTIFACT_ID: "9022276431"
+  FRESH_REANALYSIS_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Restore checksum-locked YAMAP current-input table
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_REANALYSIS_ARTIFACT_ID}/zip" \
+            -o /tmp/fresh-reanalysis.zip
+          actual="$(sha256sum /tmp/fresh-reanalysis.zip | awk '{print $1}')"
+          echo "fresh reanalysis sha256=${actual}"
+          [[ "$actual" == "$FRESH_REANALYSIS_SHA256" ]]
+          unzip -q -o /tmp/fresh-reanalysis.zip -d "$GITHUB_WORKSPACE"
+          test -s reanalysis_inputs/Data_S1_current_analysis.csv
+          test -s results/reanalysis_current_inputs/reanalysis_overview.csv
+
+      - name: Query matched-period public sources and summarize quality dimensions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/yamap_public_database_benchmark
+          python - <<'PY'
+          import csv, json, math, os, re, statistics, time
+          from collections import Counter, defaultdict
+          from urllib.parse import urlencode
+          from urllib.request import Request, urlopen
+
+          OUT = "results/yamap_public_database_benchmark"
+          os.makedirs(OUT, exist_ok=True)
+          UA = "hotarubukuro-yamap-benchmark/1.0 (research reproducibility; GitHub Actions)"
+          START = "2023-01-01"
+          END = "2025-12-31"
+          YEARS = (2023, 2024, 2025)
+
+          def fetch_json(base, params, retries=5):
+              url = base + "?" + urlencode(params, doseq=True)
+              last = None
+              for attempt in range(retries):
+                  try:
+                      req = Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+                      with urlopen(req, timeout=60) as r:
+                          return json.loads(r.read().decode("utf-8")), url
+                  except Exception as e:
+                      last = e
+                      if attempt + 1 == retries:
+                          raise
+                      time.sleep(2 ** attempt)
+              raise last
+
+          def safe_float(x):
+              try:
+                  y = float(x)
+                  return y if math.isfinite(y) else None
+              except Exception:
+                  return None
+
+          def median_or_none(values):
+              vals = [v for v in values if v is not None and math.isfinite(v)]
+              return statistics.median(vals) if vals else None
+
+          # ---------- YAMAP ----------
+          yamap_path = "reanalysis_inputs/Data_S1_current_analysis.csv"
+          with open(yamap_path, newline="", encoding="utf-8-sig") as f:
+              all_rows = list(csv.DictReader(f))
+          yamap = [r for r in all_rows if r.get("source_reference_type") == "yamap_activity"]
+
+          def full_iso_date(s):
+              return bool(re.fullmatch(r"20(?:23|24|25)-\d{2}-\d{2}", (s or "").strip()))
+
+          yamap_year = Counter(int(r["date"][:4]) for r in yamap if full_iso_date(r.get("date")))
+          yamap_coords = sum(
+              safe_float(r.get("latitude")) is not None and safe_float(r.get("longitude")) is not None
+              for r in yamap
+          )
+          yamap_unique_images = len({r.get("image_sha256") for r in yamap if r.get("image_sha256")})
+          yamap_unique_sites = len({r.get("exact_site_id") for r in yamap if r.get("exact_site_id")})
+          yamap_photo_qc = Counter(r.get("photo_coordinate_qc_status") or "missing" for r in yamap)
+          yamap_qc = Counter(r.get("qc_status") or "missing" for r in yamap)
+
+          with open("results/reanalysis_current_inputs/reanalysis_overview.csv", newline="", encoding="utf-8-sig") as f:
+              overview = list(csv.DictReader(f))
+          def get_overview(section, metric):
+              for r in overview:
+                  if r.get("section") == section and r.get("metric") == metric:
+                      return r.get("value")
+              return None
+          phenotype_n = int(float(get_overview("population", "phenotype_analysis_rows")))
+
+          yamap_summary = {
+              "source": "YAMAP",
+              "observation_process": "hiking/recreation activity photographs; study retrieved and author-screened candidate records",
+              "period": f"{START}/{END}",
+              "source_rows_yamap_activity": len(yamap),
+              "unique_image_hashes": yamap_unique_images,
+              "unique_exact_sites": yamap_unique_sites,
+              "manuscript_phenotype_n": phenotype_n,
+              "full_date_n": sum(full_iso_date(r.get("date")) for r in yamap),
+              "coordinate_n": yamap_coords,
+              "year_counts": {str(y): yamap_year.get(y, 0) for y in YEARS},
+              "photo_coordinate_qc": dict(yamap_photo_qc),
+              "image_qc_status": dict(yamap_qc),
+              "taxonomic_subject_review": "all study candidate records screened by the author before inclusion; not represented by the image-QC manual_review_status field",
+          }
+
+          # ---------- iNaturalist ----------
+          inat_base = "https://api.inaturalist.org/v1/observations"
+          inat_params = {
+              "taxon_id": 128781,
+              "place_id": 6737,
+              "d1": START,
+              "d2": END,
+              "photos": "true",
+              "geo": "true",
+              "per_page": 200,
+              "page": 1,
+              "order_by": "id",
+              "order": "asc",
+          }
+          first, inat_first_url = fetch_json(inat_base, inat_params)
+          total = int(first.get("total_results", 0))
+          inat_results = list(first.get("results", []))
+          pages = max(1, math.ceil(total / 200))
+          for page in range(2, pages + 1):
+              q = dict(inat_params); q["page"] = page
+              payload, _ = fetch_json(inat_base, q)
+              inat_results.extend(payload.get("results", []))
+              time.sleep(0.15)
+          if len(inat_results) != total:
+              raise RuntimeError(f"iNaturalist paging mismatch: got {len(inat_results)} expected {total}")
+
+          inat_year = Counter()
+          inat_quality = Counter()
+          inat_geo = Counter()
+          inat_users = set()
+          inat_pos_acc = []
+          inat_photo_count = 0
+          inat_full_date = 0
+          inat_captive = 0
+          for r in inat_results:
+              od = r.get("observed_on_details") or {}
+              y = od.get("year")
+              if y in YEARS:
+                  inat_year[y] += 1
+              if od.get("date") and re.fullmatch(r"20(?:23|24|25)-\d{2}-\d{2}", str(od.get("date"))):
+                  inat_full_date += 1
+              inat_quality[r.get("quality_grade") or "missing"] += 1
+              gp = r.get("geoprivacy") or "open_or_unspecified"
+              inat_geo[gp] += 1
+              if r.get("user") and r["user"].get("id") is not None:
+                  inat_users.add(r["user"]["id"])
+              pa = safe_float(r.get("positional_accuracy"))
+              if pa is not None:
+                  inat_pos_acc.append(pa)
+              inat_photo_count += len(r.get("photos") or [])
+              inat_captive += bool(r.get("captive"))
+
+          with open(os.path.join(OUT, "inaturalist_observations.jsonl"), "w", encoding="utf-8") as f:
+              for r in inat_results:
+                  f.write(json.dumps(r, ensure_ascii=False, sort_keys=True) + "\n")
+
+          inat_summary = {
+              "source": "iNaturalist",
+              "observation_process": "purpose-built biodiversity observations",
+              "period": f"{START}/{END}",
+              "query_url": inat_first_url,
+              "taxon_id": 128781,
+              "place_id": 6737,
+              "photo_georeferenced_observations": total,
+              "attached_photos": inat_photo_count,
+              "research_grade_n": inat_quality.get("research", 0),
+              "needs_id_n": inat_quality.get("needs_id", 0),
+              "casual_n": inat_quality.get("casual", 0),
+              "captive_cultivated_flag_n": inat_captive,
+              "unique_observers": len(inat_users),
+              "full_date_n": inat_full_date,
+              "year_counts": {str(y): inat_year.get(y, 0) for y in YEARS},
+              "geoprivacy": dict(inat_geo),
+              "positional_accuracy_reported_n": len(inat_pos_acc),
+              "positional_accuracy_median_m": median_or_none(inat_pos_acc),
+          }
+
+          # ---------- GBIF ----------
+          gbif_base = "https://api.gbif.org/v1/occurrence/search"
+          gbif_params = {
+              "taxon_key": 5411557,
+              "country": "JP",
+              "year": "2023,2025",
+              "media_type": "StillImage",
+              "has_coordinate": "true",
+              "occurrence_status": "present",
+              "basis_of_record": "HUMAN_OBSERVATION",
+              "limit": 300,
+              "offset": 0,
+          }
+          first_g, gbif_first_url = fetch_json(gbif_base, gbif_params)
+          gtotal = int(first_g.get("count", 0))
+          gbif_results = list(first_g.get("results", []))
+          for offset in range(300, gtotal, 300):
+              q = dict(gbif_params); q["offset"] = offset
+              payload, _ = fetch_json(gbif_base, q)
+              gbif_results.extend(payload.get("results", []))
+              time.sleep(0.15)
+          if len(gbif_results) != gtotal:
+              raise RuntimeError(f"GBIF paging mismatch: got {len(gbif_results)} expected {gtotal}")
+
+          broad_params = dict(gbif_params)
+          broad_params.pop("basis_of_record")
+          broad_params["limit"] = 0
+          broad_params["offset"] = 0
+          gbif_all, gbif_all_url = fetch_json(gbif_base, broad_params)
+          gbif_all_count = int(gbif_all.get("count", 0))
+
+          gbif_year = Counter()
+          gbif_dataset = Counter()
+          gbif_dataset_key = Counter()
+          gbif_issue = Counter()
+          gbif_unc = []
+          gbif_photo_count = 0
+          gbif_full_date = 0
+          gbif_inat_n = 0
+          for r in gbif_results:
+              y = r.get("year")
+              if y in YEARS:
+                  gbif_year[y] += 1
+              if r.get("year") and r.get("month") and r.get("day"):
+                  gbif_full_date += 1
+              title = r.get("datasetTitle") or "missing"
+              gbif_dataset[title] += 1
+              gbif_dataset_key[r.get("datasetKey") or "missing"] += 1
+              if "inaturalist" in title.lower() or "i naturalist" in title.lower():
+                  gbif_inat_n += 1
+              for issue in r.get("issues") or []:
+                  gbif_issue[issue] += 1
+              u = safe_float(r.get("coordinateUncertaintyInMeters"))
+              if u is not None:
+                  gbif_unc.append(u)
+              gbif_photo_count += len(r.get("media") or [])
+
+          with open(os.path.join(OUT, "gbif_human_observation_records.jsonl"), "w", encoding="utf-8") as f:
+              for r in gbif_results:
+                  f.write(json.dumps(r, ensure_ascii=False, sort_keys=True) + "\n")
+
+          gbif_summary = {
+              "source": "GBIF",
+              "observation_process": "heterogeneous biodiversity-data aggregator; primary row restricted to HUMAN_OBSERVATION",
+              "period": f"{START}/{END}",
+              "query_url_human_observation": gbif_first_url,
+              "query_url_all_basis": gbif_all_url,
+              "taxon_key": 5411557,
+              "human_observation_photo_geo_n": gtotal,
+              "all_basis_photo_geo_n": gbif_all_count,
+              "attached_media_entries_human_obs": gbif_photo_count,
+              "full_date_n": gbif_full_date,
+              "year_counts": {str(y): gbif_year.get(y, 0) for y in YEARS},
+              "unique_datasets": len(gbif_dataset_key),
+              "records_from_datasets_named_inaturalist": gbif_inat_n,
+              "coordinate_uncertainty_reported_n": len(gbif_unc),
+              "coordinate_uncertainty_median_m": median_or_none(gbif_unc),
+              "coordinate_uncertainty_le_100m_n": sum(u <= 100 for u in gbif_unc),
+              "coordinate_uncertainty_le_1000m_n": sum(u <= 1000 for u in gbif_unc),
+              "top_datasets": gbif_dataset.most_common(20),
+              "top_issues": gbif_issue.most_common(30),
+          }
+
+          # ---------- Frozen outputs ----------
+          query_manifest = {
+              "retrieved_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "scope": {"taxon": "Campanula punctata sensu lato", "country": "Japan", "start": START, "end": END},
+              "identifiers": {"inat_taxon_id": 128781, "inat_japan_place_id": 6737, "gbif_taxon_key": 5411557},
+              "queries": {
+                  "inat": inat_first_url,
+                  "gbif_human_observation": gbif_first_url,
+                  "gbif_all_basis": gbif_all_url,
+              },
+              "warning": "GBIF can contain iNaturalist records; counts are not additive independent samples."
+          }
+          with open(os.path.join(OUT, "query_manifest.json"), "w", encoding="utf-8") as f:
+              json.dump(query_manifest, f, indent=2, ensure_ascii=False, sort_keys=True)
+          with open(os.path.join(OUT, "source_summaries.json"), "w", encoding="utf-8") as f:
+              json.dump({"YAMAP": yamap_summary, "iNaturalist": inat_summary, "GBIF": gbif_summary}, f, indent=2, ensure_ascii=False, sort_keys=True)
+
+          rows = [
+              {
+                  "source": "YAMAP_author_screened_source",
+                  "n_records_or_observations": len(yamap),
+                  "n_attached_or_unique_photos": yamap_unique_images,
+                  "n_full_dates": yamap_summary["full_date_n"],
+                  "n_georeferenced": yamap_summary["coordinate_n"],
+                  "n_2023": yamap_year.get(2023,0), "n_2024": yamap_year.get(2024,0), "n_2025": yamap_year.get(2025,0),
+                  "quality_subset": "all retrieved YAMAP candidate records retained after author subject screening; image/trait QC follows downstream",
+              },
+              {
+                  "source": "YAMAP_manuscript_trait_analysis",
+                  "n_records_or_observations": phenotype_n,
+                  "n_attached_or_unique_photos": phenotype_n,
+                  "n_full_dates": phenotype_n,
+                  "n_georeferenced": phenotype_n,
+                  "n_2023": "", "n_2024": "", "n_2025": "",
+                  "quality_subset": "final manuscript phenotype-analysis population",
+              },
+              {
+                  "source": "iNaturalist_photo_geo_all",
+                  "n_records_or_observations": total,
+                  "n_attached_or_unique_photos": inat_photo_count,
+                  "n_full_dates": inat_full_date,
+                  "n_georeferenced": total,
+                  "n_2023": inat_year.get(2023,0), "n_2024": inat_year.get(2024,0), "n_2025": inat_year.get(2025,0),
+                  "quality_subset": "public observations with photos and geo=true; all quality grades",
+              },
+              {
+                  "source": "iNaturalist_research_grade_subset",
+                  "n_records_or_observations": inat_quality.get("research",0),
+                  "n_attached_or_unique_photos": "",
+                  "n_full_dates": "",
+                  "n_georeferenced": inat_quality.get("research",0),
+                  "n_2023": "", "n_2024": "", "n_2025": "",
+                  "quality_subset": "Research Grade subset of the same public photo+geo query",
+              },
+              {
+                  "source": "GBIF_human_observation_stillimage_geo",
+                  "n_records_or_observations": gtotal,
+                  "n_attached_or_unique_photos": gbif_photo_count,
+                  "n_full_dates": gbif_full_date,
+                  "n_georeferenced": gtotal,
+                  "n_2023": gbif_year.get(2023,0), "n_2024": gbif_year.get(2024,0), "n_2025": gbif_year.get(2025,0),
+                  "quality_subset": "HUMAN_OBSERVATION + StillImage + coordinate + present",
+              },
+              {
+                  "source": "GBIF_all_basis_stillimage_geo",
+                  "n_records_or_observations": gbif_all_count,
+                  "n_attached_or_unique_photos": "",
+                  "n_full_dates": "",
+                  "n_georeferenced": gbif_all_count,
+                  "n_2023": "", "n_2024": "", "n_2025": "",
+                  "quality_subset": "all basis-of-record categories with StillImage + coordinate + present",
+              },
+          ]
+          with open(os.path.join(OUT, "matched_period_source_comparison.csv"), "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+              w.writeheader(); w.writerows(rows)
+
+          annual = []
+          for y in YEARS:
+              annual.extend([
+                  {"source":"YAMAP", "year":y, "n":yamap_year.get(y,0)},
+                  {"source":"iNaturalist", "year":y, "n":inat_year.get(y,0)},
+                  {"source":"GBIF_HUMAN_OBSERVATION", "year":y, "n":gbif_year.get(y,0)},
+              ])
+          with open(os.path.join(OUT, "annual_counts.csv"), "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=["source","year","n"]); w.writeheader(); w.writerows(annual)
+
+          quality_rows = [
+              {"dimension":"observation purpose", "YAMAP":"hiking/recreation documentation", "iNaturalist":"purpose-built biodiversity observation", "GBIF":"aggregator of heterogeneous providers"},
+              {"dimension":"same-period public/photo volume", "YAMAP":str(len(yamap)), "iNaturalist":str(total), "GBIF":str(gtotal)},
+              {"dimension":"full date availability", "YAMAP":f"{yamap_summary['full_date_n']}/{len(yamap)}", "iNaturalist":f"{inat_full_date}/{total}" if total else "0/0", "GBIF":f"{gbif_full_date}/{gtotal}" if gtotal else "0/0"},
+              {"dimension":"georeference", "YAMAP":f"{yamap_coords}/{len(yamap)} route/activity-linked source coordinates", "iNaturalist":f"{total}/{total} under geo=true; geoprivacy may obscure public precision", "GBIF":f"{gtotal}/{gtotal} under has_coordinate=true; uncertainty metadata heterogeneous"},
+              {"dimension":"taxonomic validation", "YAMAP":"author screened every candidate before inclusion", "iNaturalist":"community identification / quality grade", "GBIF":"provider-dependent; aggregated interpreted taxonomy"},
+              {"dimension":"trait-ready petal phenotype", "YAMAP":"yes after study-specific author ROI review + deterministic colour/QC pipeline", "iNaturalist":"not native platform field; would require additional image screening/phenotyping", "GBIF":"not native occurrence field; would require additional image screening/phenotyping"},
+              {"dimension":"mountain sampling frame", "YAMAP":"strong by design because records originate from hiking activities", "iNaturalist":"not restricted to mountains", "GBIF":"not restricted to mountains"},
+              {"dimension":"main caution", "YAMAP":"route/access/subject-selection bias; not all mountain photos are wild by definition", "iNaturalist":"taxon-reporting/observer/access biases; cultivated and obscured records possible", "GBIF":"heterogeneous sources, duplicated/syndicated records and uneven metadata"},
+          ]
+          with open(os.path.join(OUT, "quality_dimension_matrix.csv"), "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=["dimension","YAMAP","iNaturalist","GBIF"]); w.writeheader(); w.writerows(quality_rows)
+
+          ratios = {
+              "yamap_vs_inaturalist_observation_ratio": (len(yamap) / total) if total else None,
+              "yamap_vs_inaturalist_research_grade_ratio": (len(yamap) / inat_quality.get("research",0)) if inat_quality.get("research",0) else None,
+              "yamap_vs_gbif_human_observation_ratio": (len(yamap) / gtotal) if gtotal else None,
+              "yamap_annual_cv": statistics.stdev([yamap_year.get(y,0) for y in YEARS]) / statistics.mean([yamap_year.get(y,0) for y in YEARS]),
+          }
+          with open(os.path.join(OUT, "comparison_ratios.json"), "w", encoding="utf-8") as f:
+              json.dump(ratios, f, indent=2, sort_keys=True)
+
+          print(json.dumps({"YAMAP": yamap_summary, "iNaturalist": inat_summary, "GBIF": gbif_summary, "ratios": ratios}, indent=2, ensure_ascii=False))
+          PY
+
+      - name: Validate benchmark scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv, json
+          p="results/yamap_public_database_benchmark"
+          with open(f"{p}/source_summaries.json", encoding="utf-8") as f: s=json.load(f)
+          assert s["YAMAP"]["source_rows_yamap_activity"] == 1964
+          assert s["YAMAP"]["unique_image_hashes"] == 1963
+          assert s["YAMAP"]["year_counts"] == {"2023":642,"2024":687,"2025":635}
+          assert s["YAMAP"]["full_date_n"] == 1964
+          assert s["YAMAP"]["coordinate_n"] == 1964
+          assert s["YAMAP"]["manuscript_phenotype_n"] == 1922
+          assert s["iNaturalist"]["photo_georeferenced_observations"] >= 0
+          assert s["GBIF"]["human_observation_photo_geo_n"] >= 0
+          with open(f"{p}/matched_period_source_comparison.csv", newline="", encoding="utf-8") as f:
+              rows=list(csv.DictReader(f))
+          assert len(rows) == 6
+          PY
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p results/yamap_public_database_benchmark
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "retrieval_date_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "fresh_reanalysis_artifact_id=${FRESH_REANALYSIS_ARTIFACT_ID}"
+            echo "fresh_reanalysis_sha256=${FRESH_REANALYSIS_SHA256}"
+            echo "benchmark_scope=Campanula_punctata;Japan;2023-01-01_to_2025-12-31;image+georeference"
+          } > results/yamap_public_database_benchmark/workflow_provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yamap-public-database-benchmark-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/yamap_public_database_benchmark
+            reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md
+          if-no-files-found: warn
+          retention-days: 90

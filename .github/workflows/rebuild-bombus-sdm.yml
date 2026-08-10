@@ -1,0 +1,201 @@
+name: Seeded Bombus SDM source build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+    types: [synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bombus-sdm-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.head_ref == 'agent/rebuild-bombus-sdm-seeded'
+    name: Rebuild five ecology-aligned Bombus SDMs twice
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      HOTARUBUKURO_R_SEED: "42"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      GOTO_NUM_THREADS: "1"
+      BLIS_NUM_THREADS: "1"
+      GDAL_NUM_THREADS: "1"
+      OMP_DYNAMIC: "FALSE"
+      BOMBUS_RASTER_IDS: >-
+        chelsa_bio04,chelsa_bio06,chelsa_bio13,chelsa_cmimean,chelsa_rsdsmean,
+        soilgrids_bdod_0_5cm,soilgrids_cfvo_0_5cm,soilgrids_sand_0_5cm,
+        soilgrids_silt_0_5cm,soilgrids_nitrogen_0_5cm,soilgrids_phh2o_0_5cm,
+        soilgrids_soc_0_5cm,worldclim_elevation_30s
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R library cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: bombus-source-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt') }}
+          restore-keys: |
+            bombus-source-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility
+          --scopes analysis,acquisition,reproducibility,testing
+
+      - name: Restore public-raster cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/cache/rasters
+            data/processed/rasters
+          key: bombus-source-rasters-v1-${{ hashFiles('config/raster_sources.csv', 'config/pipeline.yml', 'R/raster_sources.R') }}
+
+      - name: Download exact SDM predictor rasters
+        shell: bash
+        run: |
+          set -euo pipefail
+          IDS="$(echo "$BOMBUS_RASTER_IDS" | tr -d '[:space:]')"
+          Rscript source_build/download_rasters.R --only "$IDS"
+
+      - name: Prepare exact SDM predictor grid
+        shell: bash
+        run: |
+          set -euo pipefail
+          IDS="$(echo "$BOMBUS_RASTER_IDS" | tr -d '[:space:]')"
+          Rscript source_build/prepare_rasters.R --only "$IDS" --no-download
+
+      - name: Fetch focal and genus-wide Bombus occurrence snapshot
+        run: >-
+          Rscript source_build/fetch_bombus_occurrences.R
+          --output-dir results/bombus_occurrence_live
+          --refresh true
+          --max-coordinate-uncertainty-m 10000
+
+      - name: Canonicalize and hash occurrence snapshot
+        run: >-
+          Rscript source_build/canonicalize_bombus_occurrences.R
+          --input-dir results/bombus_occurrence_live
+          --output-dir results/bombus_occurrence_snapshot
+
+      - name: Ecology-aligned seeded SDM rebuild A
+        run: >-
+          Rscript source_build/build_bombus_sdm_mainland.R
+          --config config/bombus_sdm.yml
+          --occurrence-dir results/bombus_occurrence_snapshot
+          --raster-dir data/processed/rasters
+          --output-dir results/bombus_sdm_rebuild_A
+          --flower-data Data_S1.csv
+          --seed 42
+
+      - name: Ecology-aligned seeded SDM rebuild B
+        run: >-
+          Rscript source_build/build_bombus_sdm_mainland.R
+          --config config/bombus_sdm.yml
+          --occurrence-dir results/bombus_occurrence_snapshot
+          --raster-dir data/processed/rasters
+          --output-dir results/bombus_sdm_rebuild_B
+          --flower-data Data_S1.csv
+          --seed 42
+
+      - name: Compare independent rebuilds
+        run: >-
+          Rscript validation/compare_bombus_sdm_rebuilds.R
+          --a results/bombus_sdm_rebuild_A
+          --b results/bombus_sdm_rebuild_B
+          --tolerance 1e-12
+          --output reproducibility/bombus_sdm_rebuild_comparison.csv
+
+      - name: Record session information
+        shell: bash
+        run: |
+          Rscript -e 'writeLines(capture.output(sessionInfo()), "reproducibility/bombus_sdm_sessionInfo.txt")'
+          printf '%s\n' \
+            'base_seed=42' \
+            'RNGkind=Mersenne-Twister;Inversion;Rejection' \
+            'threads=1' \
+            'study_domain=common Honshu-Shikoku-Kyushu mainland domain' \
+            'background=genus-wide Bombus target-group occurrence cells' \
+            'predictor_screen=shared across five focal species' \
+            'AUC_weighting=false' \
+            > reproducibility/bombus_sdm_compute_lock.txt
+
+      - name: Publish source-build summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -s results/bombus_sdm_rebuild_A/bombus_sdm_manifest.csv ]]; then
+            echo '### Bombus SDM ecological diagnostics and selected models' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat results/bombus_sdm_rebuild_A/bombus_sdm_manifest.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s results/bombus_sdm_rebuild_A/auc_range_breadth_diagnostic.csv ]]; then
+            echo '### AUC versus occurrence-range breadth (descriptive only)' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat results/bombus_sdm_rebuild_A/auc_range_breadth_diagnostic.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s results/bombus_sdm_rebuild_A/flower_prediction_coverage_summary.csv ]]; then
+            echo '### Flower-point prediction coverage' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat results/bombus_sdm_rebuild_A/flower_prediction_coverage_summary.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s reproducibility/bombus_sdm_rebuild_comparison.csv ]]; then
+            echo '### Repeated-build reproducibility' >> "$GITHUB_STEP_SUMMARY"
+            echo '```csv' >> "$GITHUB_STEP_SUMMARY"
+            cat reproducibility/bombus_sdm_rebuild_comparison.csv >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload complete seeded source build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bombus-sdm-seeded-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/bombus_occurrence_live
+            results/bombus_occurrence_snapshot
+            results/bombus_sdm_rebuild_A
+            results/bombus_sdm_rebuild_B
+            data/processed/rasters
+            data/processed/raster_download_manifest.csv
+            data/processed/raster_manifest.csv
+            reproducibility/bombus_sdm_*
+            config/bombus_sdm.yml
+            config/raster_sources.csv
+          if-no-files-found: warn
+          retention-days: 90

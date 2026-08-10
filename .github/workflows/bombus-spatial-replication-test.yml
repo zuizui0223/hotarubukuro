@@ -1,0 +1,150 @@
+name: Supplement - Bombus community boundary and elevation guardrails
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - agent/repository-cleanup-legacy
+    paths:
+      - .github/workflows/bombus-spatial-replication-test.yml
+      - R/local_pair_graph.R
+      - scripts/run_bombus_spatial_replication_test.R
+      - reproducibility/bombus_spatial_replication_test_spec_2026-08-09.md
+      - reproducibility/bombus_occurrence_reference_support_2026-08-09.md
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FRESH_REANALYSIS_ARTIFACT_ID: "9022276431"
+  FRESH_REANALYSIS_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  BOMBUS_SUPPORT_ARTIFACT_ID: "9023137743"
+  BOMBUS_SUPPORT_SHA256: "d04c561b09b652591b9b479f6e26a779bb562c7c1b5f9b14e61d5e7ca8e2794b"
+
+jobs:
+  spatial-replication:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Restore frozen fresh flower cells
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_REANALYSIS_ARTIFACT_ID}/zip" \
+            -o /tmp/fresh-reanalysis.zip
+          [[ "$(sha256sum /tmp/fresh-reanalysis.zip | awk '{print $1}')" == "$FRESH_REANALYSIS_SHA256" ]]
+          unzip -q -o /tmp/fresh-reanalysis.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+
+      - name: Restore frozen occurrence-referenced Bombus support
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BOMBUS_SUPPORT_ARTIFACT_ID}/zip" \
+            -o /tmp/bombus-support.zip
+          [[ "$(sha256sum /tmp/bombus-support.zip | awk '{print $1}')" == "$BOMBUS_SUPPORT_SHA256" ]]
+          unzip -q -o /tmp/bombus-support.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v17_bombus_effective_availability_refined/cell_effective_bombus_support.csv
+
+      - name: Verify Supporting Information specification
+        shell: bash
+        run: |
+          set -euo pipefail
+          spec=reproducibility/bombus_spatial_replication_test_spec_2026-08-09.md
+          test -s "$spec"
+          grep -q 'shared broad spatial/elevational template alone' "$spec"
+          grep -q '50 km' "$spec"
+          grep -q '20 nearest controls' "$spec"
+          grep -q 'absolute elevation difference <= 50 m' "$spec"
+
+      - name: Run community-boundary and montane/elevation guardrails
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_bombus_spatial_replication_test.R \
+            --radii 5,10,25 \
+            --background-windows 25,50,100 \
+            --control-counts 10,20,50 \
+            --k 5 \
+            --randomisations 100000 \
+            --seed 20260809 \
+            --output results/ecological_v19_bombus_spatial_replication_test
+
+      - name: Validate Supporting Information result family
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          p <- "results/ecological_v19_bombus_spatial_replication_test/community_spatial_match_summary.csv"
+          x <- read.csv(p, check.names = FALSE)
+          stopifnot(sum(x$focal_spatial_match_test) == 1L)
+          focal <- x[x$focal_spatial_match_test, , drop = FALSE]
+          stopifnot(focal$radius_km == 5)
+          stopifnot(focal$background_window_km == 50)
+          stopifnot(focal$requested_n_controls == 20)
+          stopifnot(focal$metric == "occurrence_reference_hellinger")
+          stopifnot(all(c(5, 10, 25) %in% x$radius_km))
+          stopifnot(all(c(25, 50, 100) %in% x$background_window_km))
+          stopifnot(all(c(10, 20, 50) %in% x$requested_n_controls))
+          m <- read.csv("results/ecological_v19_bombus_spatial_replication_test/montane_equal_elevation_guardrail.csv")
+          stopifnot(all(c(50, 100) %in% m$elevation_difference_limit_m))
+          stopifnot(all(c("all_pure_transitions", "effective_not_higher") %in% m$subset))
+          stopifnot(file.exists("results/ecological_v19_bombus_spatial_replication_test/community_spatial_block_summary.csv"))
+          cat("Supplementary focal matched-boundary result:\n")
+          print(focal)
+          RS
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p results/ecological_v19_bombus_spatial_replication_test
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "fresh_reanalysis_artifact_id=${FRESH_REANALYSIS_ARTIFACT_ID}"
+            echo "fresh_reanalysis_sha256=${FRESH_REANALYSIS_SHA256}"
+            echo "bombus_support_artifact_id=${BOMBUS_SUPPORT_ARTIFACT_ID}"
+            echo "bombus_support_sha256=${BOMBUS_SUPPORT_SHA256}"
+            echo "analysis_role=SUPPLEMENT_biogeographic_boundary_and_elevation_guardrails"
+            echo "claim_ceiling=community_correspondence_and_negative_elevation_guardrail_not_colour_mechanism"
+          } > results/ecological_v19_bombus_spatial_replication_test/workflow_provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bombus-spatial-replication-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/ecological_v19_bombus_spatial_replication_test
+            reproducibility/bombus_spatial_replication_test_spec_2026-08-09.md
+            reproducibility/bombus_spatial_replication_test_results_2026-08-09.md
+          if-no-files-found: warn
+          retention-days: 90

@@ -1,98 +1,41 @@
 # hotarubukuro
 
-Reproducible nationwide analysis of flower-colour geography in *Campanula punctata* from author-reviewed YAMAP photographs.
+Range-wide flower-colour biogeography in *Campanula punctata* using author-reviewed YAMAP hiking photographs.
 
-## Supported analysis
+## Current paper — start here
 
-The repository has one active and rerunnable baseline: the **1,909-observation analysis** reconstructed from `Data_S1.csv` and the immutable snapshot declared in `inputs/canonical_snapshot.json`.
+**[`paper/README.md`](paper/README.md)** is the single entry point for the manuscript-facing project.
 
-| Quantity | Required |
-|---|---:|
-| observations | 1,909 |
-| white-like observations | 955 |
-| pigmented observations | 954 |
+Current first-choice target: **Journal of Biogeography**.
 
-The active pipeline contains only the ordered scientific arc used for the current reconstruction:
+Active submission manuscript:
 
-1. audit the frozen two-part phenotype and 1-km cell inputs;
-2. fit the national environment-plus-INLA-SPDE natural baseline;
-3. test local flower-colour turnover against the predicted five-species *Bombus* fingerprint;
-4. define pigmented-in-white local isolates and replay the same event on 1,000 natural maps;
-5. characterize population, land use and DID context only after candidates are fixed;
-6. describe candidate flowering date as a held-out supplementary check; and
-7. write independent validation, claim and artifact locks.
+- `submission/jbi/JBI_main_manuscript_anonymized.md`
 
-The *Bombus* fingerprint represents relative predicted habitat support and composition, not abundance, visitation or selection. Human-context outputs prioritize follow-up sites and do not establish horticultural origin.
+Active analysis hierarchy:
 
-## Supported entry points
+1. **YAMAP / iEcology data layer** — recreational GPS-linked photographs -> author screening -> quantitative two-part flower-colour phenotype;
+2. **Main 1: broad natural template** — national environment + continuous spatial structure for pigmentation state and pigmented-only intensity;
+3. **Main 2: local focal-pollinator test** — abrupt nearby white-pigmented boundaries versus predicted availability of *Bombus ardens* + *B. diversus*;
+4. **Main 3: event-based local departures** — repeatable pigmented-in-white neighbourhood events calibrated against natural predictive maps before human context is examined;
+5. **Supporting Information** — YAMAP/public-database benchmark, five-species community turnover, montane/alpine guardrail and robustness families.
 
-| Purpose | Command or file |
-|---|---|
-| GitHub-hosted complete run | `.github/workflows/analysis-1909.yml` |
-| Local complete run | `bash scripts/run_analysis_1909.sh` |
-| Ordered numerical stages | `Rscript scripts/run_publication_pipeline.R --mode full --baseline analysis_1909` |
-| Active code declaration | `config/code_manifest.csv` |
-| Stage declaration | `reproducibility/pipeline_stage_registry.csv` |
+The machine-readable map of manuscript-facing files is `paper/active-file-map.csv`; the biological evidence hierarchy is `paper/analysis-map.md`.
 
-Everything called by the active pipeline is declared in both the loader or stage registry and the code manifest. CI fails when an undeclared executable file is added to the non-legacy code roots.
+## Current acceptance boundary
 
-## Run on GitHub Actions
+`.github/workflows/paper-checks.yml` treats the current repository as a closed, explicitly classified interface. Manuscript, workflow, analysis, source-build, validation, test, configuration, dependency, input, result-documentation and reproducibility files must all be registered in `paper/active-file-map.csv`.
 
-1. Open **Actions**.
-2. Select **1909 analysis pipeline**.
-3. Select **Run workflow** on `main`.
-4. Leave `build_figures=true` and start the run.
-5. Download `analysis-1909-<commit>-<run-id>`.
+The check also requires that current validators have an active execution route, parses every active R source, validates the JBI package, and runs the current R and Python unit tests. Reconstruction-specific numerical findings are kept distinct from structural PASS/FAIL checks; historical result-identity audits remain under `legacy/`.
 
-A successful artifact contains:
+## Legacy
 
-- `reproducibility/analysis_population_check.csv` with three `PASS` rows;
-- `results/final_analysis_pipeline/final_stage_manifest.csv` with all stages `PASS`;
-- `final_independent_validation.csv` and `final_claim_audit.csv`;
-- newly generated result tables; and
-- newly generated manuscript figures when requested.
+Historical manuscripts, abandoned estimands, obsolete Bombus gates, development diagnostics and superseded workflows belong under **`legacy/`**. They are retained for provenance only and are not current manuscript evidence.
 
-## Run locally
+Do not infer the active paper from file age, old stage numbers or statistical significance. Use `paper/README.md` and `paper/active-file-map.csv`.
 
-```bash
-git clone https://github.com/zuizui0223/hotarubukuro.git
-cd hotarubukuro
+## Reproducibility boundary
 
-Rscript scripts/setup_r_environment.R \
-  --report-dir reproducibility \
-  --scopes analysis,reproducibility,testing,figures,reporting
+The current paper uses a fresh 1,965-row source reconstruction yielding 1,922 phenotype observations in 1,305 1-km cells. Manuscript-facing numerical claims are tied to checksum-locked GitHub Actions artifacts listed in `paper/analysis-map.md` and `reproducibility/final_paper_pipeline_2026-08-09.md`.
 
-bash scripts/run_analysis_1909.sh
-```
-
-See [`docs/reproduction-guide.md`](docs/reproduction-guide.md) for exact checks and outputs and [`docs/pipeline-dag.md`](docs/pipeline-dag.md) for the stage graph.
-
-## Repository layout
-
-```text
-R/                               active analysis modules and one declared source-build helper
-scripts/                         active runners and reproducibility support only
-validation/                      active input, stage and final validators
-tests/                           tests for active code and declared source-build utilities
-source_build/                    optional raw/public-data construction utilities; not canonical input
-inputs/                          immutable 1,909 snapshot descriptor and population expectations
-config/code_manifest.csv         exact non-legacy executable-file declaration
-reproducibility/                 stage registry and generated run reports
-results/                         generated output; never a committed source of truth
-legacy/published-1923/           archived 1,923 manuscript, outputs and historical workflows
-legacy/implementations/          superseded upstream implementations and their tests
-legacy/diagnostics/              non-paper or withdrawn diagnostics
-legacy/reconstruction-prototypes/ historical reconstruction experiments
-```
-
-`source_build/` is deliberately outside the canonical DAG. It documents how public or derived inputs were assembled, but a standard 1,909 reproduction restores checksum-locked inputs instead of downloading or rebuilding them.
-
-## Legacy boundary
-
-No active loader, stage, validator or test imports `legacy/`. Historical filenames such as `ecological_v11_*` and `ecological_v15_*` remain inside the immutable snapshot because changing them would alter the preserved input package; the implementations that originally generated them are archived.
-
-The bidirectional local colour-state asymmetry diagnostic is also archived. It was explicitly post hoc and is not part of the manuscript pipeline. The only active flowering-date component is the held-out candidate DOY description, which cannot select or rank candidates.
-
-## Reproducibility ceiling
-
-The target is method and statistical reproducibility, not guaranteed bitwise identity of INLA posterior samples. Seeds, folds, draw counts, input hashes, candidate definitions and validators are fixed. Report each run's realised estimates and Monte Carlo uncertainty with its commit rather than treating a rounded threshold-adjacent p-value as immutable.
+Original YAMAP photographs are third-party content and are not redistributed.

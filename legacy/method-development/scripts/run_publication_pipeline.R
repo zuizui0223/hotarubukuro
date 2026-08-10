@@ -1,0 +1,121 @@
+args <- commandArgs(trailingOnly = TRUE)
+source("R/pipeline_support.R")
+hb_load_modules("final_registry")
+
+mode <- hb_arg_value(args, "--mode", "full")
+if (!mode %in% c("verify", "extensions", "full")) stop("--mode must be verify, extensions, or full.", call. = FALSE)
+output_dir <- hb_arg_value(args, "--output", "results/final_analysis_pipeline")
+run_tests <- hb_as_bool(hb_arg_value(args, "--tests", "true"))
+submission_draws <- as.integer(hb_arg_value(
+  args, "--submission-draws", Sys.getenv("HOTARUBUKURO_SUBMISSION_DRAWS", "10000")
+))
+if (!is.finite(submission_draws) || submission_draws < 5000L) stop("--submission-draws must be at least 5000.", call. = FALSE)
+
+baseline_requested <- hb_arg_value(args, "--baseline", "analysis_1909")
+if (!baseline_requested %in% c("analysis_1909", "reconstruction")) {
+  stop("The active pipeline supports only --baseline=analysis_1909. The 1,923 analysis is under legacy/.", call. = FALSE)
+}
+baseline <- "reconstruction"
+
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+writeLines(c(
+  "run_mode=analysis_1909", paste0("mode=", mode), "baseline=analysis_1909",
+  "stage03=bombus_limitation_gate", paste0("submission_natural_maps=", submission_draws),
+  paste0("started_utc=", format(Sys.time(), tz = "UTC", usetz = TRUE))
+), file.path(output_dir, "run_mode.txt"))
+
+log_dir <- file.path(output_dir, "logs")
+dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
+rscript <- file.path(R.home("bin"), "Rscript")
+if (.Platform$file.sep == "\\") rscript <- paste0(rscript, ".exe")
+stage_rows <- list()
+write_manifest <- function() {
+  if (!length(stage_rows)) return(invisible(NULL))
+  utils::write.csv(do.call(rbind, stage_rows), file.path(output_dir, "final_stage_manifest.csv"), row.names = FALSE)
+}
+run_stage <- function(stage, script, arguments = character(), role = "validation") {
+  stdout_path <- file.path(log_dir, paste0(stage, "_stdout.log"))
+  stderr_path <- file.path(log_dir, paste0(stage, "_stderr.log"))
+  started <- Sys.time(); message("[1909] ", stage)
+  status <- system2(rscript, c(script, arguments), stdout = stdout_path, stderr = stderr_path)
+  ended <- Sys.time()
+  stage_rows[[length(stage_rows) + 1L]] <<- data.frame(
+    stage = stage, role = role, command = paste(c(script, arguments), collapse = " "),
+    status = if (identical(status, 0L)) "PASS" else "FAIL",
+    elapsed_seconds = as.numeric(difftime(ended, started, units = "secs")),
+    stdout_log = stdout_path, stderr_log = stderr_path, stringsAsFactors = FALSE
+  )
+  write_manifest()
+  if (!identical(status, 0L)) {
+    for (entry in list(list(label="stdout", path=stdout_path, lines=60L), list(label="stderr", path=stderr_path, lines=200L))) {
+      if (!file.exists(entry$path)) next
+      text <- readLines(entry$path, warn = FALSE)
+      if (length(text)) message(paste(utils::tail(text, entry$lines), collapse = "\n"))
+    }
+    stop("Active pipeline stage failed: ", stage, call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+run_stage("01_audit_phenotype", "validation/audit_phenotype.R", c(paste0("--baseline=", baseline)), "frozen_upstream_audit")
+run_stage("02_audit_multiscale_context", "validation/audit_multiscale_hotspots.R", c(paste0("--baseline=", baseline)), "frozen_upstream_audit")
+
+if (mode == "full") {
+  run_stage("02_run_natural_predictive_model", "scripts/run_natural_predictive_model.R", role = "confirmatory_core")
+  run_stage(
+    "02_run_submission_presence_checkpoint", "scripts/run_natural_predictive_model.R",
+    c("--components=national_environment_spde_presence", paste0("--draws=", submission_draws),
+      "--seed=20260725", "--force=true", "--output=results/ecological_v25_submission_presence"),
+    "submission_reproducibility_lock"
+  )
+}
+run_stage("02_validate_natural_predictive_model", "validation/validate_natural_predictive_model.R", role = "confirmatory_core_validation")
+run_stage("02_audit_natural_predictive_model", "validation/audit_natural_predictive_model.R", role = "confirmatory_core_validation")
+
+# Active biological test: threshold-like relaxation of pigmentation benefit when
+# all focal Bombus species have low predicted availability. Environment is
+# controlled by matching rather than by fitting a second local model.
+if (mode %in% c("extensions", "full")) {
+  run_stage("03_run_bombus_limitation_gate", "scripts/run_bombus_limitation_gate.R", role = "local_pollinator_limitation_test")
+}
+run_stage("03_validate_bombus_limitation_gate", "validation/validate_bombus_limitation_gate.R", role = "local_pollinator_limitation_validation")
+run_stage("03_audit_bombus_limitation_gate", "validation/audit_bombus_limitation_gate.R", role = "local_pollinator_limitation_validation")
+
+
+if (mode == "full") run_stage("04_run_human_landscape_features", "scripts/run_human_landscape_features.R", role = "feature_engineering_only")
+run_stage("04_validate_human_landscape_features", "validation/validate_human_landscape_features.R", c(paste0("--baseline=", baseline)), "feature_engineering_validation")
+run_stage("04_audit_human_landscape_features", "validation/audit_human_landscape_features.R", role = "feature_engineering_validation")
+
+if (mode %in% c("extensions", "full")) run_stage("04_define_local_pigmented_isolates", "scripts/run_local_pigmented_isolates.R", role = "candidate_definition")
+run_stage("04_validate_local_pigmented_isolates", "validation/validate_local_pigmented_isolates.R", role = "candidate_definition_validation")
+run_stage("04_audit_local_pigmented_isolates", "validation/audit_local_pigmented_isolates.R", c(paste0("--baseline=", baseline)), "candidate_definition_validation")
+
+if (mode %in% c("extensions", "full")) run_stage("S1_run_candidate_doy_check", "scripts/run_candidate_doy_check.R", role = "supplementary_flowering_date_check")
+run_stage("S1_validate_candidate_doy_check", "validation/validate_candidate_doy_check.R", role = "supplementary_flowering_date_check_validation")
+
+if (mode %in% c("extensions", "full")) run_stage("05_run_local_human_context", "scripts/run_local_human_context.R", role = "exploratory_human_context")
+run_stage("05_validate_local_human_context", "validation/validate_local_human_context.R", c(paste0("--baseline=", baseline)), "exploratory_human_context_validation")
+run_stage("05_audit_local_human_context", "validation/audit_local_human_context.R", c(paste0("--baseline=", baseline)), "exploratory_human_context_validation")
+
+if (mode %in% c("extensions", "full")) run_stage("05_run_did_sensitivity", "scripts/run_did_sensitivity.R", role = "exploratory_human_context_sensitivity")
+run_stage("05_validate_did_sensitivity", "validation/validate_did_sensitivity.R", c(paste0("--baseline=", baseline)), "exploratory_human_context_validation")
+run_stage("05_audit_did_sensitivity", "validation/audit_did_sensitivity.R", c(paste0("--baseline=", baseline)), "exploratory_human_context_validation")
+
+if (mode %in% c("extensions", "full")) {
+  run_stage(
+    "05_refine_submission_isolate_null", "scripts/refine_submission_isolate_null.R",
+    c(paste0("--draws=", submission_draws), "--seed=20260725",
+      paste0("--presence-checkpoint=results/ecological_v25_submission_presence/checkpoints/national_environment_spde_presence_draws", submission_draws, ".rds")),
+    "submission_reproducibility_lock"
+  )
+}
+run_stage("05_validate_submission_isolate_null", "validation/validate_submission_isolate_null.R", c(paste0("--draws=", submission_draws)), "submission_reproducibility_validation")
+
+if (run_tests) run_stage("06_test_publication_modules", "tests/testthat.R", role = "software_validation")
+
+final_write_lock(".", output_dir)
+run_stage("06_validate_publication_lock", "validation/validate_publication_pipeline.R", c(paste0("--output=", output_dir)), "final_lock_validation")
+run_stage("06_audit_publication_claims", "validation/audit_publication_claims.R", c(paste0("--output=", output_dir), paste0("--baseline=", baseline)), "final_claim_audit")
+write_manifest()
+cat("Active 1,909 analysis completed with Bombus limitation gate and ", submission_draws,
+    " submission natural maps: ", normalizePath(output_dir), "\n", sep = "")

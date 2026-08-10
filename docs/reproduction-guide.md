@@ -1,122 +1,117 @@
-# Reproducing the 1,909-observation analysis
+# Reproducing the current manuscript-facing analyses
 
-## Canonical route: GitHub Actions
+Start with [`../paper/README.md`](../paper/README.md) and [`../paper/analysis-map.md`](../paper/analysis-map.md). They define the current scientific hierarchy and the checksum-locked numerical references used by the JBI manuscript.
 
-The canonical run restores the immutable analysis-input snapshot named in `inputs/canonical_snapshot.json`. Historical result-directory names inside that snapshot are retained only to preserve file identity; their old generators are under `legacy/implementations/`.
+The current paper is **not** reproduced through the historical 1,909-observation pipeline. That architecture is preserved under `legacy/` for provenance.
 
-1. Open the repository's **Actions** tab.
-2. Choose **1909 analysis pipeline**.
-3. Click **Run workflow** and select `main`.
-4. Keep `build_figures=true` unless only numerical outputs are needed.
-5. Start the workflow.
-6. Download `analysis-1909-<commit>-<run-id>` after completion.
+## What is current
 
-The workflow performs, in order:
+The manuscript has four linked analytical layers:
 
-1. restore the pinned R version and declared dependencies;
-2. restore and SHA-256 verify the immutable snapshot;
-3. verify exactly 1,909 observations, 955 white-like and 954 pigmented;
-4. run dependency and INLA smoke tests;
-5. execute the active stages declared in `reproducibility/pipeline_stage_registry.csv`;
-6. run active unit tests, independent validators and claim audits;
-7. build figures from fresh outputs; and
-8. upload outputs, logs, manifests and provenance as one artifact.
+1. **YAMAP / iEcology data layer** — source reconstruction, author screening, image audit and two-part quantitative flower-colour phenotype;
+2. **Main 1: broad natural template** — national environment + INLA-SPDE for pigmentation state and pigmented-only intensity;
+3. **Main 2: local focal-Bombus test** — sharp nearby white-pigmented transitions versus occurrence-referenced *B. ardens* + *B. diversus* availability;
+4. **Main 3: event-based departures** — repeated natural-map calibration of local pigmented-in-white configurations followed by post-selection human-context characterization.
 
-The post-hoc bidirectional colour-state asymmetry diagnostic is not in this sequence. Candidate DOY is retained only as a supplementary post-selection description.
+Five-species Bombus turnover and the montane/elevation analysis are Supporting Information guardrails, not additional Main mechanisms.
 
-## Success criteria
+## Recommended route: GitHub Actions
 
-Check:
+### Broad natural template + anomaly/human-context stages
 
-```text
-reproducibility/analysis_population_check.csv
-results/final_analysis_pipeline/final_stage_manifest.csv
-results/final_analysis_pipeline/final_independent_validation.csv
-results/final_analysis_pipeline/final_claim_audit.csv
-results/final_analysis_pipeline/final_result_registry.csv
-reproducibility/reproduction_summary.md
-```
+Run:
 
-All population rows and all executed stages must be `PASS`. A scientific result on either side of a statistical threshold is recorded as a result and is not itself a software failure.
+`.github/workflows/reanalysis-current-inputs.yml`
+
+This workflow:
+
+1. restores the pinned software environment;
+2. checks out the exact frozen upstream implementation used to rebuild the fresh phenotype/environment boundary;
+3. restores the checksum-locked fresh Bombus source artifact required by downstream source tables;
+4. rebuilds the 1,965-row source boundary and the broad v11/v15 phenotype/environment products;
+5. runs the natural predictive reference, event-based departure calibration and human-context stages once; and
+6. uploads the resulting tables and provenance.
+
+The expected manuscript population is 1,922 phenotype observations in 1,305 1-km cells, with 966 white-like and 956 pigmented observations.
+
+### Main 2 local focal-pollinator test
+
+The manuscript-facing local test is built in two steps:
+
+1. create occurrence-referenced support from the selected fresh SDMs with `scripts/build_bombus_occurrence_reference_support.R`;
+2. test sharp nearby white-pigmented boundaries with `scripts/run_bombus_local_sharp_transition.R`.
+
+Corresponding workflows:
+
+- `.github/workflows/bombus-occurrence-reference-support.yml`;
+- `.github/workflows/bombus-local-sharp-transition.yml`.
+
+The primary contrast uses pure non-overlapping transitions within 5 km and occurrence-referenced support from *B. ardens* + *B. diversus*. Pair selection is Bombus-blind and sign-blind. The current interpretation and claim ceiling are documented in `docs/bombus-inference-current.md`.
+
+### Supporting Bombus biogeography
+
+Run:
+
+- `scripts/run_bombus_spatial_replication_test.R`;
+- `.github/workflows/bombus-spatial-replication-test.yml`.
+
+This produces the five-species community-boundary correspondence and near-equal-elevation montane guardrails used only in Supporting Information.
+
+### YAMAP public-source benchmark
+
+The frozen descriptive comparison is defined by:
+
+- `.github/workflows/yamap-public-database-benchmark.yml`;
+- `.github/workflows/yamap-public-database-overlap-audit.yml`;
+- `reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md`;
+- `reproducibility/yamap_public_database_benchmark_results_2026-08-09.md`.
+
+The manuscript-ready table is `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md`.
+
+## Frozen numerical references
+
+Use the run/artifact/SHA records in `paper/analysis-map.md`. The current manuscript deliberately references frozen successful artifacts rather than silently changing results when workflows or external databases are updated.
+
+Key frozen references include:
+
+- broad + anomaly: run `31258851297`, artifact `9022276431`;
+- occurrence-referenced focal Bombus support: run `31262211605`, artifact `9023137743`;
+- local sharp-transition test: run `31263324505`, artifact `9023416810`;
+- supplementary Bombus boundary guardrails: run `31285234317`, artifact `9029595037`;
+- YAMAP benchmark: run `31289927019`, artifact `9031041034`.
+
+Exact SHA-256 checksums are in `paper/analysis-map.md`.
 
 ## Local execution
 
-```bash
-git clone https://github.com/zuizui0223/hotarubukuro.git
-cd hotarubukuro
+A full local rebuild is possible but is not the preferred audit route because several current stages depend on large public raster inputs and frozen workflow artifacts. For development, install the declared environment first:
 
+```bash
 Rscript scripts/setup_r_environment.R \
   --report-dir reproducibility \
-  --scopes analysis,reproducibility,testing,figures,reporting
-
-bash scripts/run_analysis_1909.sh
+  --scopes analysis,reproducibility,acquisition,testing,figures,reporting
 ```
 
-Optional controls:
+Then use the individual manuscript-facing scripts listed in `paper/active-file-map.csv`. Do not use scripts under `legacy/` as current entry points.
 
-```bash
-BUILD_FIGURES=false bash scripts/run_analysis_1909.sh
-RUN_TESTS=false bash scripts/run_analysis_1909.sh
-SNAPSHOT_DIR=/absolute/path/to/snapshot bash scripts/run_analysis_1909.sh
-```
+## Data and source-build boundary
 
-Public GitHub release assets normally restore anonymously. `GITHUB_TOKEN` can be supplied for rate-limit or repository-policy reasons.
+- `Data_S1.csv` is the curated derived trait/source table distributed with the repository.
+- Original YAMAP photographs are third-party material and are not redistributed.
+- `source_build/` contains current source-construction utilities for visible colour, environmental inputs, Bombus occurrences/SDMs and human rasters.
+- External services such as GBIF can change. Live acquisition is therefore distinct from the frozen artifacts used by the manuscript.
 
-## Direct active commands
+## What moved to legacy
 
-Restore the snapshot:
+Historical 1,909 and 1,923 analyses, the all-five Bombus limitation gate, national Bombus null developments, relaxation/local-contrast variants, old E&E manuscript drafts and superseded publication/figure machinery are under `legacy/`.
 
-```bash
-bash scripts/canonical_snapshot.sh restore \
-  inputs/canonical_snapshot.json \
-  reproduction_inputs/snapshot
-```
+See:
 
-Verify the population:
+- `legacy/README.md`;
+- `legacy/MOVED_2026-08-09.md`.
 
-```bash
-Rscript scripts/check_analysis_population.R \
-  --expectations inputs/analysis_1909_expectations.csv \
-  --report-dir reproducibility \
-  --strict true
-```
-
-Run the numerical and validation stages:
-
-```bash
-Rscript scripts/run_publication_pipeline.R \
-  --mode full \
-  --baseline analysis_1909 \
-  --tests true
-```
-
-Build figures:
-
-```bash
-Rscript scripts/build_publication_figures.R
-```
-
-These are the only supported canonical entry points. Exact active modules and scripts are listed in `config/code_manifest.csv`.
-
-## Inputs and generated outputs
-
-`Data_S1.csv` contains curated derived flower-colour measurements and source identifiers. Raw YAMAP photographs are not redistributed. The snapshot supplies the fixed upstream phenotype/cell tables and public spatial layers; its asset and member hashes are declared in `inputs/canonical_snapshot.json`.
-
-Files under `results/`, generated `reproducibility/` reports and `manuscript/figures/` are run products. The complete runner clears previous generated products before restoring inputs, so a new run cannot silently reuse committed or stale numerical outputs.
-
-## Source-build utilities
-
-`source_build/` contains optional utilities for colour extraction and public-data acquisition or alignment. They are audited as code but are not called by the canonical DAG. Running them creates a new source-build exercise rather than reproducing the checksum-locked 1,909 analysis.
-
-## Legacy material
-
-- `legacy/published-1923/`: earlier 1,923 fixed outputs, manuscript and workflows.
-- `legacy/implementations/frozen-upstream/`: superseded v11/v15 implementation code, runners and tests.
-- `legacy/diagnostics/local-state-asymmetry/`: post-hoc reverse-direction diagnostic.
-- `legacy/reconstruction-prototypes/`: historical public-reconstruction experiments.
-
-Nothing in the active commands imports these directories.
+Nothing in `paper/active-file-map.csv` points into `legacy/`.
 
 ## Statistical rather than bitwise reproducibility
 
-INLA posterior samples can differ at the bit level despite fixed seeds, folds and draw counts. The pipeline therefore verifies input hashes, fixed definitions, stage completion, finite results, claim ceilings and output provenance. Report effect sizes, realised p/q values, uncertainty and the run commit together.
+INLA posterior samples and external public-data queries need not reproduce bit-for-bit across platforms or dates. The manuscript therefore locks input identities, seeds, definitions, run provenance and claim ceilings, and reports realized effect sizes and uncertainty. Live source refreshes must be treated as new analyses rather than silently substituted for the frozen manuscript evidence.

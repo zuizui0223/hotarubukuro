@@ -1,0 +1,147 @@
+name: Audit YAMAP public-database benchmark overlap
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/final-broad-fine-anomaly-pipeline
+    paths:
+      - .github/workflows/yamap-public-database-overlap-audit.yml
+      - reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  BENCHMARK_ARTIFACT_ID: "9031041034"
+  BENCHMARK_SHA256: "3e53669395cfd926a0942b3488f844720dca2cb97b9ea210627262691e69f31a"
+
+jobs:
+  audit-overlap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Restore frozen benchmark artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BENCHMARK_ARTIFACT_ID}/zip" \
+            -o /tmp/benchmark.zip
+          actual="$(sha256sum /tmp/benchmark.zip | awk '{print $1}')"
+          echo "benchmark sha256=${actual}"
+          [[ "$actual" == "$BENCHMARK_SHA256" ]]
+          unzip -q /tmp/benchmark.zip -d "$GITHUB_WORKSPACE/benchmark_frozen"
+          test -s benchmark_frozen/results/yamap_public_database_benchmark/gbif_human_observation_records.jsonl
+          test -s benchmark_frozen/results/yamap_public_database_benchmark/source_summaries.json
+
+      - name: Re-audit GBIF provider overlap and benchmark ratios
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/yamap_public_database_benchmark_audit
+          python - <<'PY'
+          import csv, json, os
+          from collections import Counter
+
+          src = "benchmark_frozen/results/yamap_public_database_benchmark"
+          out = "results/yamap_public_database_benchmark_audit"
+
+          with open(os.path.join(src, "source_summaries.json"), encoding="utf-8") as f:
+              summary = json.load(f)
+
+          records = []
+          with open(os.path.join(src, "gbif_human_observation_records.jsonl"), encoding="utf-8") as f:
+              for line in f:
+                  records.append(json.loads(line))
+
+          providers = Counter()
+          datasets = Counter()
+          for r in records:
+              dataset = r.get("datasetName") or r.get("datasetTitle") or "missing"
+              datasets[dataset] += 1
+              institution = (r.get("institutionCode") or "").lower()
+              reference = (r.get("references") or "").lower()
+              haystack = " ".join([dataset.lower(), institution, reference])
+              if "inaturalist" in haystack:
+                  providers["iNaturalist_syndicated"] += 1
+              elif "plantnet" in haystack:
+                  providers["Pl@ntNet_linked"] += 1
+              else:
+                  providers["other_or_unresolved"] += 1
+
+          yamap_n = int(summary["YAMAP"]["source_rows_yamap_activity"])
+          inat_n = int(summary["iNaturalist"]["photo_georeferenced_observations"])
+          inat_rg = int(summary["iNaturalist"]["research_grade_n"])
+          gbif_n = int(summary["GBIF"]["human_observation_photo_geo_n"])
+
+          corrected = {
+              "frozen_benchmark_artifact_id": 9031041034,
+              "frozen_benchmark_sha256": "3e53669395cfd926a0942b3488f844720dca2cb97b9ea210627262691e69f31a",
+              "matched_period": "2023-01-01/2025-12-31",
+              "YAMAP_author_screened_rows": yamap_n,
+              "YAMAP_unique_image_hashes": int(summary["YAMAP"]["unique_image_hashes"]),
+              "YAMAP_manuscript_trait_n": int(summary["YAMAP"]["manuscript_phenotype_n"]),
+              "iNaturalist_photo_geo_observations": inat_n,
+              "iNaturalist_research_grade": inat_rg,
+              "GBIF_human_observation_photo_geo_records": gbif_n,
+              "GBIF_provider_overlap": dict(providers),
+              "GBIF_dataset_names": dict(datasets),
+              "YAMAP_over_iNaturalist_all_ratio": yamap_n / inat_n if inat_n else None,
+              "YAMAP_over_iNaturalist_RG_ratio": yamap_n / inat_rg if inat_rg else None,
+              "YAMAP_over_GBIF_ratio": yamap_n / gbif_n if gbif_n else None,
+              "warning": "GBIF matched records are largely syndicated from iNaturalist and must not be added to iNaturalist as an independent sample."
+          }
+
+          with open(os.path.join(out, "corrected_overlap_summary.json"), "w", encoding="utf-8") as f:
+              json.dump(corrected, f, indent=2, ensure_ascii=False, sort_keys=True)
+
+          rows = []
+          for name, n in providers.items():
+              rows.append({"provider_class": name, "n": n, "fraction_of_GBIF_matched": n / gbif_n if gbif_n else 0})
+          with open(os.path.join(out, "gbif_provider_overlap.csv"), "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=["provider_class","n","fraction_of_GBIF_matched"])
+              w.writeheader(); w.writerows(rows)
+
+          assert yamap_n == 1964
+          assert inat_n == 516
+          assert inat_rg == 472
+          assert gbif_n == 393
+          assert providers["iNaturalist_syndicated"] == 389
+          assert providers["Pl@ntNet_linked"] == 4
+          assert providers["other_or_unresolved"] == 0
+          print(json.dumps(corrected, indent=2, ensure_ascii=False))
+          PY
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p results/yamap_public_database_benchmark_audit
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "input_benchmark_artifact_id=${BENCHMARK_ARTIFACT_ID}"
+            echo "input_benchmark_sha256=${BENCHMARK_SHA256}"
+            echo "correction=GBIF provider identification uses datasetName/institutionCode/references; original benchmark datasetTitle field was absent"
+          } > results/yamap_public_database_benchmark_audit/workflow_provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yamap-public-database-overlap-audit-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/yamap_public_database_benchmark_audit
+            reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md
+          if-no-files-found: warn
+          retention-days: 90

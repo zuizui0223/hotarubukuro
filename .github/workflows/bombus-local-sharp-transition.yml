@@ -1,0 +1,147 @@
+name: Main 2 - local focal-Bombus colour-boundary test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - agent/repository-cleanup-legacy
+    paths:
+      - .github/workflows/bombus-local-sharp-transition.yml
+      - R/local_pair_graph.R
+      - scripts/run_bombus_local_sharp_transition.R
+      - reproducibility/bombus_local_sharp_transition_current_spec_2026-08-09.md
+      - reproducibility/bombus_occurrence_reference_support_2026-08-09.md
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FRESH_REANALYSIS_ARTIFACT_ID: "9022276431"
+  FRESH_REANALYSIS_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  BOMBUS_SUPPORT_ARTIFACT_ID: "9023137743"
+  BOMBUS_SUPPORT_SHA256: "d04c561b09b652591b9b479f6e26a779bb562c7c1b5f9b14e61d5e7ca8e2794b"
+
+jobs:
+  sharp-transition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Restore frozen fresh flower cells
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_REANALYSIS_ARTIFACT_ID}/zip" \
+            -o /tmp/fresh-reanalysis.zip
+          [[ "$(sha256sum /tmp/fresh-reanalysis.zip | awk '{print $1}')" == "$FRESH_REANALYSIS_SHA256" ]]
+          unzip -q -o /tmp/fresh-reanalysis.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+
+      - name: Restore frozen occurrence-referenced Bombus support
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BOMBUS_SUPPORT_ARTIFACT_ID}/zip" \
+            -o /tmp/bombus-support.zip
+          [[ "$(sha256sum /tmp/bombus-support.zip | awk '{print $1}')" == "$BOMBUS_SUPPORT_SHA256" ]]
+          unzip -q -o /tmp/bombus-support.zip -d "$GITHUB_WORKSPACE"
+          test -s results/ecological_v17_bombus_effective_availability_refined/cell_effective_bombus_support.csv
+
+      - name: Verify current Main 2 specification
+        shell: bash
+        run: |
+          set -euo pipefail
+          spec=reproducibility/bombus_local_sharp_transition_current_spec_2026-08-09.md
+          test -s "$spec"
+          grep -q 'Main 2 directional pollinator analysis' "$spec"
+          grep -q 'abs(dY) = 1' "$spec"
+          grep -q 'Montane/alpine taxa and five-species community composition are \*\*not part of Main 2\*\*' "$spec"
+
+      - name: Run current local sharp-transition analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/run_bombus_local_sharp_transition.R \
+            --radii 5,10,25 \
+            --thresholds 1,0.75,0.5 \
+            --k 5 \
+            --randomisations 100000 \
+            --seed 20260808 \
+            --output results/ecological_v18_bombus_local_sharp_transition
+
+      - name: Validate current result family
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS'
+          p <- "results/ecological_v18_bombus_local_sharp_transition/sharp_transition_summary.csv"
+          x <- read.csv(p, check.names = FALSE)
+          stopifnot(sum(x$focal_strict_local_test) == 1L)
+          focal <- x[x$focal_strict_local_test, , drop = FALSE]
+          stopifnot(focal$radius_km == 5)
+          stopifnot(abs(focal$transition_threshold - 1) < 1e-12)
+          stopifnot(focal$exposure == "effective_occmax")
+          stopifnot(setequal(unique(x$exposure), c("effective_occmax", "effective_rawmax")))
+          stopifnot(all(c(5, 10, 25) %in% x$radius_km))
+          stopifnot(all(c(1, 0.75, 0.5) %in% x$transition_threshold))
+          stopifnot(!file.exists("results/ecological_v18_bombus_local_sharp_transition/montane_substitution_diagnostic.csv"))
+          stopifnot(focal$n_nonoverlapping_pairs == 67L)
+          cat("Current focal local-transition result:\n")
+          print(focal)
+          RS
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p results/ecological_v18_bombus_local_sharp_transition
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "fresh_reanalysis_artifact_id=${FRESH_REANALYSIS_ARTIFACT_ID}"
+            echo "fresh_reanalysis_sha256=${FRESH_REANALYSIS_SHA256}"
+            echo "bombus_support_artifact_id=${BOMBUS_SUPPORT_ARTIFACT_ID}"
+            echo "bombus_support_sha256=${BOMBUS_SUPPORT_SHA256}"
+            echo "analysis_role=MAIN_2_local_focal_pollinator_test"
+            echo "primary_exposure=max(A_ardens,A_diversus)"
+            echo "environment_spde_null=false"
+            echo "claim_ceiling=weak_local_directional_correspondence_not_selection"
+          } > results/ecological_v18_bombus_local_sharp_transition/workflow_provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bombus-local-sharp-transition-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/ecological_v18_bombus_local_sharp_transition
+            reproducibility/bombus_local_sharp_transition_current_spec_2026-08-09.md
+            reproducibility/bombus_local_sharp_transition_current_results_2026-08-09.md
+          if-no-files-found: warn
+          retention-days: 90

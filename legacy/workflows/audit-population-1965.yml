@@ -1,0 +1,60 @@
+name: Audit population flow from 1965
+
+on:
+  push:
+    branches:
+      - agent/reanalyse-from-1965-new-bombus
+    paths:
+      - .github/workflows/audit-population-1965.yml
+      - source_build/audit_population_flow_1965.R
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: population-flow-1965-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.5.3"
+          use-public-rspm: true
+
+      - name: Download successful seeded Bombus source-build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p source-artifact
+          gh run download 31249841493 \
+            --repo zuizui0223/hotarubukuro \
+            --name bombus-sdm-seeded-d64df46a178b7c8fbbe1f1402802a2c80593a212-31249841493 \
+            --dir source-artifact
+
+      - name: Audit population flow without fixing final n
+        run: |
+          Rscript source_build/audit_population_flow_1965.R \
+            --input Data_S1.csv \
+            --coverage source-artifact/results/bombus_sdm_rebuild_A/flower_prediction_coverage.csv \
+            --output results/population_flow_1965
+
+      - name: Show flow
+        run: |
+          cat results/population_flow_1965/population_flow_summary.csv
+          echo
+          cat results/population_flow_1965/population_flow_diagnostics.csv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: population-flow-1965-${{ github.sha }}
+          path: results/population_flow_1965
+          if-no-files-found: error
+          retention-days: 90

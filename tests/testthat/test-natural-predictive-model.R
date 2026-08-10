@@ -122,17 +122,16 @@ testthat::test_that("top candidate selection is outcome-only and deterministic",
   testthat::expect_false(grepl("population|DOY|intensity|road|forest", body_text))
 })
 
-testthat::test_that("fold predictor basis orthogonalizes Bombus block", {
+testthat::test_that("default predictor basis is environment-only", {
   set.seed(11)
   train <- data.frame(e1 = rnorm(80), e2 = rnorm(80))
-  train$f1 <- 2 * train$e1 - train$e2 + rnorm(80, sd = 0.1)
   test <- data.frame(e1 = rnorm(20), e2 = rnorm(20))
-  test$f1 <- 2 * test$e1 - test$e2 + rnorm(20, sd = 0.1)
-  basis <- v16_fold_predictors(train, test, c("e1", "e2"), "f1")
-  testthat::expect_equal(ncol(basis$train), 3)
-  testthat::expect_lt(abs(stats::cor(basis$train[, 1], basis$train[, 3])), 1e-8)
-  testthat::expect_lt(abs(stats::cor(basis$train[, 2], basis$train[, 3])), 1e-8)
-  testthat::expect_lt(basis$maximum_VIF, 1.1)
+  basis <- v16_fold_predictors(train, test, c("e1", "e2"))
+  testthat::expect_equal(ncol(basis$train), 2L)
+  testthat::expect_equal(ncol(basis$test), 2L)
+  testthat::expect_identical(names(basis$train), c("z1", "z2"))
+  testthat::expect_equal(nrow(basis$audit), 0L)
+  testthat::expect_true(is.finite(basis$maximum_VIF))
 })
 
 testthat::test_that("neighbour isolation respects same-fold restriction", {

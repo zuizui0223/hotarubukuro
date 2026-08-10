@@ -380,8 +380,16 @@ def render_markdown(
         list_match = re.match(r"^\s*([-*+]|\d+\.)\s+(.+)$", raw)
         if list_match:
             marker, value = list_match.groups()
-            style = "List Number" if marker[0].isdigit() else "List Bullet"
-            paragraph = document.add_paragraph(style=style)
+            if marker[0].isdigit():
+                # Word List Number silently continues across separately rendered appendices.
+                # Preserve the explicit Markdown number so each source list restarts exactly.
+                paragraph = document.add_paragraph()
+                paragraph.paragraph_format.left_indent = Inches(0.25)
+                paragraph.paragraph_format.first_line_indent = Inches(-0.18)
+                marker_run = paragraph.add_run(f"{marker} ")
+                marker_run.bold = True
+            else:
+                paragraph = document.add_paragraph(style="List Bullet")
             paragraph.paragraph_format.space_after = Pt(2)
             add_inline_runs(paragraph, value)
             index += 1

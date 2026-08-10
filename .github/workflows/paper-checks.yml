@@ -78,6 +78,30 @@ jobs:
               unmapped = sorted(files - active)
               assert not unmapped, f'unmapped current files under {root}: ' + ', '.join(unmapped)
 
+          # Keep every active workflow on the Node 24 checkout runtime. The
+          # legacy token is constructed rather than written literally so this
+          # guard cannot match its own source text.
+          checkout_v4 = 'actions/checkout@' + 'v4'
+          checkout_v5 = 'actions/checkout@' + 'v5'
+          workflow_files = sorted(Path('.github/workflows').glob('*.yml'))
+          stale_checkout = [
+              str(path) for path in workflow_files
+              if checkout_v4 in path.read_text(encoding='utf-8')
+          ]
+          assert not stale_checkout, (
+              'active workflows still use checkout v4: ' +
+              ', '.join(stale_checkout)
+          )
+          unexpected_checkout = [
+              str(path) for path in workflow_files
+              if 'actions/checkout@' in path.read_text(encoding='utf-8')
+              and checkout_v5 not in path.read_text(encoding='utf-8')
+          ]
+          assert not unexpected_checkout, (
+              'active workflows use an unexpected checkout runtime: ' +
+              ', '.join(unexpected_checkout)
+          )
+
           root_files = {
               path for path in ('README.md', 'Data_S1.csv', 'Code_S1.py', 'pyproject.toml')
               if Path(path).is_file()

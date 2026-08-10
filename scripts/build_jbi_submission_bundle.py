@@ -5,6 +5,11 @@ The core module owns document assembly. This entry point supplies the Markdown
 inline renderer. Bold spans may contain scientific notation such as a*, L* and
 C*, while the italic rule deliberately requires word boundaries so those
 scientific suffixes are never mistaken for Markdown emphasis.
+
+A small delivery-only normalization shortens the display labels in the wide
+Appendix S6 candidate table and joins the final causal-ceiling sentence to the
+preceding reproducibility paragraph. The underlying source values and meanings
+are unchanged.
 """
 
 from __future__ import annotations
@@ -19,6 +24,7 @@ import jbi_submission_bundle_core as core
 TOKEN_PATTERN = re.compile(
     r"(\*\*[^\n]+?\*\*|`[^`\n]+`|\[[^\]]+\]\([^)]+\)|(?<![\w*])\*[^*\n]+?\*(?![\w*]))"
 )
+ORIGINAL_RENDER_MARKDOWN = core.render_markdown
 
 
 def _style_run(run, *, bold: bool, italic: bool) -> None:
@@ -63,7 +69,44 @@ def add_inline_runs(paragraph, text: str) -> None:
     _append_inline(paragraph, core.clean_markdown_text(text))
 
 
+def normalize_delivery_markdown(text: str) -> str:
+    if not text.startswith("# Appendix S6."):
+        return text
+
+    long_header = (
+        "| Rank | Stable cell ID | Pigmented/observed | Predictive q | z | "
+        "Neighbours/sites | Mean neighbour distance (km) | Mean environmental "
+        "distance | 5-km population rank | Post-selection context class |"
+    )
+    short_header = (
+        "| Rank | Cell ID | Pig./obs. | q | z | Neigh./sites | Mean dist. (km) | "
+        "Mean env. dist. | Pop. rank (5 km) | Context class |"
+    )
+    text = text.replace(long_header, short_header)
+    text = text.replace(
+        "Human-context class is descriptive and was assigned only after candidate selection.",
+        "Human-context class is descriptive and was assigned only after candidate selection. "
+        "In Table S6.4, DID-proximate/high-population and remote/low-population "
+        "are abbreviated as `DID-prox./high pop.` and `remote/low pop.`.",
+    )
+    text = text.replace("DID-proximate, high population", "DID-prox./high pop.")
+    text = text.replace("intermediate context", "intermediate")
+    text = text.replace("remote, low population", "remote/low pop.")
+    text = text.replace(
+        "It is retained as an execution verification rather than silently replacing the frozen numerical reference.\n\n"
+        "The causal ceiling is unchanged:",
+        "It is retained as an execution verification rather than silently replacing the frozen numerical reference. "
+        "The causal ceiling is unchanged:",
+    )
+    return text
+
+
+def render_markdown(document, text: str, **kwargs) -> None:
+    ORIGINAL_RENDER_MARKDOWN(document, normalize_delivery_markdown(text), **kwargs)
+
+
 core.add_inline_runs = add_inline_runs
+core.render_markdown = render_markdown
 
 
 if __name__ == "__main__":

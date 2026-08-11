@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# Current integrated Broad + Bombus + human figure lock.
 
 args <- commandArgs(trailingOnly = TRUE)
 source("R/pipeline_support.R")
@@ -39,8 +40,10 @@ add_check(
 )
 
 for (index in seq_len(nrow(manifest))) {
-  path <- manifest$path[[index]]; format <- manifest$format[[index]]
-  exists <- file.exists(path); size <- if (exists) as.numeric(file.info(path)$size) else 0
+  path <- manifest$path[[index]]
+  format <- manifest$format[[index]]
+  exists <- file.exists(path)
+  size <- if (exists) as.numeric(file.info(path)$size) else 0
   expected_hash <- as.character(manifest$sha256[[index]])
   actual_hash <- if (exists) unname(digest::digest(file = path, algo = "sha256")) else ""
   signature_ok <- FALSE
@@ -65,7 +68,7 @@ source_hashes <- vapply(seq_len(nrow(sources)), function(index) {
 add_check(
   "source_manifest",
   all(source_exists) && all(source_sizes == as.numeric(sources$size_bytes)) && all(source_hashes == as.character(sources$sha256)),
-  paste("sources=", nrow(sources), "missing=", sum(!source_exists), "hash_mismatches=", sum(source_hashes != as.character(sources$sha256))
+  paste("sources=", nrow(sources), "missing=", sum(!source_exists), "hash_mismatches=", sum(source_hashes != as.character(sources$sha256)))
 )
 
 expected <- c(
@@ -118,7 +121,10 @@ add_check(
 )
 
 bombus_balance <- hb_read_csv(file.path(output_dir, "figure_data", "figure3_final8_environment_balance.csv"))
-focal_balance <- bombus_balance[as.numeric(bombus_balance$radius_km) == 5 & abs(as.numeric(bombus_balance$transition_threshold)-1) < 1e-12, , drop=FALSE]
+focal_balance <- bombus_balance[
+  as.numeric(bombus_balance$radius_km) == 5 & abs(as.numeric(bombus_balance$transition_threshold) - 1) < 1e-12,
+  , drop = FALSE
+]
 add_check(
   "figure3_final8_environment_balance",
   nrow(focal_balance) == 1L &&
@@ -136,5 +142,8 @@ validation <- do.call(rbind, checks)
 validation_path <- file.path(output_dir, "figure_bundle_validation.csv")
 utils::write.csv(validation, validation_path, row.names = FALSE)
 failed <- validation[validation$status == "FAIL", , drop = FALSE]
-if (nrow(failed)) { print(failed); stop("JBI figure-bundle validation failed.", call. = FALSE) }
+if (nrow(failed)) {
+  print(failed)
+  stop("JBI figure-bundle validation failed.", call. = FALSE)
+}
 cat("JBI figure-bundle validation passed: ", nrow(validation), " checks\n", sep = "")

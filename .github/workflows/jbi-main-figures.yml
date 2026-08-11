@@ -6,8 +6,13 @@ on:
     paths:
       - .github/workflows/jbi-main-figures.yml
       - scripts/build_jbi_figure_bundle.R
+      - scripts/build_jbi_figure_bundle_final_broad.R
       - scripts/render_jbi_main_figures.R
+      - scripts/render_jbi_main_figures_final_broad.R
       - validation/validate_jbi_figure_bundle.R
+      - validation/validate_jbi_figure_bundle_final_broad.R
+      - reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv
+      - reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv
       - submission/jbi/JBI_main_figure_captions.md
       - submission/jbi/figures/**
       - paper/active-file-map.csv
@@ -19,8 +24,13 @@ on:
     paths:
       - .github/workflows/jbi-main-figures.yml
       - scripts/build_jbi_figure_bundle.R
+      - scripts/build_jbi_figure_bundle_final_broad.R
       - scripts/render_jbi_main_figures.R
+      - scripts/render_jbi_main_figures_final_broad.R
       - validation/validate_jbi_figure_bundle.R
+      - validation/validate_jbi_figure_bundle_final_broad.R
+      - reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv
+      - reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv
       - submission/jbi/JBI_main_figure_captions.md
       - submission/jbi/figures/**
       - paper/active-file-map.csv
@@ -130,13 +140,13 @@ jobs:
       - name: Build the four current JBI figures
         shell: bash
         run: >-
-          Rscript scripts/render_jbi_main_figures.R
+          Rscript scripts/render_jbi_main_figures_final_broad.R
           --output results/jbi_figure_bundle
 
-      - name: Validate figure files, hashes and numerical lock
+      - name: Validate figure files, hashes and final Broad numerical lock
         shell: bash
         run: >-
-          Rscript validation/validate_jbi_figure_bundle.R
+          Rscript validation/validate_jbi_figure_bundle_final_broad.R
           --output results/jbi_figure_bundle
 
       - name: Validate the current JBI text package
@@ -152,9 +162,13 @@ jobs:
           workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
           commit=${GITHUB_SHA}
           core_builder=scripts/build_jbi_figure_bundle.R
-          layout_renderer=scripts/render_jbi_main_figures.R
+          broad_builder_adapter=scripts/build_jbi_figure_bundle_final_broad.R
+          layout_renderer=scripts/render_jbi_main_figures_final_broad.R
+          validator=validation/validate_jbi_figure_bundle_final_broad.R
           broad_artifact_id=${BROAD_ARTIFACT_ID}
           broad_artifact_sha256=${BROAD_ARTIFACT_SHA256}
+          final_broad_fixed_lock=reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv
+          final_broad_hyper_lock=reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv
           local_transition_artifact_id=${LOCAL_TRANSITION_ARTIFACT_ID}
           local_transition_artifact_sha256=${LOCAL_TRANSITION_ARTIFACT_SHA256}
           EOF
@@ -169,6 +183,8 @@ jobs:
             submission/jbi/JBI_main_figure_plan.md
             submission/jbi/JBI_main_figure_captions.md
             submission/jbi/figures/README.md
+            reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv
+            reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv
             reproducibility/jbi-figure-environment
           if-no-files-found: error
           compression-level: 6

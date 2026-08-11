@@ -1,5 +1,2 @@
-configuration,natural_model,environment_matching,observed_contrast,null_mean,lower_95,upper_95,directional_p,global_maxT_FWER_p,n_null_draws,n_candidates
-current_model_current_graph,current_four_pc,current_four_pc,0.0530569589799109,0.0049069470198776,-0.0436528179610522,0.0551693278921997,0.0304969503049695,0.205879412058794,10000,17
-current_model_final8_support_matched,current_four_pc,final_eight_axis_support_matched,0.0654178696018284,0.0049008384032548,-0.0399128197578878,0.0503261584827917,0.0061993800619938,0.0462953704629537,10000,17
-final8_model_current_graph,final_eight_axis,current_four_pc,0.0530569589799109,0.0060199695363332,-0.0425375903812444,0.05737103291647,0.0348965103489651,0.236576342365763,10000,17
-final8_model_final8_support_matched,final_eight_axis,final_eight_axis_support_matched,0.0654178696018284,0.0055416357149775,-0.0400884586400308,0.0513886454377252,0.0067993200679932,0.0551944805519448,10000,17
+status,current_primary,legacy_full_record
+superseded,final-eight-axis current-Broad 16-candidate analysis,legacy/reproducibility-development/superseded-human-primary-2026-08-11/human_context_figure4_final_summary_2026-08-11.csv

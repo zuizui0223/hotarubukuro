@@ -1,0 +1,5 @@
+model,hyperparameter,mean,0.025quant,0.975quant
+presence_N_environment_space,Range for spatial,132.755723,88.778664,195.681092
+presence_N_environment_space,Stdev for spatial,2.105388,1.629407,2.696411
+intensity_N_environment_space,Range for spatial,65.717848,31.046422,132.628945
+intensity_N_environment_space,Stdev for spatial,0.356683,0.236137,0.500867

@@ -18,6 +18,18 @@ Start with [`../paper/README.md`](../paper/README.md). This directory contains o
 
 The validation routing and the distinction between structural PASS/FAIL checks and reconstruction-specific `RESULT` findings are documented in [`../validation/README.md`](../validation/README.md).
 
+## Environmental interaction sensitivity
+
+- `run_environment_interaction_inla_screen.R` — compare the frozen additive observation-level INLA-SPDE models with ten predeclared ecologically motivated interactions, four mechanism bundles and one global interaction set for both pigmentation state and pigmented-only intensity.
+
+The corresponding workflow is `.github/workflows/environment-interaction-inla-screen.yml`. It restores the checksum-locked broad-analysis artifact, verifies that the independently reconstructed additive model matches the manuscript lock, then compares candidate models by WAIC/CPO, the same five geographical folds, spatial-block bootstrap loss gain, VIF, coefficient stability and SPDE-range stability. No interaction replaces the additive Main model automatically; see `../reproducibility/environment_interaction_inla_screen_spec_2026-08-11.md`.
+
+## Broad environmental and spatial finalization
+
+- `run_broad_environment_spatial_audit.R` — compare the current eight-axis observation-level model with omitted public hydroclimate, climate-extreme, habitat, coastality, temporal and image-QC sensitivities; adjudicate the seasonality interactions; and compare stationary, no-region, repeated-site and ocean-barrier SPDE structures using the same five geographical folds.
+
+The corresponding workflow is `.github/workflows/broad-environment-spatial-audit.yml`. It restores the checksum-locked broad artifact, prepares CHELSA VPD, site water balance, BIO6, BIO13 and the elevation land mask, joins the current 1-km forest fraction, and writes response-specific decision tables. It never silently replaces the separate cell-level natural predictive reference or the 17 departure targets. See `../reproducibility/broad_environment_spatial_audit_spec_2026-08-11.md` and `../reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv`.
+
 ## Local pollinator analysis
 
 - `build_bombus_occurrence_reference_support.R` — convert each selected fresh Bombus SDM to an occurrence-referenced support scale; the Main exposure uses *B. ardens* + *B. diversus*.

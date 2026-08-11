@@ -2,184 +2,216 @@
 
 ## Scope and inference ceiling
 
-This analysis does not define anomalies by selecting large residuals. It defines a repeatable **local ecological configuration**, applies the identical detector to observed and simulated flower-colour maps and examines human variables only after candidate identities are fixed.
+This Appendix asks whether locally discordant pigmented cells require an additional process beyond the fitted natural geography and, only after those cells have been defined without human information, whether they occur in distinctive human context. It deliberately does **not** define anomalies by thresholding fitted residuals or by selecting locations that already have high population, road access or built land.
 
-The primary inferential questions are:
+The three inferential questions are:
 
-1. how many pigmented cells occur inside geographically close, environmentally similar white neighbourhoods;
-2. how often the fitted broad natural model generates the same event under the observed sampling geometry; and
-3. whether the independently fixed candidates occupy human context that differs from their own observed white neighbours more than expected across natural predictive maps.
+1. how many pigmented 1-km cells occur inside geographically close, environmentally similar white neighbourhoods;
+2. how often the same ecological event arises in natural predictive maps under the observed sampling geometry; and
+3. whether independently selected candidates differ from their own white neighbours in a small, mechanism-based set of human-context variables.
 
-The result identifies field and provenance targets. It does not demonstrate planting, escape, introgression or horticultural origin.
+The analysis can identify field and provenance targets. It cannot demonstrate planting, escape, horticultural introgression or human causation.
 
 ## Primary ecological event
 
-The unit was the 1-km flower cell from the current 1,305-cell analysis. A focal cell was eligible when it contained at least one pigmented observation and had sufficient local support. The primary neighbourhood was defined without human variables and without using the candidate's fitted residual as a response.
+The unit was the 1-km flower cell from the 1,305-cell analysis. The primary event was fixed before human variables were inspected.
 
 **Table S6.1. Primary event specification.**
 
 | Component | Fixed rule |
 |---|---|
-| Focal state | at least one observed pigmented flower in the 1-km cell |
+| Focal state | at least one observed pigmented flower |
 | Geographic radius | 10 km |
 | Environmental representation | broad50km PC1/PC2 and within50km PC1/PC2 |
 | Environmental distance | root-mean-square Euclidean distance across the four standardized PCs |
 | Environmental caliper | <=1.0 |
 | Minimum neighbouring cells | 3 |
-| Neighbour colour condition | every eligible physical neighbour has zero observed pigmented flowers |
-| Fold restriction | none in the primary physical neighbourhood; same-fold-only is a sensitivity |
-| Human variables | absent from selection, neighbourhood definition and ranking |
+| Neighbour colour condition | all eligible physical neighbours have zero observed pigmented flowers |
+| Human variables | absent from selection, matching and ranking |
 
-The event can include a mixed focal cell; it does not require the focal cell to be entirely pigmented. “All neighbours white” refers to observed cell samples, not proof that the underlying populations are genetically fixed for a white morph.
+The event can include a mixed focal cell. “White neighbours” refers to the observed cell samples rather than genetic fixation of an underlying population. Held-out predictive upper-tail probability (`unexpected_pigmented_q`) and standardized departure (`z`) are retained as diagnostics but are not thresholds for membership.
 
-For each candidate, the pipeline retains the held-out natural-model upper-tail probability (`unexpected_pigmented_q`) and standardized departure (`z`) as diagnostics. Neither quantity is thresholded to determine membership. Consequently, a candidate may be visually discordant in its local ecological neighbourhood without having an extreme marginal predictive tail probability.
+## Natural-map calibration of event frequency
 
-The primary neighbourhood includes physical neighbours across blocked-prediction folds because fold membership is a model-validation device rather than an ecological boundary. A same-fold-only reconstruction is reported separately.
-
-## Natural-map calibration
-
-The observed event detector was replayed on 10,000 held-out cross-fitted natural maps using the fixed observed cell geometry and the same neighbourhood rules. Candidate fraction was calculated among cells that were pigmented in a map and had sufficient neighbourhood support. A separate joint posterior-predictive sensitivity combined 10,000 latent spatial draws with 20 observation replicates per draw, producing 200,000 maps.
+The detector was replayed on 10,000 held-out cross-fitted natural maps with the observed cell geometry and trial counts fixed. A separate joint posterior-predictive sensitivity combined 10,000 latent spatial draws with 20 observation replicates per draw, giving 200,000 maps.
 
 **Table S6.2. Primary event relative to the natural predictive reference.**
 
-| Reference | Metric | Observed | Null mean | 95% null interval | One-sided P |
+| Reference | Metric | Observed | Null mean | 95% null interval | P |
 |---|---|---:|---:|---:|---:|
 | 10,000 cross-fitted maps | candidate count | 17 | 13.614 | 7–21 | 0.19958 |
-| 10,000 cross-fitted maps | candidate fraction | 0.04735 | 0.03427 | 0.01746–0.05362 | 0.08739 |
+| 10,000 cross-fitted maps | candidate fraction | 0.04735 | 0.03427 | 0.01746–0.05362 | 0.08739 upper-tail |
 | 200,000 joint posterior-predictive maps | candidate count | 17 | 14.879 | 8–22 | 0.31446 |
 | 200,000 joint posterior-predictive maps | candidate fraction | 0.04735 | 0.03925 | 0.02128–0.05898 | 0.19618 |
 
-Neither candidate count nor fraction was a robust excess under the primary cross-fitted reference, and the joint spatial posterior-predictive sensitivity was less extreme. The 17 cells are therefore reproducible local configurations, not evidence that an unmodelled process is required to generate their frequency.
+Neither count nor fraction showed a robust excess. The 17 cells are therefore reproducible local configurations, not evidence that the natural model fails to generate such configurations.
 
 ## Event-definition sensitivities
 
-No sensitivity was selected by its P value. Each changes the ecological object as well as the number of eligible cells.
+No sensitivity was selected by its P value; each defines a different ecological object.
 
-**Table S6.3. Cross-fitted natural-map sensitivity family (10,000 maps).**
+**Table S6.3. Previously specified event sensitivities using the cross-fitted natural reference.**
 
 | Configuration | Observed count | Count P | Observed fraction | Fraction P | Interpretation |
 |---|---:|---:|---:|---:|---|
 | Primary: 10 km, env <=1.0, >=3 neighbours, all white | 17 | 0.19958 | 0.04735 | 0.08739 | manuscript event |
-| Same-fold-only version of primary | 16 | 0.24598 | 0.04776 | 0.10669 | fold-boundary sensitivity |
-| 5 km, env <=1.0, >=3 neighbours, all white | 10 | 0.10819 | 0.05848 | 0.04860 | fraction nominal only; count not significant |
-| 25 km, env <=1.0, >=5 neighbours, neighbour pigment share <=0.10 | 25 | 0.00150 | 0.04488 | 0.00070 | different broader/relaxed event, not a primary-result substitute |
-| 10 km, env <=0.75, >=3 neighbours, all white | 15 | 0.28217 | 0.04808 | 0.15389 | stricter environmental similarity |
-| 10 km, env <=1.5, >=3 neighbours, all white | 18 | 0.20968 | 0.04545 | 0.08239 | looser environmental similarity |
+| Same-fold-only primary | 16 | 0.24598 | 0.04776 | 0.10669 | fold-boundary guardrail |
+| 5 km, env <=1.0, >=3 neighbours, all white | 10 | 0.10819 | 0.05848 | 0.04860 | fraction nominal only |
+| 25 km, env <=1.0, >=5 neighbours, neighbour pigment share <=0.10 | 25 | 0.00150 | 0.04488 | 0.00070 | broader relaxed event, not the primary local object |
+| 10 km, env <=0.75, >=3 neighbours, all white | 15 | 0.28217 | 0.04808 | 0.15389 | stricter environment |
+| 10 km, env <=1.5, >=3 neighbours, all white | 18 | 0.20968 | 0.04545 | 0.08239 | looser environment |
 
-The 25-km configuration detects a broader landscape boundary and permits up to 10% pigmented neighbours; it is not the same local all-white event. Its small P values therefore do not overturn the null primary result. Likewise, the nominal 5-km fraction result occurs without a corresponding candidate-count excess and is retained as a sensitivity rather than promoted to a second Main claim.
+The significant 25-km result is not a substitute for the primary event because it changes both scale and neighbour-colour tolerance.
 
-## Candidate identities and local support
+## Does final Broad model selection propagate into the human analysis?
 
-The table below uses stable 1-km cell identifiers rather than exact coordinates. Exact coordinates remain in the analysis data package for authorized review and field planning. `Pigmented/observed` gives the number of pigmented photographs over the total photographs in the focal cell. `Neighbours/sites` gives the number of environmentally eligible white neighbour cells and the summed number of independent source sites represented by those neighbours. Human-context class is descriptive and was assigned only after candidate selection.
+The observation-level Broad analysis and this event detector are intentionally different model layers. The final Broad **pigmentation-state** model remains the additive eight-axis environment + East/West + stationary SPDE model; the only promoted environmental interaction belongs to pigmented-only intensity and therefore has no direct path to the state-based event detector.
 
-**Table S6.4. Seventeen primary local-departure candidates.**
+The event detector nevertheless uses an environmental matching representation, so we explicitly propagated the final eight observation-level axes as a sensitivity rather than assuming invariance.
 
-| Rank | Stable cell ID | Pigmented/observed | Predictive q | z | Neighbours/sites | Mean neighbour distance (km) | Mean environmental distance | 5-km population rank | Post-selection context class |
-|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
-| 1 | cell-1km-294_247 | 1/1 | 0.082 | 3.367 | 5/6 | 3.897 | 0.518 | 0.790 | DID-proximate, high population |
-| 2 | cell-1km--108_-147 | 1/1 | 0.090 | 3.198 | 4/7 | 8.889 | 0.375 | 0.952 | DID-proximate, high population |
-| 3 | cell-1km--73_5 | 1/1 | 0.129 | 2.609 | 5/13 | 4.693 | 0.161 | 0.917 | DID-proximate, high population |
-| 4 | cell-1km--49_-100 | 1/1 | 0.144 | 2.447 | 4/4 | 7.986 | 0.321 | 0.594 | intermediate context |
-| 5 | cell-1km--52_-129 | 1/1 | 0.290 | 1.568 | 3/3 | 7.133 | 0.330 | 0.814 | DID-proximate, high population |
-| 6 | cell-1km--599_-255 | 1/1 | 0.298 | 1.538 | 3/3 | 6.219 | 0.478 | 0.900 | DID-proximate, high population |
-| 7 | cell-1km--154_-209 | 1/3 | 0.301 | 0.807 | 3/4 | 3.814 | 0.637 | 0.389 | intermediate context |
-| 8 | cell-1km--52_-161 | 1/2 | 0.350 | 0.917 | 3/3 | 3.762 | 0.351 | 0.601 | intermediate context |
-| 9 | cell-1km--74_-5 | 1/4 | 0.397 | 0.491 | 6/11 | 5.703 | 0.253 | 0.875 | DID-proximate, high population |
-| 10 | cell-1km--523_-287 | 3/4 | 0.402 | 0.738 | 5/7 | 5.635 | 0.621 | 0.633 | intermediate context |
-| 11 | cell-1km--89_-105 | 2/4 | 0.402 | 0.617 | 3/3 | 6.765 | 0.485 | 0.923 | DID-proximate, high population |
-| 12 | cell-1km--371_-273 | 1/4 | 0.424 | 0.304 | 3/3 | 4.648 | 0.451 | 0.074 | remote, low population |
-| 13 | cell-1km-31_64 | 1/1 | 0.426 | 1.163 | 3/3 | 9.433 | 0.202 | 0.554 | intermediate context |
-| 14 | cell-1km--591_-228 | 1/2 | 0.718 | -0.114 | 3/6 | 6.795 | 0.183 | 0.810 | DID-proximate, high population |
-| 15 | cell-1km-301_75 | 1/1 | 0.775 | 0.539 | 3/3 | 8.387 | 0.222 | 0.556 | intermediate context |
-| 16 | cell-1km-92_-64 | 1/1 | 0.832 | 0.449 | 3/4 | 3.904 | 0.316 | 0.067 | remote, low population |
-| 17 | cell-1km-220_-43 | 1/2 | 0.863 | -0.514 | 4/4 | 3.863 | 0.085 | 0.992 | DID-proximate, high population |
+### Candidate membership under the two environmental representations
 
-Only two candidates had joint event membership and predictive q <=0.10; none had q <=0.05. This is expected because the ecological event, rather than marginal predictive extremeness, defines the target set.
+At the same raw RMS caliper of 1.0, four-PC matching produced 17 candidates and eight-axis matching 16, with 15 candidates in common (Jaccard = 0.833). Because RMS distances change when the dimensionality and correlation structure change, we then calibrated the eight-axis caliper **without using colour or human variables** so that its graph had the same neighbourhood support as the primary graph. The selected eight-axis caliper was 0.81:
 
-## Post-selection human context
+- primary four-PC mean neighbours = 3.4774; supported cells = 657;
+- calibrated eight-axis mean neighbours = 3.4835; supported cells = 657.
 
-Human variables were held out of candidate definition, environmental matching and neighbour selection. Each observed candidate was compared with its own observed white cells inside the same primary neighbourhood. The complete comparison was repeated on 1,000 natural predictive maps using the identical event detector.
+With equalized support, both graphs contained 17 observed candidates, but only 15 were identical (Jaccard = 0.789). The alternative graph replaced two primary candidates with two other cells. One newly admitted cell had very high short-scale population and built-up ranks, demonstrating why a change in the environmental matching definition can strengthen the human-context statistic without any human variable entering candidate selection.
 
-Human-context inputs comprised:
+### Which natural predictive reference should remain primary?
 
-- WorldPop population counts summarized at the focal cell and native-raster 5-, 10-, 25- and 50-km windows;
-- MLIT National Land Numerical Information L03-b 2021 land-use classes;
-- road proximity and forest-human edge context;
-- a 1-km raster approximation of 2015 densely inhabited districts (DID);
-- composite settlement, transport, cultivation, artificial-land and human-activity scores;
-- forest and mountain variables retained as natural alternatives.
+The direct final-eight-axis cell-level refit was evaluated with the same five geographic folds and 10,000 predictive maps.
 
-Raw residuals were never used as the human-context response. Directional hypotheses were defined before comparison, and maxT familywise correction was applied within feature families.
+**Table S6.4. Cross-fitted state prediction under the two defensible natural references.**
 
-The broad multivariate human-neighbourhood departure was not unusual (`regularized Mahalanobis P=0.90110`). Population effects were strongest at short neighbourhood scales but did not pass familywise correction.
-
-**Table S6.5. Population-scale contrasts for the primary candidate set.** Positive values indicate higher rank at the focal candidate than the mean of its white neighbours.
-
-| Feature | Mean focal-minus-white contrast | Directional P | maxT-FWER P |
+| Natural reference | Mean negative log predictive mass | AUC | Brier |
 |---|---:|---:|---:|
-| Focal-cell population rank | +0.04270 | 0.11389 | 0.34466 |
-| 5-km population rank | +0.05306 | 0.02697 | 0.08991 |
-| 10-km population rank | +0.04902 | 0.03497 | 0.13886 |
-| 25-km population rank | +0.01006 | 0.25175 | 0.64036 |
-| 50-km population rank | +0.00813 | 0.14086 | 0.44555 |
+| Current multiscale four-PC reference | **0.57248** | **0.86332** | **0.15060** |
+| Direct final-eight-axis reference | 0.57409 | 0.86033 | 0.15163 |
 
-The 5-km population result is suggestive but familywise inconclusive. It is not evidence that the candidates were planted or escaped from cultivation.
+The predeclared multiscale four-PC reference was slightly better on all three diagnostics and explicitly separates 50-km background environment from cell-minus-background environment. It therefore remains the primary downstream natural reference. Finalizing the observation-level Broad coefficient model does not require replacing this independently validated predictive layer.
 
-## Dense-settlement context
+### Event frequency across the final propagation scenarios
 
-DID features were calculated only after the 17 candidates were fixed. The strongest single contrast was the combined population-DID alignment score, but it likewise did not cross the familywise threshold.
+Candidate frequency remained non-excessive under every combination of natural reference and environmental graph.
 
-**Table S6.6. DID and population-alignment contrasts.**
+**Table S6.5. Candidate-count guardrail across Broad-propagation scenarios.**
 
-| Feature | Mean focal-minus-white contrast | Directional P | maxT-FWER P |
-|---|---:|---:|---:|
-| DID proximity rank | +0.05019 | 0.04196 | 0.14685 |
-| Within 5 km of DID | +0.05196 | 0.23676 | 0.64635 |
-| Within 10 km of DID | +0.07059 | 0.18382 | 0.53147 |
-| Population-DID alignment score | +0.05162 | 0.02298 | 0.07592 |
-| Population beyond DID score | -0.00549 | 0.63736 | 0.98601 |
+| Natural model | Environmental graph | Observed count | Count P |
+|---|---|---:|---:|
+| current four-PC | current four-PC | 17 | 0.1996 |
+| current four-PC | calibrated eight-axis | 17 | 0.2163 |
+| final eight-axis | current four-PC | 17 | 0.1830 |
+| final eight-axis | calibrated eight-axis | 17 | 0.1854 |
 
-Nine of 17 candidates were classified as DID-proximate/high-population, compared with a natural-map mean fraction of 0.317; the two-sided P was 0.12188 and maxT-FWER P was 0.19780. Six candidates had intermediate context and two were remote/low-population. Context-class composition therefore did not provide familywise-robust evidence of an anthropogenic candidate set.
+Candidate-fraction two-sided P values were likewise non-robust (approximately 0.175, 0.191, 0.141 and 0.147). Thus the conclusion that the event frequency is compatible with natural geography does not depend on the Broad variable representation.
 
-## Sampling, phenology and colour-intensity diagnostics
+## Final human-context hypothesis family
 
-Several auxiliary checks were retained to prevent sampling or secondary colour features from being mistaken for provenance evidence.
+Human variables were not treated as interchangeable measures of an abstract “urbanization” factor. The earlier exploratory surface included highly redundant composites; for example, artificial-land and transport composites were almost rank-equivalent to their constituent artificial-land and road variables, and population–DID composites were almost rank-equivalent to population or DID alone. Those composites are retained only as historical diagnostics and are not counted as independent mechanisms.
 
-- Observation-effort rank and independent-site support did not differ unusually from the candidate neighbourhood reference (two-sided P=0.563 and 0.915, respectively).
-- The four broad/within environmental-PC balance checks were non-significant (all two-sided P>=0.372), consistent with the predefined local environmental caliper.
-- Pigmented-only darkness did not show an auxiliary predictive-tail excess (directional P=0.62821).
-- Candidate day of year differed by a mean of -1.65 days from all usable neighbours and +3.33 days from exact-same-year neighbours; the signs were mixed across cells rather than a consistent seasonal displacement.
-- Candidate identities were selected without the land-use, road, population, DID, darkness or day-of-year variables used in these follow-ups.
+The final confirmatory/guardrail family contains eleven variables in one global maxT family:
 
-These diagnostics do not prove absence of observer or access bias. They show that the current candidate definition is not simply a threshold on those measured factors.
+**Table S6.6. Mechanism-based human-context family.**
 
-## Interpretation and field use
+| Feature | Ecological role | Expected direction | Interpretation ceiling |
+|---|---|---|---|
+| focal-cell population rank | immediate settlement exposure | greater | nearby human presence; not planting itself |
+| population rank at 5 km | short-scale residential/horticultural opportunity | greater | gardens, planted material and propagule opportunity proxy |
+| population rank at 10 km | local settlement exposure | greater | broader version of same pathway |
+| population rank at 25 km | regional settlement exposure | greater | regional human context |
+| population rank at 50 km | broad settlement exposure | greater | broad human context |
+| DID proximity rank | dense-settlement convergence | greater | independent settlement-definition check |
+| road proximity rank | transport/access | greater | potential movement/disturbance **and** observation-access proxy |
+| built-up fraction rank | managed/built habitat | greater | built context, not evidence of horticultural planting |
+| forest–human edge rank | managed–natural interface | greater | interface exposure; mechanistically less specific |
+| forest cover rank | natural alternative | two-sided | candidate placement in forest context |
+| mountainness rank | natural alternative | two-sided | residual mountain context |
 
-The primary event frequency is compatible with the fitted natural geographical model. Therefore the 17 cells should be described as **local-departure or provenance targets**, not anthropogenic anomalies. Population and DID contrasts are in a suggestive direction at short scales but remain familywise inconclusive, while the global human-context test is clearly null.
+The biological rationale is intentionally asymmetric. Ornamental horticulture can create propagule pressure and repeated opportunities for escape or establishment; historical market availability has predicted invasion success across ornamental taxa, and residential propagule-pressure metrics can improve prediction of urban plant invasion (Dehnen-Schmutz et al., 2007; Davis et al., 2016). *C. punctata* itself has horticulturally bred coloured material: the purple dwarf cultivar ‘Jiknyeo’ was produced from *C. punctata* × var. *rubriflora* (Choi et al., 2012). These studies establish plausibility of horticultural movement and colour manipulation, **not** provenance of any present candidate.
 
-The candidate list nevertheless has practical value. Field follow-up can prioritize:
+Roads supply a second plausible pathway through transport, disturbance and secondary dispersal, but road proximity also increases access. Because opportunistic biological recording is often concentrated near roads and populated areas (Mair & Ruete, 2016), any positive road or population contrast has an observation-process interpretation as well as a biological one.
 
-- voucher confirmation and repeated within-population colour sampling;
-- local planting and land-management history;
-- standardized spectroscopy and pigment assays;
-- population-genetic comparison with neighbouring white populations and horticultural material.
+Finally, settlement can alter microclimate, irrigation, shade and substrate. Floral anthocyanin can be temperature-plastic in other species (e.g. Stiles et al., 2007), so a local settlement association could reflect environmental plasticity at scales unresolved by kilometre climatologies rather than planted ancestry. Population density is therefore a **provenance-opportunity proxy**, not a provenance measurement.
 
-Such data could distinguish natural spatial variation, recent introduction, escape and introgression. The present digital-geographical analysis cannot.
+## Final 10,000-map human-context test
+
+The final adjudication replayed candidate selection and the same focal-minus-white-neighbour contrasts on 10,000 natural maps for four defensible combinations of natural reference and environmental graph. Global maxT correction was applied across all eleven variables, rather than separately within several correlated feature families.
+
+### Primary predeclared matching
+
+Under the current four-PC natural model and current four-PC graph, the leading feature was 5-km population rank:
+
+- observed focal-minus-white-neighbour contrast = +0.05306 rank units;
+- directional P = 0.03050;
+- **global maxT FWER P = 0.20588**.
+
+Using the final-eight-axis natural model on the same graph gave global maxT FWER P = 0.23658. Thus the primary human-context analysis is not familywise-supported.
+
+### Support-calibrated eight-axis matching
+
+Changing only the environment-matching graph strengthened short-scale settlement contrasts:
+
+- 5-km population contrast = +0.06542;
+- current natural model: directional P = 0.00620; **global maxT FWER P = 0.04630**;
+- final-eight-axis natural model: directional P = 0.00680; **global maxT FWER P = 0.05519**.
+
+Population at 10 km and DID proximity showed the same directional ordering but did not survive the global maxT correction; road proximity, built-up fraction and forest–human edge likewise did not provide an independent corrected mechanism. The apparent 5-km settlement signal therefore straddles the conventional 0.05 threshold across two defensible natural references and is absent after global correction under the predeclared matching definition.
+
+The appropriate conclusion is **matching-sensitive short-scale settlement exposure**, not a robust anthropogenic effect or an “urbanization syndrome”. The sensitivity itself is informative: human interpretation depends partly on which natural environmental dimensions are used to define “locally comparable” white populations.
+
+## Observation-process and phenology alternatives
+
+The natural maps condition on the observed cells and their flower counts, and human comparisons are local. These features reduce but do not remove route-access sampling bias.
+
+In the final 10,000-map replay, candidate cells did not show unusual measured within-dataset effort:
+
+- observation-effort global maxT P ranged approximately 0.605–0.897 across the four scenarios;
+- independent-site-support global maxT P ranged approximately 0.852–0.950.
+
+Thus the settlement pattern is not explained simply by candidates having more photographs or more independent YAMAP source activities than their local white comparisons. However, the broader sampling frame can still favour populated or road-accessible landscapes entering the dataset at all.
+
+Earlier diagnostics also found no coherent candidate-specific dark-colour or phenology convergence. The primary candidate set is therefore not defined by unusually dark flowers or a consistent flowering-date shift.
+
+## Final ecological interpretation
+
+Three statements are supported at different strengths.
+
+1. **Natural-reference conclusion — robust:** locally discordant pigmented events occur at a frequency compatible with the fitted natural geography under both the primary and propagated eight-axis representations.
+2. **Human-context conclusion — suggestive:** short-scale population exposure is the only repeatedly leading human feature, but its corrected strength depends on environmental matching and natural-reference specification.
+3. **Provenance conclusion — unresolved:** population density is compatible with horticultural opportunity/propagule pressure, but the same pattern can arise through observation accessibility or fine-scale environmental plasticity. Current photographs provide no ancestry or planting-history evidence.
+
+Accordingly, the 17 primary cells remain **local-departure / provenance targets**, not anthropogenic anomalies. The appropriate next tests are local planting and management histories, voucher-level morphology, repeated population colour sampling, standardized spectra and pigment chemistry, and population-genetic comparison of candidates with neighbouring white populations and relevant horticultural material.
 
 ## Reproducibility resources
 
-Current implementation:
+Primary implementation:
 
-- `R/local_pigmented_isolates.R` and `scripts/run_local_pigmented_isolates.R` — event definition and natural-map replay;
-- `scripts/refine_submission_isolate_null.R` — 10,000-map cross-fitted submission reference;
-- `scripts/run_joint_submission_isolate_ppc.R` — 200,000-map joint spatial posterior-predictive sensitivity;
-- `R/local_human_context.R` and `scripts/run_local_human_context.R` — post-selection WorldPop, land-use and road context;
-- `R/did_sensitivity.R` and `scripts/run_did_sensitivity.R` — DID follow-up;
-- `R/candidate_doy_check.R` and `scripts/run_candidate_doy_check.R` — phenology diagnostic;
-- independent validators and audits listed in `paper/active-file-map.csv`.
+- `R/natural_predictive_model.R` and `scripts/run_natural_predictive_model.R` — cross-fitted natural references;
+- `R/local_pigmented_isolates.R` and `scripts/run_local_pigmented_isolates.R` — event definition;
+- `scripts/refine_submission_isolate_null.R` — 10,000-map primary reference;
+- `scripts/run_joint_submission_isolate_ppc.R` — 200,000-map joint posterior-predictive guardrail;
+- `R/local_human_context.R` and `scripts/run_local_human_context.R` — local human contrasts;
+- `R/did_sensitivity.R` and `scripts/run_did_sensitivity.R` — DID context;
+- `R/candidate_doy_check.R` — phenology guardrail;
+- `reproducibility/human_context_final_audit_results_2026-08-11.md` — final propagation/VIF/human-context adjudication.
 
-The manuscript numerical lock is workflow `31258851297`, artifact `9022276431`, SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
+Final high-rep adjudication:
 
-After repository consolidation and validator repair, a clean end-to-end reconstruction also completed successfully as workflow `31358493033`, artifact `9051983081`, SHA-256 `1c0f59829d24e50e7ade64de1130a422525ce40d8b6ec46898b14f5e9cb6ad4d`. This verification run reproduced the 1,965-record source boundary, 1,922-observation phenotype, 1,305 cells, 17 primary candidates and the manuscript-facing Main 3 values. It is retained as an execution verification rather than silently replacing the frozen numerical reference.
+- workflow run `31472542634`;
+- artifact `9094339466`;
+- artifact digest `sha256:413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`.
 
-The causal ceiling is unchanged: the analysis prioritizes local field and provenance targets but does not identify horticultural origin or an additional anthropogenic process.
+The frozen manuscript-facing natural reference remains workflow `31258851297`, artifact `9022276431`, SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
+
+## References added for the human-context interpretation
+
+Choi, M. S. et al. (2012). Breeding of purple flower-colored dwarf ‘Jiknyeo’ from hybridization of *Campanula punctata* Lam. × *Campanula punctata* Lam. var. *rubriflora* Mak. DOI: 10.7235/hort.2012.12015.
+
+Davis, A. J. S. et al. (2016). Accounting for residential propagule pressure improves prediction of urban plant invasion. *Ecosphere* 7:e01232. DOI: 10.1002/ecs2.1232.
+
+Dehnen-Schmutz, K., Touza, J., Perrings, C. & Williamson, M. (2007). A century of the ornamental plant trade and its impact on invasion success. *Diversity and Distributions* 13:527–534. DOI: 10.1111/j.1472-4642.2007.00359.x.
+
+Mair, L. & Ruete, A. (2016). Explaining spatial variation in the recording effort of citizen science data across multiple taxa. *PLoS ONE* 11:e0147796. DOI: 10.1371/journal.pone.0147796.
+
+Stiles, E. A. et al. (2007). Temperature-sensitive anthocyanin production in flowers of *Plantago lanceolata*. *Physiologia Plantarum*. DOI: 10.1111/j.1399-3054.2007.00855.x.

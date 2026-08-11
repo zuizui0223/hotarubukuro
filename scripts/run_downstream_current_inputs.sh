@@ -139,11 +139,15 @@ run_stage report_reanalysis \
 
 # Figure production is normally a separate checksum-locked workflow. When a
 # current figure bundle is present in the same integration workspace, validate
-# it here as well so the downstream integrator remains a legitimate execution
-# route for every current independent validator.
+# the generic file/numerical contract and then the response-specific final Broad
+# coefficient/range lock. Keeping both calls explicit also makes both current
+# independent validators reachable from the downstream integration driver.
 if [[ -s results/jbi_figure_bundle/figure_manifest.csv ]]; then
   run_stage validate_jbi_figure_bundle \
     Rscript validation/validate_jbi_figure_bundle.R \
+      --output results/jbi_figure_bundle
+  run_stage validate_jbi_figure_bundle_final_broad \
+    Rscript validation/validate_jbi_figure_bundle_final_broad.R \
       --output results/jbi_figure_bundle
 fi
 

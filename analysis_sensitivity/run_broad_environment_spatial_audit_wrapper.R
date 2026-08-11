@@ -1,14 +1,11 @@
 #!/usr/bin/env Rscript
 
-# Runtime correction wrapper for the temporary comprehensive Broad audit.
-# It fixes three plumbing defects without changing any model, fold, prior,
-# variable definition or decision rule:
-#   1. the fixed-effect data frame must have one row per observation;
-#   2. forest_fraction is keyed by the current 1-km cell id rather than the
-#      observation-level exact_site_id; and
-#   3. the repeated-observation IID effect must use the same 1-km analysis cell,
-#      because only 38 exact observation sites repeat whereas 1,305 cells
-#      contain the 1,922 observations used by the current paper.
+# Fixed-head wrapper for unresolved Broad completeness guardrails.
+# It fixes the observation-row intercept, joins forest fraction by the current
+# 1-km cell id, uses that same cell for the repeated-observation IID effect,
+# and prunes VPD/SWB/interaction/barrier variants already adjudicated in exact
+# successful artifacts. Remaining models test BIO6, BIO13, forest, coast,
+# DOY/year, image QC, the full extension and the 1-km-cell IID effect.
 
 args <- commandArgs(trailingOnly = TRUE)
 source_path <- "scripts/run_broad_environment_spatial_audit.R"
@@ -17,10 +14,7 @@ text <- paste(readLines(source_path, warn = FALSE, encoding = "UTF-8"), collapse
 
 old_fixed <- "    fixed <- data.frame(intercept = 1, stringsAsFactors = FALSE)"
 new_fixed <- "    fixed <- data.frame(intercept = rep(1, nrow(data)), stringsAsFactors = FALSE)"
-if (length(gregexpr(old_fixed, text, fixed = TRUE)[[1]]) != 1L ||
-    gregexpr(old_fixed, text, fixed = TRUE)[[1]][1] < 0L) {
-  stop("Expected exactly one fixed-effect initialization", call. = FALSE)
-}
+if (!grepl(old_fixed, text, fixed = TRUE)) stop("Fixed-effect initialization not found", call. = FALSE)
 text <- sub(old_fixed, new_fixed, text, fixed = TRUE)
 
 old_join <- paste(
@@ -42,17 +36,36 @@ new_join <- paste(
   "if (any(!is.finite(raw$forest_fraction))) stop(\"Forest fraction did not map to every current 1-km observation cell.\", call. = FALSE)",
   sep = "\n"
 )
-if (!grepl(old_join, text, fixed = TRUE)) {
-  stop("Expected forest-join block was not found", call. = FALSE)
-}
+if (!grepl(old_join, text, fixed = TRUE)) stop("Forest-join block not found", call. = FALSE)
 text <- sub(old_join, new_join, text, fixed = TRUE)
 
 old_iid <- "fixed$site_iid <- as.integer(factor(data$exact_site_id, levels = unique(data$exact_site_id)))"
 new_iid <- "fixed$site_iid <- as.integer(factor(data$cell_id_1km, levels = unique(data$cell_id_1km)))"
-if (!grepl(old_iid, text, fixed = TRUE)) {
-  stop("Expected exact-site IID line was not found", call. = FALSE)
-}
+if (!grepl(old_iid, text, fixed = TRUE)) stop("IID line not found", call. = FALSE)
 text <- sub(old_iid, new_iid, text, fixed = TRUE)
+
+anchor <- "outcomes_all <- list("
+if (!grepl(anchor, text, fixed = TRUE)) stop("Outcome anchor not found", call. = FALSE)
+pruning <- paste(
+  "state_specs <- state_specs[c(",
+  "  'state_additive', 'state_add_bio6', 'state_add_bio13',",
+  "  'state_add_forest', 'state_add_coast', 'state_observation_time',",
+  "  'state_image_qc', 'state_full_extended'",
+  ")]",
+  "intensity_specs <- intensity_specs[c(",
+  "  'intensity_additive', 'intensity_thermal_variability',",
+  "  'intensity_thermal_add_bio6', 'intensity_thermal_add_bio13',",
+  "  'intensity_thermal_add_forest', 'intensity_thermal_add_coast',",
+  "  'intensity_thermal_observation_time', 'intensity_thermal_image_qc',",
+  "  'intensity_thermal_full_extended'",
+  ")]",
+  "spatial_specs <- spatial_specs[spatial_specs$spatial_spec %in% c(",
+  "  'stationary_region', 'stationary_region_site'",
+  "), , drop = FALSE]",
+  "",
+  sep = "\n"
+)
+text <- sub(anchor, paste0(pruning, anchor), text, fixed = TRUE)
 
 tmp <- tempfile(fileext = ".R")
 on.exit(unlink(tmp), add = TRUE)

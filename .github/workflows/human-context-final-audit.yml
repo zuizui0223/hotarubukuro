@@ -144,7 +144,7 @@ jobs:
     name: Population-scale multiplicity guardrail
     needs: audit
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v5
@@ -159,6 +159,14 @@ jobs:
           r-version: ${{ steps.rversion.outputs.version }}
           use-public-rspm: true
 
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
       - name: Restore R package cache
         uses: actions/cache@v4
         with:
@@ -166,12 +174,13 @@ jobs:
           key: current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
           restore-keys: |
             current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
 
-      - name: Restore minimal R environment
+      - name: Restore declared R environment
         run: >-
           Rscript scripts/setup_r_environment.R
           --report-dir reproducibility
-          --scopes analysis,reproducibility
+          --scopes analysis,reproducibility,testing,reporting
 
       - name: Restore checksum-locked reference
         env:

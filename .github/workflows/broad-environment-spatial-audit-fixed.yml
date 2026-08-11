@@ -1,3 +1,4 @@
+# Fixed-head execution copy; scientific code is identical to the parent branch.
 name: Run corrected broad environment and spatial audit
 
 on:

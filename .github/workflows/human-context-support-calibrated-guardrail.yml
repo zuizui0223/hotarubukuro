@@ -1,0 +1,109 @@
+name: Support-calibrated human-context guardrail
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/human-context-support-calibrated-guardrail.yml
+      - analysis_sensitivity/run_human_context_support_calibrated_guardrail.R
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  FIRST_AUDIT_ARTIFACT_ID: "9093580506"
+  FIRST_AUDIT_ARTIFACT_SHA256: "cf1cd75beac6e1ea42857c80722d390e12f1f38f92029f955e187b237e59ab76"
+
+jobs:
+  guardrail:
+    name: Response-blind support calibration and global maxT
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install minimal declared dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript -e 'if (!requireNamespace("jsonlite", quietly=TRUE)) install.packages("jsonlite", repos="https://cloud.r-project.org")'
+
+      - name: Restore checksum-locked reference and first audit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFERENCE_ARTIFACT_ID}/zip" \
+            -o /tmp/reference.zip
+          [[ "$(sha256sum /tmp/reference.zip | awk '{print $1}')" == "$REFERENCE_ARTIFACT_SHA256" ]]
+          mkdir -p reference-artifact
+          unzip -q /tmp/reference.zip -d reference-artifact
+
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FIRST_AUDIT_ARTIFACT_ID}/zip" \
+            -o /tmp/first-audit.zip
+          [[ "$(sha256sum /tmp/first-audit.zip | awk '{print $1}')" == "$FIRST_AUDIT_ARTIFACT_SHA256" ]]
+          mkdir -p first-audit
+          unzip -q /tmp/first-audit.zip -d first-audit
+          test -s first-audit/final8_presence_draws1000.rds
+
+      - name: Run support-calibrated guardrail
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript analysis_sensitivity/run_human_context_support_calibrated_guardrail.R \
+            --reference-root reference-artifact \
+            --audit-root first-audit \
+            --output results/human_context_support_calibrated_guardrail \
+            --draws 1000
+
+      - name: Validate final human-context guardrail
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=results/human_context_support_calibrated_guardrail
+          for file in \
+            validation.json \
+            response_blind_caliper_calibration.csv \
+            graph_registry.csv \
+            candidate_null_support_calibrated.csv \
+            global_human_mechanism_maxT.csv \
+            global_human_decision_table.csv \
+            observation_bias_alternative.csv; do
+            test -s "$root/$file"
+          done
+          grep -q '"status": "PASS"' "$root/validation.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          v=json.loads(Path('results/human_context_support_calibrated_guardrail/validation.json').read_text())
+          assert 0.5 <= v['selected_final8_caliper'] <= 1.2, v
+          assert abs(v['matched_final8_supported_cells'] - v['current_supported_cells']) <= 5, v
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: human-context-support-calibrated-${{ github.sha }}-${{ github.run_id }}
+          path: results/human_context_support_calibrated_guardrail
+          if-no-files-found: error
+          retention-days: 90

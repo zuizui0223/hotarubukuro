@@ -1,0 +1,140 @@
+name: Audit Broad propagation into human context
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/human-context-final-audit.yml
+      - analysis_sensitivity/run_human_context_final_audit.R
+      - R/natural_predictive_model.R
+      - R/candidate_null_tools.R
+      - R/local_pigmented_isolates.R
+      - R/local_human_context.R
+      - reproducibility/human_context_final_audit_spec_2026-08-11.md
+      - dependencies/**
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: human-context-final-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+
+jobs:
+  audit:
+    name: Broad-to-human propagation and reduced human hypotheses
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility
+          --scopes analysis,reproducibility,testing,reporting
+
+      - name: Restore checksum-locked broad and human reference
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf reference-artifact /tmp/reference.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFERENCE_ARTIFACT_ID}/zip" \
+            -o /tmp/reference.zip
+          actual="$(sha256sum /tmp/reference.zip | awk '{print $1}')"
+          [[ "$actual" == "$REFERENCE_ARTIFACT_SHA256" ]]
+          mkdir -p reference-artifact
+          unzip -q /tmp/reference.zip -d reference-artifact
+          test -s reference-artifact/results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv
+          test -s reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s reference-artifact/results/ecological_v16_predictive_replication/checkpoints/national_environment_spde_presence_draws1000.rds
+          test -s reference-artifact/results/ecological_v21_local_human_neighbourhood/human_neighbourhood_cell_features.csv
+          test -s reference-artifact/results/ecological_v22_did_human_context/did_cell_context.csv
+
+      - name: Run final downstream audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript analysis_sensitivity/run_human_context_final_audit.R \
+            --reference-root reference-artifact \
+            --output results/human_context_final_audit \
+            --draws 1000 \
+            --seed 20260811
+
+      - name: Validate audit outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=results/human_context_final_audit
+          for file in \
+            validation.json \
+            vif_threshold_audit.csv \
+            candidate_identity_propagation.csv \
+            candidate_identity_membership.csv \
+            natural_reference_predictive_performance.csv \
+            candidate_null_propagation_summary.csv \
+            reduced_human_context_propagation_summary.csv \
+            human_feature_high_redundancy.csv; do
+            test -s "$root/$file"
+          done
+          grep -q '"status": "PASS"' "$root/validation.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          v=json.loads(Path('results/human_context_final_audit/validation.json').read_text())
+          assert v['baseline_candidate_count'] == 17, v
+          assert 0 <= v['candidate_Jaccard'] <= 1, v
+          assert v['focal_thermal_interaction_VIF'] < 5, v
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: human-context-final-audit-${{ github.sha }}-${{ github.run_id }}
+          path: results/human_context_final_audit
+          if-no-files-found: error
+          retention-days: 90

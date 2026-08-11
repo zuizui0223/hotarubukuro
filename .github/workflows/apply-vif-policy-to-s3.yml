@@ -1,0 +1,28 @@
+name: Apply final VIF policy to S3
+on:
+  push:
+    branches: [agent/human-context-final-audit]
+    paths:
+      - .github/workflows/apply-vif-policy-to-s3.yml
+      - analysis_sensitivity/apply_vif_policy_to_s3.py
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/human-context-final-audit
+          fetch-depth: 0
+      - run: python3 analysis_sensitivity/apply_vif_policy_to_s3.py
+      - shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'values <5 were preferred' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
+          if git diff --quiet -- submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
+          git commit -m 'Clarify graded VIF policy in Appendix S3'
+          git push origin HEAD:agent/human-context-final-audit

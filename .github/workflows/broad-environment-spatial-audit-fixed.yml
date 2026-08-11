@@ -7,6 +7,8 @@ on:
       - .github/workflows/broad-environment-spatial-audit-fixed.yml
       - analysis_sensitivity/run_broad_environment_spatial_audit_wrapper.R
       - scripts/run_broad_environment_spatial_audit.R
+      - reproducibility/broad_environment_spatial_audit_spec_2026-08-11.md
+      - reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv
       - config/raster_sources.csv
       - source_build/download_rasters.R
       - source_build/prepare_rasters.R
@@ -18,7 +20,7 @@ permissions:
 
 concurrency:
   group: broad-environment-spatial-audit-fixed-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   OMP_NUM_THREADS: "1"

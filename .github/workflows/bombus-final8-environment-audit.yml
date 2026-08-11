@@ -23,6 +23,14 @@ jobs:
       BOMB_S_ARTIFACT_SHA256: "3f7ac07ea90e2b732441a9f80a38ea49871014722d008769370524b947007e34"
     steps:
       - uses: actions/checkout@v5
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
       - name: Restore checksum-locked evidence
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -38,7 +46,6 @@ jobs:
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BOMB_S_ARTIFACT_ID}/zip" -o /tmp/bombus.zip
           test "$(sha256sum /tmp/bombus.zip | awk '{print $1}')" = "$BOMB_S_ARTIFACT_SHA256"
           unzip -q /tmp/bombus.zip -d bombus
-          find broad bombus -maxdepth 5 -type f | sort
       - name: Resolve locked input paths
         id: paths
         shell: bash

@@ -1,0 +1,31 @@
+name: Register final human-context audit
+
+on:
+  push:
+    branches: [agent/human-context-final-audit]
+    paths:
+      - .github/workflows/register-final-human-audit.yml
+      - analysis_sensitivity/register_final_human_audit.py
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/human-context-final-audit
+          fetch-depth: 0
+      - run: python3 analysis_sensitivity/register_final_human_audit.py
+      - name: Commit active-file map
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- paper/active-file-map.csv; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add paper/active-file-map.csv
+          git commit -m 'Register final human-context audit files'
+          git push origin HEAD:agent/human-context-final-audit

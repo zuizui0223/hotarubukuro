@@ -1,4 +1,4 @@
-# Fixed-head execution copy; scientific code is identical to the parent branch.
+# Fixed-head reduced execution copy; only unresolved completeness guardrails run.
 name: Run corrected broad environment and spatial audit
 
 on:
@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: broad-environment-spatial-audit-fixed-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   OMP_NUM_THREADS: "1"

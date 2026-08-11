@@ -1,4 +1,4 @@
-# Fixed-head reduced execution copy; only unresolved completeness guardrails run.
+# Fixed-head reduced execution copy; synchronized after PR reopen.
 name: Run corrected broad environment and spatial audit
 
 on:

@@ -6,7 +6,7 @@ This file is the **current manuscript-facing Bombus interpretation**. Superseded
 
 After the national environment+space analysis establishes the broad flower-colour template, the pollinator question changes scale:
 
-> Across abrupt nearby white-pigmented boundaries, does predicted availability of the documented broad focal bumblebee pollinators increase from the white side to the pigmented side?
+> Across abrupt nearby white-pigmented boundaries, does predicted habitat opportunity for the documented broad focal bumblebee pollinators increase from the white side to the pigmented side?
 
 The main test is intentionally local. Bombus SDMs are themselves environmentally structured, so another national regression of flower colour on environment, space and Bombus suitability would not cleanly identify a biotic mechanism. Changing the comparison unit to nearby sharp colour transitions reduces broad geographical confounding by design, while not claiming that all fine-scale environmental confounding has been removed.
 
@@ -19,11 +19,11 @@ The main availability exposure uses only:
 
 These are the broadly distributed, directly documented focal Bombus pollinators used for the directional availability hypothesis.
 
-The three montane/alpine taxa—*B. beaticola*, *B. consobrinus* and *B. honshuensis*—are **not** added to the primary availability maximum. Their niches overlap the same elevational geography in which pigmented flowers are common, so pooling all five would change the estimand from local availability of the documented broad focal pollinators toward broad Bombus niche replacement.
+The three montane/alpine taxa—*B. beaticola*, *B. consobrinus* and *B. honshuensis*—are **not** added to the primary availability maximum. Their niches overlap the same elevational geography in which pigmented flowers are common, so pooling all five would change the estimand from local opportunity of the documented broad focal pollinators toward broad Bombus niche replacement.
 
 Short rule:
 
-> **2 species = directional local availability hypothesis.**  
+> **2 species = directional local habitat-opportunity hypothesis.**  
 > **5 species = supplementary community/biogeographic turnover.**
 
 ## Occurrence-referenced support
@@ -58,21 +58,30 @@ Primary design:
 - maximum radius 5 km;
 - pure observed white-pigmented transitions (`abs(delta pigment_share)=1`);
 - pair selection without Bombus values;
+- pair selection without environmental values;
 - pair selection without using transition direction;
 - greedy non-overlap before orientation;
 - orientation only after selection, white -> pigmented;
 - primary statistic = mean pigmented-minus-white focal-pollinator support;
 - 100,000 sign flips.
 
-Environment is used as a diagnostic rather than as a second local regression or as a post-result pair filter.
+Environment is used only as a descriptive balance diagnostic, not as a second local regression, pair-selection rule, weight or post-result filter. The fixed pairs have now been re-audited using the same eight standardized abiotic axes as the finalized Broad pigmentation-state analysis. At 5 km, selected pure transitions have median eight-axis RMS distance 0.244 versus 0.318 across all eligible local graph edges; the same ordering holds at 10 and 25 km. The historical four-PC distance gives the same qualitative ordering and is retained only as provenance/sensitivity.
 
 Current files:
 
 - `R/local_pair_graph.R`
 - `scripts/run_bombus_local_sharp_transition.R`
 - `.github/workflows/bombus-local-sharp-transition.yml`
+- `analysis_sensitivity/audit_bombus_final8_environment_distance.R`
+- `.github/workflows/bombus-final8-environment-audit.yml`
 - `reproducibility/bombus_local_sharp_transition_current_spec_2026-08-09.md`
 - `reproducibility/bombus_local_sharp_transition_current_results_2026-08-09.md`
+
+Final-eight-axis balance audit:
+
+- workflow run `31538548679`;
+- artifact `9119773035`;
+- SHA-256 `51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f`.
 
 ## Main result and claim ceiling
 
@@ -90,7 +99,7 @@ Primary 5-km pure-transition set:
 
 Therefore the manuscript interpretation is deliberately limited:
 
-> The result is weak, local consistency with a hypothesis that the benefit of maintaining a pigmented floral signal may be greater where important bumblebee pollinators are locally available. It is not evidence of pollinator-mediated selection and does not imply that most colour boundaries follow the same Bombus gradient.
+> The result is weak, local consistency with a hypothesis that the benefit of maintaining a pigmented floral signal may be greater where important bumblebee pollinators have greater local habitat opportunity. It is not evidence of pollinator-mediated selection and does not imply that most colour boundaries follow the same Bombus gradient.
 
 No persuasive local Bombus association is retained for conditional intensity among already pigmented flowers. If the weak local signal is biological, it is therefore more consistent with maintenance/loss of a pigment state than with progressive darkening.
 
@@ -126,6 +135,8 @@ Preferred statement:
 ## Causal ceiling
 
 All Bombus surfaces are environment-based SDM predictions. The present study does not measure realized visitation, abundance, first approach, flower choice, pollen deposition, seed set or fitness.
+
+The final-eight-axis balance audit strengthens the statement that the fixed colour-transition pairs are locally close in the measured Broad abiotic space. It does **not** remove unmeasured microenvironment or the fact that Bombus SDMs themselves are environment-derived.
 
 The next causal tests should target the identified local transition zones with:
 

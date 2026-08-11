@@ -183,3 +183,49 @@ The manuscript numerical lock is workflow `31258851297`, artifact `9022276431`, 
 After repository consolidation and validator repair, a clean end-to-end reconstruction also completed successfully as workflow `31358493033`, artifact `9051983081`, SHA-256 `1c0f59829d24e50e7ade64de1130a422525ce40d8b6ec46898b14f5e9cb6ad4d`. This verification run reproduced the 1,965-record source boundary, 1,922-observation phenotype, 1,305 cells, 17 primary candidates and the manuscript-facing Main 3 values. It is retained as an execution verification rather than silently replacing the frozen numerical reference.
 
 The causal ceiling is unchanged: the analysis prioritizes local field and provenance targets but does not identify horticultural origin or an additional anthropogenic process.
+
+## Final Broad-propagation and human-context robustness audit
+
+The final Broad model review introduced one promoted interaction only for pigmented-only intensity; the pigmentation-state Broad model remained additive. Because the human analysis is based on local **pigmentation-state** departures, there is no direct computational path by which the retained intensity interaction changes candidate selection. Nevertheless, a final guardrail propagated the eight observation-level Broad environmental axes into the cell-level natural reference and environmental matching to test whether the downstream result was definition-sensitive.
+
+### VIF policy
+
+The final audit does not use VIF=5 or VIF=10 as an automatic deletion rule. VIF <5 is preferred; VIF 5–10 requires explicit focal-term, coefficient, spatial and geographical-transfer stability; VIF >10 ordinarily blocks promotion. Under this policy, the pigmentation-state model is unproblematic (maximum VIF 4.430). The conditional-intensity model has maximum VIF 6.340 for Temperature PC1 and 5.233 for Soil PC1, but the retained Temperature PC1 × temperature-seasonality interaction itself has VIF 1.664. Removing the East/West adjustment lowers the maximum VIF below five but worsens full fit and is not supported by blocked transfer, so the regional adjustment is retained rather than deleted to satisfy a mechanical threshold.
+
+### Response-blind environmental-matching propagation
+
+Using the same RMS caliper of one in the eight-axis environmental space increased neighbour support and was not a like-for-like comparison with the four-PC graph. The eight-axis caliper was therefore selected using **only response-blind neighbour support**, never flower colour or human variables. Caliper 0.81 matched the current graph almost exactly: mean neighbour count 3.4835 versus 3.4774 and exactly 657 supported cells in both graphs.
+
+The support-calibrated eight-axis graph still changed candidate composition: 17 candidates were identified in both definitions, but only 15 identities were shared (Jaccard 0.789). Two current candidates were replaced by two alternative candidates. One newly admitted candidate was in approximately the 98th percentile for both 5-km population and built-up context, explaining part of the strengthened human contrast after the environmental definition changed. This is not human-variable leakage—the matching graph uses environmental variables only—but it demonstrates that the human result is sensitive to which natural ecological neighbourhood defines “local departure.”
+
+### Cross-fitted natural-reference comparison
+
+The predeclared multiscale four-PC natural reference remained slightly better than a direct eight-axis refit in the final 10,000-map comparison: mean negative log predictive mass 0.57248 versus 0.57409, AUC 0.86332 versus 0.86033 and Brier score 0.15060 versus 0.15163. The four-PC model is therefore retained as the primary downstream natural reference rather than being replaced merely because the observation-level coefficient model is written using eight environmental axes.
+
+Across current/final-eight-axis natural models and current/support-matched environmental graphs, the observed candidate count remained 17 and was compatible with natural maps (one-sided count P=0.183–0.216). Candidate-fraction two-sided P-values were 0.141–0.191. The frequency of local departures therefore still does not require an additional human process.
+
+### Reduced, mechanism-based human family
+
+The final human audit treats highly correlated composites as descriptive diagnostics rather than independent mechanisms. Artificial-land score is almost identical to artificial-land fraction (Spearman rho approximately 0.986), transport-access score to road proximity (approximately 0.983), and the previous DID-population alignment measures are largely combinations of their component axes. Confirmatory interpretation therefore uses one global maxT family containing population at focal/5/10/25/50-km scales, DID proximity, road proximity, built-up fraction, forest-human edge, and two-sided forest-cover/mountainness alternatives.
+
+Under the **predeclared current four-PC matching**, 5-km population remains the leading contrast (+0.0531 rank units; directional P=0.0305), but the global maxT FWER P is 0.2059 with the current natural model and 0.2366 with the eight-axis refit. This is not familywise support.
+
+Under the **support-calibrated eight-axis matching**, the same short-scale population contrast strengthens (+0.0654). The global maxT FWER P is 0.0463 under the current natural model but 0.0552 under the eight-axis natural model. Population 10 km and DID proximity follow the same direction but do not pass the global correction. Road proximity, built-up fraction and forest-human edge likewise do not provide independent familywise-supported mechanisms.
+
+Accordingly, the alternative eight-axis definition reveals a specific, near-threshold **short-scale settlement-exposure signal**, but that signal is absent after global correction under the predeclared local environmental representation and straddles 0.05 across two defensible natural references. It is a sensitivity result, not a replacement Main effect.
+
+### Ecological interpretation and competing explanations
+
+A short-scale population association has a biologically defensible anthropogenic-exposure interpretation: populated landscapes contain more gardens, planted material and repeated opportunities for human movement of propagules. Horticultural colour material is biologically plausible in this taxon because purple-flowered material has been bred from *Campanula punctata* × var. *rubriflora*. Substantial outcrossing reported in self-incompatible mainland/Oshima populations also makes gene exchange biologically possible if planted and wild material meet.
+
+These facts establish plausibility, not provenance. Population density and road access are also known predictors of citizen-science recording effort, and YAMAP is an opportunistic route-based source. The natural null conditions on observed cells and observation counts and the local effort diagnostics are non-significant (10,000-map maxT P=0.605–0.897 for observation effort and 0.852–0.950 for independent-site support), which weakens a simple “more photographs in candidate cells” explanation. It cannot remove the possibility that accessible/populated landscapes are more likely to enter the source sampling frame at all.
+
+Human context can additionally proxy fine-scale environmental modification rather than provenance. Flower anthocyanin is temperature-sensitive in experimental systems, while gardens and settlements can alter shade, irrigation, substrate and microclimate below the resolution of the national environmental layers. A population association therefore does not distinguish planted/introgressed colour from phenotype plasticity in human-modified local environments.
+
+The final wording is consequently:
+
+> Locally discordant pigmented cells show a suggestive short-scale association with settlement exposure under an alternative, more fully environmental matching definition, but this association is sensitive to the natural-reference/matching specification and does not establish an additional anthropogenic process.
+
+The candidates remain **field/provenance targets, not anthropogenic anomalies**. Direct tests of planting, escape or introgression require local management history, voucher-level morphology, replicated within-population sampling and population-genetic comparison with nearby white populations and horticultural material.
+
+Final audit implementation and numerical provenance are frozen in `reproducibility/human_context_final_audit_results_2026-08-11.md`; the 10,000-map adjudication is workflow `31472542634`, artifact `9094339466`, digest `sha256:413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`.

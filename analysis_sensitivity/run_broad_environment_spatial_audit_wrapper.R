@@ -1,11 +1,14 @@
 #!/usr/bin/env Rscript
 
 # Runtime correction wrapper for the temporary comprehensive Broad audit.
-# It fixes two plumbing defects without changing any model, fold, prior,
+# It fixes three plumbing defects without changing any model, fold, prior,
 # variable definition or decision rule:
-#   1. the fixed-effect data frame must have one row per observation; and
+#   1. the fixed-effect data frame must have one row per observation;
 #   2. forest_fraction is keyed by the current 1-km cell id rather than the
-#      observation-level exact_site_id.
+#      observation-level exact_site_id; and
+#   3. the repeated-observation IID effect must use the same 1-km analysis cell,
+#      because only 38 exact observation sites repeat whereas 1,305 cells
+#      contain the 1,922 observations used by the current paper.
 
 args <- commandArgs(trailingOnly = TRUE)
 source_path <- "scripts/run_broad_environment_spatial_audit.R"
@@ -43,6 +46,13 @@ if (!grepl(old_join, text, fixed = TRUE)) {
   stop("Expected forest-join block was not found", call. = FALSE)
 }
 text <- sub(old_join, new_join, text, fixed = TRUE)
+
+old_iid <- "fixed$site_iid <- as.integer(factor(data$exact_site_id, levels = unique(data$exact_site_id)))"
+new_iid <- "fixed$site_iid <- as.integer(factor(data$cell_id_1km, levels = unique(data$cell_id_1km)))"
+if (!grepl(old_iid, text, fixed = TRUE)) {
+  stop("Expected exact-site IID line was not found", call. = FALSE)
+}
+text <- sub(old_iid, new_iid, text, fixed = TRUE)
 
 tmp <- tempfile(fileext = ".R")
 on.exit(unlink(tmp), add = TRUE)

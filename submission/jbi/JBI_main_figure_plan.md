@@ -17,16 +17,18 @@ Do not put the full YAMAP/iNaturalist/GBIF benchmark in the Main figure; that is
 
 ## Figure 2 — Broad environmental and spatial flower-colour template
 
-**Narrative job:** establish the broad geography and create the reason not to interpret national Bombus map overlap causally.
+**Narrative job:** establish the response-specific broad geography and create the reason not to interpret national Bombus map overlap causally.
 
 Panels:
 
-A. key environmental associations for pigmentation state and conditional intensity;
-B. national fitted/cross-fitted pigmentation geography;
-C. conditional-intensity geography;
-D. spatial-range/predictive-performance summary.
+A. final observation-level environmental associations: additive pigmentation-state model and the conditional-intensity model containing Temperature PC1 × temperature seasonality. The interaction must be visible so the panel does not imply one constant national temperature slope for intensity;
+B. national cross-fitted pigmentation geography from the separately locked 1-km-cell natural predictive reference;
+C. cross-fitted conditional-intensity geography from that same locked predictive reference;
+D. final observation-level residual spatial ranges (state ≈132.8 km; intensity ≈65.7 km) plus the locked geographically blocked predictive-performance cards.
 
-The caption should state that the spatial field is unresolved geography, not a single historical mechanism.
+Panels A/D and B/C deliberately represent two different model layers. A/D answer the observation-level ecological association/spatial-structure question after the final Broad audit. B/C preserve the independently validated cell-level predictive reference used later to calibrate local departures; they are not silently rebuilt when the observation-level interaction model changes.
+
+The caption should state that VPD/SWB and coastline-barrier alternatives did not improve transfer enough to replace the retained models, and that the spatial field is unresolved geography rather than a dispersal estimate or single historical mechanism.
 
 ## Figure 3 — Zoom to sharp local boundaries for the pollinator hypothesis
 

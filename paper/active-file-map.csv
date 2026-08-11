@@ -94,6 +94,7 @@ analysis,Main2,R/local_pair_graph.R,active
 analysis,Main2,scripts/run_bombus_local_sharp_transition.R,active
 workflow,Main2,.github/workflows/bombus-occurrence-reference-support.yml,active
 workflow,Main2,.github/workflows/bombus-local-sharp-transition.yml,active
+workflow,Main2_sensitivity,.github/workflows/bombus-final8-environment-audit.yml,active
 analysis,Supplement,scripts/run_bombus_spatial_replication_test.R,active
 workflow,Supplement,.github/workflows/bombus-spatial-replication-test.yml,active
 source,Bombus_SDM,config/bombus_sdm.yml,active

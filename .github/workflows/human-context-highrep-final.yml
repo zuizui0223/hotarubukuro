@@ -1,0 +1,136 @@
+name: Final 10000-map human-context adjudication
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/human-context-highrep-final.yml
+      - analysis_sensitivity/run_human_context_highrep_final.R
+      - R/natural_predictive_model.R
+      - R/candidate_null_tools.R
+      - R/local_pigmented_isolates.R
+      - R/local_human_context.R
+      - dependencies/**
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: human-context-highrep-final-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+
+jobs:
+  adjudicate:
+    name: Refit final8 and replay 10000 natural maps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility
+          --scopes analysis,reproducibility,testing,reporting
+
+      - name: Restore checksum-locked current reference
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf reference-artifact /tmp/reference.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFERENCE_ARTIFACT_ID}/zip" \
+            -o /tmp/reference.zip
+          [[ "$(sha256sum /tmp/reference.zip | awk '{print $1}')" == "$REFERENCE_ARTIFACT_SHA256" ]]
+          mkdir -p reference-artifact
+          unzip -q /tmp/reference.zip -d reference-artifact
+          test -s reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s reference-artifact/results/ecological_v25_submission_presence/checkpoints/national_environment_spde_presence_draws10000.rds
+          test -s reference-artifact/results/ecological_v21_local_human_neighbourhood/human_neighbourhood_cell_features.csv
+          test -s reference-artifact/results/ecological_v22_did_human_context/did_cell_context.csv
+
+      - name: Run high-rep final adjudication
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript analysis_sensitivity/run_human_context_highrep_final.R \
+            --reference-root reference-artifact \
+            --output results/human_context_highrep_final \
+            --draws 10000 \
+            --seed 20260725
+
+      - name: Validate high-rep evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=results/human_context_highrep_final
+          for file in \
+            validation.json \
+            natural_reference_predictive_performance.csv \
+            response_blind_caliper_calibration.csv \
+            candidate_null_highrep.csv \
+            global_human_mechanism_maxT_highrep.csv \
+            global_human_decision_highrep.csv \
+            observation_bias_alternative_highrep.csv; do
+            test -s "$root/$file"
+          done
+          grep -q '"status": "PASS"' "$root/validation.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          v=json.loads(Path('results/human_context_highrep_final/validation.json').read_text())
+          assert v['n_maps'] == 10000, v
+          assert v['selected_final8_caliper'] == 0.81, v
+          assert v['matched_final8_supported_cells'] == v['current_supported_cells'], v
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: human-context-highrep-final-${{ github.sha }}-${{ github.run_id }}
+          path: results/human_context_highrep_final
+          if-no-files-found: error
+          retention-days: 90

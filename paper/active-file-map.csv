@@ -149,3 +149,8 @@ documentation,results,results/README.md,active
 documentation,YAMAP,docs/yamap-iecology-rationale.md,active
 documentation,Bombus,docs/bombus-inference-current.md,active
 documentation,reproduction,docs/reproduction-guide.md,active
+analysis,Main3_sensitivity,analysis_sensitivity/run_human_context_highrep_final.R,active
+workflow,Main3_sensitivity,.github/workflows/human-context-highrep-final.yml,active
+reproducibility,Main3_final,reproducibility/human_context_final_audit_spec_2026-08-11.md,active
+reproducibility,Main3_final,reproducibility/human_context_final_audit_results_2026-08-11.md,active
+reproducibility,Main3_final,reproducibility/human_context_figure4_final_summary_2026-08-11.csv,active

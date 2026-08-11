@@ -12,7 +12,8 @@ lock_path <- file.path(output_dir, "figure_numerical_lock.csv")
 required <- c(
   manifest_path, source_path, lock_path,
   file.path(output_dir, "README.md"),
-  file.path(output_dir, "figure_data", "panel_source_index.csv")
+  file.path(output_dir, "figure_data", "panel_source_index.csv"),
+  file.path(output_dir, "figure_data", "figure4_final_human_context_scenarios.csv")
 )
 missing <- required[!file.exists(required)]
 if (length(missing)) {
@@ -104,8 +105,10 @@ expected <- c(
   candidate_count_p = 0.1995800420,
   candidate_fraction = 0.0473537604,
   candidate_fraction_p = 0.0873912609,
-  population_5km_maxT_p = 0.0899100899,
-  population_did_alignment_maxT_p = 0.0759240759
+  population_5km_primary_global_maxT_p = 0.205879412058794,
+  population_5km_primary_final8model_global_maxT_p = 0.236576342365763,
+  population_5km_final8match_currentmodel_global_maxT_p = 0.0462953704629537,
+  population_5km_final8match_final8model_global_maxT_p = 0.0551944805519448
 )
 lock_values <- setNames(as.numeric(lock$value), as.character(lock$metric))
 missing_lock <- setdiff(names(expected), names(lock_values))
@@ -127,8 +130,10 @@ lock_tolerance <- c(
   candidate_count_p = 1e-6,
   candidate_fraction = 1e-6,
   candidate_fraction_p = 1e-6,
-  population_5km_maxT_p = 1e-8,
-  population_did_alignment_maxT_p = 1e-8
+  population_5km_primary_global_maxT_p = 1e-10,
+  population_5km_primary_final8model_global_maxT_p = 1e-10,
+  population_5km_final8match_currentmodel_global_maxT_p = 1e-10,
+  population_5km_final8match_final8model_global_maxT_p = 1e-10
 )
 add_check(
   "current_submission_numerical_lock",
@@ -137,6 +142,27 @@ add_check(
     "missing=", paste(missing_lock, collapse = ";"),
     "maximum_scaled_difference=",
     if (length(missing_lock)) "Inf" else max(lock_difference / pmax(lock_tolerance, 1e-15))
+  )
+)
+
+human_final <- hb_read_csv(
+  file.path(output_dir, "figure_data", "figure4_final_human_context_scenarios.csv")
+)
+expected_configurations <- c(
+  "current_model_current_graph",
+  "current_model_final8_support_matched",
+  "final8_model_current_graph",
+  "final8_model_final8_support_matched"
+)
+add_check(
+  "figure4_final_human_context_scenarios",
+  nrow(human_final) == 4L &&
+    setequal(as.character(human_final$configuration), expected_configurations) &&
+    all(as.integer(human_final$n_null_draws) == 10000L) &&
+    all(as.integer(human_final$n_candidates) == 17L),
+  paste(
+    "rows=", nrow(human_final),
+    "configs=", paste(as.character(human_final$configuration), collapse = ";")
   )
 )
 

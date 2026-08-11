@@ -20,7 +20,8 @@ source("analysis_sensitivity/run_human_context_highrep_final.R", local = FALSE)
 required_objects <- c(
   "cells", "final8_model", "final_env", "make_graph", "run_one",
   "current_graph", "matched_graph", "features", "definitions",
-  "effort", "effort_def", "output_dir", "n_draws", "seed"
+  "effort", "effort_def", "output_dir", "n_draws", "seed",
+  "candidate_membership"
 )
 missing_objects <- required_objects[!vapply(required_objects, exists, logical(1), inherits = TRUE)]
 if (length(missing_objects)) {
@@ -86,8 +87,8 @@ primary_decision <- data.frame(
   supported_cells = sum(primary_graph$support$supported),
   mean_neighbours = mean(primary_graph$support$n_neighbours),
   best_population_scale = best_population$feature[1],
-  best_population_contrast = best_population$observed_contrast[1],
-  best_population_directional_p = best_population$empirical_p[1],
+  best_population_contrast = best_population$observed_focal_minus_white_neighbour[1],
+  best_population_directional_p = best_population$directional_or_two_sided_p[1],
   best_population_global_FWER = best_population$maxT_FWER_p[1],
   best_global_human_feature = best_human$feature[1],
   best_global_human_FWER = best_human$maxT_FWER_p[1],

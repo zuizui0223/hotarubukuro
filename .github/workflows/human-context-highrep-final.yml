@@ -1,4 +1,4 @@
-name: Final 10000-map human-context adjudication
+name: Current-Broad-primary 10000-map human-context adjudication
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/human-context-highrep-final.yml
       - analysis_sensitivity/run_human_context_highrep_final.R
+      - analysis_sensitivity/run_human_context_current_broad_primary.R
       - R/natural_predictive_model.R
       - R/candidate_null_tools.R
       - R/local_pigmented_isolates.R
@@ -17,7 +18,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: human-context-highrep-final-${{ github.ref }}
+  group: human-context-current-broad-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -33,7 +34,7 @@ env:
 
 jobs:
   adjudicate:
-    name: Refit final8 and replay 10000 natural maps
+    name: Final8 Broad primary plus legacy sensitivities
     runs-on: ubuntu-24.04
     timeout-minutes: 360
 
@@ -93,17 +94,17 @@ jobs:
           test -s reference-artifact/results/ecological_v21_local_human_neighbourhood/human_neighbourhood_cell_features.csv
           test -s reference-artifact/results/ecological_v22_did_human_context/did_cell_context.csv
 
-      - name: Run high-rep final adjudication
+      - name: Run current-Broad-primary high-rep adjudication
         shell: bash
         run: |
           set -euo pipefail
-          Rscript analysis_sensitivity/run_human_context_highrep_final.R \
+          Rscript analysis_sensitivity/run_human_context_current_broad_primary.R \
             --reference-root reference-artifact \
             --output results/human_context_highrep_final \
             --draws 10000 \
             --seed 20260725
 
-      - name: Validate high-rep evidence
+      - name: Validate current-Broad-primary evidence
         shell: bash
         run: |
           set -euo pipefail
@@ -115,22 +116,37 @@ jobs:
             candidate_null_highrep.csv \
             global_human_mechanism_maxT_highrep.csv \
             global_human_decision_highrep.csv \
-            observation_bias_alternative_highrep.csv; do
+            observation_bias_alternative_highrep.csv \
+            current_broad_primary_validation.json \
+            current_broad_primary_graph_registry.csv \
+            current_broad_primary_graph_support.csv \
+            current_broad_primary_candidate_null.csv \
+            current_broad_primary_human_maxT.csv \
+            current_broad_primary_observation_bias.csv \
+            current_broad_primary_candidate_membership.csv \
+            current_broad_primary_candidate_overlap_audit.csv \
+            current_broad_primary_decision.csv; do
             test -s "$root/$file"
           done
           grep -q '"status": "PASS"' "$root/validation.json"
+          grep -q '"status": "PASS"' "$root/current_broad_primary_validation.json"
           python3 - <<'PY'
           import json
           from pathlib import Path
-          v=json.loads(Path('results/human_context_highrep_final/validation.json').read_text())
-          assert v['n_maps'] == 10000, v
-          assert v['selected_final8_caliper'] == 0.81, v
-          assert v['matched_final8_supported_cells'] == v['current_supported_cells'], v
+          old=json.loads(Path('results/human_context_highrep_final/validation.json').read_text())
+          cur=json.loads(Path('results/human_context_highrep_final/current_broad_primary_validation.json').read_text())
+          assert old['n_maps'] == 10000, old
+          assert cur['n_maps'] == 10000, cur
+          assert cur['primary_definition']['rms_caliper'] == 1, cur
+          assert cur['primary_definition']['radius_km'] == 10, cur
+          assert cur['primary_definition']['minimum_neighbours'] == 3, cur
+          assert cur['primary_definition']['selection_uses_human_variables'] is False, cur
+          assert cur['candidate_count'] > 0, cur
           PY
 
       - uses: actions/upload-artifact@v4
         with:
-          name: human-context-highrep-final-${{ github.sha }}-${{ github.run_id }}
+          name: human-context-current-broad-${{ github.sha }}-${{ github.run_id }}
           path: results/human_context_highrep_final
           if-no-files-found: error
           retention-days: 90

@@ -1,0 +1,44 @@
+name: Apply final human-context manuscript synchronization
+
+on:
+  push:
+    branches:
+      - agent/human-context-final-audit
+    paths:
+      - .github/workflows/apply-final-human-context-manuscript.yml
+      - analysis_sensitivity/apply_final_human_context_manuscript_patch.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/human-context-final-audit
+          fetch-depth: 0
+      - name: Apply deterministic manuscript patch
+        run: python3 analysis_sensitivity/apply_final_human_context_manuscript_patch.py
+      - name: Verify expected final claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'global maxT FWER was 0.0463' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'VIF was treated as a diagnostic rather than a mechanical deletion threshold' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'Dehnen-Schmutz' submission/jbi/JBI_main_manuscript_anonymized.md
+      - name: Commit synchronized manuscript
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- submission/jbi/JBI_main_manuscript_anonymized.md; then
+            echo 'No manuscript changes required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add submission/jbi/JBI_main_manuscript_anonymized.md
+          git commit -m 'Sync Main manuscript with final human-context audit'
+          git push origin HEAD:agent/human-context-final-audit

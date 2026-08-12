@@ -148,8 +148,11 @@ jobs:
             inputs/canonical_snapshot.json; do
             test ! -e "$path"
           done
+          # Historical four-PC/17-candidate sensitivity descriptions are allowed
+          # when explicitly labelled as provenance. Reject only wording that
+          # presents the superseded 17-candidate result as current/fixed.
           ! grep -R -n --exclude-dir=legacy --exclude-dir=.git \
-            -E '17 fixed local-departure|Observed candidates: 17|four-PC.*primary' \
+            -E '17 fixed local-departure|Observed candidates: 17|current primary[^[:cntrl:]]*17 candidates|primary[^[:cntrl:]]*17 candidates' \
             paper submission/jbi reproducibility .github/workflows
 
       - name: Write current stage manifest

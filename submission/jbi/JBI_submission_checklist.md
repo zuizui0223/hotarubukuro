@@ -13,13 +13,13 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 ## Length and front matter
 
 - Main-text target: <=6,000 words.
-  - Current Introduction-through-Discussion count = **5,034 words** by repository validator.
+  - Current Introduction-through-Discussion count = **5,072 words** by repository validator.
 - Title: <=115 characters including spaces; no abbreviations or Latin binomial.
   - Current title = 92 characters.
 - Running title: <40 characters.
   - Current running title = 34 characters.
 - Structured abstract: <=300 words under **Aim, Location, Taxon, Methods, Results, Main conclusions**.
-  - Current abstract = **292 words** by repository validator.
+  - Current abstract = **291 words** by repository validator.
 - Keywords: 6–10, alphabetical.
   - Current count = 8.
 

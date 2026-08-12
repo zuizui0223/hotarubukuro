@@ -9,10 +9,10 @@ This Appendix documents the finalized broad geographical component of the paper 
 
 The Broad stage contains measured environment and continuous space only. Bombus SDMs are not inserted as national environmental covariates, and human-context variables do not enter this stage.
 
-Two modelling layers remain conceptually distinct but are now explicitly aligned where the paper requires them to connect.
+Two modelling layers remain conceptually distinct but are explicitly aligned where the paper requires them to connect.
 
 - The **observation-level INLA-SPDE models** estimate broad environmental associations, response-specific interactions and residual spatial covariance.
-- The **1-km-cell cross-fitted pigmentation-state reference** generates natural predictive maps for Main 3. Its primary environmental basis is now the same finalized eight measured abiotic axes used by the Broad state analysis. The current downstream event detector therefore uses the finalized eight-axis state space and yields 16 observed local-departure candidates. The historical four-PC broad/within-neighbourhood formulation and its 17-candidate set are retained only as sensitivity/provenance in Appendix S6 and under `legacy/`.
+- The **1-km-cell cross-fitted pigmentation-state reference** generates natural predictive maps for Main 3. Its environmental basis is the same finalized eight measured abiotic axes used by the Broad state analysis, and the resulting event detector yields 16 observed local-departure candidates.
 
 The image response is a reproducible display-referred CIELAB phenotype. Neither pigmentation state nor conditional a* intensity is interpreted as a direct assay of anthocyanin concentration, anthocyanin identity, vacuolar pH, spectral reflectance, ultraviolet contrast, petal temperature or Bombus colour contrast.
 
@@ -171,7 +171,7 @@ The ranges are descriptive residual spatial scales, not seed or pollen dispersal
 
 ## Current 1-km natural reference passed to Main 3
 
-The downstream predictive layer is distinct from the observation-level coefficient model but has now been deliberately aligned with the finalized pigmentation-state environment.
+The downstream predictive layer is distinct from the observation-level coefficient model but is deliberately aligned with the finalized pigmentation-state environment.
 
 The primary 1-km model uses:
 
@@ -183,9 +183,7 @@ The primary 1-km model uses:
 
 Main 3 defines environmental similarity using root-mean-square Euclidean distance across those same eight standardized axes, with radius 10 km, RMS caliper <=1 and at least three eligible neighbours. East/West is not an abiotic matching dimension; it remains a structural geographical adjustment. Human variables do not enter the natural model, matching graph, candidate selection or ranking.
 
-Under this current-Broad definition, the observed data contain **16** local pigmented departures. Replaying the identical event detector over 10,000 natural maps gives a null mean candidate count of 13.5908 (95% interval 7–21; Monte Carlo P=0.27897) and a candidate-fraction upper-tail P=0.12609. Full event and post-selection human results are reported in Appendix S6.
-
-The former broad/within-50-km four-PC representation, its 17-candidate set and associated 2026-08-09/11 outputs are not alternative current primaries. They are retained only as sensitivity/provenance under Appendix S6 and `legacy/reproducibility-development/`.
+Under this definition, the observed data contain **16** local pigmented departures. Replaying the identical event detector over 10,000 natural maps gives a null mean candidate count of 13.5908 (95% interval 7–21; Monte Carlo P=0.27897) and a candidate-fraction upper-tail P=0.12609. Full event and post-selection human results are reported in Appendix S6.
 
 ## Ecological interpretation and claim ceiling
 
@@ -217,5 +215,3 @@ The integrated downstream handoff is locked in:
 - `reproducibility/final_integrated_pipeline_2026-08-12.md`;
 - `reproducibility/current_broad_human_primary_2026-08-12.md`;
 - Appendix S6.
-
-Superseded four-PC/17-candidate implementations and numerical records have been moved out of the current interface to `legacy/reproducibility-development/`.

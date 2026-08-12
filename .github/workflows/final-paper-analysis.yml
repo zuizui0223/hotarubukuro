@@ -1,207 +1,159 @@
-name: Final paper integration - broad fine anomaly
+name: Final integrated paper pipeline
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - .github/workflows/final-paper-analysis.yml
       - paper/**
       - submission/jbi/**
-      - scripts/run_bombus_local_sharp_transition.R
-      - scripts/run_bombus_spatial_replication_test.R
-      - reproducibility/final_paper_pipeline_2026-08-09.md
-      - reproducibility/yamap_public_database_benchmark_*.md
+      - reproducibility/final_integrated_pipeline_2026-08-12.md
+      - reproducibility/current_broad_human_primary_2026-08-12.md
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/final-paper-analysis.yml
+      - paper/**
+      - submission/jbi/**
+      - reproducibility/final_integrated_pipeline_2026-08-12.md
+      - reproducibility/current_broad_human_primary_2026-08-12.md
 
 permissions:
   contents: read
   actions: read
 
 env:
-  FRESH_REANALYSIS_ARTIFACT_ID: "9022276431"
-  FRESH_REANALYSIS_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
-  EFFECTIVE_BOMBUS_ARTIFACT_ID: "9023137743"
-  EFFECTIVE_BOMBUS_SHA256: "d04c561b09b652591b9b479f6e26a779bb562c7c1b5f9b14e61d5e7ca8e2794b"
-  YAMAP_BENCHMARK_ARTIFACT_ID: "9031041034"
-  YAMAP_BENCHMARK_SHA256: "3e53669395cfd926a0942b3488f844720dca2cb97b9ea210627262691e69f31a"
-  YAMAP_BENCHMARK_AUDIT_ARTIFACT_ID: "9031085975"
-  YAMAP_BENCHMARK_AUDIT_SHA256: "d0318948afd82895f2452ab9e89a549e285d0dd347220db15ea4d6ecae060bde"
+  BROAD_ARTIFACT_ID: "9022276431"
+  BROAD_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  LOCAL_BOMBUS_ARTIFACT_ID: "9023416810"
+  LOCAL_BOMBUS_ARTIFACT_SHA256: "3f7ac07ea90e2b732441a9f80a38ea49871014722d008769370524b947007e34"
+  BOMB_FINAL8_AUDIT_ARTIFACT_ID: "9119773035"
+  BOMB_FINAL8_AUDIT_SHA256: "51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f"
+  HUMAN_CURRENT_BROAD_ARTIFACT_ID: "9119306089"
+  HUMAN_CURRENT_BROAD_ARTIFACT_SHA256: "f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4"
 
 jobs:
-  integrate-final-paper:
+  validate-integrated-current:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
-      - name: Read pinned R version
-        id: rversion
-        shell: bash
-        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
-
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: ${{ steps.rversion.outputs.version }}
-          use-public-rspm: true
-
-      - name: Restore frozen broad/anomaly reference
+      - name: Restore checksum-locked current evidence
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --retry 5 --retry-all-errors \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FRESH_REANALYSIS_ARTIFACT_ID}/zip" \
-            -o /tmp/fresh-reanalysis.zip
-          [[ "$(sha256sum /tmp/fresh-reanalysis.zip | awk '{print $1}')" == "$FRESH_REANALYSIS_SHA256" ]]
-          unzip -q -o /tmp/fresh-reanalysis.zip -d "$GITHUB_WORKSPACE"
-          test -s results/reanalysis_current_inputs/reanalysis_overview.csv
-          test -s results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          restore() {
+            local id="$1" expected="$2" zip="$3" out="$4"
+            rm -rf "$out" "$zip"
+            mkdir -p "$out"
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" \
+              -o "$zip"
+            [[ "$(sha256sum "$zip" | awk '{print $1}')" == "$expected" ]]
+            unzip -q "$zip" -d "$out"
+          }
+          restore "$BROAD_ARTIFACT_ID" "$BROAD_ARTIFACT_SHA256" /tmp/broad.zip evidence/broad
+          restore "$LOCAL_BOMBUS_ARTIFACT_ID" "$LOCAL_BOMBUS_ARTIFACT_SHA256" /tmp/bombus.zip evidence/bombus
+          restore "$BOMB_FINAL8_AUDIT_ARTIFACT_ID" "$BOMB_FINAL8_AUDIT_SHA256" /tmp/bomb-final8.zip evidence/bombus-final8
+          restore "$HUMAN_CURRENT_BROAD_ARTIFACT_ID" "$HUMAN_CURRENT_BROAD_ARTIFACT_SHA256" /tmp/human.zip evidence/human
 
-      - name: Restore frozen occurrence-referenced focal-pollinator support
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - name: Validate current numerical hierarchy
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --retry 5 --retry-all-errors \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${EFFECTIVE_BOMBUS_ARTIFACT_ID}/zip" \
-            -o /tmp/effective-bombus.zip
-          [[ "$(sha256sum /tmp/effective-bombus.zip | awk '{print $1}')" == "$EFFECTIVE_BOMBUS_SHA256" ]]
-          unzip -q -o /tmp/effective-bombus.zip -d "$GITHUB_WORKSPACE"
-          test -s results/ecological_v17_bombus_effective_availability_refined/cell_effective_bombus_support.csv
+          cells=$(find evidence/broad -type f -name multiscale_hotspot_cells_1km.csv | head -n 1)
+          sharp=$(find evidence/bombus -type f -name sharp_transition_summary.csv | head -n 1)
+          env_audit=$(find evidence/bombus-final8 -type f -name bombus_pair_environment_distance_audit.csv | head -n 1)
+          decision=$(find evidence/human -type f -name current_broad_primary_decision.csv | head -n 1)
+          null=$(find evidence/human -type f -name current_broad_primary_candidate_null.csv | head -n 1)
+          maxt=$(find evidence/human -type f -name current_broad_primary_human_maxT.csv | head -n 1)
+          for p in "$cells" "$sharp" "$env_audit" "$decision" "$null" "$maxt"; do test -n "$p" && test -s "$p"; done
 
-      - name: Restore frozen YAMAP benchmark and provider audit
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl --fail --location --retry 5 --retry-all-errors \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${YAMAP_BENCHMARK_ARTIFACT_ID}/zip" \
-            -o /tmp/yamap-benchmark.zip
-          [[ "$(sha256sum /tmp/yamap-benchmark.zip | awk '{print $1}')" == "$YAMAP_BENCHMARK_SHA256" ]]
-          unzip -q -o /tmp/yamap-benchmark.zip -d "$GITHUB_WORKSPACE"
+          python3 - "$cells" "$sharp" "$env_audit" "$decision" "$null" "$maxt" <<'PY'
+          import csv, sys
+          cells, sharp, env_audit, decision, null, maxt = sys.argv[1:]
+          def rows(path):
+              with open(path, encoding='utf-8') as f:
+                  return list(csv.DictReader(f))
+          assert len(rows(cells)) == 1305
 
-          curl --fail --location --retry 5 --retry-all-errors \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${YAMAP_BENCHMARK_AUDIT_ARTIFACT_ID}/zip" \
-            -o /tmp/yamap-benchmark-audit.zip
-          [[ "$(sha256sum /tmp/yamap-benchmark-audit.zip | awk '{print $1}')" == "$YAMAP_BENCHMARK_AUDIT_SHA256" ]]
-          unzip -q -o /tmp/yamap-benchmark-audit.zip -d "$GITHUB_WORKSPACE"
+          focal = [r for r in rows(sharp) if str(r.get('focal_strict_local_test','')).lower() in ('true','t','1')]
+          assert len(focal) == 1
+          r = focal[0]
+          assert int(float(r['radius_km'])) == 5
+          assert int(float(r['n_nonoverlapping_pairs'])) == 67
+          assert abs(float(r['mean_pigmented_minus_white']) - 0.03590) < 5e-5
 
-      - name: Re-run Main 2 local focal-pollinator test
-        shell: bash
-        run: |
-          set -euo pipefail
-          Rscript scripts/run_bombus_local_sharp_transition.R \
-            --radii 5,10,25 \
-            --thresholds 1,0.75,0.5 \
-            --k 5 \
-            --randomisations 100000 \
-            --seed 20260808 \
-            --output results/ecological_v18_bombus_local_sharp_transition
+          audit = [r for r in rows(env_audit) if abs(float(r['radius_km'])-5) < 1e-9 and abs(float(r['transition_threshold'])-1) < 1e-9]
+          assert len(audit) == 1
+          assert float(audit[0]['median_selected_final8']) < float(audit[0]['median_all_local_edges_final8'])
 
-      - name: Re-run supplementary Bombus boundary and montane guardrails
-        shell: bash
-        run: |
-          set -euo pipefail
-          Rscript scripts/run_bombus_spatial_replication_test.R \
-            --radii 5,10,25 \
-            --background-windows 25,50,100 \
-            --control-counts 10,20,50 \
-            --k 5 \
-            --randomisations 100000 \
-            --seed 20260809 \
-            --output results/ecological_v19_bombus_spatial_replication_test
+          d = rows(decision)
+          assert len(d) == 1 and int(float(d[0]['candidate_count'])) == 16
 
-      - name: Validate current paper hierarchy
+          n = {r['metric']: r for r in rows(null)}
+          assert abs(float(n['candidate_count']['observed_value']) - 16) < 1e-9
+          assert abs(float(n['candidate_count']['empirical_p']) - 0.27897) < 5e-5
+
+          h = {r['feature']: r for r in rows(maxt)}
+          p5 = h['population_5km_rank']
+          assert abs(float(p5['observed_focal_minus_white_neighbour']) - 0.06744) < 5e-5
+          assert abs(float(p5['maxT_FWER_p']) - 0.05479) < 5e-5
+          PY
+
+      - name: Validate manuscript and Supporting Information alignment
         shell: bash
         run: |
           set -euo pipefail
           python submission/jbi/validate_jbi_submission.py
-          test -s paper/README.md
-          test -s paper/analysis-map.md
-          test -s paper/active-file-map.csv
-          test -s submission/jbi/JBI_main_manuscript_anonymized.md
-          test -s submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md
-          grep -q '1,964' submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md
-          grep -q '389/393' submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md
+          grep -q '1,922' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q '67 sharp transitions' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'Sixteen local departures' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q '0.0548' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'same eight measured abiotic axes' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
+          grep -q '67' submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md
+          grep -q '16' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+          grep -q 'final_integrated_pipeline_2026-08-12' paper/analysis-map.md
 
-          python - <<'PY'
-          import json
-          p='results/yamap_public_database_benchmark_audit/corrected_overlap_summary.json'
-          with open(p, encoding='utf-8') as f:
-              x=json.load(f)
-          assert x['YAMAP_author_screened_rows'] == 1964
-          assert x['YAMAP_unique_image_hashes'] == 1963
-          assert x['iNaturalist_photo_geo_observations'] == 516
-          assert x['iNaturalist_research_grade'] == 472
-          assert x['GBIF_human_observation_photo_geo_records'] == 393
-          assert x['GBIF_provider_overlap']['iNaturalist_syndicated'] == 389
-          PY
-
-          Rscript - <<'RS'
-          overview <- read.csv("results/reanalysis_current_inputs/reanalysis_overview.csv", stringsAsFactors = FALSE)
-          getv <- function(section, metric) overview$value[overview$section == section & overview$metric == metric][1]
-          stopifnot(as.integer(getv("population", "source_rows")) == 1965L)
-          stopifnot(as.integer(getv("population", "phenotype_analysis_rows")) == 1922L)
-          stopifnot(as.integer(getv("population", "cells_1km")) == 1305L)
-          stopifnot(as.integer(getv("phenotype", "white_observations")) == 966L)
-          stopifnot(as.integer(getv("phenotype", "pigmented_observations")) == 956L)
-          stopifnot(as.integer(getv("local_isolates", "candidate_count")) == 17L)
-
-          sharp <- read.csv("results/ecological_v18_bombus_local_sharp_transition/sharp_transition_summary.csv")
-          focal <- sharp[sharp$focal_strict_local_test, , drop = FALSE]
-          stopifnot(nrow(focal) == 1L, focal$radius_km == 5, focal$n_nonoverlapping_pairs == 67L)
-
-          montane <- read.csv("results/ecological_v19_bombus_spatial_replication_test/montane_equal_elevation_guardrail.csv")
-          guard <- montane[montane$elevation_difference_limit_m == 50 & montane$subset == "all_pure_transitions", , drop=FALSE]
-          stopifnot(nrow(guard) == 3L, all(guard$mean_pigmented_minus_white_montane_support <= 0))
-          RS
-
-      - name: Write current paper stage manifest
+      - name: Reject superseded current-interface claims
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p results/final_paper_pipeline
-          cat > results/final_paper_pipeline/README.md <<'EOF'
-          # Current paper integration
+          test ! -e reproducibility/final_paper_pipeline_2026-08-09.md
+          test ! -e reproducibility/current_broad_anomaly_reference_2026-08-09.md
+          test ! -e reproducibility/human_context_final_audit_results_2026-08-11.md
+          test ! -e analysis_sensitivity/run_human_context_highrep_final.R
+          ! grep -R -n --exclude-dir=legacy --exclude-dir=.git \
+            -E '17 fixed local-departure|Observed candidates: 17|four-PC.*primary' \
+            paper submission/jbi reproducibility .github/workflows
 
-          Main hierarchy:
-          1. YAMAP/iEcology quantitative trait data layer
-          2. Broad environment + space natural template
-          3. Local focal-Bombus availability at sharp colour boundaries
-          4. Event-based local departures + post-selection human context
-
-          Supplement: public-source benchmark, five-species community boundary correspondence, montane/elevation guardrail and robustness families.
+      - name: Write current stage manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/final_integrated_pipeline
+          cp reproducibility/final_integrated_pipeline_2026-08-12.md results/final_integrated_pipeline/
+          cp paper/active-file-map.csv results/final_integrated_pipeline/
+          cat > results/final_integrated_pipeline/workflow_provenance.txt <<EOF
+          workflow=final-paper-analysis
+          run=${GITHUB_RUN_ID}
+          commit=${GITHUB_SHA}
+          broad_artifact=${BROAD_ARTIFACT_ID}
+          local_bombus_artifact=${LOCAL_BOMBUS_ARTIFACT_ID}
+          bombus_final8_audit_artifact=${BOMB_FINAL8_AUDIT_ARTIFACT_ID}
+          human_current_broad_artifact=${HUMAN_CURRENT_BROAD_ARTIFACT_ID}
           EOF
-          cp paper/active-file-map.csv results/final_paper_pipeline/active-file-map.csv
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: current-paper-integration-${{ github.sha }}-${{ github.run_id }}
-          path: |
-            paper
-            submission/jbi
-            results/final_paper_pipeline
-            results/reanalysis_current_inputs
-            results/yamap_public_database_benchmark
-            results/yamap_public_database_benchmark_audit
-            results/ecological_v18_bombus_local_sharp_transition
-            results/ecological_v19_bombus_spatial_replication_test
-            reproducibility/final_paper_pipeline_2026-08-09.md
-            reproducibility/yamap_public_database_benchmark_spec_2026-08-09.md
-            reproducibility/yamap_public_database_benchmark_results_2026-08-09.md
+          name: final-integrated-paper-${{ github.sha }}-${{ github.run_id }}
+          path: results/final_integrated_pipeline
           if-no-files-found: warn
           retention-days: 90

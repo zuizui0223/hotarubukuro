@@ -148,3 +148,5 @@ These IDs lock the manuscript-facing evidence. Use them for an exact audit; use 
 - YAMAP benchmark: run/artifact `31289927019` / `9031041034`; provider-overlap audit `31290095532` / `9031085975`
 
 Integrated cross-file validation is run by `.github/workflows/final-paper-analysis.yml`.
+
+Canonical integrated lock: `reproducibility/final_integrated_pipeline_2026-08-12.md`.

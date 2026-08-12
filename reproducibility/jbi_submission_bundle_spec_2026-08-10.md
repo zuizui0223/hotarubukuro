@@ -1,105 +1,90 @@
 # JBI review/submission bundle specification
 
-Date: 2026-08-10
+Updated: 2026-08-12
 
 ## Purpose
 
-This specification defines the generated delivery layer for the current Journal of Biogeography submission. It does not define a new analysis and does not replace any manuscript evidence lock.
+This file defines the generated delivery layer for the current *Journal of Biogeography* submission. Scientific definitions live in the manuscript, Supporting Information and analysis/evidence map; this specification records how those sources are assembled and validated for review.
 
-The source-of-truth remains:
+Source of truth:
 
-- current anonymous manuscript and Appendices S1–S6 under `submission/jbi/`;
-- the current four-figure source/validator workflow;
-- checksum-locked broad/anomaly and local focal-pollinator artifacts;
-- the current JBI textual validator and active-file map.
+- `submission/jbi/JBI_main_manuscript_anonymized.md`;
+- `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md` through `Appendix_S6_event_departures_human_context.md`;
+- `paper/analysis-map.md`;
+- `paper/active-file-map.csv`;
+- `reproducibility/final_integrated_pipeline_2026-08-12.md`.
 
-## Frozen figure input
+## Current figure input
 
-The delivery workflow restores the successful current Main-figure artifact:
+The submission workflow restores the checksum-locked Main-figure artifact produced from the current figure renderer and current evidence hierarchy:
 
-- figure workflow run: `31375294535`;
-- figure artifact: `9057707602`;
-- artifact SHA-256: `a1b2d44c09b5dd7d00f73dcab4232128936e9bfd5f8af7c433a617ad114968eb`;
-- source figure head: `aae380cfae669058d5df27d8d8eed95c8f378a3c`.
+- figure workflow run: `31559274663`;
+- figure artifact: `9127198711`;
+- artifact SHA-256: `ff5d43e8f71224261b8b74ddb2d6e24a66a4f2349ad53fb72032118492bca924`;
+- source figure commit: `8f1b80d7994f948e16050edf217ad16c9e513df8`.
 
-The artifact contains four validated 600-dpi PNGs, four vector PDFs, source hashes and the manuscript numerical lock.
+The artifact contains four validated 600-dpi PNGs, four vector PDFs, source hashes and the manuscript numerical lock. Figure maps include explicit scale information and panel labels follow the current JBI-facing convention.
 
 ## Generated files
 
 `python scripts/build_jbi_submission_bundle.py` creates:
 
-1. `01_Main_Manuscript_Anonymized.docx`, containing the current Main text plus Figure 1–4 legends and embedded PNGs;
-2. `02_Supporting_Information_Appendices_S1-S6.docx`, one combined editable SI file;
-3. separate title-page and cover-letter DOCX templates;
-4. optional Japanese translated-abstract DOCX;
-5. a current Bombus SDM/model-building checklist DOCX;
+1. `01_Main_Manuscript_Anonymized.docx`, with the current Main text, Figure 1–4 legends and embedded PNGs;
+2. `02_Supporting_Information_Appendices_S1-S6.docx`;
+3. title-page and cover-letter DOCX templates;
+4. Japanese translated-abstract DOCX;
+5. Bombus SDM/model-building checklist DOCX;
 6. four separate PNG/PDF figure pairs;
-7. readiness JSON/Markdown, file manifest and one ZIP archive.
+7. readiness JSON/Markdown, file manifest and delivery ZIP.
 
 ## Acceptance checks
 
-`python scripts/validate_jbi_submission_bundle.py` independently requires:
+`python scripts/validate_jbi_submission_bundle.py` independently checks:
 
 - six structurally valid DOCX files;
-- exactly four embedded images in the anonymized Main DOCX;
-- all required Main sections and Appendices S1–S6;
-- no known identifying repository/author strings in the anonymized Main XML;
-- four valid PNG and four valid PDF signatures;
-- byte-size and SHA-256 agreement with the generated file manifest;
-- a ZIP containing every required upload-oriented file;
-- an explicit readiness record that distinguishes anonymous scientific completeness from portal readiness.
+- exactly four embedded Main figures;
+- required Main sections and Appendices S1–S6;
+- absence of known identifying strings from anonymized Main XML;
+- valid PNG/PDF signatures;
+- byte-size and SHA-256 agreement with the generated manifest;
+- complete ZIP contents;
+- explicit separation of anonymous scientific completeness from author-controlled portal readiness.
 
-The GitHub workflow additionally converts all six DOCX files through LibreOffice and requires one non-empty PDF plus a rendered first-page PNG per document.
-
-## Successful main artifact lock
-
-The generated delivery layer was rebuilt successfully from the merged `main` commit:
-
-- source commit: `e9c129498fd8d0c17b4984534e076435e1f727b2`;
-- workflow run: `31381244625`;
-- Actions artifact: `9059952715`;
-- Actions artifact digest: `sha256:61411d89d2fb13acb6f1a69d853442ca99da30269069e6d902c584a210452c2a`;
-- inner delivery ZIP SHA-256: `ed1e77f5ac7201121844f944f8f16ff49c3681af1071923d0955d65902705811`;
-- inner delivery ZIP size: 8,646,444 bytes;
-- generated file-manifest entries: 20;
-- independent bundle-validation status: `PASS`;
-- anonymous scientific bundle complete: `true`;
-- portal ready: `false`.
-
-The main artifact contains:
-
-- Main manuscript: 13 rendered pages and four embedded figures;
-- combined Supporting Information: 24 rendered pages and Appendices S1–S6;
-- title page: 1 rendered page;
-- cover letter: 1 rendered page;
-- Japanese translated abstract: 1 rendered page;
-- SDM/model-building checklist: 3 rendered pages;
-- four separate 600-dpi PNG and four vector PDF figures.
-
-The complete generated package was reviewed page by page before merge. Scientific notation (`a*`, `L*`, `C*`), Markdown emphasis, Japanese glyphs, title-page numbering, wide candidate-table wrapping and final-page paragraph flow were checked in the rendered documents.
-
-## Readiness semantics
-
-`review_science_bundle_complete=true` means the anonymous scientific files, figures and SI have been assembled and validated.
-
-`portal_ready=false` is expected until author-controlled information is completed and approved. Known blockers include:
-
-- author order, names, ORCIDs, affiliations and corresponding-author details;
-- acknowledgements, funding, conflict of interest and CRediT contributions;
-- cover-letter sign-off;
-- randomized private-for-peer-review Dryad/equivalent URL;
-- required author-owned or permission-cleared taxon image;
-- any disclosure required under the current Wiley/JBI AI-generated-content policy.
-
-The builder must never infer or silently fill these fields.
+The GitHub workflow additionally converts all generated DOCX files through LibreOffice and requires non-empty rendered PDFs and first-page previews.
 
 ## Scientific invariance
 
-Generating or reformatting the delivery package must not change:
+Packaging and reformatting must preserve the adopted evidence hierarchy:
 
-- the 1,922-observation phenotype population;
-- the two-part phenotype or a*=4.968780 boundary;
-- broad environment/space estimates;
-- the 67-pair focal 5-km Bombus test;
-- the 17 local-departure candidates;
-- any P value, artifact identity or claim ceiling.
+- 1,922 environment-complete phenotype observations in 1,305 1-km cells;
+- the two-part phenotype and a*=4.968780 boundary;
+- finalized response-specific Broad environment/spatial models;
+- 67-pair focal 5-km Bombus boundary test;
+- final-eight-axis local-event definition;
+- 16 observed local-departure candidates;
+- 10,000-map natural calibration;
+- 5-km population-context global maxT FWER P=0.05479;
+- all associated claim ceilings.
+
+The submission builder does not choose among analyses and does not reinterpret results.
+
+## Readiness semantics
+
+`review_science_bundle_complete=true` means the anonymous scientific files, figures and Supporting Information have been assembled and structurally validated.
+
+`portal_ready=false` remains expected until authors complete and approve:
+
+- author order, names, ORCIDs, affiliations and corresponding-author details;
+- acknowledgements and funding;
+- conflict-of-interest statement;
+- CRediT contributions;
+- cover-letter sign-off;
+- randomized private-for-peer-review data/code URL;
+- required permission-cleared taxon image;
+- any disclosure required by the current Wiley/JBI policy.
+
+The builder must never infer these author-controlled fields.
+
+## Public reproducibility principle
+
+The repository-facing documentation points readers to the adopted analysis and its exact evidence rather than requiring them to reconstruct the project's development sequence. Historical development material may remain under `legacy/` for provenance, but it is outside the public reproduction path.

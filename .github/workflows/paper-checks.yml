@@ -9,6 +9,7 @@ on:
       - submission/jbi/**
       - R/**
       - scripts/**
+      - analysis_sensitivity/**
       - source_build/**
       - validation/**
       - tests/**
@@ -22,6 +23,7 @@ on:
       - config/**
       - .github/workflows/**
       - README.md
+      - FINAL_PIPELINE_SUPP_MANUSCRIPT_AUDIT_2026-08-12.md
       - legacy/**
   pull_request:
     branches: [main]
@@ -62,8 +64,9 @@ jobs:
 
           closed_roots = (
               '.github/workflows', 'paper', 'submission/jbi', 'R', 'scripts',
-              'source_build', 'validation', 'tests', 'config', 'dependencies',
-              'inputs', 'data', 'results', 'docs', 'reproducibility'
+              'analysis_sensitivity', 'source_build', 'validation', 'tests',
+              'config', 'dependencies', 'inputs', 'data', 'results', 'docs',
+              'reproducibility'
           )
           for root in closed_roots:
               files = {str(p) for p in Path(root).rglob('*') if p.is_file()}
@@ -94,8 +97,10 @@ jobs:
           assert not unexpected_python, 'unexpected setup-python runtime: ' + ', '.join(unexpected_python)
 
           root_files = {
-              p for p in ('README.md', 'Data_S1.csv', 'Code_S1.py', 'pyproject.toml')
-              if Path(p).is_file()
+              p for p in (
+                  'README.md', 'Data_S1.csv', 'Code_S1.py', 'pyproject.toml',
+                  'FINAL_PIPELINE_SUPP_MANUSCRIPT_AUDIT_2026-08-12.md'
+              ) if Path(p).is_file()
           }
           assert not sorted(root_files - active), 'unmapped current root entry point'
 
@@ -118,8 +123,6 @@ jobs:
           assert not syntax_failures, 'active file syntax validation failed: ' + ' | '.join(syntax_failures)
 
           # Reachability is a graph, not a hard-coded historical orchestration list.
-          # Seed from active workflows, then recursively follow literal references
-          # to current top-level scripts and validators.
           current_scripts = sorted(
               str(p) for p in Path('scripts').iterdir()
               if p.is_file() and p.name != 'README.md'
@@ -213,10 +216,13 @@ jobs:
             scripts/run_local_human_context.R \
             scripts/run_did_sensitivity.R \
             scripts/run_candidate_doy_check.R \
+            scripts/canonical_snapshot.sh \
+            inputs/canonical_snapshot.json \
             reproducibility/final_paper_pipeline_2026-08-09.md \
             reproducibility/current_broad_anomaly_reference_2026-08-09.md \
             reproducibility/human_context_final_audit_results_2026-08-11.md \
-            analysis_sensitivity/run_human_context_highrep_final.R; do
+            analysis_sensitivity/run_human_context_highrep_final.R \
+            analysis_sensitivity/run_human_context_current_broad_primary.R; do
             test ! -e "$path" || { echo "superseded current-interface file remains: $path" >&2; exit 1; }
           done
 
@@ -224,8 +230,12 @@ jobs:
           test -s "$root/README.md"
           test -s "$root/reanalysis-current-inputs.yml"
           test -s "$root/scripts/run_downstream_current_inputs.sh"
+          test -s "$root/scripts/canonical_snapshot.sh"
+          test -s "$root/inputs/canonical_snapshot.json"
           test -s "$root/validation/validate_local_pigmented_isolates.R"
+          test -s "$root/R/candidate_doy_check.R"
           test -s legacy/reproducibility-development/superseded-human-primary-2026-08-11/README.md
+          test -s legacy/reproducibility-development/superseded-human-primary-2026-08-11/run_human_context_current_broad_primary.R
           test -s legacy/reproducibility-development/pre-final-broad-integration/final_paper_pipeline_2026-08-09.md
 
       - name: Confirm current replacements
@@ -241,7 +251,7 @@ jobs:
           test -s .github/workflows/human-context-highrep-final.yml
           test -s .github/workflows/final-paper-analysis.yml
           grep -q '16' reproducibility/current_broad_human_primary_2026-08-12.md
-          grep -q 'final-eight-axis' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
+          grep -Eq 'finalized eight-axis|same eight measured abiotic axes|eight-axis' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
           grep -q '67' submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md
           grep -q '0.0548' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
           grep -q '2 species = directional local availability hypothesis' docs/bombus-inference-current.md

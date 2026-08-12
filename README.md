@@ -12,8 +12,9 @@ For readers who want to reproduce or audit the study:
 
 - **Scientific overview and exact entry points:** [`paper/README.md`](paper/README.md)
 - **Analysis-to-evidence map:** [`paper/analysis-map.md`](paper/analysis-map.md)
-- **Machine-readable active-file registry:** [`paper/active-file-map.csv`](paper/active-file-map.csv)
 - **Reproduction guide:** [`docs/reproduction-guide.md`](docs/reproduction-guide.md)
+- **Data_S1 dictionary:** [`docs/data-s1-dictionary.md`](docs/data-s1-dictionary.md)
+- **Machine-readable active-file registry:** [`paper/active-file-map.csv`](paper/active-file-map.csv)
 - **Current submission sources:** [`submission/jbi/`](submission/jbi/)
 
 ## What is reproducible
@@ -38,7 +39,7 @@ The repository distinguishes three things explicitly:
 - **third-party inputs** that must be reacquired or restored from declared sources/artifacts;
 - **generated outputs** that should be reproducible from the declared workflow and locked evidence.
 
-Original YAMAP photographs are third-party content and are **not redistributed**. `Data_S1.csv` is the distributable derived observation/trait table used by the analysis.
+Original YAMAP photographs are third-party content and are **not redistributed**. `Data_S1.csv` is the distributable derived observation/trait table used by the analysis; its public columns and provenance fields are documented in [`docs/data-s1-dictionary.md`](docs/data-s1-dictionary.md).
 
 ## Transparency and validation
 

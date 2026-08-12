@@ -1,127 +1,102 @@
-# JBI narrative dependency architecture
+# Whole-paper narrative and writing rules
 
-## Editorial principle
+This file is an editorial guide. It keeps the manuscript readable and stops the analysis history from taking over the biology.
 
-The manuscript should read as one ecological investigation of **how a geographically structured flower-colour polymorphism is differentiated, potentially maintained and locally modified**, not as four methods that happen to share a species. Each analytical layer must increase biological resolution and change what the next result can mean.
+## The story in four acts
 
-The Main text should preserve three simultaneous truths:
+### Act 1. Make the polymorphism visible
 
-1. the data source, phenotype construction and analytical design contain genuine methodological novelty;
-2. the biological conclusions remain bounded by the resolution of macroecological observational data; and
-3. the paper's strongest contribution is the way those layers progressively narrow adaptive, demographic, biotic and contemporary hypotheses.
+We build a national quantitative flower-colour dataset from YAMAP photographs.
 
-The reader should remember the polymorphism and its unresolved mechanisms. Methodological safeguards explain why the biological narrowing is credible; they are not the climax.
+Payoff: white/pigmented state and colour intensity can be studied separately.
 
-## The four ecological-resolution layers
+### Act 2. Ask how environment and geography relate to the two colour traits
 
-### 1. YAMAP / iEcology — make the polymorphism visible
+State and intensity show different broad patterns.
 
-Ecological contribution:
-- recovers a dense, contemporary, georeferenced image record of a mountain herb from a non-biodiversity recreational platform;
-- converts screened photographs into a quantitative national phenotype rather than an occurrence count;
-- reveals two biologically interpretable response layers: pigmentation state and pigmented-only intensity.
+Payoff: flower colour is not one simple white-to-dark axis. Thermal and moisture patterns generate physiological hypotheses; remaining spatial structure generates population-genetic hypotheses.
 
-Methodological contribution:
-- matched public-database benchmark;
-- taxon/flower/ROI validation, image-hash and coordinate audit, deterministic RGB–CIELAB extraction and explicit QC.
+### Act 3. Zoom in for the Bombus question
 
-Dependency:
-- without this layer, the national polymorphism cannot be resolved at the scale required to distinguish state from intensity;
-- the mountain-route sampling frame later returns as both a strength for natural geography and a limitation for the human-context gradient.
+We test bumblebee habitat opportunity at nearby white-pigmented boundaries rather than in the national environmental model.
 
-### 2. Broad environment + continuous space — locate the candidate adaptive landscape
+Payoff: the signal is weak and local. If it is biological, it fits maintenance of a pigmented state better than progressive darkening.
 
-Ecological contribution:
-- shows that pigmentation state and intensity occupy different environmental organizations;
-- identifies thermal, moisture and terrain contexts that can motivate adaptive/plasticity hypotheses;
-- exposes substantial residual regional structure that cannot be assigned from geography alone to environment or history.
+### Act 4. Ask whether local exceptions need another explanation
 
-Methodological contribution:
-- response-specific INLA-SPDE models retain continuous residual geography rather than forcing arbitrary regional random effects;
-- geographically blocked transfer, collinearity rules and interaction adjudication prevent in-sample pattern from being promoted automatically.
+We define pigmented departures without human variables and compare them with 10,000 natural maps.
 
-Dependency:
-- Broad structure makes clear why a national Bombus-SDM coefficient would remain mechanistically ambiguous;
-- the residual SPDE geography becomes a target for future ancestry/admixture tests rather than a named historical mechanism;
-- the cross-fitted natural reference later defines what a local colour departure means.
+Payoff: 16 observed departures are not unusually common. Human context therefore remains a provenance follow-up, not the main explanation of the national pattern.
 
-### 3. Local focal-Bombus opportunity — test a maintenance hypothesis at the scale where it is interpretable
+## What the reader should remember
 
-Ecological contribution:
-- asks whether local reproductive opportunity could modify maintenance or loss of a visible pigmented state;
-- finds only weak, magnitude-driven local correspondence and no persuasive intensity relationship;
-- uses the montane/elevation result to show that visually strong national co-distribution can be shared habitat geography rather than pollinator mechanism.
+The final biological model is simple:
 
-Methodological contribution:
-- changes spatial scale and comparison unit instead of adding another environment-derived national predictor;
-- fixes white–pigmented pairs without Bombus values or environmental matching;
-- uses occurrence-referenced habitat support while explicitly stopping below realized visitation or selection.
+- climate may change the physiological value or expression of pigmentation;
+- local pollinators may change its reproductive value;
+- population history can move or preserve variants;
+- human movement may occasionally modify local patterns.
 
-Dependency:
-- the analysis is motivated by confounding exposed in the Broad stage;
-- the two-part phenotype becomes biologically decisive because the possible correspondence concerns state, not progressive darkening;
-- direct visitation, pollen transfer and fitness become the next mechanistic resolution.
-
-### 4. Natural-map departures + contemporary human context — turn apparent anomalies into testable provenance questions
-
-Ecological contribution:
-- asks whether locally discordant pigmentation is more frequent than expected under the fitted natural geography;
-- shows that 16 visually surprising configurations are not collectively excessive under natural predictive maps;
-- identifies only a near-threshold short-scale settlement association, motivating contemporary provenance or local-modification hypotheses rather than anthropogenic-origin claims.
-
-Methodological contribution:
-- replaces residual-threshold anomaly hunting with a relational ecological event;
-- replays the same detector across 10,000 natural maps;
-- fixes candidate identities before examining human variables.
-
-Dependency:
-- a local departure has meaning only relative to the Broad natural reference;
-- the final sites become a bridge from macroecological discovery to field history, local environment and genomic assignment.
-
-## Ecological dependency chain
-
-The Main argument should read as:
-
-`an unresolved geographical colour polymorphism`
-→ becomes measurable from an alternative image stream
-→ separates into pigmentation state and intensity
-→ reveals a broad candidate abiotic landscape plus unresolved regional continuity
-→ shows why environment-derived pollinator overlap cannot be interpreted nationally
-→ forces a scale shift to local state boundaries
-→ narrows any plausible Bombus role to weak local maintenance/loss of pigmentation
-→ defines local colour discordance against the natural template
-→ shows that apparent anomalies can arise naturally
-→ leaves a small set of contemporary provenance targets
-→ specifies the experiments, visitation measurements and genomic comparisons needed to test adaptation and history directly.
-
-No link should be introduced as "we also analysed...". Each transition should show how the previous result makes the next ecological question sharper.
+The paper does not prove all four mechanisms. It narrows where each one should be tested next.
 
 ## Main-text rule
 
-For each layer, retain:
+For each section, keep only:
 
-1. the biological question;
-2. the ecological reason the comparison scale is appropriate;
-3. the principal result;
-4. the adaptive or historical hypothesis that result narrows;
-5. the resolution limit;
-6. the next direct test that follows from that limit.
+1. the question;
+2. the minimum method needed to understand the comparison;
+3. the main result;
+4. what the result means biologically;
+5. what it does not show;
+6. the next direct test.
 
-Methodological novelty should be visible where it solves an ecological inferential problem, not repeated as self-justification.
+Put tuning grids, full sensitivity families, VIF detail, artifact provenance and most negative controls in Supporting Information.
 
-## Discussion rule
+## Plain-English style
 
-Discussion should climb in biological resolution:
+Use short sentences and concrete verbs.
 
-1. **The polymorphism itself has more than one ecological layer.** State and intensity cannot be treated as a single white-to-dark axis.
-2. **Broad geography defines candidate adaptive contexts, not adaptation.** Macroenvironment narrows thermal/moisture hypotheses while residual space motivates demographic/genomic tests.
-3. **Any focal-bumblebee contribution is local and state-centred.** The evidence is consistent with maintenance/loss of pigmentation, not regional darkening, and is weak enough to require direct visitation and fitness tests.
-4. **Strong-looking map overlap can be non-mechanistic.** The montane result demonstrates shared geography empirically.
-5. **Contemporary human context is a possible overlay, not a fourth national driver.** Local departures are first natural-map calibrated; the settlement result generates a provenance hypothesis.
-6. **Macroecology ends by designing the microecology.** Each macro signal maps onto a concrete experiment, field measurement or genomic comparison.
+Good:
 
-The final paragraph should answer the biological question, then open the next mechanistic programme. It should not end by celebrating the workflow itself.
+> We selected the pairs before reading Bombus values.
 
-## Pitch to editors
+Avoid:
 
-The manuscript contributes a new quantitative geography of an intraspecific floral polymorphism and uses it to refine competing ecological explanations across scales. Its conceptual advance is not that environment, pollinators, space and humans were all analysed, but that **different components and possible maintenance processes of one polymorphism become interpretable only after changing spatial resolution and comparison unit**. The broader biogeographical principle is that macro-scale trait maps are most powerful when they locate the scales, populations and mechanisms in which adaptive explanations can subsequently be tested directly.
+> Pair identification was undertaken under a response-blind and exposure-blind selection framework.
+
+Good:
+
+> The spatial field may contain population history, but it is not a genetic map.
+
+Avoid:
+
+> The latent spatial component should be interpreted as an agnostic residual biogeographic structure with a bounded inferential ceiling.
+
+## Phrases to use sparingly
+
+These are not forbidden, but repeated use makes the text sound generated:
+
+- Taken together
+- Importantly
+- Notably
+- More broadly
+- This framework
+- This architecture
+- This distinction matters
+- It is worth noting
+- therefore / thus at the start of every paragraph
+
+Prefer to state the result directly.
+
+## ADHD / fast-reader test
+
+A reader who only reads:
+
+- section headings;
+- the first sentence of each paragraph;
+- Figure 1-4;
+- the final Discussion section
+
+should still understand the whole paper.
+
+If that reader cannot explain the story, the prose is still too dependent on transitions or technical detail.

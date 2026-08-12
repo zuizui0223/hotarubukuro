@@ -1,140 +1,98 @@
-# Current paper — scientific and reproducibility entry point
+# Current paper — start here
 
-This page is the **single entry point** for the adopted analysis. A reader should be able to move from the biological question to the exact code, evidence and validation route without reconstructing project development history.
+This is the **single entry point** for the biology of the current paper. For exact scripts, evidence files and artifact IDs, use [`paper/analysis-map.md`](analysis-map.md).
 
-## Paper in one line
+## The biological question
 
-`YAMAP/iEcology -> two-part flower-colour phenotype -> broad environment + space -> local focal-Bombus boundary test -> final-eight-axis natural-map departures -> post-selection human context`
+Why do white and pigmented flowers of *Campanula punctata* vary across Japan?
 
-## Submission sources
+The paper tests whether different parts of flower colour respond to different ecological processes. It separates:
 
-- manuscript: `submission/jbi/JBI_main_manuscript_anonymized.md`
-- title page: `submission/jbi/JBI_title_page_template.md`
-- cover letter: `submission/jbi/JBI_cover_letter.md`
-- Figure 1–4 captions/plan: `submission/jbi/JBI_main_figure_captions.md`, `submission/jbi/JBI_main_figure_plan.md`
-- Supporting Information: `submission/jbi/supporting/`
-- Japanese translated abstract: `submission/jbi/JBI_translated_abstract_ja.md`
-- submission validator: `submission/jbi/validate_jbi_submission.py`
+- **pigmentation state:** white-like versus visibly pigmented;
+- **colour intensity:** how strong the visible colour is after pigmentation is present.
 
-## 1. YAMAP / iEcology phenotype layer
+The study then asks four questions.
 
-**Question:** can a recreational, GPS-linked image stream support a quantitative national trait dataset after explicit taxon, flower and image-quality review?
+## 1. Can we measure the polymorphism across Japan?
 
-The environment-complete integrated analysis contains **1,922 observations**. The phenotype is constructed before ecological predictors enter and has two responses: white/pigmented state and visible intensity conditional on pigmentation.
+We built the dataset from YAMAP hiking photographs.
 
-Key files:
+Every retrieved candidate was screened by the authors. We checked the taxon, focal flower, usable petal region, coordinates and duplicate images before extracting colour.
 
-- `Data_S1.csv`
-- `Code_S1.py`
-- `source_build/build_data_s1.py`
-- `source_build/extract_color.py`
-- `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md`
-- `submission/jbi/supporting/Appendix_S2_image_phenotyping.md`
+**Current analysis:** 1,922 observations in 1,305 1-km cells; 966 white-like and 956 pigmented.
 
-The public-database benchmark characterizes the sampling frame and observation process; it is not a claim that YAMAP is unbiased occurrence sampling.
+**Why this matters:** the study does not rely on an existing trait database. The national quantitative phenotype was constructed for this project.
 
-## 2. Broad environment + spatial template
+Details: Appendices S1-S2.
 
-**Question:** what measured environmental and continuous spatial structure organizes pigmentation state and visible intensity among pigmented flowers across Japan?
+## 2. How do environment and geography relate to flower colour?
 
-Analysis population: **1,922 observations in 1,305 1-km cells; white-like=966; pigmented=956**.
+We fitted separate spatial models for pigmentation state and colour intensity.
 
-Adopted models:
+Main result:
 
-- state: eight measured abiotic axes + East/West + stationary SPDE, additive environmental structure;
-- conditional intensity: the same framework + Temperature PC1 × temperature-seasonality.
+- pigmentation was less likely in warmer climates;
+- among pigmented flowers, intensity depended on Temperature PC1 × temperature seasonality and was lower in wetter and more rugged environments;
+- substantial spatial structure remained after measured environment.
 
-Key execution/evidence:
+**What this means:** state and intensity are not one simple white-to-dark ecological axis.
 
-- `scripts/run_environment_interaction_inla_screen.R`
-- `.github/workflows/environment-interaction-inla-screen.yml`
-- `scripts/run_broad_environment_spatial_audit.R`
-- `analysis_sensitivity/run_broad_environment_spatial_audit_wrapper.R`
-- `.github/workflows/broad-environment-spatial-audit.yml`
-- `reproducibility/broad_environment_spatial_final_model_2026-08-11.md`
-- `submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md`
+**What it does not mean:** the models do not prove local adaptation or identify the residual spatial field as population history.
 
-VIF is used as a graded stability diagnostic. Model promotion also requires geographical-transfer evidence rather than fit statistics alone.
+Details: Appendix S3.
 
-## 3. Local focal-Bombus boundary test
+## 3. Do bumblebees help explain local white-pigmented boundaries?
 
-**Question:** do abrupt nearby white-pigmented transitions align directionally with predicted habitat opportunity for the broad focal pollinators *Bombus ardens* and *B. diversus*?
+We did not add Bombus SDMs to the national environmental model. Those SDMs are themselves built from environmental data, so national overlap can be hard to interpret.
 
-Pair identities are selected without Bombus information. The primary design contains **67 pure non-overlapping transitions within 5 km**. The occurrence-referenced pigmented-minus-white support contrast is +0.03590 on average; one-sided sign-flip P=0.02716, three-scale BH q=0.08148, median=-0.00277 and 49.3% of pairs are positive. The manuscript therefore treats this as weak local correspondence, not evidence of pollinator-mediated selection.
+Instead, we selected nearby white-pigmented boundaries first and read Bombus support only afterwards.
 
-Key files:
+**Primary design:** 67 non-overlapping pure transitions within 5 km.
 
-- `scripts/build_bombus_occurrence_reference_support.R`
-- `scripts/run_bombus_local_sharp_transition.R`
-- `.github/workflows/bombus-occurrence-reference-support.yml`
-- `.github/workflows/bombus-local-sharp-transition.yml`
-- `analysis_sensitivity/audit_bombus_final8_environment_distance.R`
-- `.github/workflows/bombus-final8-environment-audit.yml`
-- `submission/jbi/supporting/Appendix_S4_bombus_sdm_occurrence_support.md`
-- `submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md`
+**Result:** mean focal-Bombus contrast +0.03590; median -0.00277; 49.3% positive pairs; P=0.02716; q=0.08148 across the three main scales.
 
-The final-eight-axis environmental-distance analysis is a diagnostic of the already fixed pairs; it does not select or weight them.
+**Interpretation:** weak local correspondence only. If it is biological, it fits local maintenance of a pigmented state better than progressive darkening.
 
-## 4. Calibrated local departures and human context
+Details: Appendices S4-S5.
 
-**Question:** how often does the finalized natural state reference generate locally discordant pigmented cells, and what human context characterizes independently selected observed events?
+## 4. Are local pigmented departures unusual, and do they have a human context?
 
-Primary event definition:
+We defined a local event before looking at any human variable: a pigmented cell surrounded by at least three nearby, environmentally similar white cells.
 
-- pigmented focal cell;
-- at least three neighbours within 10 km;
-- standardized RMS distance <=1 across the finalized eight abiotic axes;
-- all eligible observed neighbours are white.
+The same detector was replayed on 10,000 predictive maps.
 
-Human variables are absent from event selection.
+**Result:** 16 observed departures; count P=0.27897; candidate-fraction P=0.12609.
 
-Current evidence:
+So the observed number is not unusual under the natural model.
 
-- **16 observed candidates**;
-- candidate-count natural-map P=0.27897;
-- candidate-fraction upper-tail P=0.12609;
-- 5-km population exposure contrast +0.06744, directional P=0.00800, global maxT FWER P=0.05479;
-- observation-effort and independent-source-support alternatives are null after maxT.
+Only then did we test human context. Population exposure within 5 km was the strongest feature (+0.06744; directional P=0.00800), but global maxT FWER P=0.05479.
 
-These events are field/provenance targets, not demonstrated anthropogenic anomalies.
+**Interpretation:** these sites are good provenance targets, not demonstrated anthropogenic anomalies.
 
-Key files:
+Details: Appendix S6.
 
-- `R/natural_predictive_model.R`
-- `R/candidate_null_tools.R`
-- `R/local_pigmented_isolates.R`
-- `R/local_human_context.R`
-- `analysis_sensitivity/run_human_context_current_broad_primary_fast.R`
-- `.github/workflows/human-context-highrep-final.yml`
-- `reproducibility/current_broad_human_primary_2026-08-12.md`
-- `submission/jbi/supporting/Appendix_S6_event_departures_human_context.md`
+## The ecological story
 
-## 5. Supporting evidence hierarchy
+The working model is simple:
 
-- **S1:** YAMAP/public-database benchmark and observation-process framing
-- **S2:** deterministic image phenotyping and measurement QC
-- **S3:** broad environmental/spatial model and guardrails
-- **S4:** Bombus SDM source, calibration and occurrence-reference transformation
-- **S5:** local Bombus robustness, environmental-balance diagnostic, community turnover and elevation guardrails
-- **S6:** local departures, 10,000-map calibration, global-maxT human context and observation-process alternatives
+1. climate changes the physiological context of anthocyanin pigmentation;
+2. local pollinators may change the reproductive value of visible pigmentation;
+3. population history can preserve or move colour variants across space;
+4. human movement may occasionally add a local source.
 
-Supporting analyses constrain the claim ceiling; they are not additional Main mechanisms.
+The current data do not prove those mechanisms. They tell us where to test them next.
 
-## 6. Reproduction and evidence locks
+- temperature/moisture gradients → common-garden and reciprocal-transplant experiments;
+- residual spatial geography → population genomics, ancestry and admixture;
+- local Bombus boundaries → visitation, pollen transfer and seed set;
+- 16 departures → field history, vouchers and genomic provenance.
 
-Use these in order:
+## What to read next
 
-1. `paper/analysis-map.md` — maps each scientific claim to the evidence/workflow used by the manuscript.
-2. `docs/reproduction-guide.md` — explains how to restore or rerun each stage.
-3. `paper/active-file-map.csv` — machine-readable registry of the current public interface.
-4. `reproducibility/final_integrated_pipeline_2026-08-12.md` — canonical integrated numerical/evidence lock.
-5. `.github/workflows/final-paper-analysis.yml` — checks that Broad, Bombus, local-departure and manuscript/SI evidence agree.
+- **Exact result → evidence mapping:** [`analysis-map.md`](analysis-map.md)
+- **How to rerun each stage:** [`../docs/reproduction-guide.md`](../docs/reproduction-guide.md)
+- **Current manuscript:** [`../submission/jbi/JBI_main_manuscript_anonymized.md`](../submission/jbi/JBI_main_manuscript_anonymized.md)
+- **Supporting Information:** [`../submission/jbi/supporting/`](../submission/jbi/supporting/)
+- **Data dictionary:** [`../docs/data-s1-dictionary.md`](../docs/data-s1-dictionary.md)
 
-Large raster-derived and predictive-draw inputs are restored by checksum rather than silently reacquired from mutable external services. A refreshed external source is treated as a new analysis.
-
-## 7. Data availability boundary
-
-- `Data_S1.csv` is the distributable derived trait/source table.
-- Original YAMAP photographs are third-party content and are not redistributed.
-- Source-construction utilities and declared external inputs live under `source_build/`, `config/` and the reproduction guide.
-- Random seeds, model/event definitions, artifact identities and claim ceilings are versioned.
+Original YAMAP photographs are third-party content and are not redistributed. `Data_S1.csv` is the public derived trait/source table.

@@ -13,13 +13,13 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 ## Length and front matter
 
 - Main-text target: <=6,000 words.
-  - Current Introduction-through-Discussion count = **5,072 words** by repository validator.
+  - Current Introduction-through-Discussion count = **3,215 words** by repository validator.
 - Title: <=115 characters including spaces; no abbreviations or Latin binomial.
   - Current title = 92 characters.
 - Running title: <40 characters.
   - Current running title = 34 characters.
 - Structured abstract: <=300 words under **Aim, Location, Taxon, Methods, Results, Main conclusions**.
-  - Current abstract = **291 words** by repository validator.
+  - Current abstract = **287 words** by repository validator.
 - Keywords: 6–10, alphabetical.
   - Current count = 8.
 
@@ -90,12 +90,12 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 
 ## Pre-submission scientific checks
 
-- Main narrative contains only the three inferential acts: broad template -> local focal-pollinator test -> calibrated local departures/human follow-up.
-- Discussion explicitly returns those acts to the ecological question of how flower-colour polymorphism is differentiated and potentially maintained across scales, without claiming direct evidence of adaptation.
+- Main text follows one biological sequence: national phenotype -> broad environment/space -> local focal-Bombus test -> calibrated local departures -> human follow-up.
+- Discussion returns to the ecological meaning of anthocyanin pigmentation: possible physiological function, reproductive signalling, spatially varying costs/benefits and persistence of the polymorphism.
 - The final synthesis maps broad environmental associations to common-garden/fitness tests, residual spatial geography to population genomics, SDM correspondence to realized pollination measurements, and local departures to provenance/genomic follow-up.
 - Five-species community turnover remains Supporting Information.
-- High-elevation Bombus remains a negative guardrail, not a second positive mechanism.
-- Main Bombus result is labelled weak/local and includes the median/sign/raw/scale fragility in the same Results section.
+- High-elevation Bombus remains a negative control, not a second positive mechanism.
+- Main Bombus result is labelled weak/local and reports its median, sign proportion, scale attenuation and raw-support failure.
 - No claim that SDM support equals realized visitation or selection.
 - No claim that YAMAP removes observer bias or that every mountain photograph is wild.
 - No claim that the **16 current-Broad departures** are anthropogenic or more frequent than the finalized natural model expects.

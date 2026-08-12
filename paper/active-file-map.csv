@@ -132,5 +132,6 @@ documentation,source_build,source_build/README.md,active
 documentation,inputs,inputs/README.md,active
 documentation,results,results/README.md,active
 documentation,YAMAP,docs/yamap-iecology-rationale.md,active
+documentation,YAMAP,docs/data-s1-dictionary.md,active
 documentation,Bombus,docs/bombus-inference-current.md,active
 documentation,reproduction,docs/reproduction-guide.md,active

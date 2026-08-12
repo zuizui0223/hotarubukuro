@@ -127,14 +127,12 @@ workflow,submission,.github/workflows/jbi-submission-format.yml,active
 workflow,figures,.github/workflows/jbi-main-figures.yml,active
 workflow,submission,.github/workflows/jbi-submission-bundle.yml,active
 workflow,repository,.github/workflows/paper-checks.yml,active
-reproducibility,Main1_Main3,reproducibility/current_broad_anomaly_reference_2026-08-09.md,active
 reproducibility,Main1_sensitivity,reproducibility/environment_interaction_inla_screen_spec_2026-08-11.md,active
 reproducibility,Main1_sensitivity,reproducibility/broad_environment_spatial_audit_spec_2026-08-11.md,active
 reproducibility,Main1_sensitivity,reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv,active
 reproducibility,Main1_final,reproducibility/broad_environment_spatial_final_model_2026-08-11.md,active
 reproducibility,Main1_final,reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv,active
 reproducibility,Main1_final,reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv,active
-reproducibility,integration,reproducibility/final_paper_pipeline_2026-08-09.md,active
 reproducibility,integration,reproducibility/final_integrated_pipeline_2026-08-12.md,active
 reproducibility,Main3_final,reproducibility/current_broad_human_primary_2026-08-12.md,active
 reproducibility,submission,reproducibility/jbi_submission_bundle_spec_2026-08-10.md,active
@@ -152,8 +150,4 @@ documentation,results,results/README.md,active
 documentation,YAMAP,docs/yamap-iecology-rationale.md,active
 documentation,Bombus,docs/bombus-inference-current.md,active
 documentation,reproduction,docs/reproduction-guide.md,active
-analysis,Main3_sensitivity,analysis_sensitivity/run_human_context_highrep_final.R,active
-workflow,Main3_sensitivity,.github/workflows/human-context-highrep-final.yml,active
-reproducibility,Main3_final,reproducibility/human_context_final_audit_spec_2026-08-11.md,active
-reproducibility,Main3_final,reproducibility/human_context_final_audit_results_2026-08-11.md,active
-reproducibility,Main3_final,reproducibility/human_context_figure4_final_summary_2026-08-11.csv,active
+workflow,Main3,.github/workflows/human-context-highrep-final.yml,active

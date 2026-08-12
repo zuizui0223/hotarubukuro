@@ -65,7 +65,9 @@ The promoted Temperature PC1 × temperature-seasonality interaction in the Broad
 
 ## Sensitivity to the environmental representation
 
-The candidate set is not perfectly invariant to how “environmentally similar” is defined. Under the historical four-PC matching at RMS <=1, 17 candidates were obtained. Under the current eight-axis matching at the same RMS <=1, the primary set contains 16 candidates, with 15 cells shared between the definitions. A separate response-blind calibration that adjusted the eight-axis caliper to 0.81 to mimic the historical four-PC neighbour-support distribution produced 17 candidates, again with 15 shared cells.
+The candidate set is not perfectly invariant to how “environmentally similar” is defined. The current eight-axis matching at RMS <=1 defines the manuscript primary: 16 candidates, with 15 cells shared with the historical result.
+
+For sensitivity only, the historical four-PC matching at RMS <=1 produced 17 candidates. A separate response-blind calibration that adjusted the eight-axis caliper to 0.81 to mimic the historical four-PC neighbour-support distribution also produced 17 candidates, again with 15 cells shared with the current primary.
 
 This sensitivity is biologically relevant rather than a nuisance to hide. Local human contrasts are conditional on which white populations are treated as natural comparators. The current analysis therefore reports the final-eight-axis result as primary and keeps the older definitions as robustness checks. Human information is never used to choose among these graphs or to tune the current primary caliper.
 
@@ -162,7 +164,7 @@ Current-Broad primary replay:
 - locked final-eight-axis predictive-draw source: artifact `9094339466`, digest `sha256:413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`;
 - frozen cell/human-data reference: artifact `9022276431`, SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
 
-The historical four-PC downstream analysis and support-calibrated eight-axis comparison remain available in `reproducibility/human_context_final_audit_results_2026-08-11.md` as sensitivity provenance; they are no longer the manuscript primary.
+The historical four-PC downstream analysis and support-calibrated eight-axis comparison remain under `legacy/reproducibility-development/superseded-human-primary-2026-08-11/` as sensitivity provenance; they are no longer the manuscript primary.
 
 ## References added for the human-context interpretation
 

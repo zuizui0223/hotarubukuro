@@ -4,7 +4,7 @@
 
 ## Abstract
 
-**Aim:** Geographical trait variation can reflect abiotic, historical, biotic and human processes that share spatial structure. We asked how these processes organize a quantitative flower-colour polymorphism when tested at ecologically defensible scales.
+**Aim:** Geographical flower-colour polymorphism can reflect spatially varying abiotic, historical, biotic and human processes. We asked how those processes differentially organize pigmentation state and intensity when tested at ecologically defensible scales.
 
 **Location:** Japan.
 
@@ -22,7 +22,7 @@
 
 Geographical variation within species is not merely descriptive noise around a species mean. Intraspecific trait variation can alter individual performance, population persistence, species interactions and the ecological breadth of populations across heterogeneous environments (Westerband et al., 2021). Understanding how such variation is organized across a species range is therefore central to explaining local adaptation and the geographical mosaic of ecological interactions. Yet the same phenotype can be shaped by several processes at once: abiotic conditions, dispersal and population history, biotic interactions and, increasingly, human movement or habitat modification. These alternatives matter because they imply different mechanisms and different expectations for how trait distributions should respond when environments or interacting species change.
 
-Flower colour is an unusually integrative trait for addressing this problem. Floral pigmentation is simultaneously a physiological phenotype and a reproductive signal: pigments and floral optics can covary with abiotic conditions, while visible colour can influence pollinator attraction, mating patterns and reproductive success (Rausher, 2008; Koski & Ashman, 2015; Trunschke et al., 2021). Geographic colour polymorphisms therefore provide a tractable window into how multiple selective agents and spatial history combine within one conspicuous phenotype. But that integrative potential creates an inferential danger. A climate gradient, a pollinator turnover and a historical population boundary can generate similar spatial patterns, so forcing all candidate processes into one same-scale regression can mistake shared geography for mechanism. The ecological need is therefore not simply for more predictors, but for an integrated design in which each process is examined at the spatial scale and comparison unit at which its biological meaning is most defensible; biotic interactions are especially scale dependent (Araújo & Rozenfeld, 2014).
+Flower colour is an unusually integrative trait for addressing this problem. Floral pigmentation is simultaneously a physiological phenotype and a reproductive signal: pigments and floral optics can covary with abiotic conditions, while visible colour can influence pollinator attraction, mating patterns and reproductive success (Rausher, 2008; Koski & Ashman, 2015; Trunschke et al., 2021). When the relative costs and benefits of pigmentation vary among environments or interaction contexts, that heterogeneity can maintain alternative colour phenotypes across a species range (Arista et al., 2013; Trunschke et al., 2021). Geographic colour polymorphisms therefore provide a tractable window into how multiple selective agents and spatial history combine within one conspicuous phenotype. But that integrative potential creates an inferential danger. A climate gradient, a pollinator turnover and a historical population boundary can generate similar spatial patterns, so forcing all candidate processes into one same-scale regression can mistake shared geography for mechanism. The ecological need is therefore not simply for more predictors, but for an integrated design in which each process is examined at the spatial scale and comparison unit at which its biological meaning is most defensible; biotic interactions are especially scale dependent (Araújo & Rozenfeld, 2014).
 
 That integration first requires a phenotype measured densely enough to reveal the geography that subsequent mechanisms must explain. Range-wide flower-colour studies often rely on discrete morph frequencies, whereas quantitative reflectance or pigment measurements are usually available from fewer populations (Arista et al., 2013; Koski & Galloway, 2020). This matters because a single white-to-pink axis can merge biologically distinct transitions. A threshold-like loss or activation of anthocyanin-pathway expression can separate white and visibly pigmented flowers, whereas variation among already pigmented flowers can additionally reflect pigment amount, pigment chemistry and floral optics (Dick et al., 2011; van der Kooi et al., 2016; Tasaki et al., 2022). Distinguishing whether pigmentation is expressed from how intense that pigmentation becomes is therefore necessary not only for measurement precision, but also for asking whether different ecological processes act on different components of the phenotype.
 
@@ -80,7 +80,7 @@ All manuscript-facing analyses, seeds and output provenance are versioned; an an
 
 ## Results
 
-### Broad geography separates pigmentation state from conditional intensity
+### Broad geography separates the ecological organization of pigmentation state and intensity
 
 The 1,922 photographs were nearly evenly divided between white-like (966) and pigmented (956) flowers. In the final pigmentation-state model, the probability of pigmentation declined toward the warmer end of Temperature PC1 (posterior mean log-odds -0.542; 95% CrI -1.033 to -0.049; odds ratio about 0.58 per SD). No environmental interaction passed the complete posterior-plus-geographical-transfer rule for state. A dryness × shortwave-radiation interaction was suggestive, but its spatial-block predictive-gain interval included zero and it remained Supporting Information only.
 
@@ -90,7 +90,7 @@ The exhaustive interaction audit initially identified precipitation PC1 × tempe
 
 Substantial residual geography remained. Posterior mean SPDE range was 132.8 km (95% CrI 88.8–195.7) for pigmentation state and 65.7 km (31.0–132.6) for the final conditional-intensity model. These are residual correlation scales, not seed-, pollen- or colonization distances. The broader state range is descriptive only because likelihoods and response subsets differ.
 
-### Sharp local colour boundaries show weak alignment with focal bumblebee habitat support
+### Sharp local pigmentation-state boundaries show weak alignment with focal bumblebee habitat support
 
 The strict 5-km graph yielded 67 non-overlapping pure white–pigmented transitions with median separation 2.0 km. In the finalized eight-axis Broad abiotic state space, their median environmental distance was 0.244 compared with 0.318 among all local graph edges. The same ordering held at 10 km (0.337 vs 0.429) and 25 km (0.435 vs 0.531). Because environment did not enter pair selection, this is a balance diagnostic rather than a matching criterion.
 
@@ -98,7 +98,7 @@ Occurrence-referenced focal-bumblebee support was, on average, 0.0359 higher on 
 
 The apparent high-elevation association between montane/alpine *Bombus* support and pigmented flowers did not survive the elevation guardrail: among pure transitions with <=50 m endpoint elevation difference, mean pigmented-minus-white montane support was near zero or negative at 5, 10 and 25 km (all one-sided P>=0.755; Appendix S5). Five-species community turnover showed broader landscape correspondence with colour boundaries, but that analysis is unsigned and therefore does not strengthen the directional mechanism. No persuasive *Bombus* relationship was supported for conditional intensity among pigmented flowers.
 
-### Local departures are field targets, not demonstrated anthropogenic anomalies
+### Local colour departures are naturally plausible but generate contemporary provenance targets
 
 The current-Broad ecological-event definition identified 16 pigmented cells embedded among nearby white cells that were similar in the finalized eight-axis abiotic state space. Across 10,000 cross-fitted natural maps, the null mean candidate count was 13.59 (95% interval 7–21; P=0.279). Candidate fraction was likewise compatible with the reference (observed 0.0407; null mean 0.0311; upper-tail P=0.126). Thus the frequency of these local configurations did not require an additional process beyond the fitted natural geography.
 

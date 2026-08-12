@@ -1,178 +1,193 @@
 # Final integrated manuscript pipeline — 2026-08-12
 
-This document freezes the manuscript-facing dependency graph after final alignment of the Broad, focal-*Bombus*, and downstream human-context analyses. It supersedes the 2026-08-09 pipeline note for determining current primary analyses; older dated records remain provenance.
+This document freezes the adopted manuscript-facing dependency graph, estimands, claim ceilings and evidence identities.
 
-## 1. Core inferential architecture
+## 1. Inferential architecture
 
-The paper is not an omnibus regression of environment, pollinators and human variables. The final directed chain is:
+`YAMAP images -> two-part flower-colour phenotype -> Broad environment + space -> local focal-Bombus boundary test -> final-eight-axis local-departure calibration -> post-selection human context`
 
-`YAMAP images -> two-part flower-colour phenotype -> Broad environment + space -> local focal-Bombus boundary test -> current-Broad local-departure calibration -> post-selection human context`
-
-The stages use different comparison units because their ecological questions operate at different scales.
+The stages use different comparison units because their ecological questions operate at different spatial scales.
 
 ### Anti-circularity rules
 
 1. Flower-colour state/intensity is constructed without environmental, Bombus or human predictors.
-2. Broad model selection is completed before the local biotic and human interpretations.
-3. Bombus SDMs use Bombus occurrence plus environmental inputs, not flower colour.
+2. Broad environmental/spatial models are defined before local biotic and human interpretation.
+3. Bombus SDMs use Bombus occurrences and environmental inputs, not flower colour.
 4. Occurrence-reference calibration is species-specific and does not use flower-colour responses.
-5. Sharp transition pairs are selected without Bombus or environmental values and before white-to-pigmented orientation.
-6. Final-eight-axis environmental distance is a Bombus balance diagnostic only; it does not change pair identities, weights or sign-flip statistics.
-7. Human variables do not enter the local-departure event definition, environmental matching, natural-map replay or candidate selection.
+5. Sharp transition pairs are selected without Bombus values and before white-to-pigmented orientation.
+6. Final-eight-axis environmental distance is a balance diagnostic of the fixed Bombus pair set; it does not alter pair identity, weight or sign-flip statistics.
+7. Human variables do not enter local-event definition, environmental matching, predictive replay or candidate selection.
 8. Human features are examined only after candidates are defined, in one global maxT family.
 
 ## 2. Phenotype and analysis population
 
-- Screened source records: 1,965.
-- YAMAP activity-photo rows: 1,964.
-- Unique YAMAP image hashes: 1,963.
-- Environment-complete integrated observations after exact-duplicate and raster-support exclusions: 1,922.
-- White-like observations: 966.
-- Pigmented observations: 956.
-- Primary phenotypes:
+- screened source records: 1,965;
+- YAMAP activity-photo rows: 1,964;
+- unique YAMAP image hashes: 1,963;
+- environment-complete integrated observations: **1,922**;
+- white-like observations: **966**;
+- pigmented observations: **956**;
+- primary phenotypes:
   - pigmentation state across all 1,922 observations;
-  - conditional visible intensity among pigmented observations only.
+  - visible intensity conditional on pigmentation.
 
-The white/pigmented mixture boundary is estimated from colour alone. CIELAB a* is treated as a reproducible visible-colour phenotype, not calibrated reflectance or anthocyanin concentration.
+The white/pigmented boundary is estimated from colour alone. CIELAB a* is a reproducible visible-colour phenotype, not calibrated reflectance or anthocyanin concentration.
 
-## 3. Main 1 — finalized Broad natural template
+## 3. Broad environment + space
 
 ### Pigmentation state
 
-Primary observation-level model:
-
 `state ~ eight abiotic axes + East/West + stationary SPDE`
 
-The eight measured abiotic axes are Temperature PC1, precipitation PC1, temperature seasonality, precipitation seasonality, topography PC1, soil PC1, soil PC2 and RSDS. No environmental interaction passed the full promotion rule for state.
+Abiotic axes:
 
-Collinearity policy is graded rather than mechanical:
+- Temperature PC1;
+- precipitation PC1;
+- temperature seasonality;
+- precipitation seasonality;
+- topography PC1;
+- soil PC1;
+- soil PC2;
+- RSDS.
 
-- VIF <5 preferred;
-- VIF 5–10 requires explicit coefficient/spatial/blocked-transfer stability;
-- VIF >10 prevents expansion absent exceptional support.
-
-The state model maximum VIF is 4.430.
+No environmental interaction passes the full promotion rule for state. Maximum VIF=4.430.
 
 ### Conditional intensity
 
-Primary model retains Temperature PC1 × temperature-seasonality. Maximum VIF is 6.340 for Temperature PC1, Soil PC1 is 5.233 and the retained interaction itself is 1.664. VPD expansions generated VIF around 26 and failed geographical-transfer support, so they are not promoted.
+`intensity ~ eight abiotic axes + East/West + Temperature PC1:temperature seasonality + stationary SPDE`
+
+The retained interaction has posterior mean -0.204234 and 95% CrI -0.301869 to -0.106561. Maximum VIF=6.340 for Temperature PC1; Soil PC1=5.233; interaction VIF=1.664.
+
+VPD expansions are not retained because they generate severe collinearity and do not show sufficient geographical-transfer support.
+
+### Spatial structure
+
+- pigmentation-state range: 132.76 km, 95% CrI 88.78–195.68;
+- conditional-intensity range: 65.72 km, 95% CrI 31.05–132.63.
+
+The spatial field represents unresolved coherent geography. It is not interpreted as a dispersal distance or a single historical mechanism.
 
 ### Claim ceiling
 
-Broad results describe environmental and residual geographical organization. The SPDE field is not labelled population history, and coefficients are not proof of direct physiological causation.
+Broad coefficients and spatial structure describe geographical association and residual organization. They do not by themselves establish direct physiological causation or population history.
 
-## 4. Main 2 — focal Bombus local-boundary test
+## 4. Focal Bombus local-boundary test
 
-### SDM construction
+### SDM layer
 
-Five species are rebuilt on a common mainland domain with shared predictors and spatially blocked ENMeval/maxnet tuning:
+Five Bombus species are modelled on a common mainland domain with shared predictor screening and spatially blocked tuning.
 
-- focal broad pollinators: *B. ardens*, *B. diversus*;
-- montane/alpine guardrails: *B. beaticola*, *B. consobrinus*, *B. honshuensis*.
+Directional focal species:
 
-The shared SDM predictor VIF screen uses VIF=10 as a predictive-design diagnostic; the largest retained VIF is 8.502 (CMI). Individual SDM coefficients are not interpreted as causal ecological effects.
+- *Bombus ardens*;
+- *Bombus diversus*.
 
-Raw cloglog support is transformed within species to occurrence-referenced support:
+Montane/elevation guardrails:
+
+- *B. beaticola*;
+- *B. consobrinus*;
+- *B. honshuensis*.
+
+Raw cloglog SDM support is transformed within species to occurrence-referenced support:
 
 `A_k(x) = F_occ,k(s_k(x))`.
 
-The primary directional exposure is `max(A_ardens, A_diversus)`.
+Primary focal exposure is `max(A_ardens, A_diversus)`.
 
-### Fixed local transition design
+### Local transition design
 
-- 1-km cells.
-- Up to five nearest eligible neighbours.
-- Primary radius 5 km.
-- Pure observed transition: absolute pigment-share difference = 1.
-- Greedy non-overlapping pairs.
-- Pair selection Bombus-blind, environment-blind and sign-blind.
-- White-to-pigmented orientation only after pair set is frozen.
-- Primary statistic: mean pigmented-minus-white focal support.
+- 1-km cells;
+- primary radius 5 km;
+- pure observed white-pigmented transition;
+- greedy non-overlapping pairs;
+- pair selection without Bombus values;
+- white-to-pigmented orientation after pair identities are fixed;
+- primary statistic: mean pigmented-minus-white focal support;
 - 100,000 one-sided sign flips.
 
 Primary result:
 
-- 67 non-overlapping pairs;
+- **67 pairs**;
 - median separation 2.0 km;
-- mean delta +0.03590;
-- median delta -0.00277;
-- proportion positive 0.493;
-- one-sided P=0.02716;
-- BH q across 5/10/25-km pure focal tests=0.08148.
+- mean contrast **+0.03590**;
+- median contrast **-0.00277**;
+- positive pairs **49.3%**;
+- one-sided P=**0.02716**;
+- BH q across 5/10/25-km pure focal tests=**0.08148**.
 
-The signal attenuates at 10 and 25 km, and raw cloglog support does not reproduce the 5-km nominal result (P=0.26715). It is therefore weak and magnitude-driven rather than a pervasive pairwise shift.
+The signal attenuates at 10 and 25 km and is not reproduced by raw cloglog support at 5 km (P=0.26715).
 
-### Final-Broad environmental balance audit
+### Final-eight-axis environmental balance
 
-The fixed pairs were re-audited in the same eight standardized abiotic axes used by the finalized Broad state analysis. This does not alter the pair set or Bombus statistic.
+For the fixed pair set:
 
-- 5 km pure transitions: selected median RMS distance 0.24408 vs all local edges 0.31752; ratio 0.76871.
-- 10 km: 0.33706 vs 0.42911.
+- 5 km: selected median RMS distance 0.24408 vs all local edges 0.31752;
+- 10 km: 0.33706 vs 0.42911;
 - 25 km: 0.43545 vs 0.53145.
 
-Thus the local-comparison rationale does not depend on the historical four-PC environmental summary. Fine-scale environmental confounding remains possible because the Bombus surfaces themselves are environment-derived.
+This diagnostic supports environmental locality of the selected comparisons without treating measured environment as eliminated.
 
-### Supporting Bombus results
+### Supporting Bombus evidence
 
-Five-species community turnover is unsigned and remains Supporting Information. Occurrence-referenced Hellinger matched excess is positive at 5, 10 and 25 km, but the 5-km primary matching result has P=0.06283. Broader correspondence does not identify which side should be pigmented.
-
-Montane/alpine support disappears under near-equal-elevation transition comparisons (<=50 m: all one-sided P>=0.755), so visually strong high-elevation overlap is treated as shared biogeography rather than a second pollinator mechanism.
+Five-species community turnover is retained as unsigned biogeographic context. Near-equal-elevation comparisons of the montane/alpine group do not support an independent high-elevation Bombus mechanism.
 
 ### Claim ceiling
 
-The Main result supports at most weak local correspondence between pigmentation state and predicted habitat opportunity for documented focal bumblebees. It does not measure realized presence, visitation, stigma contact, pollen transfer, selection or fitness.
+The focal result supports at most weak, highly local correspondence between pigmentation state and predicted habitat opportunity. SDM support does not measure realized presence, visitation, stigma contact, pollen transfer, selection or fitness.
 
-## 5. Main 3 — current-Broad local departure and human context
+## 5. Calibrated local departures
 
-### Primary natural reference and matching
+### Event definition
 
-The downstream primary is now explicitly aligned with the finalized Broad pigmentation-state environment.
+- final-eight-axis cross-fitted pigmentation-state natural reference;
+- RMS environmental distance <=1 across the same eight standardized abiotic axes;
+- radius 10 km;
+- minimum 3 eligible neighbours;
+- event: pigmented focal cell with all eligible observed neighbours white;
+- human variables absent from selection.
 
-- Natural predictive reference: final-eight-axis cross-fitted pigmentation-state model.
-- Local matching: RMS distance <=1 across the same eight standardized abiotic axes.
-- Radius: 10 km.
-- Minimum environmental neighbours: 3.
-- Event: focal cell contains pigmentation and all eligible local comparator cells contain no observed pigmented flower.
-- Human variables absent from event selection.
+East/West is a structural Broad adjustment and is not an environmental-distance dimension. SPDE geography enters through the predictive natural reference.
 
-East/West is a structural geographical adjustment in the observation-level Broad model and is not an environmental-distance dimension. SPDE geography belongs to the natural predictive reference rather than to the measured-environment matching metric.
+### 10,000-map calibration
 
-The historical four-PC broad/within matching is sensitivity provenance only.
+- observed candidates: **16**;
+- null mean candidate count: **13.5908**;
+- 95% null interval: **7–21**;
+- count P=**0.27897**;
+- observed candidate fraction: **0.04071**;
+- null mean fraction: **0.03107**;
+- upper-tail P=**0.12609**.
 
-### 10,000-map natural calibration
+The observed local-departure frequency is compatible with the finalized natural geography.
 
-- Observed candidates: 16.
-- Null mean candidate count: 13.5908.
-- 95% null interval: 7–21.
-- Count P=0.27897.
-- Observed candidate fraction: 0.04071.
-- Null mean fraction: 0.03107.
-- Upper-tail P=0.12609.
+## 6. Post-selection human context
 
-The local-departure frequency is therefore compatible with the finalized natural geography.
+One global maxT family contains:
 
-### Post-selection human family
-
-One global maxT family contains population exposure at focal/5/10/25/50 km, DID proximity, road proximity, built-up fraction, forest-human edge, forest cover and mountainness.
+- population exposure at focal/5/10/25/50 km;
+- DID proximity;
+- road proximity;
+- built-up fraction;
+- forest-human edge;
+- forest cover;
+- mountainness.
 
 Leading feature:
 
-- population within 5 km: contrast +0.06744;
-- directional P=0.00800;
-- global maxT FWER P=0.05479.
+- population within 5 km: contrast **+0.06744**;
+- directional P=**0.00800**;
+- global maxT FWER P=**0.05479**.
 
-Population at 10 km and DID point in the same direction but do not survive global correction. The effect largely disappears at 25–50 km.
+Measured within-dataset observation alternatives:
 
-Measured within-dataset observation alternatives are null after correction:
-
-- observation effort maxT P=0.96320;
+- observation-effort maxT P=0.96320;
 - independent-site-support maxT P=0.75642.
 
 ### Claim ceiling
 
-The result is a near-threshold short-scale settlement-exposure signal, not a corrected-significant anthropogenic effect. Horticultural opportunity/propagule pressure, fine-scale environmental modification/plasticity and broader sampling-frame accessibility remain competing interpretations. The 16 sites are provenance/field targets, not anthropogenic anomalies.
+The result is a near-threshold short-scale settlement-exposure signal, not a corrected-significant anthropogenic effect. Horticultural opportunity, fine-scale environmental modification/plasticity and broader sampling accessibility remain competing interpretations. The 16 sites are field/provenance targets.
 
-## 6. Final numerical evidence locks
+## 7. Evidence locks
 
 ### Broad/current cells
 
@@ -198,34 +213,40 @@ The result is a near-threshold short-scale settlement-exposure signal, not a cor
 - artifact `9023416810`
 - SHA-256 `3f7ac07ea90e2b732441a9f80a38ea49871014722d008769370524b947007e34`
 
-### Bombus spatial/community guardrails
+### Bombus community/elevation guardrails
 
 - run `31285234317`
 - artifact `9029595037`
 - SHA-256 `067dd3408b2a7f046ba263732ffa4cefa2f54a7f1fb672478be46bca425f6bf0`
 
-### Final8 environmental audit of fixed Bombus pairs
+### Final-eight-axis Bombus environmental audit
 
 - run `31538548679`
 - artifact `9119773035`
 - SHA-256 `51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f`
 
-### Current-Broad human primary
+### Local-departure/human replay
 
-- replay run `31537102360`
+- run `31537102360`
 - artifact `9119306089`
 - SHA-256 `f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4`
-- locked final8 predictive-draw artifact `9094339466`
+- predictive-draw artifact `9094339466`
 - SHA-256 `413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`
 
-## 7. Manuscript interpretation in one paragraph
+### Current Main figures
 
-The final analysis supports a layered rather than single-driver view of flower-colour geography. Broad pigmentation state follows a cool-climate and unresolved regional template, whereas intensity among pigmented flowers depends on thermal context with additional moisture and terrain associations. Against that background, predicted opportunity for the documented broad focal bumblebees shows only weak, highly local and magnitude-driven alignment with the sharpest white-pigmented boundaries; broader scales and raw SDM support do not reproduce the signal, and montane overlap is explained by shared elevation. Finally, locally discordant pigmented configurations are not more frequent than expected under the finalized natural geography. Their strongest post-selection human feature is short-range population exposure, but familywise support remains just above 0.05. The current evidence therefore narrows physiological, pollination and provenance hypotheses without identifying a single causal driver.
+- run `31559274663`
+- artifact `9127198711`
+- SHA-256 `ff5d43e8f71224261b8b74ddb2d6e24a66a4f2349ad53fb72032118492bca924`
 
-## 8. Next empirical tests implied by the pipeline
+## 8. Integrated interpretation
 
-- common-garden temperature/light/water manipulations and pigment/spectral measurements for Broad physiological hypotheses;
-- direct species-resolved Bombus visitation, floral contact, pollen deposition and fitness for the local pollination hypothesis;
+The evidence supports a layered rather than single-driver view of flower-colour geography. Broad pigmentation state and conditional intensity show distinct environmental/spatial organization. Against that background, predicted opportunity for the documented broad focal bumblebees shows only weak, highly local alignment with sharp white-pigmented boundaries. Locally discordant pigmented configurations are not more frequent than expected under the finalized natural geography. Their strongest post-selection human feature is short-range population exposure, but familywise support remains just above 0.05. The analysis therefore narrows physiological, pollination and provenance hypotheses without identifying a single causal driver.
+
+## 9. Empirical tests implied by the analysis
+
+- common-garden temperature/light/water manipulations and pigment/spectral measurements;
+- direct species-resolved Bombus visitation, floral contact, pollen deposition and fitness;
 - local management/planting histories, vouchers and repeated population sampling for the 16 departure sites;
-- population-genetic comparison among candidate, neighbouring white and relevant horticultural material for provenance;
-- genomic/spatial sampling to test whether residual Broad geography follows lineage history or isolation by distance.
+- population-genetic comparison among candidate, neighbouring white and horticultural material;
+- genomic/spatial sampling to test lineage history and isolation-by-distance contributions to residual geography.

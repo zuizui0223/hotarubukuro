@@ -81,6 +81,7 @@ jobs:
           def rows(path):
               with open(path, encoding='utf-8') as f:
                   return list(csv.DictReader(f))
+
           assert len(rows(cells)) == 1305
 
           focal = [r for r in rows(sharp) if str(r.get('focal_strict_local_test','')).lower() in ('true','t','1')]
@@ -88,22 +89,33 @@ jobs:
           r = focal[0]
           assert int(float(r['radius_km'])) == 5
           assert int(float(r['n_nonoverlapping_pairs'])) == 67
-          assert abs(float(r['mean_pigmented_minus_white']) - 0.03590) < 5e-5
+          assert abs(float(r['mean_signed_bombus_difference']) - 0.03590) < 5e-5
+          assert abs(float(r['median_signed_bombus_difference']) - (-0.00277)) < 5e-5
+          assert abs(float(r['proportion_positive']) - 0.493) < 5e-3
+          assert abs(float(r['signflip_one_sided_p']) - 0.02716) < 5e-5
 
           audit = [r for r in rows(env_audit) if abs(float(r['radius_km'])-5) < 1e-9 and abs(float(r['transition_threshold'])-1) < 1e-9]
           assert len(audit) == 1
+          assert int(float(audit[0]['n_nonoverlapping_pairs'])) == 67
           assert float(audit[0]['median_selected_final8']) < float(audit[0]['median_all_local_edges_final8'])
 
           d = rows(decision)
-          assert len(d) == 1 and int(float(d[0]['candidate_count'])) == 16
+          assert len(d) == 1
+          assert int(float(d[0]['candidate_count'])) == 16
+          assert d[0]['best_population_scale'] == 'population_5km_rank'
+          assert abs(float(d[0]['best_population_contrast']) - 0.06744) < 5e-5
+          assert abs(float(d[0]['best_population_global_FWER']) - 0.05479) < 5e-5
 
           n = {r['metric']: r for r in rows(null)}
           assert abs(float(n['candidate_count']['observed_value']) - 16) < 1e-9
+          assert abs(float(n['candidate_count']['null_mean']) - 13.5908) < 5e-4
           assert abs(float(n['candidate_count']['empirical_p']) - 0.27897) < 5e-5
+          assert abs(float(n['candidate_fraction']['empirical_p']) - 0.12609) < 5e-5
 
           h = {r['feature']: r for r in rows(maxt)}
           p5 = h['population_5km_rank']
           assert abs(float(p5['observed_focal_minus_white_neighbour']) - 0.06744) < 5e-5
+          assert abs(float(p5['directional_or_two_sided_p']) - 0.00800) < 5e-5
           assert abs(float(p5['maxT_FWER_p']) - 0.05479) < 5e-5
           PY
 
@@ -116,7 +128,7 @@ jobs:
           grep -q '67 sharp transitions' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q 'Sixteen local departures' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q '0.0548' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q 'same eight measured abiotic axes' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
+          grep -Eq 'finalized eight-axis|same eight measured abiotic axes|eight-axis' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
           grep -q '67' submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md
           grep -q '16' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
           grep -q 'final_integrated_pipeline_2026-08-12' paper/analysis-map.md
@@ -125,10 +137,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test ! -e reproducibility/final_paper_pipeline_2026-08-09.md
-          test ! -e reproducibility/current_broad_anomaly_reference_2026-08-09.md
-          test ! -e reproducibility/human_context_final_audit_results_2026-08-11.md
-          test ! -e analysis_sensitivity/run_human_context_highrep_final.R
+          for path in \
+            reproducibility/final_paper_pipeline_2026-08-09.md \
+            reproducibility/current_broad_anomaly_reference_2026-08-09.md \
+            reproducibility/human_context_final_audit_results_2026-08-11.md \
+            analysis_sensitivity/run_human_context_highrep_final.R \
+            analysis_sensitivity/run_human_context_current_broad_primary.R \
+            .github/workflows/reanalysis-current-inputs.yml \
+            scripts/run_downstream_current_inputs.sh \
+            inputs/canonical_snapshot.json; do
+            test ! -e "$path"
+          done
           ! grep -R -n --exclude-dir=legacy --exclude-dir=.git \
             -E '17 fixed local-departure|Observed candidates: 17|four-PC.*primary' \
             paper submission/jbi reproducibility .github/workflows

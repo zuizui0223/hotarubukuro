@@ -2,6 +2,8 @@
 
 Date: 2026-08-11
 
+> **Status note (updated 2026-08-12):** This file records the predeclared Broad audit specification as it stood before the downstream local-departure analysis was rebuilt. At the time of this audit, the downstream reference was the historical four-PC/17-candidate formulation. That formulation is no longer the manuscript primary. The current downstream primary uses the finalized eight-axis Broad pigmentation-state reference and the same eight-axis local matching, yielding 16 candidates; see `reproducibility/current_broad_human_primary_2026-08-12.md` and `reproducibility/final_integrated_pipeline_2026-08-12.md`. The audit grid below is preserved unchanged as provenance of the Broad finalization decision.
+
 ## Purpose
 
 The current Journal of Biogeography broad analysis uses two observation-level models:
@@ -11,7 +13,7 @@ The current Journal of Biogeography broad analysis uses two observation-level mo
 
 Both use eight environmental terms, an East/West structural adjustment and a stationary isotropic Matérn SPDE field. The current model is a strong broad reference, but it was assembled before a complete evidence audit of omitted public environmental proxies, observation-process controls and spatial structures implied by the natural history of *Campanula punctata*.
 
-This sensitivity is designed to establish the final observation-level broad model. It does not automatically replace the separate 1-km-cell cross-fitted natural predictive reference used to define the 17 local-departure targets.
+This sensitivity was designed to establish the final observation-level Broad model. It did not, by itself, alter the then-current 1-km-cell four-PC predictive reference; the later approved downstream rebuild aligned that stage to the finalized eight-axis Broad state space.
 
 Frozen comparison input:
 
@@ -164,13 +166,13 @@ Parsimonious models are preferred when a larger bundle produces no clear additio
 
 ## Finalization rule
 
-The audit will produce one response-specific final observation-level model.
+The audit was designed to produce one response-specific final observation-level model.
 
-- If no environmental extension clears the rule, retain the current environmental basis.
-- For conditional intensity, retain the Temperature PC1 × temperature-seasonality term only if it remains preferable after joint seasonality adjudication and the broader variable audit.
-- Select a non-current spatial structure only if its held-out and full-fit evidence is consistent and its interpretation is biologically defensible.
-- The final observation-level model may update coefficient interpretation and Figure 2/Appendix S3.
-- The separate cell-level natural predictive reference and the 17 local-departure identities remain unchanged unless a later, explicitly approved predictive-reference rebuild is undertaken.
+- If no environmental extension cleared the rule, retain the current environmental basis.
+- For conditional intensity, retain the Temperature PC1 × temperature-seasonality term only if it remained preferable after joint seasonality adjudication and the broader variable audit.
+- Select a non-current spatial structure only if its held-out and full-fit evidence was consistent and its interpretation biologically defensible.
+- The final observation-level model could update coefficient interpretation and Figure 2/Appendix S3.
+- At the time this audit was specified, downstream candidate identities were held fixed to the then-current four-PC/17-candidate reference. That freeze was later superseded by the explicitly approved 2026-08-12 final-eight-axis downstream rebuild; it is not the current manuscript primary.
 
 ## Key references
 

@@ -1,9 +1,8 @@
 #!/usr/bin/env Rscript
 
 # Render the current JBI four-figure bundle with a journal-width layout pass.
-# The core builder owns data assembly, numerical locks and panel construction;
-# this file shortens display labels, prevents clipping and rewrites the final
-# PNG/PDF files plus their manifest without changing any plotted value.
+# The core/final-Broad adapter owns data assembly and numerical locks; this file
+# only improves final display while preserving the current scientific panels.
 
 source("scripts/build_jbi_figure_bundle.R")
 
@@ -35,7 +34,7 @@ add_100km_scale <- function(plot, lon = 130.05, lat = 32.15) {
 }
 
 # Apply the same explicit map scale to every national map panel constructed by
-# the core builder. Non-map panels are unchanged.
+# the current builder/adapter. Non-map panels are unchanged.
 fig1b <- add_100km_scale(fig1b)
 fig2b <- add_100km_scale(fig2b)
 fig2c <- add_100km_scale(fig2c)
@@ -201,44 +200,70 @@ fig3d <- ggplot2::ggplot(
 figure_3 <- (tag_panel(fig3a, "a") | tag_panel(fig3b, "b")) /
   (tag_panel(fig3c, "c") | tag_panel(fig3d, "d"))
 
-# Figure 4: keep the event calibration and familywise result visually clean.
+# Figure 4a must reflect the current final-eight-axis event definition. Rebuild
+# the conceptual panel explicitly so the historical four-PC label from the
+# core development builder cannot leak into the final manuscript figure.
+angles <- seq(0, 2 * pi, length.out = 9)[-9]
+neighbour_nodes_current <- data.frame(
+  x = 1.25 * cos(angles), y = 1.25 * sin(angles)
+)
+circle_current <- data.frame(
+  x = 1.55 * cos(seq(0, 2 * pi, length.out = 240)),
+  y = 1.55 * sin(seq(0, 2 * pi, length.out = 240))
+)
+fig4a <- ggplot2::ggplot() +
+  ggplot2::geom_path(
+    data = circle_current, ggplot2::aes(x = x, y = y),
+    linetype = "dashed", colour = mid_grey
+  ) +
+  ggplot2::geom_point(
+    data = neighbour_nodes_current, ggplot2::aes(x = x, y = y),
+    shape = 21, fill = white_like, colour = paper, stroke = 0.35, size = 4.0
+  ) +
+  ggplot2::geom_point(
+    ggplot2::aes(x = 0, y = 0), shape = 21,
+    fill = pigmented, colour = ink, stroke = 0.55, size = 5.2
+  ) +
+  ggplot2::annotate(
+    "text", x = 0, y = -0.35,
+    label = "Pigmented focal cell", size = 2.55, colour = ink
+  ) +
+  ggplot2::annotate(
+    "text", x = 0, y = 1.85,
+    label = "Within 10 km and eight-axis environmental RMS distance ≤ 1",
+    size = 2.35, colour = mid_grey
+  ) +
+  ggplot2::annotate(
+    "text", x = 0, y = -1.90,
+    label = "Event is defined before population, land use, roads or DID are read",
+    size = 2.35, colour = mid_grey
+  ) +
+  ggplot2::coord_equal(
+    xlim = c(-2.15, 2.15), ylim = c(-2.10, 2.10), clip = "off"
+  ) +
+  ggplot2::labs(title = "Repeatable local ecological event") +
+  ggplot2::theme_void(base_family = "sans") +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(face = "bold", colour = ink, size = 8.8),
+    plot.margin = ggplot2::margin(8, 8, 8, 8)
+  )
+
+# Figure 4b-c already come from the final-Broad/current-human adapter. Preserve
+# the adapter's current human feature family in 4d rather than reconstructing
+# the superseded DID-composite development panel.
 fig4c <- fig4c +
   ggplot2::labs(title = "Events in repeated natural maps")
-fig4d <- ggplot2::ggplot(
-  human,
-  ggplot2::aes(x = observed, y = feature_label, colour = family)
-) +
-  ggplot2::geom_vline(
-    xintercept = 0,
-    linetype = "dashed",
-    colour = mid_grey
-  ) +
-  ggplot2::geom_errorbar(
-    ggplot2::aes(xmin = lower, xmax = upper),
-    width = 0,
-    linewidth = 0.55,
-    orientation = "y"
-  ) +
-  ggplot2::geom_point(size = 1.9) +
-  ggplot2::scale_colour_manual(
-    values = c("Population" = white_like, "DID context" = pigmented)
-  ) +
-  ggplot2::coord_cartesian(
-    xlim = c(min(human$lower) - 0.01, max(human$upper) + 0.02)
-  ) +
+fig4d <- fig4d +
   ggplot2::labs(
     title = "Post-selection human context",
-    subtitle = "Natural-map 95% intervals; no familywise P < .05",
-    x = "Candidate minus white-neighbour rank",
-    y = NULL,
-    colour = NULL
+    subtitle = "Current-Broad 10,000-map family; no global maxT P < .05"
   ) +
-  theme_publication(base_size = 7.2)
+  ggplot2::theme(plot.title = ggplot2::element_text(size = 8.2))
 figure_4 <- (tag_panel(fig4a, "a") | tag_panel(fig4b, "b")) /
   (tag_panel(fig4c, "c") | tag_panel(fig4d, "d"))
 
-# Overwrite the core previews with the final journal-width files and refresh
-# their SHA-256 manifest. Numerical and source locks written by the core builder
+# Overwrite the adapter previews with the final journal-width files and refresh
+# their SHA-256 manifest. Numerical and source locks written by the adapter
 # remain unchanged and are independently checked afterwards.
 figure_rows <- list(
   save_figure(

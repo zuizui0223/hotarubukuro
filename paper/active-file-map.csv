@@ -50,8 +50,6 @@ analysis,Main3,R/human_raster_features.R,active
 analysis,Main3,R/local_human_context.R,active
 analysis,Main3,R/spatial_context.R,active
 analysis,Main3,R/did_sensitivity.R,active
-infrastructure,Main3,inputs/canonical_snapshot.json,active_static_human_inputs_only
-infrastructure,Main3,scripts/canonical_snapshot.sh,active_static_human_inputs_only
 analysis,Main1_sensitivity,scripts/run_environment_interaction_inla_screen.R,active
 analysis,Main1_sensitivity,scripts/run_broad_environment_spatial_audit.R,active
 analysis,Main1_sensitivity,analysis_sensitivity/run_broad_environment_spatial_audit_wrapper.R,active

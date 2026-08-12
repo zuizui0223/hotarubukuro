@@ -90,7 +90,7 @@ fig1a <- ggplot2::ggplot() +
     ylim = c(0.35, 1.35),
     clip = "off"
   ) +
-  ggplot2::labs(title = "From hiking record to pigmentation state and intensity") +
+  ggplot2::labs(title = "From hiking photo to two colour layers") +
   ggplot2::theme_void(base_family = "sans") +
   ggplot2::theme(
     plot.title = ggplot2::element_text(
@@ -103,9 +103,10 @@ figure_1 <- (tag_panel(fig1a, "a") / tag_panel(fig1b, "b")) |
   (tag_panel(fig1c, "c") / tag_panel(fig1d, "d"))
 figure_1 <- figure_1 + patchwork::plot_layout(widths = c(1.05, 1))
 
-# Figure 2: shorten titles and place colour-bar titles above the bars.
+# Figure 2: keep panel headings short enough for a two-column figure and place
+# colour-bar titles above the bars.
 fig2a <- fig2a +
-  ggplot2::labs(title = "Broad environmental associations conditional on space") +
+  ggplot2::labs(title = "Broad environment conditional on space") +
   ggplot2::theme(plot.title = ggplot2::element_text(size = 8.2))
 fig2b <- fig2b +
   ggplot2::guides(
@@ -144,7 +145,7 @@ figure_2 <- figure_2 + patchwork::plot_layout(widths = c(1.15, 1))
 fig3b <- fig3b +
   ggplot2::labs(title = "Fixed boundaries are environmentally local")
 fig3c <- fig3c +
-  ggplot2::labs(title = "Weak focal-guild contrast at state boundaries")
+  ggplot2::labs(title = "Weak focal-guild boundary contrast")
 sensitivity$display_p <- sprintf("%.3f", sensitivity$signflip_one_sided_p)
 sensitivity$label_x <- sensitivity$radius_km + ifelse(
   sensitivity$radius_km == 5,
@@ -241,24 +242,31 @@ fig4a <- ggplot2::ggplot() +
   ggplot2::coord_equal(
     xlim = c(-2.15, 2.15), ylim = c(-2.10, 2.10), clip = "off"
   ) +
-  ggplot2::labs(title = "Local colour departure as an ecological event") +
+  ggplot2::labs(title = "Local colour departure event") +
   ggplot2::theme_void(base_family = "sans") +
   ggplot2::theme(
     plot.title = ggplot2::element_text(face = "bold", colour = ink, size = 8.8),
     plot.margin = ggplot2::margin(8, 8, 8, 8)
   )
 
-# Figure 4b-c already come from the final-Broad/current-human adapter. Preserve
-# the adapter's current human feature family in 4d rather than reconstructing
-# a development-only composite panel.
+# Figure 4b-d already come from the final-Broad/current-human adapter. Preserve
+# the current human feature family while giving right-edge annotations enough
+# plotting room to remain visible at journal width.
 fig4c <- fig4c +
-  ggplot2::labs(title = "Departure frequency in repeated natural maps")
+  ggplot2::labs(title = "Departures under repeated natural maps") +
+  ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0.05, 0.28))) +
+  ggplot2::theme(plot.margin = ggplot2::margin(7, 16, 7, 7))
 fig4d <- fig4d +
   ggplot2::labs(
     title = "Possible contemporary human overlay",
     subtitle = "10,000-map family; no global maxT P < .05"
   ) +
-  ggplot2::theme(plot.title = ggplot2::element_text(size = 8.2))
+  ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0.05, 0.34))) +
+  ggplot2::coord_cartesian(clip = "off") +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(size = 8.2),
+    plot.margin = ggplot2::margin(7, 24, 7, 7)
+  )
 figure_4 <- (tag_panel(fig4a, "a") | tag_panel(fig4b, "b")) /
   (tag_panel(fig4c, "c") | tag_panel(fig4d, "d"))
 

@@ -1,10 +1,10 @@
 # Journal of Biogeography — Supporting Information architecture
 
-The Supporting Information is the evidence reserve for the adopted analysis. It documents measurement, robustness, confounding controls and claim ceilings without turning Main into an inventory of models.
+The Supporting Information is the evidence reserve for the ecological argument. It documents how far each step can support a hypothesis about flower-colour differentiation and maintenance, where macroecological resolution stops, and which alternative explanations remain open. It should constrain the Main story without turning it into an inventory of model development.
 
 ## Appendix S1 — YAMAP sampling frame and public-database benchmark
 
-**Purpose:** establish what the repurposed hiking-photo stream contributes and make its observation process explicit.
+**Ecological role:** establish the observation process that made a contemporary national map of intraspecific flower-colour variation possible, while quantifying where that sampling frame is strong and where it is incomplete.
 
 Content:
 
@@ -16,6 +16,8 @@ Content:
 - image-hash and photo-coordinate audit;
 - explicit statement that mountain-route sampling enriches mountain/semi-natural coverage but does not prove wild provenance or areal randomness.
 
+**Payoff for Main:** the hiking-photo stream expands the measurable geography of the polymorphism, but route/access/conspicuousness bias remains part of every later inference.
+
 Primary sources:
 
 - `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md`;
@@ -23,7 +25,7 @@ Primary sources:
 
 ## Appendix S2 — Image phenotyping and two-part colour response
 
-**Purpose:** demonstrate that the phenotype is reproducibly constructed before geography, Bombus or human variables enter.
+**Ecological role:** show that pigmentation state and visible intensity after pigmentation are reproducibly defined before any environmental, Bombus or human information enters, so their later ecological divergence is not created by predictor-informed classification.
 
 Content:
 
@@ -36,13 +38,15 @@ Content:
 - classification sensitivities;
 - exact pigmentation-state and pigmented-only intensity definitions.
 
+**Payoff for Main:** whether pigmentation is expressed and how strongly it is expressed once present can be treated as distinct ecological layers, without claiming direct pigment chemistry or pollinator perception from photographs.
+
 Primary source:
 
 - `submission/jbi/supporting/Appendix_S2_image_phenotyping.md`.
 
 ## Appendix S3 — Broad environmental and spatial model
 
-**Purpose:** document Main 1 and the natural-state handoff to the local-departure analysis.
+**Ecological role:** define the macroecological candidate adaptive landscape and the unresolved regional geography against which finer-scale hypotheses are asked.
 
 Content:
 
@@ -58,13 +62,15 @@ Content:
 - explicit distinction between measured environmental effects and unresolved residual geography;
 - final-eight-axis cross-fitted pigmentation-state natural reference used by Main 3.
 
+**Payoff for Main:** robust geographical association can identify candidate environmental contexts for adaptive or plastic responses, while the SPDE field identifies where population-genomic or unmeasured-environment explanations remain unresolved. Neither component alone proves local adaptation or demographic history.
+
 Primary source:
 
 - `submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md`.
 
 ## Appendix S4 — Bumblebee SDMs and occurrence-referenced exposure
 
-**Purpose:** make the local Bombus exposure reproducible and bound its biological interpretation.
+**Ecological role:** define a reproducible proxy for focal-pollinator opportunity and make explicit why it is one resolution step above environment-only maps but one step below realized visitation or selection.
 
 Content:
 
@@ -77,13 +83,15 @@ Content:
 - rationale for *B. ardens* + *B. diversus* as the signed directional exposure;
 - explicit statement that SDM habitat support is not abundance, visitation, pollen deposition or selection pressure.
 
+**Payoff for Main:** the SDMs generate a spatially explicit opportunity hypothesis that can be tested at independent flower-colour boundaries; direct visitation and fitness remain the next mechanistic resolution.
+
 Primary source:
 
 - `submission/jbi/supporting/Appendix_S4_bombus_sdm_occurrence_support.md`.
 
 ## Appendix S5 — Local focal-pollinator robustness and biogeographic guardrails
 
-**Purpose:** determine the claim ceiling of the weak Main-2 result and distinguish directional local correspondence from broader Bombus biogeography.
+**Ecological role:** determine whether the weak local Bombus correspondence is compatible with a pigmentation-state maintenance hypothesis and distinguish that possibility from visually attractive but confounded biogeographic overlap.
 
 Content:
 
@@ -98,7 +106,9 @@ Content:
 - matched-background, block-repetition and leave-one-block-out diagnostics;
 - montane/alpine near-equal-elevation negative controls.
 
-Community turnover remains an **unsigned biogeographic boundary correspondence**. The focal 5-km mean remains a **weak, highly local, magnitude-driven correspondence**, not evidence of pollinator-mediated selection.
+Community turnover remains an **unsigned biogeographic boundary correspondence**. The focal 5-km mean remains a **weak, highly local, magnitude-driven correspondence**, not evidence of pollinator-mediated selection. The montane/elevation result is a biological negative control showing how shared habitat geography can imitate a pollinator mechanism.
+
+**Payoff for Main:** if a Bombus contribution exists, the present evidence fits local maintenance/loss of pigmentation state better than regional darkening; direct visitation, pollen transfer and fitness are required to test selection.
 
 Primary source:
 
@@ -106,7 +116,7 @@ Primary source:
 
 ## Appendix S6 — Local departures and post-selection human context
 
-**Purpose:** demonstrate that local departures are selected without human information, quantify whether the same ecological event is excessive under the finalized natural geography, and then characterize human context.
+**Ecological role:** distinguish naturally generated local trait discordance from candidate contemporary overlays, and convert apparently anomalous populations into reproducibly selected field/provenance targets.
 
 Primary event specification:
 
@@ -129,6 +139,8 @@ Evidence:
 - observation-effort and independent-site-support alternatives, both null after correction;
 - explicit distinction among horticultural/provenance opportunity, unresolved fine-scale environmental modification and broader observation-access bias.
 
+**Payoff for Main:** local colour discordance is not automatically evidence for an extra process. The weak settlement association instead identifies a contemporary provenance hypothesis that can be tested with field history, microenvironment and genomic assignment.
+
 Primary source:
 
 - `submission/jbi/supporting/Appendix_S6_event_departures_human_context.md`.
@@ -143,12 +155,15 @@ Supplementary panels should be generated from the same checksum-locked evidence 
 - S5 focal-scale/exposure, final-eight-axis balance, community-match and equal-elevation guardrail panels;
 - S6 observed-versus-natural-map event distribution, 16-candidate map/local examples, human maxT and observation-process panels.
 
-A panel belongs in Supporting Information only when it supports or constrains a current manuscript claim.
+A panel belongs in Supporting Information only when it supports, constrains or locates the next test of a current ecological claim.
 
 ## Main/Supp editorial rule
 
-A Supporting result enters Main only when it materially changes interpretation. The key guardrail payoffs are:
+A Supporting result enters Main only when it materially changes biological interpretation. The key payoffs are:
 
-1. the focal Bombus effect is weak/local and the visually strong montane overlap disappears under near-equal-elevation comparison;
-2. final-eight-axis balance shows that the fixed Bombus transitions are environmentally closer than local edges without using environment to choose the pairs; and
-3. the 16 local departures are not excessive under natural predictive maps, while the leading 5-km settlement signal remains just above the global familywise threshold.
+1. state and intensity are reproducibly distinct response layers before ecological predictors enter;
+2. the focal Bombus effect is weak/local and the visually strong montane overlap disappears under near-equal-elevation comparison;
+3. final-eight-axis balance shows that the fixed Bombus transitions are environmentally closer than local edges without using environment to choose the pairs; and
+4. the 16 local departures are not excessive under natural predictive maps, while the leading 5-km settlement signal remains just above the global familywise threshold.
+
+Together, S1–S6 define the resolution ladder of the paper: **observation process -> visible phenotype -> macroenvironment/spatial geography -> predicted pollinator opportunity -> local boundary correspondence -> contemporary provenance targets**.

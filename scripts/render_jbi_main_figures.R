@@ -7,6 +7,41 @@
 
 source("scripts/build_jbi_figure_bundle.R")
 
+# JBI requires bar scales on maps. All current Main maps use WGS84
+# longitude/latitude; this helper draws a 100-km bar at 32.15°N using the
+# local longitude-to-distance conversion at the bar latitude.
+add_100km_scale <- function(plot, lon = 130.05, lat = 32.15) {
+  km <- 100
+  delta_lon <- km / (111.32 * cos(lat * pi / 180))
+  tick <- 0.09
+  plot +
+    ggplot2::annotate(
+      "segment", x = lon, xend = lon + delta_lon, y = lat, yend = lat,
+      linewidth = 0.62, colour = ink
+    ) +
+    ggplot2::annotate(
+      "segment", x = lon, xend = lon, y = lat - tick, yend = lat + tick,
+      linewidth = 0.62, colour = ink
+    ) +
+    ggplot2::annotate(
+      "segment", x = lon + delta_lon, xend = lon + delta_lon,
+      y = lat - tick, yend = lat + tick,
+      linewidth = 0.62, colour = ink
+    ) +
+    ggplot2::annotate(
+      "text", x = lon + delta_lon / 2, y = lat + 0.22,
+      label = "100 km", size = 2.2, colour = ink
+    )
+}
+
+# Apply the same explicit map scale to every national map panel constructed by
+# the core builder. Non-map panels are unchanged.
+fig1b <- add_100km_scale(fig1b)
+fig2b <- add_100km_scale(fig2b)
+fig2c <- add_100km_scale(fig2c)
+fig3a <- add_100km_scale(fig3a)
+fig4b <- add_100km_scale(fig4b)
+
 # Figure 1a: keep every measurement step visible at two-column width.
 workflow_nodes <- data.frame(
   x = 1:5,

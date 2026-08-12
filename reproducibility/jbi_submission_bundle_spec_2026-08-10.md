@@ -14,13 +14,16 @@ Source of truth:
 - `paper/active-file-map.csv`;
 - `reproducibility/final_integrated_pipeline_2026-08-12.md`.
 
-## Figure input
+## Current figure input
 
-The submission workflow restores a checksum-locked Main-figure artifact produced from the current figure renderer and evidence hierarchy. Whenever manuscript-facing rendering changes, the figure artifact is regenerated and re-locked even when the underlying numerical evidence is unchanged.
+The submission workflow restores the checksum-locked ecological-layout Main-figure artifact produced from the current renderer and evidence hierarchy:
 
-The current branch is generating the ecological-layout refresh in which the panel titles follow the same progression as the Main text: two phenotypic layers -> broad environmental/residual geography -> weak local pollinator-maintenance correspondence -> natural-map-calibrated contemporary departures. Before merge, this section and `.github/workflows/jbi-submission-bundle.yml` must be pinned to the successful artifact from that renderer.
+- figure workflow run: `31584573276`;
+- figure artifact: `9136663517`;
+- artifact SHA-256: `98aebc0216499542a0883c5584ed3d165c253b36bb7d7b9eac5c22c3ef2fb979`;
+- source renderer commit: `2475c2f821534e78b3c3594acae0c4cff2395f1e`.
 
-The accepted artifact must contain four validated 600-dpi PNGs, four vector PDFs, source hashes and the manuscript numerical lock. Figure maps include explicit scale information and panel labels follow the current JBI-facing convention.
+The artifact passed numerical-lock, text-package and file validation and was visually checked after generation. Its four Main figures follow the same biological progression as the manuscript: two phenotypic colour layers -> broad environmental/residual geography -> weak local pollinator-maintenance correspondence -> natural-map-calibrated contemporary departures. The artifact contains four 600-dpi PNGs, four vector PDFs, source hashes and the manuscript numerical lock. All map panels retain explicit 100-km scales and JBI-facing lowercase panel labels.
 
 ## Generated files
 

@@ -87,13 +87,13 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 
 ## Pre-submission scientific checks
 
-- Main narrative contains only the three causal/inferential acts: broad template -> local focal-pollinator test -> calibrated local departures/human follow-up.
+- Main narrative contains only the three inferential acts: broad template -> local focal-pollinator test -> calibrated local departures/human follow-up.
 - Five-species community turnover remains Supporting Information.
 - High-elevation Bombus remains a negative guardrail, not a second positive mechanism.
 - Main Bombus result is labelled weak/local and includes the median/sign/raw/scale fragility in the same Results section.
 - No claim that SDM support equals realized visitation or selection.
 - No claim that YAMAP removes observer bias or that every mountain photograph is wild.
-- No claim that the 17 departures are anthropogenic or more frequent than the natural model expects.
+- No claim that the **16 current-Broad departures** are anthropogenic or more frequent than the finalized natural model expects.
 
 ## Final portal checks immediately before submission
 

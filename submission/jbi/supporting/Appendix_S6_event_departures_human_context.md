@@ -172,6 +172,6 @@ Choi, M. S. et al. (2012). Breeding of purple flower-colored dwarf ‘Jiknyeo’
 
 Davis, A. J. S. et al. (2016). Accounting for residential propagule pressure improves prediction of urban plant invasion. *Ecosphere* 7:e01232. DOI: 10.1002/ecs2.1232.
 
-Dehnen-Schmutz, K., Touza, J., Perrings, C. & Williamson, M. (2007). The horticultural trade and ornamental plant invasions in Britain. *Conservation Biology* 21:224–231.
+Dehnen-Schmutz, K., Touza, J., Perrings, C. & Williamson, M. (2007). A century of the ornamental plant trade and its impact on invasion success. *Diversity and Distributions* 13:527–534. DOI: 10.1111/j.1472-4642.2007.00359.x.
 
 Mair, L. & Ruete, A. (2016). Explaining spatial variation in the recording effort of citizen science data across multiple taxa. *PLoS ONE* 11:e0147796.

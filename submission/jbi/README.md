@@ -2,99 +2,96 @@
 
 Target article type: **Research Article**.
 
-This directory contains the submission-facing representation of one ecological argument: **how a geographically structured flower-colour polymorphism is differentiated, potentially maintained and locally modified across ecological scales**.
+This folder contains the current manuscript, Supporting Information, figures and submission checks.
 
-The resolution sequence is:
+## Read in this order
 
-`hiking photographs -> pigmentation state + intensity -> broad environmental/residual geography -> local focal-Bombus state boundaries -> natural-map-calibrated local departures -> contemporary provenance context -> direct experiments and genomics`
+1. `JBI_main_manuscript_anonymized.md` — the paper.
+2. `JBI_main_figure_captions.md` — the four-figure story.
+3. `supporting/` — technical detail and robustness.
+4. `JBI_submission_checklist.md` — journal and portal checks.
 
-## Read the submission in this order
+Other files support the submission process:
 
-- `JBI_main_manuscript_anonymized.md` — anonymized Main manuscript;
-- `JBI_main_figure_plan.md` and `JBI_main_figure_captions.md` — four-figure ecological progression;
-- `supporting/Appendix_S1_yamap_public_benchmark.md` through `supporting/Appendix_S6_event_departures_human_context.md` — evidence and claim-bounding details;
-- `JBI_translated_abstract_ja.md` — Japanese translated abstract;
-- `JBI_submission_checklist.md` — submission-format/readiness checklist.
+- `JBI_title_page_template.md`
+- `JBI_cover_letter.md`
+- `JBI_translated_abstract_ja.md`
+- `JBI_sdm_model_building_checklist.md`
+- `validate_jbi_submission.py`
 
-Additional delivery files are:
+## The paper in four questions
 
-- `JBI_title_page_template.md`;
-- `JBI_cover_letter.md`;
-- `JBI_sdm_model_building_checklist.md`;
-- `validate_jbi_submission.py`;
-- `figures/README.md`;
-- `bundle/README.md`.
+### 1. What is the flower-colour phenotype?
 
-## Biological hierarchy
+We built a national dataset from author-screened YAMAP hiking photographs.
 
-### 1. Make the polymorphism measurable
+The phenotype has two parts:
 
-Author-reviewed YAMAP hiking photographs provide a contemporary national visible-colour dataset. The phenotype is divided before ecological predictors enter into:
+- white-like versus pigmented state;
+- colour intensity among pigmented flowers.
 
-- **pigmentation state** — whether visible pigmentation is expressed; and
-- **pigmented-only intensity** — how strong visible colour is after pigmentation is present.
+### 2. How do environment and geography relate to those two traits?
 
-This distinction is biological as well as statistical: the manuscript asks whether the two components have different environmental and biotic organization.
+Pigmentation is less common in warmer climates.
 
-### 2. Define the broad candidate ecological landscape
+Colour intensity follows a different pattern involving temperature seasonality, moisture and terrain.
 
-Response-specific INLA-SPDE models estimate measured environmental associations while retaining unresolved continuous geography. Broad thermal, moisture and terrain associations are interpreted as candidate adaptive/developmental contexts, not direct proof of local adaptation. The spatial field is unresolved geography, not a named demographic mechanism.
+A strong spatial pattern remains after measured environment.
 
-### 3. Change scale for the focal-pollinator hypothesis
+### 3. Do local white-pigmented boundaries line up with focal bumblebee habitat opportunity?
 
-Because Bombus SDMs are themselves environment-derived, the Main test does not insert them as another national causal predictor. It moves to independently selected nearby white–pigmented boundaries. The resulting focal-Bombus correspondence is weak and local; if biological, it is framed as possible maintenance/loss of pigmentation state rather than progressive darkening or demonstrated pollinator-mediated selection.
+Only weakly.
 
-### 4. Calibrate local departures before contemporary interpretation
+The main test uses 67 fixed local boundaries. The signal is small, fragile and not treated as evidence of pollinator-mediated selection.
 
-Local pigmented configurations are defined in the finalized eight-axis natural state space and replayed on 10,000 predictive maps before human variables are examined. The 16 observed departures are not collectively excessive under the fitted natural geography. Short-range settlement exposure is suggestive post-selection context, not evidence of anthropogenic or horticultural origin.
+### 4. Are local pigmented departures unusual?
 
-### 5. End at the next mechanistic resolution
+No.
 
-The manuscript closes by mapping macroecological results to direct tests:
+Sixteen observed departures are compatible with 10,000 natural predictive maps.
 
-- environmental gradients -> common-garden/reciprocal-transplant, physiology and fitness;
-- residual spatial geography -> population genomics, ancestry, isolation by distance and admixture;
-- focal Bombus SDMs -> realized visitation, flower contact, pollen deposition and reproductive success;
-- local departures -> field provenance, planting history and genomic assignment.
+Human context is tested only after those sites are fixed. Short-range population exposure is the strongest feature, but global maxT FWER P=0.05479.
 
-The macro-scale analyses therefore locate where adaptive, demographic, biotic and contemporary mechanisms should next be tested rather than substituting for those direct measurements.
+## What stays in Supporting Information?
 
-## Supporting Information
+Supporting Information keeps the details that are important for audit but would slow the Main story.
 
-Supporting Information functions as the paper's evidence reserve:
+- **S1:** YAMAP/public-database benchmark and sampling process
+- **S2:** image phenotyping, mixture model and QC
+- **S3:** full environmental/spatial model checks
+- **S4:** Bombus SDM construction and calibration
+- **S5:** local Bombus sensitivities and negative controls
+- **S6:** 10,000-map departure calibration and full human-context family
 
-- S1 — observation process and YAMAP/public-database benchmark;
-- S2 — reproducible phenotype construction and optical claim ceiling;
-- S3 — Broad environmental/spatial model and macro-resolution limits;
-- S4 — Bombus SDM construction and occurrence-reference calibration;
-- S5 — local pollinator robustness, community biogeography and elevation guardrails;
-- S6 — natural-map departure calibration, human-context maxT family and observation-process alternatives.
+## Writing rule
 
-A Supporting result enters Main only when it materially changes biological interpretation.
+The Main text uses short, direct English.
 
-## Figures
+A paragraph should answer one question. Technical safeguards stay in Supporting Information unless the reader needs them to understand the biological result.
 
-`.github/workflows/jbi-main-figures.yml` generates four Main figures from checksum-locked evidence. The four panels are designed to read as an ecological progression rather than a methods inventory:
+Editorial guides:
 
-1. reveal pigmentation state and intensity as two colour layers;
-2. locate broad environmental and residual geographic structure;
-3. test weak local pollinator-maintenance correspondence at state boundaries;
-4. calibrate natural departures before contemporary provenance follow-up.
+- `JBI_background_architecture.md` — Introduction order
+- `JBI_narrative_dependency_architecture.md` — whole-paper story and plain-English rules
 
-The workflow outputs four 600-dpi PNGs, four vector PDFs, source hashes and a numerical lock. Map scales and panel-label requirements are validated.
+## Generated review package
 
-## Editable review package
+`.github/workflows/jbi-submission-bundle.yml` builds:
 
-`.github/workflows/jbi-submission-bundle.yml` builds the review package from the current manuscript/SI and the checksum-locked Figure artifact. It produces the anonymized Main DOCX, one combined Supporting Information DOCX, title page, cover letter, translated abstract, SDM checklist, separate figures, file manifest, readiness record and delivery ZIP.
+- anonymized Main DOCX with Figures 1-4;
+- combined Supporting Information DOCX;
+- title-page, cover-letter, translated-abstract and SDM-checklist DOCX files;
+- separate figure files;
+- readiness and hash manifests.
 
-All generated Word files are converted through LibreOffice in CI. `review_science_bundle_complete=true` means the anonymous scientific package has passed structural validation. `portal_ready=false` remains expected until author-controlled fields, private review links, the permission-cleared taxon image and required disclosures are completed.
+CI also renders every DOCX through LibreOffice.
 
-## Editorial architecture and validation
+`review_science_bundle_complete=true` means the anonymous scientific package passed structural checks. It does **not** mean that author-controlled portal fields are complete.
 
-- `JBI_background_architecture.md` records the ecological foreshadowing and payoff structure of the Introduction.
-- `JBI_narrative_dependency_architecture.md` records the scale changes that connect the paper's ecological questions.
-- `validate_jbi_submission.py` checks format, anonymity, current 1,922 / 67 / 16 / 0.0548 numerical locks, figure requirements, translated abstract and checklist consistency.
+For reproduction, use:
 
-These editorial files do not replace the scientific source of truth. For scientific reproduction, start at `../../paper/README.md`, `../../paper/analysis-map.md` and `../../docs/reproduction-guide.md`. The integrated evidence lock is `../../reproducibility/final_integrated_pipeline_2026-08-12.md`.
+- `../../paper/README.md`
+- `../../paper/analysis-map.md`
+- `../../docs/reproduction-guide.md`
 
-Original YAMAP photographs are third-party content and are not redistributed. The public derived trait table and its data dictionary are `../../Data_S1.csv` and `../../docs/data-s1-dictionary.md`.
+Original YAMAP photographs are third-party content and are not redistributed. The public derived table is `../../Data_S1.csv`.

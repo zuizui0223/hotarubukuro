@@ -38,14 +38,19 @@ This separation is intentional: the paper does not claim statistical partitionin
 
 ### Main 1 — finalized Broad
 
-- `.github/workflows/reanalysis-current-inputs.yml`
-- `scripts/run_reanalysis_current_inputs.sh`
 - `scripts/run_environment_interaction_inla_screen.R`
+- `.github/workflows/environment-interaction-inla-screen.yml`
 - `scripts/run_broad_environment_spatial_audit.R`
+- `analysis_sensitivity/run_broad_environment_spatial_audit_wrapper.R`
+- `.github/workflows/broad-environment-spatial-audit.yml`
 - `reproducibility/broad_environment_spatial_final_model_2026-08-11.md`
+- `reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv`
+- `reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv`
 - `reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv`
 
 Primary pigmentation state: eight abiotic axes + East/West + stationary SPDE, no promoted interaction. Primary conditional intensity: the same measured abiotic framework with the retained Temperature PC1 × temperature-seasonality interaction and stationary SPDE. VIF is diagnostic rather than a universal hard deletion threshold.
+
+The frozen current-input/cell artifact used by these audits was generated earlier from the curated source boundary. Its former orchestration script also generated the superseded four-PC/17-candidate downstream branch; that orchestration has therefore been moved to `legacy/reproducibility-development/superseded-current-input-anomaly-pipeline-2026-08-12/`. The artifact remains an input provenance object, not a current inferential pipeline.
 
 ### Main 2 — focal Bombus
 
@@ -73,23 +78,33 @@ Community turnover is not used to strengthen the signed focal-Bombus test. Monta
 ### Main 3 — current-Broad local departure and human context
 
 - `R/natural_predictive_model.R`
+- `R/candidate_null_tools.R`
 - `R/local_pigmented_isolates.R`
 - `R/local_human_context.R`
 - `analysis_sensitivity/run_human_context_current_broad_primary_fast.R`
 - `.github/workflows/human-context-highrep-final.yml`
+- `reproducibility/current_broad_human_primary_2026-08-12.md`
 - `submission/jbi/supporting/Appendix_S6_event_departures_human_context.md`
 
-Primary matching now uses standardized RMS distance <=1 across the same eight measured abiotic axes as the finalized pigmentation-state Broad analysis, within 10 km and with at least three neighbours. The historical four-PC broad/within representation is sensitivity provenance only.
+Primary matching uses standardized RMS distance <=1 across the same eight measured abiotic axes as the finalized pigmentation-state Broad analysis, within 10 km and with at least three neighbours. The historical four-PC broad/within representation is sensitivity provenance only and its executable implementation now lives under `legacy/`.
+
+### Integration / submission lock
+
+- `.github/workflows/final-paper-analysis.yml`
+- `reproducibility/final_integrated_pipeline_2026-08-12.md`
+- `FINAL_PIPELINE_SUPP_MANUSCRIPT_AUDIT_2026-08-12.md`
+
+The integration workflow restores checksum-locked Broad, Bombus and current-Broad human evidence and verifies the manuscript/Supp numerical hierarchy. It does not rerun the superseded four-PC/17-candidate downstream branch.
 
 ## Current frozen numerical references
 
-### Broad/current cell reference
+### Broad/current cell source reference
 
 - run: `31258851297`
 - artifact: `9022276431`
 - artifact SHA-256: `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`
 
-This artifact remains the checksum-locked current-input/cell/static-support reference used by later audits. Final response-specific Broad model decisions are recorded in the 2026-08-11 Broad final-model reproducibility files.
+This artifact is the checksum-locked current-input/cell/static-support source used by later audits. Final response-specific Broad model decisions are recorded in the 2026-08-11 Broad final-model reproducibility files. Its historical generator is preserved under `legacy/` because the same old orchestration also contained a superseded downstream inferential branch.
 
 ### Fresh Bombus source build
 
@@ -152,20 +167,22 @@ The paper uses its occurrence-reference calibration/support table; superseded na
 
 ## Infrastructure retained for a current dependency
 
-`inputs/canonical_snapshot.json` and `scripts/canonical_snapshot.sh` remain outside `legacy/` because Main 3 restores static WorldPop/MLIT/DID support files from that immutable bundle. The old 1,909 flower-population identity associated with the snapshot is not current evidence.
+`inputs/canonical_snapshot.json` and `scripts/canonical_snapshot.sh` remain outside `legacy/` because current human-context replay restores static WorldPop/MLIT/DID support originating from that immutable source bundle. The old 1,909 flower-population identity associated with the snapshot is not current evidence.
 
 ## Deliberately excluded from the current paper
 
-The following development ideas are historical and do not determine current claims:
+The following development ideas or superseded execution paths do not determine current claims:
 
 - the 1,909-observation publication architecture and its population checker;
+- the old current-input orchestration that continued into the four-PC/17-candidate anomaly/human branch;
 - the old all-five lower-third Bombus limitation gate;
 - national environment+SPDE Bombus null tests as a Main mechanism;
 - the superseded 10/25/50-km effective-availability refinement built around the old broad natural null;
 - relaxation/local-contrast variants superseded by the 5-km sharp-transition design;
 - old four-PC human matching as a manuscript primary;
+- the old candidate-DOY helper, which was descriptive and fed no current selection or claim;
 - older Ecology & Evolution manuscript drafts and figure plans;
 - local Bombus turnover implementations superseded by the spatially matched five-species boundary analysis;
 - old submission-reference bundles, final registries and one-time manuscript patch scripts/workflows.
 
-The historical analyses remain auditable under `legacy/` or dated reproducibility records.
+Historical analyses remain auditable under `legacy/`. The current inferential lock is `reproducibility/final_integrated_pipeline_2026-08-12.md`.

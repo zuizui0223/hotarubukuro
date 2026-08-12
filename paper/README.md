@@ -1,6 +1,6 @@
 # Current paper — scientific and reproducibility entry point
 
-This page describes the adopted analysis directly. A reader should be able to move from the biological question to the exact code, evidence and validation route without knowing the project's development history.
+This page is the **single entry point** for the adopted analysis. A reader should be able to move from the biological question to the exact code, evidence and validation route without reconstructing project development history.
 
 ## Paper in one line
 
@@ -138,7 +138,3 @@ Large raster-derived and predictive-draw inputs are restored by checksum rather 
 - Original YAMAP photographs are third-party content and are not redistributed.
 - Source-construction utilities and declared external inputs live under `source_build/`, `config/` and the reproduction guide.
 - Random seeds, model/event definitions, artifact identities and claim ceilings are versioned.
-
-## 8. Historical provenance
-
-Development history is preserved under `legacy/` so provenance is not erased, but it is deliberately outside the current reproduction path. Readers reproducing the paper do not need to inspect it.

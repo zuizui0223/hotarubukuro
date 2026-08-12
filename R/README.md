@@ -1,23 +1,35 @@
 # R modules
 
-`R/pipeline_support.R` is the shared loader for reusable modules still needed by the current JBI analysis and checksum-locked current-Broad human replay. Its registry must not point into `legacy/`.
+This directory contains reusable R modules required by the adopted manuscript workflows. `R/pipeline_support.R` is the shared loader and its registry is checked by CI against `paper/active-file-map.csv`.
 
-## Current scientific modules
+## Local-departure and human-context modules
 
-- `natural_predictive_model.R` — environment + SPDE predictive-reference utilities used to construct the locked natural-map framework;
-- `candidate_null_tools.R` — common event/null utilities for local-departure replay;
-- `human_landscape_features.R` — landscape/context feature construction used in the frozen human-support source;
-- `local_pigmented_isolates.R` — local pigmentation-state event utilities used by the current final-eight-axis detector;
+- `natural_predictive_model.R` — environment + SPDE predictive-reference utilities;
+- `candidate_null_tools.R` — event/null utilities for predictive-map replay;
+- `human_landscape_features.R` — landscape/context feature construction;
+- `local_pigmented_isolates.R` — final-eight-axis local pigmentation-event utilities;
 - `human_raster_features.R` — raster-derived human-context support;
-- `local_human_context.R` — post-selection candidate-context utilities;
-- `spatial_context.R` — spatial support utilities for the human-context layer;
-- `did_sensitivity.R` — DID/context feature utilities retained because DID remains in the current global human family;
-- `local_pair_graph.R` — deterministic local graph/pair utilities for the focal-Bombus boundary test.
+- `local_human_context.R` — post-selection candidate-context contrasts;
+- `spatial_context.R` — spatial support utilities;
+- `did_sensitivity.R` — DID/context feature utilities used in the global human family.
 
-`reproducibility.R` provides provenance helpers. `raster_sources.R` supports current environmental source-build workflows.
+Current execution route:
 
-The old candidate-DOY helper is no longer a current Supporting analysis: it fed no candidate selection or Main claim and was tied to the superseded downstream candidate definition. It is preserved under `legacy/reproducibility-development/superseded-current-input-anomaly-pipeline-2026-08-12/R/`.
+- `analysis_sensitivity/run_human_context_current_broad_primary_fast.R`;
+- `.github/workflows/human-context-highrep-final.yml`.
 
-Main-2 sharp-transition inference remains in `scripts/run_bombus_local_sharp_transition.R` plus `R/local_pair_graph.R`; five-species community-boundary and montane guardrails remain in `scripts/run_bombus_spatial_replication_test.R`.
+## Local focal-Bombus module
 
-Superseded local-Bombus-turnover, final-registry, fixed-n, limitation-gate, four-PC/17-candidate downstream and other historical modules belong under `legacy/`. Current code must not import them.
+- `local_pair_graph.R` — deterministic local graph and pair construction for the sharp white-pigmented boundary test.
+
+Primary inference is executed by `scripts/run_bombus_local_sharp_transition.R`; community/elevation guardrails are executed by `scripts/run_bombus_spatial_replication_test.R`.
+
+## Infrastructure modules
+
+- `reproducibility.R` — provenance/hash helpers;
+- `raster_sources.R` — environmental source-build support;
+- `pipeline_support.R` — current module registry, argument and dependency helpers.
+
+## Validation boundary
+
+Reusable modules are unit tested under `tests/testthat/`, parsed by the repository CI and must be reachable from a current workflow or registered infrastructure path. Scientific definitions and expected numerical identities are documented in `paper/analysis-map.md` and `docs/reproduction-guide.md`.

@@ -13,10 +13,12 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+REPO_ROOT = ROOT.parent.parent
 MAIN = ROOT / "JBI_main_manuscript_anonymized.md"
 COVER = ROOT / "JBI_cover_letter.md"
 FIGURE_CAPTIONS = ROOT / "JBI_main_figure_captions.md"
 FIGURE_README = ROOT / "figures" / "README.md"
+FIGURE_RENDER = REPO_ROOT / "scripts" / "render_jbi_main_figures.R"
 TRANSLATED_ABSTRACT = ROOT / "JBI_translated_abstract_ja.md"
 CHECKLIST = ROOT / "JBI_submission_checklist.md"
 SUPPORTING = (
@@ -111,16 +113,12 @@ if body_n > 6000:
 
 assert_anonymous("anonymized manuscript", text)
 
-# Current scientific hierarchy must remain explicit in Main.
 require_tokens(
     "Main manuscript",
     text,
     ("1,922", "67 sharp transitions", "Sixteen local departures", "0.0548"),
 )
 
-# A citation/reference mismatch discovered during final QC motivated these
-# lightweight explicit guards for the literature that anchors scale-aware SDM
-# interpretation and geographical cross-validation.
 for citation, reference in (
     ("Soberón, 2007", "Soberón, J. (2007)."),
     ("Araújo & Rozenfeld, 2014", "Araújo, M. B., & Rozenfeld, A. (2014)."),
@@ -155,7 +153,33 @@ figure_headings = re.findall(r"^## Figure ([1-4])\.", figure_text, flags=re.MULT
 if figure_headings != ["1", "2", "3", "4"]:
     fail(f"Figure captions must contain Figures 1-4 exactly once and in order: {figure_headings}")
 require_tokens("Main-figure captions", figure_text, ("1,922", "Sixty-seven", "**16**", "0.05479"))
+if re.search(r"\([A-D]\)", figure_text):
+    fail("JBI figure captions must use lowercase panel labels (a)-(d)")
+for number in range(1, 5):
+    block = figure_text.split(f"## Figure {number}.", 1)[1]
+    if number < 4:
+        block = block.split(f"## Figure {number + 1}.", 1)[0]
+    for token in ("*Campanula punctata*", "Japan", "100-km bar scale"):
+        if token not in block:
+            fail(f"Figure {number} legend is not standalone for JBI; missing {token}")
 assert_anonymous("Main-figure captions", figure_text)
+
+if not FIGURE_RENDER.is_file():
+    fail("Missing current Main-figure renderer")
+render_text = FIGURE_RENDER.read_text(encoding="utf-8")
+require_tokens(
+    "Main-figure renderer",
+    render_text,
+    (
+        "add_100km_scale",
+        'tag_panel(fig1a, "a")',
+        'tag_panel(fig2a, "a")',
+        'tag_panel(fig3a, "a")',
+        'tag_panel(fig4a, "a")',
+    ),
+)
+if re.search(r'tag_panel\([^\n]+,\s*"[A-D]"\)', render_text):
+    fail("Main-figure renderer still contains uppercase JBI panel tags")
 
 if not FIGURE_README.is_file():
     fail("Missing generated-figure policy README")
@@ -194,4 +218,5 @@ print(f"PASS intro_to_discussion_words={body_n}")
 print(f"PASS supporting_appendices={len(SUPPORTING)}")
 print(f"PASS main_figure_captions={len(figure_headings)}")
 print("PASS current_science_crossfile_consistency=1")
+print("PASS jbi_figure_label_and_map_scale_consistency=1")
 print(f"PASS cover_interest_words={cover_n}")

@@ -121,6 +121,22 @@ Literature and public-data review classifies the current predictor basis as broa
 
 Allozyme evidence shows clear mainland–Izu differentiation, stronger among-population structure on islands, substantial outcrossing in mainland/Oshima populations and progressive southward island colonization. This supports retaining an explicit residual biogeographic component after measured environment, but not assigning it to one process. The coastline-barrier sensitivity was therefore biologically motivated and empirically rejected as a necessary improvement.
 
+## Downstream dependency after Broad finalization
+
+The Broad decision above is the upstream natural-environment specification for the manuscript. A subsequent, explicitly approved downstream rebuild aligned the local-departure analysis to the finalized Broad state space rather than leaving the earlier four-PC formulation as primary.
+
+The **current downstream primary** is therefore:
+
+- the final-eight-axis cross-fitted pigmentation-state reference;
+- local environmental matching in the same eight standardized abiotic axes;
+- 10-km physical neighbourhoods, RMS environmental distance <=1 and at least three eligible neighbours;
+- 10,000 natural-map event replay;
+- **16** observed local departures before post-selection human-context characterization.
+
+The former four-PC/17-candidate result is retained only as sensitivity provenance under `legacy/reproducibility-development/superseded-human-primary-2026-08-11/`. The current downstream lock is `reproducibility/current_broad_human_primary_2026-08-12.md`, and the complete manuscript hierarchy is `reproducibility/final_integrated_pipeline_2026-08-12.md`.
+
+The Temperature PC1 × temperature-seasonality interaction belongs only to pigmented-only intensity, so its promotion does not create a direct path into the state-based local-departure detector.
+
 ## Evidence provenance
 
 - frozen additive Broad reference: workflow `31258851297`, artifact `9022276431`, SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`;
@@ -129,6 +145,5 @@ Allozyme evidence shows clear mainland–Izu differentiation, stronger among-pop
 - joint seasonality adjudication: workflow `31458262192`, artifact `9089131067`, digest `sha256:408ae23c0a15a17e4b57e6dfc9f3df585c90ae670bcef2191d8e9def96250411`;
 - state hydroclimate/spatial audit: workflow `31458262192`, artifact `9089376082`, digest `sha256:d9d1b1ebba9d7916a6ab1d177ab157d9868164bee36ab70394cadeb53ad22b12`;
 - intensity hydroclimate/spatial audit: workflow `31458262192`, artifact `9089411334`, digest `sha256:0fe1869ed3335f749a461e4a7a5c11ed34a2483db2e2c9c3af1b101eb47787d6`;
-- downstream VIF/propagation audit and 10,000-map human-context adjudication: workflow `31472542634`, artifact `9094339466`, digest `sha256:413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`.
-
-The separate 1-km-cell cross-fitted natural predictive reference used for the 17 local-departure candidates remains the primary downstream reference. A direct eight-axis refit was tested explicitly and performed slightly worse under geographical cross-validation; see `reproducibility/human_context_final_audit_results_2026-08-11.md`.
+- downstream VIF/propagation audit and final-eight-axis predictive-draw source: workflow `31472542634`, artifact `9094339466`, digest `sha256:413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`;
+- current-Broad 10,000-map human-context replay: workflow `31537102360`, artifact `9119306089`, digest `sha256:f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4`.

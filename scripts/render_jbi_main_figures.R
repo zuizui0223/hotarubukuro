@@ -7,7 +7,7 @@
 
 source("scripts/build_jbi_figure_bundle.R")
 
-# Figure 1A: keep every measurement step visible at two-column width.
+# Figure 1a: keep every measurement step visible at two-column width.
 workflow_nodes <- data.frame(
   x = 1:5,
   y = 1,
@@ -65,8 +65,8 @@ fig1a <- ggplot2::ggplot() +
     ),
     plot.margin = ggplot2::margin(8, 8, 8, 8)
   )
-figure_1 <- (tag_panel(fig1a, "A") / tag_panel(fig1b, "B")) |
-  (tag_panel(fig1c, "C") / tag_panel(fig1d, "D"))
+figure_1 <- (tag_panel(fig1a, "a") / tag_panel(fig1b, "b")) |
+  (tag_panel(fig1c, "c") / tag_panel(fig1d, "d"))
 figure_1 <- figure_1 + patchwork::plot_layout(widths = c(1.05, 1))
 
 # Figure 2: shorten titles and place colour-bar titles above the bars.
@@ -96,10 +96,10 @@ performance_plot <- performance_plot +
   ggplot2::theme(plot.title = ggplot2::element_text(size = 7.8))
 fig2d <- range_plot / performance_plot +
   patchwork::plot_layout(heights = c(1, 1.2))
-figure_2 <- (tag_panel(fig2a, "A") | tag_panel(fig2b, "B")) /
-  (tag_panel(fig2c, "C") |
+figure_2 <- (tag_panel(fig2a, "a") | tag_panel(fig2b, "b")) /
+  (tag_panel(fig2c, "c") |
      patchwork::wrap_elements(full = fig2d) +
-       ggplot2::labs(tag = "D") +
+       ggplot2::labs(tag = "d") +
        ggplot2::theme(
          plot.tag = ggplot2::element_text(face = "bold", size = 11, colour = ink),
          plot.tag.position = c(0, 1)
@@ -163,8 +163,8 @@ fig3d <- ggplot2::ggplot(
     y = "Mean signed contrast"
   ) +
   theme_publication(base_size = 7.2)
-figure_3 <- (tag_panel(fig3a, "A") | tag_panel(fig3b, "B")) /
-  (tag_panel(fig3c, "C") | tag_panel(fig3d, "D"))
+figure_3 <- (tag_panel(fig3a, "a") | tag_panel(fig3b, "b")) /
+  (tag_panel(fig3c, "c") | tag_panel(fig3d, "d"))
 
 # Figure 4: keep the event calibration and familywise result visually clean.
 fig4c <- fig4c +
@@ -199,8 +199,8 @@ fig4d <- ggplot2::ggplot(
     colour = NULL
   ) +
   theme_publication(base_size = 7.2)
-figure_4 <- (tag_panel(fig4a, "A") | tag_panel(fig4b, "B")) /
-  (tag_panel(fig4c, "C") | tag_panel(fig4d, "D"))
+figure_4 <- (tag_panel(fig4a, "a") | tag_panel(fig4b, "b")) /
+  (tag_panel(fig4c, "c") | tag_panel(fig4d, "d"))
 
 # Overwrite the core previews with the final journal-width files and refresh
 # their SHA-256 manifest. Numerical and source locks written by the core builder

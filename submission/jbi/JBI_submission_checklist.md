@@ -7,6 +7,7 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 - Target: **Research Article**.
 - Main headers: Introduction, Materials and Methods, Results, Discussion, Acknowledgements, References.
 - JBI asks authors to state the theoretical foundation and conceptual advance clearly; the submission framing is trait biogeography + scale-aware inference, with *Campanula punctata* as the focal system rather than the only point of interest.
+- The ecological narrative treats floral colour polymorphism as a layered phenotype: broad environmental and residual geographical structure, local pollinator opportunity and contemporary human context are evaluated at different scales without being collapsed into one causal regression.
 - Repeatability is supported by detailed methods, versioned code, fixed seeds, checksum-locked artifacts and independent validators.
 
 ## Length and front matter
@@ -90,6 +91,8 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 ## Pre-submission scientific checks
 
 - Main narrative contains only the three inferential acts: broad template -> local focal-pollinator test -> calibrated local departures/human follow-up.
+- Discussion explicitly returns those acts to the ecological question of how flower-colour polymorphism is differentiated and potentially maintained across scales, without claiming direct evidence of adaptation.
+- The final synthesis maps broad environmental associations to common-garden/fitness tests, residual spatial geography to population genomics, SDM correspondence to realized pollination measurements, and local departures to provenance/genomic follow-up.
 - Five-species community turnover remains Supporting Information.
 - High-elevation Bombus remains a negative guardrail, not a second positive mechanism.
 - Main Bombus result is labelled weak/local and includes the median/sign/raw/scale fragility in the same Results section.

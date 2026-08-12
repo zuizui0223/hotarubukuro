@@ -1,74 +1,84 @@
-# Reproducing the manuscript-facing analyses
+# Reproduction guide
 
-This guide gives a direct route from each manuscript claim to its executable workflow and checksum-locked evidence. It intentionally describes only the adopted analysis.
+This guide is for people who want to check the manuscript numbers or rerun an analysis.
 
-Start with:
+If you only want to understand the science, start at [`paper/README.md`](../paper/README.md).
 
-- `paper/README.md` for the scientific hierarchy;
-- `paper/analysis-map.md` for claim-to-artifact mapping;
-- `paper/active-file-map.csv` for the machine-readable current interface;
-- `reproducibility/final_integrated_pipeline_2026-08-12.md` for the integrated numerical lock.
+## Two ways to reproduce the paper
 
-## Reproducibility model
+### 1. Exact evidence audit
 
-The paper combines executable code with frozen evidence artifacts. This is deliberate: several analyses depend on large raster-derived inputs, fitted spatial models and predictive draws that should not be silently replaced by newer external data.
+Use this when you want to check the numbers in the manuscript.
 
-A manuscript audit therefore has two valid modes:
+1. Find the result in [`paper/analysis-map.md`](../paper/analysis-map.md).
+2. Restore the listed checksum-locked artifact.
+3. Run the matching validator or paper workflow.
+4. Confirm that the manuscript value is recovered.
 
-1. **Exact evidence audit:** restore the checksum-locked artifact recorded in `paper/analysis-map.md`, rerun the corresponding validator and confirm the manuscript numbers.
-2. **Full scientific rerun:** rebuild the declared inputs and rerun the analysis workflow. Any refreshed external source is treated as a new analysis and should be compared explicitly before replacing a manuscript lock.
+This is the preferred route for submission QC.
 
-## Stage 1 — phenotype construction
+### 2. Full scientific rerun
 
-Distributed analysis table:
+Use this when you want to rebuild an analysis from its declared inputs.
+
+External databases and rasters can change. A refreshed source is therefore treated as a **new analysis**, not as a silent replacement for the manuscript evidence.
+
+## Stage 1. Build the flower-colour dataset
+
+Public analysis table:
 
 - `Data_S1.csv`
 
-Construction and colour extraction:
+Main construction code:
 
+- `Code_S1.py`
 - `source_build/build_data_s1.py`
 - `source_build/extract_color.py`
-- `Code_S1.py`
 
-Supporting documentation:
+Documentation:
 
 - `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md`
 - `submission/jbi/supporting/Appendix_S2_image_phenotyping.md`
 
-The current environment-complete analysis has **1,922 observations** in **1,305 1-km cells**. Original YAMAP photographs are third-party material and are not redistributed; the derived trait/source table is the public analysis input.
+Expected analysis population:
 
-## Stage 2 — Broad environment + spatial models
+- 1,922 observations;
+- 1,305 1-km cells;
+- 966 white-like;
+- 956 pigmented.
 
-Question: how are pigmentation state and pigmented-only visible intensity structured by measured environment and residual geography?
+Original YAMAP photographs are third-party material and are not redistributed.
 
-Current workflows:
+## Stage 2. Fit broad environment and spatial models
+
+Question: how do pigmentation state and colour intensity vary with measured environment, and how much spatial structure remains?
+
+Workflows:
 
 - `.github/workflows/environment-interaction-inla-screen.yml`
 - `.github/workflows/broad-environment-spatial-audit.yml`
 
-Primary scripts:
+Main scripts:
 
 - `scripts/run_environment_interaction_inla_screen.R`
 - `scripts/run_broad_environment_spatial_audit.R`
 - `analysis_sensitivity/run_broad_environment_spatial_audit_wrapper.R`
 
-Final decision records:
+Final model record:
 
 - `reproducibility/broad_environment_spatial_final_model_2026-08-11.md`
-- `reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv`
-- `reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv`
 - `submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md`
 
-Expected model structure:
+Expected structure:
 
 - pigmentation state: eight abiotic axes + East/West + stationary SPDE;
-- conditional intensity: same structure + Temperature PC1 × temperature-seasonality.
+- conditional intensity: the same terms + Temperature PC1 × temperature seasonality.
 
-The analysis reports VIF, fit criteria and geographically blocked predictive performance. Promotion of added terms requires transfer evidence, not significance or WAIC alone.
+Appendix S3 contains the interaction screen, VIF checks, hydroclimate tests and alternative spatial models.
 
-## Stage 3 — Bombus source models and occurrence reference
+## Stage 3. Build Bombus habitat-support surfaces
 
-Current source/model workflow:
+Main source workflow:
 
 - `.github/workflows/rebuild-bombus-sdm.yml`
 
@@ -77,45 +87,43 @@ Occurrence-reference calibration:
 - `scripts/build_bombus_occurrence_reference_support.R`
 - `.github/workflows/bombus-occurrence-reference-support.yml`
 
-Supporting documentation:
+Documentation:
 
 - `submission/jbi/supporting/Appendix_S4_bombus_sdm_occurrence_support.md`
 - `submission/jbi/JBI_sdm_model_building_checklist.md`
 
-The SDMs provide habitat-support indices. They are not interpreted as abundance, visitation rate, pollen transfer or selection pressure.
+Important: these surfaces are habitat-support indices. They are not bee abundance, visitation or pollen transfer.
 
-## Stage 4 — local focal-Bombus boundary test
+## Stage 4. Test local white-pigmented boundaries
 
-Primary execution:
+Main script and workflow:
 
 - `scripts/run_bombus_local_sharp_transition.R`
 - `.github/workflows/bombus-local-sharp-transition.yml`
 
-Environmental-balance diagnostic:
+Environmental-locality check:
 
 - `analysis_sensitivity/audit_bombus_final8_environment_distance.R`
 - `.github/workflows/bombus-final8-environment-audit.yml`
 
-Supporting robustness:
+Full robustness:
 
-- `scripts/run_bombus_spatial_replication_test.R`
-- `.github/workflows/bombus-spatial-replication-test.yml`
 - `submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md`
 
 Expected primary result:
 
-- 67 pure, non-overlapping 5-km white-pigmented transitions;
-- mean occurrence-referenced focal contrast +0.03590;
-- one-sided sign-flip P=0.02716;
-- three-scale BH q=0.08148;
-- median=-0.00277;
-- 49.3% positive pairs.
+- 67 non-overlapping pure transitions within 5 km;
+- mean focal contrast +0.03590;
+- median -0.00277;
+- 49.3% positive pairs;
+- one-sided P=0.02716;
+- q=0.08148 across the 5/10/25-km primary family.
 
-The final-eight-axis environmental audit evaluates the fixed pair set; it does not select or weight pairs.
+The environmental-distance check is run **after** the pair set is fixed. It does not choose or weight pairs.
 
-## Stage 5 — calibrated local departures
+## Stage 5. Calibrate local departures
 
-Primary implementation:
+Main implementation:
 
 - `R/natural_predictive_model.R`
 - `R/candidate_null_tools.R`
@@ -123,77 +131,71 @@ Primary implementation:
 - `analysis_sensitivity/run_human_context_current_broad_primary_fast.R`
 - `.github/workflows/human-context-highrep-final.yml`
 
-Event definition:
+Event rule:
 
 - pigmented focal cell;
 - at least three neighbours within 10 km;
-- standardized RMS distance <=1 across the finalized eight abiotic axes;
+- root-mean-square environmental distance <=1 across the final eight abiotic axes;
 - all eligible observed neighbours are white.
 
-The identical detector is replayed over **10,000** predictive maps.
+The same detector is replayed on 10,000 predictive maps.
 
 Expected result:
 
 - 16 observed candidates;
-- candidate-count P=0.27897;
-- candidate-fraction upper-tail P=0.12609.
+- count P=0.27897;
+- candidate-fraction P=0.12609.
 
-Primary evidence lock:
+Documentation:
 
 - `reproducibility/current_broad_human_primary_2026-08-12.md`
 - `submission/jbi/supporting/Appendix_S6_event_departures_human_context.md`
 
-## Stage 6 — post-selection human context
+## Stage 6. Test human context
 
-Human features are read only after ecological event selection.
+Human variables are read only after the 16 observed candidates are fixed.
 
-Primary implementation:
+Main code:
 
 - `R/local_human_context.R`
 - `R/human_landscape_features.R`
 - `analysis_sensitivity/run_human_context_current_broad_primary_fast.R`
-- `.github/workflows/human-context-highrep-final.yml`
 
-Expected leading contrast:
+Expected leading result:
 
 - population exposure within 5 km: +0.06744;
 - directional P=0.00800;
 - global maxT FWER P=0.05479.
 
-Observation-effort and independent-source-support alternatives are included in the same calibrated framework. The result is interpreted as a field/provenance prioritization signal, not proof of anthropogenic origin.
+This is treated as a provenance/field-work signal, not proof of human origin.
 
-## Stage 7 — figures and submission package
+## Stage 7. Build figures and the review package
 
-Current figure builders:
+Figures:
 
-- `scripts/build_jbi_figure_bundle.R`
-- `scripts/build_jbi_figure_bundle_final_broad.R`
-- `scripts/render_jbi_main_figures.R`
-- `scripts/render_jbi_main_figures_final_broad.R`
 - `.github/workflows/jbi-main-figures.yml`
+- `scripts/render_jbi_main_figures.R`
 
-The current submission bundle restores the checksum-locked figure artifact declared in `.github/workflows/jbi-submission-bundle.yml` and then builds/validates the editable review package.
-
-Submission workflow:
+Review package:
 
 - `.github/workflows/jbi-submission-bundle.yml`
 
-Submission validator:
+Validation:
 
 - `submission/jbi/validate_jbi_submission.py`
 - `scripts/validate_jbi_submission_bundle.py`
 
-## Final integrated validation
+## Final cross-file check
 
 Run:
 
 - `.github/workflows/final-paper-analysis.yml`
 
-This checks that the Broad, Bombus, local-departure and manuscript/Supporting Information numerical hierarchy agree. It does not fit a new omnibus model.
+This checks that the manuscript, Supporting Information and frozen evidence agree. It does not fit a new combined model.
 
-## Environment setup
+## Local environment
 
-For local development, restore the declared R environment before running analysis scripts:
+R packages:
 
 ```bash
 Rscript scripts/setup_r_environment.R \
@@ -201,16 +203,15 @@ Rscript scripts/setup_r_environment.R \
   --scopes analysis,reproducibility,acquisition,testing,figures,reporting
 ```
 
-Python dependencies are declared in `pyproject.toml`; R and system dependencies are declared under `dependencies/`.
+Python dependencies are in `pyproject.toml`. R and system dependencies are under `dependencies/`.
 
-## External-data boundary
+## What counts as success?
 
-- `Data_S1.csv` is distributed with the repository.
-- Original YAMAP photographs are not redistributed.
-- Raster and public occurrence sources are declared in configuration/source-build files.
-- Artifact IDs and SHA-256 digests used for manuscript evidence are recorded in `paper/analysis-map.md` and dated reproducibility records.
-- Live external services may change; a refreshed acquisition must never silently overwrite the frozen manuscript evidence.
+A successful reproduction should recover the same:
 
-## Verification target
+- analysis population;
+- model definitions;
+- local-boundary and local-departure rules;
+- manuscript-level numerical results.
 
-A successful reproduction should recover the same analysis population, estimands, event definitions and claim-level numerical values within the documented computational tolerance. Exact bitwise identity of stochastic spatial-model draws across platforms is not required; statistical and evidential identity is.
+Exact stochastic draws do not need to be bit-for-bit identical across platforms. The scientific result and the locked evidence should agree.

@@ -4,6 +4,8 @@ This repository contains the data, code and submission files for a range-wide st
 
 ## Start here
 
+**Current paper — start here:** [`paper/README.md`](paper/README.md)
+
 Choose the page that matches what you want to do:
 
 - **Understand the biology:** [`paper/README.md`](paper/README.md)

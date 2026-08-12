@@ -19,7 +19,7 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 - Running title: <40 characters.
   - Current running title = 34 characters.
 - Structured abstract: <=300 words under **Aim, Location, Taxon, Methods, Results, Main conclusions**.
-  - Current abstract = **288 words** by repository validator.
+  - Current abstract = **287 words** by repository validator.
 - Keywords: 6–10, alphabetical.
   - Current count = 8.
 

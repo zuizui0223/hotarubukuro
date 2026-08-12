@@ -2,7 +2,7 @@
 
 Reproducible range-wide flower-colour biogeography in *Campanula punctata* from author-reviewed YAMAP hiking photographs.
 
-## Start here
+## Current paper — start here
 
 The paper follows one analysis chain:
 
@@ -62,8 +62,4 @@ Submission-facing consistency is independently summarized in:
 - `validation/` and `tests/` — independent checks
 - `reproducibility/` — frozen model decisions, provenance and numerical locks
 - `submission/jbi/` — current manuscript, Supporting Information and submission validators
-- `legacy/` — development history, excluded from the current analysis interface
-
-## Historical material
-
-`legacy/` is retained only so development provenance is not destroyed. It is not required to understand or reproduce the current paper. Current documentation and manuscript text therefore describe the adopted analysis directly rather than narrating comparisons with superseded implementations.
+- `legacy/` — provenance archive outside the current reproduction path

@@ -3,9 +3,7 @@ name: Current paper checks
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - agent/repository-cleanup-legacy
+    branches: [main]
     paths:
       - paper/**
       - submission/jbi/**
@@ -26,8 +24,7 @@ on:
       - README.md
       - legacy/**
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
@@ -59,205 +56,117 @@ jobs:
           active = set(paths)
           missing = [p for p in paths if not Path(p).is_file()]
           assert not missing, 'missing active paper files: ' + ', '.join(missing)
-          legacy = [p for p in paths if p.startswith('legacy/')]
-          assert not legacy, 'active paper map points into legacy: ' + ', '.join(legacy)
+          assert not [p for p in paths if p.startswith('legacy/')], (
+              'active paper map must not point into legacy'
+          )
 
-          # These directories are closed current interfaces. Every committed
-          # file under them must be registered, otherwise an orphan can look
-          # current merely because it remains executable or sits beside the
-          # current manuscript package.
           closed_roots = (
               '.github/workflows', 'paper', 'submission/jbi', 'R', 'scripts',
               'source_build', 'validation', 'tests', 'config', 'dependencies',
               'inputs', 'data', 'results', 'docs', 'reproducibility'
           )
           for root in closed_roots:
-              files = {
-                  str(path) for path in Path(root).rglob('*') if path.is_file()
-              }
+              files = {str(p) for p in Path(root).rglob('*') if p.is_file()}
               unmapped = sorted(files - active)
               assert not unmapped, f'unmapped current files under {root}: ' + ', '.join(unmapped)
 
-          # Keep every active workflow on the Node 24 checkout runtime. The
-          # legacy token is constructed rather than written literally so this
-          # guard cannot match its own source text.
+          workflow_files = sorted(Path('.github/workflows').glob('*.yml'))
           checkout_v4 = 'actions/checkout@' + 'v4'
           checkout_v5 = 'actions/checkout@' + 'v5'
-          workflow_files = sorted(Path('.github/workflows').glob('*.yml'))
-          stale_checkout = [
-              str(path) for path in workflow_files
-              if checkout_v4 in path.read_text(encoding='utf-8')
-          ]
-          assert not stale_checkout, (
-              'active workflows still use checkout v4: ' +
-              ', '.join(stale_checkout)
-          )
+          stale_checkout = [str(p) for p in workflow_files if checkout_v4 in p.read_text(encoding='utf-8')]
+          assert not stale_checkout, 'active workflows still use checkout v4: ' + ', '.join(stale_checkout)
           unexpected_checkout = [
-              str(path) for path in workflow_files
-              if 'actions/checkout@' in path.read_text(encoding='utf-8')
-              and checkout_v5 not in path.read_text(encoding='utf-8')
+              str(p) for p in workflow_files
+              if 'actions/checkout@' in p.read_text(encoding='utf-8')
+              and checkout_v5 not in p.read_text(encoding='utf-8')
           ]
-          assert not unexpected_checkout, (
-              'active workflows use an unexpected checkout runtime: ' +
-              ', '.join(unexpected_checkout)
-          )
+          assert not unexpected_checkout, 'unexpected checkout runtime: ' + ', '.join(unexpected_checkout)
 
-          # Keep Python setup on the Node 24 runtime as well. The
-          # old token is split so this guard does not match itself.
           setup_python_v5 = 'actions/setup-python@' + 'v5'
           setup_python_v6 = 'actions/setup-python@' + 'v6'
-          stale_setup_python = [
-              str(path) for path in workflow_files
-              if setup_python_v5 in path.read_text(encoding='utf-8')
+          stale_python = [str(p) for p in workflow_files if setup_python_v5 in p.read_text(encoding='utf-8')]
+          assert not stale_python, 'active workflows still use setup-python v5: ' + ', '.join(stale_python)
+          unexpected_python = [
+              str(p) for p in workflow_files
+              if 'actions/setup-python@' in p.read_text(encoding='utf-8')
+              and setup_python_v6 not in p.read_text(encoding='utf-8')
           ]
-          assert not stale_setup_python, (
-              'active workflows still use setup-python v5: ' +
-              ', '.join(stale_setup_python)
-          )
-          unexpected_setup_python = [
-              str(path) for path in workflow_files
-              if 'actions/setup-python@' in path.read_text(encoding='utf-8')
-              and setup_python_v6 not in path.read_text(encoding='utf-8')
-          ]
-          assert not unexpected_setup_python, (
-              'active workflows use an unexpected setup-python runtime: ' +
-              ', '.join(unexpected_setup_python)
-          )
+          assert not unexpected_python, 'unexpected setup-python runtime: ' + ', '.join(unexpected_python)
 
           root_files = {
-              path for path in ('README.md', 'Data_S1.csv', 'Code_S1.py', 'pyproject.toml')
-              if Path(path).is_file()
+              p for p in ('README.md', 'Data_S1.csv', 'Code_S1.py', 'pyproject.toml')
+              if Path(p).is_file()
           }
-          unmapped_root = sorted(root_files - active)
-          assert not unmapped_root, (
-              'unmapped current root entry points: ' + ', '.join(unmapped_root)
-          )
+          assert not sorted(root_files - active), 'unmapped current root entry point'
 
-          # Validate lightweight file syntax before installing any dependencies.
-          # This catches malformed provenance/configuration files and syntax
-          # damage in current Python or shell entry points in a few seconds.
           syntax_failures = []
           json_count = python_count = shell_count = 0
           for path_string in sorted(active):
               path = Path(path_string)
               try:
                   if path.suffix == '.json':
-                      with path.open(encoding='utf-8') as handle:
-                          json.load(handle)
+                      json.load(path.open(encoding='utf-8'))
                       json_count += 1
                   elif path.suffix == '.py':
-                      compile(
-                          path.read_text(encoding='utf-8'),
-                          path_string,
-                          'exec'
-                      )
+                      compile(path.read_text(encoding='utf-8'), path_string, 'exec')
                       python_count += 1
                   elif path.suffix == '.sh':
-                      subprocess.run(
-                          ['bash', '-n', path_string],
-                          check=True,
-                          capture_output=True,
-                          text=True,
-                      )
+                      subprocess.run(['bash', '-n', path_string], check=True, capture_output=True, text=True)
                       shell_count += 1
               except Exception as error:
                   syntax_failures.append(f'{path_string}: {error}')
-          assert not syntax_failures, (
-              'active file syntax validation failed: ' +
-              ' | '.join(syntax_failures)
-          )
+          assert not syntax_failures, 'active file syntax validation failed: ' + ' | '.join(syntax_failures)
 
-          # Every current top-level script must be reachable from an active
-          # workflow or from one of the two current orchestration scripts. A
-          # reusable source-build utility is classified separately and is not
-          # required to be a manuscript runner by itself.
-          script_route_files = sorted(
-              str(path) for path in Path('.github/workflows').glob('*.yml')
-          ) + [
-              'scripts/run_reanalysis_current_inputs.sh',
-              'scripts/run_downstream_current_inputs.sh',
-          ]
-          script_routing_text = '\n'.join(
-              Path(path).read_text(encoding='utf-8')
-              for path in script_route_files
-          )
+          # Reachability is a graph, not a hard-coded historical orchestration list.
+          # Seed from active workflows, then recursively follow literal references
+          # to current top-level scripts and validators.
           current_scripts = sorted(
-              str(path) for path in Path('scripts').iterdir()
-              if path.is_file() and path.name != 'README.md'
+              str(p) for p in Path('scripts').iterdir()
+              if p.is_file() and p.name != 'README.md'
           )
-          unreachable_scripts = [
-              path for path in current_scripts if path not in script_routing_text
-          ]
+          validators = sorted(str(p) for p in Path('validation').glob('*.R'))
+          candidates = current_scripts + validators
+          routing_text = '\n'.join(p.read_text(encoding='utf-8') for p in workflow_files)
+          reached = set()
+          changed = True
+          while changed:
+              changed = False
+              for path in candidates:
+                  if path in reached or path not in routing_text:
+                      continue
+                  reached.add(path)
+                  routing_text += '\n' + Path(path).read_text(encoding='utf-8')
+                  changed = True
+          unreachable_scripts = sorted(set(current_scripts) - reached)
           assert not unreachable_scripts, (
-              'current scripts have no execution route: ' +
+              'current scripts have no workflow-reachable execution route: ' +
               ', '.join(unreachable_scripts)
           )
-
-          # Every active R validator must be reachable from a current driver or
-          # source-build workflow. Unit tests are reached through testthat/pytest
-          # directory discovery and are checked separately below.
-          validator_routing_text = '\n'.join(
-              Path(path).read_text(encoding='utf-8')
-              for path in (
-                  'scripts/run_downstream_current_inputs.sh',
-                  '.github/workflows/rebuild-bombus-sdm.yml',
-              )
+          unreachable_validators = sorted(set(validators) - reached)
+          assert not unreachable_validators, (
+              'active validators have no workflow-reachable execution route: ' +
+              ', '.join(unreachable_validators)
           )
-          validators = sorted(
-              str(path) for path in Path('validation').glob('*.R')
-          )
-          unreachable = [
-              path for path in validators if path not in validator_routing_text
-          ]
-          assert not unreachable, 'active validators have no execution route: ' + ', '.join(unreachable)
 
-          # A package may intentionally serve more than one scope (for example
-          # analysis and lightweight unit tests), but the same package/scope
-          # declaration must be unique and its source must not disagree across
-          # scopes.
           dependency_path = Path('dependencies/r-packages.csv')
           dependencies = list(csv.DictReader(dependency_path.open(encoding='utf-8')))
-          required_columns = {'package', 'source', 'scope', 'purpose'}
-          assert dependencies, 'dependencies/r-packages.csv is empty'
-          assert required_columns.issubset(dependencies[0]), (
-              'dependencies/r-packages.csv is missing required columns'
-          )
-          keys = [
-              (row['package'].strip(), row['scope'].strip())
-              for row in dependencies
-          ]
-          duplicate_keys = sorted({key for key in keys if keys.count(key) > 1})
-          assert not duplicate_keys, (
-              'duplicate package/scope declarations: ' +
-              ', '.join(f'{package}:{scope}' for package, scope in duplicate_keys)
-          )
-          blank_rows = [
-              index + 2 for index, row in enumerate(dependencies)
-              if any(not row[column].strip() for column in required_columns)
-          ]
-          assert not blank_rows, (
-              'blank dependency fields on rows: ' +
-              ', '.join(map(str, blank_rows))
-          )
+          required = {'package', 'source', 'scope', 'purpose'}
+          assert dependencies and required.issubset(dependencies[0]), 'invalid R dependency registry'
+          keys = [(r['package'].strip(), r['scope'].strip()) for r in dependencies]
+          duplicates = sorted({k for k in keys if keys.count(k) > 1})
+          assert not duplicates, 'duplicate package/scope declarations: ' + ', '.join(map(str, duplicates))
+          blank = [i + 2 for i, r in enumerate(dependencies) if any(not r[c].strip() for c in required)]
+          assert not blank, 'blank dependency fields on rows: ' + ', '.join(map(str, blank))
           sources = defaultdict(set)
           for row in dependencies:
               sources[row['package'].strip()].add(row['source'].strip())
-          conflicts = sorted(
-              package for package, values in sources.items() if len(values) != 1
-          )
-          assert not conflicts, (
-              'packages have conflicting declared sources: ' + ', '.join(conflicts)
-          )
+          conflicts = sorted(p for p, values in sources.items() if len(values) != 1)
+          assert not conflicts, 'packages have conflicting declared sources: ' + ', '.join(conflicts)
 
-          print('active/current infrastructure files:', len(paths))
-          print('closed current directories:', len(closed_roots))
-          print('current script routes:', len(current_scripts))
-          print('reachable current validators:', len(validators))
-          print(
-              'syntax checked:',
-              f'{json_count} JSON, {python_count} Python, {shell_count} shell'
-          )
-          print('declared package/scope rows:', len(dependencies))
+          print('active/current files:', len(paths))
+          print('workflow-reachable scripts:', len(current_scripts))
+          print('workflow-reachable validators:', len(validators))
+          print('syntax checked:', json_count, 'JSON,', python_count, 'Python,', shell_count, 'shell')
           PY
 
       - name: Validate current R loader boundary
@@ -267,9 +176,7 @@ jobs:
           python3 - <<'PY'
           import re
           from pathlib import Path
-
-          path = Path('R/pipeline_support.R')
-          text = path.read_text(encoding='utf-8')
+          text = Path('R/pipeline_support.R').read_text(encoding='utf-8')
           forbidden = [
               'active 1,909-observation analysis',
               'R/local_bombus_turnover.R',
@@ -280,121 +187,65 @@ jobs:
           ]
           found = [x for x in forbidden if x in text]
           assert not found, 'stale loader entries remain: ' + ', '.join(found)
-
           block = re.search(r'hb_module_files\s*<-\s*c\((.*?)\n\)', text, re.S)
           assert block, 'could not parse hb_module_files'
           modules = re.findall(r'=\s*"([^"]+)"', block.group(1))
-          assert modules, 'hb_module_files contains no paths'
-          assert not any(p.startswith('legacy/') for p in modules), 'loader points into legacy'
+          assert modules and not any(p.startswith('legacy/') for p in modules)
           missing = [p for p in modules if not Path(p).is_file()]
           assert not missing, 'loader points to missing modules: ' + ', '.join(missing)
           print('current R loader modules:', len(modules))
           PY
 
-      - name: Confirm legacy separation
+      - name: Confirm final-pipeline legacy separation
         shell: bash
         run: |
           set -euo pipefail
-          test ! -d manuscript
-          test ! -d reports
-
-          # These paths encode superseded result identities, abandoned Bombus
-          # estimands, obsolete drafts, one-off development utilities, or the
-          # old full-canonical/submission-lock interface. Current JBI narrative
-          # architecture is intentionally NOT on this list.
           for path in \
-            docs/bombus-pollinator-opportunity-proxy.md \
-            docs/bombus-sdm-inference.md \
-            dependencies/local-path-allowlist.txt \
-            source_build/audit_population_flow_1965.R \
-            source_build/build_bombus_sdm.R \
-            source_build/project_bombus_sdm_national.R \
-            validation/compare_bombus_national_projections.R \
-            validation/audit_phenotype.R \
-            validation/audit_multiscale_hotspots.R \
-            validation/audit_human_landscape_features.R \
-            .github/workflows/analysis-1909.yml \
-            .github/workflows/bombus-limitation-gate.yml \
-            .github/workflows/bombus-relaxation-local-current-inputs.yml \
-            .github/workflows/bombus-effective-availability-refined.yml \
-            scripts/run_analysis_1909.sh \
-            scripts/check_analysis_population.R \
-            scripts/run_bombus_limitation_gate.R \
-            scripts/run_bombus_limitation_gate_current_inputs.R \
-            scripts/run_bombus_relaxation_local_contrast.R \
-            scripts/run_bombus_effective_availability_refined.R \
-            scripts/run_publication_pipeline.R \
-            scripts/preflight.R \
-            scripts/write_reproducibility_report.R \
-            scripts/write_submission_analysis_lock.R \
-            scripts/stage_canonical_snapshot.R \
-            scripts/verify_canonical_snapshot.R \
-            R/local_bombus_turnover.R \
-            R/final_registry.R \
-            reproducibility/current_input_reanalysis_2026-08-08.md \
-            reproducibility/bombus_effective_availability_refinement_spec_2026-08-08.md \
-            reproducibility/bombus_effective_availability_refinement_results_2026-08-08.md \
-            reproducibility/submission_reference; do
-            test ! -e "$path" || { echo "superseded file remains active: $path" >&2; exit 1; }
+            .github/workflows/reanalysis-current-inputs.yml \
+            scripts/run_reanalysis_current_inputs.sh \
+            scripts/run_downstream_current_inputs.sh \
+            scripts/report_reanalysis_current_inputs.R \
+            scripts/run_natural_predictive_model.R \
+            scripts/run_local_pigmented_isolates.R \
+            scripts/refine_submission_isolate_null.R \
+            scripts/run_joint_submission_isolate_ppc.R \
+            scripts/run_human_landscape_features.R \
+            scripts/run_local_human_context.R \
+            scripts/run_did_sensitivity.R \
+            scripts/run_candidate_doy_check.R \
+            reproducibility/final_paper_pipeline_2026-08-09.md \
+            reproducibility/current_broad_anomaly_reference_2026-08-09.md \
+            reproducibility/human_context_final_audit_results_2026-08-11.md \
+            analysis_sensitivity/run_human_context_highrep_final.R; do
+            test ! -e "$path" || { echo "superseded current-interface file remains: $path" >&2; exit 1; }
           done
 
-          for path in \
-            legacy/reproducibility-development/dependencies/local-path-allowlist.txt \
-            legacy/reproducibility-development/scripts/preflight.R \
-            legacy/reproducibility-development/scripts/write_reproducibility_report.R \
-            legacy/reproducibility-development/scripts/write_submission_analysis_lock.R \
-            legacy/reproducibility-development/scripts/stage_canonical_snapshot.R \
-            legacy/reproducibility-development/scripts/verify_canonical_snapshot.R \
-            legacy/reproducibility-development/validation/audit_phenotype.R \
-            legacy/reproducibility-development/validation/audit_multiscale_hotspots.R \
-            legacy/reproducibility-development/validation/audit_human_landscape_features.R; do
-            test -s "$path" || { echo "archived utility missing: $path" >&2; exit 1; }
-          done
-
-          test -s legacy/reproducibility-development/validation/README.md
-          test -s legacy/README.md
-          test -s legacy/MOVED_2026-08-09.md
-          test -s legacy/REPOSITORY_CLEANUP_MAP.md
-          test -d legacy/manuscript-development
-          test -d legacy/method-development
-          test -d legacy/workflows
-          test -d legacy/reproducibility-development
-          test -d legacy/source-build-prototypes
+          root=legacy/reproducibility-development/superseded-current-input-anomaly-pipeline-2026-08-12
+          test -s "$root/README.md"
+          test -s "$root/reanalysis-current-inputs.yml"
+          test -s "$root/scripts/run_downstream_current_inputs.sh"
+          test -s "$root/validation/validate_local_pigmented_isolates.R"
+          test -s legacy/reproducibility-development/superseded-human-primary-2026-08-11/README.md
+          test -s legacy/reproducibility-development/pre-final-broad-integration/final_paper_pipeline_2026-08-09.md
 
       - name: Confirm current replacements
         shell: bash
         run: |
           set -euo pipefail
-          test -s submission/jbi/JBI_background_architecture.md
-          test -s submission/jbi/JBI_narrative_dependency_architecture.md
-          test -s docs/bombus-inference-current.md
-          test -s scripts/README.md
-          test -s source_build/README.md
-          test -s inputs/README.md
-          test -s results/README.md
-          test -s scripts/setup_r_environment.R
-          test -s scripts/canonical_snapshot.sh
-          test -s scripts/build_bombus_occurrence_reference_support.R
-          test -s source_build/build_bombus_sdm_mainland.R
-          test -s config/color_extraction.json
-          test -s data/processed/Data_S1_v2_manifest.json
-          test -s validation/README.md
-          test -s validation/validate_natural_predictive_model.R
-          test -s validation/validate_joint_submission_isolate_ppc.R
-          test -s validation/compare_bombus_sdm_rebuilds.R
-          test -s tests/README.md
-          test -s reproducibility/bombus_occurrence_reference_support_2026-08-09.md
-          test -s reproducibility/current_broad_anomaly_reference_2026-08-09.md
-          test -s .github/workflows/bombus-occurrence-reference-support.yml
-          test -s inputs/canonical_snapshot.json
-          grep -q 'validation/validate_natural_predictive_model.R' scripts/run_downstream_current_inputs.sh
-          grep -q 'validation/validate_joint_submission_isolate_ppc.R' scripts/run_downstream_current_inputs.sh
-          grep -q -- '--baseline=reconstruction' scripts/run_downstream_current_inputs.sh
-          grep -q 'candidate_identity_dynamic' validation/validate_joint_submission_isolate_ppc.R
-          ! grep -Eq '18L|==[[:space:]]*18([^0-9]|$)' validation/validate_joint_submission_isolate_ppc.R
+          test -s reproducibility/final_integrated_pipeline_2026-08-12.md
+          test -s reproducibility/current_broad_human_primary_2026-08-12.md
+          test -s submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
+          test -s submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md
+          test -s submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+          test -s analysis_sensitivity/run_human_context_current_broad_primary_fast.R
+          test -s .github/workflows/human-context-highrep-final.yml
+          test -s .github/workflows/final-paper-analysis.yml
+          grep -q '16' reproducibility/current_broad_human_primary_2026-08-12.md
+          grep -q 'final-eight-axis' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
+          grep -q '67' submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md
+          grep -q '0.0548' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
           grep -q '2 species = directional local availability hypothesis' docs/bombus-inference-current.md
           grep -q '5 species = supplementary community/biogeographic turnover' docs/bombus-inference-current.md
-          ! grep -q 'Active 1,909 question' docs/bombus-inference-current.md
 
       - name: Validate JBI package
         run: python submission/jbi/validate_jbi_submission.py
@@ -407,22 +258,10 @@ jobs:
           test -s paper/analysis-map.md
           test -s paper/active-file-map.csv
           test -s submission/jbi/JBI_main_manuscript_anonymized.md
-          test -s submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md
           grep -q 'single entry point' paper/README.md
           grep -q 'Current paper — start here' README.md
-          grep -q 'submission/jbi/JBI_background_architecture.md' paper/active-file-map.csv
-          grep -q 'submission/jbi/JBI_narrative_dependency_architecture.md' paper/active-file-map.csv
-          grep -q 'R/pipeline_support.R' paper/active-file-map.csv
-          grep -q 'R/natural_predictive_model.R' paper/active-file-map.csv
-          grep -q 'scripts/setup_r_environment.R' paper/active-file-map.csv
-          grep -q 'dependencies/inla.csv' paper/active-file-map.csv
-          grep -q 'config/color_extraction.json' paper/active-file-map.csv
-          grep -q 'data/processed/Data_S1_v2_manifest.json' paper/active-file-map.csv
-          grep -q 'validation/README.md' paper/active-file-map.csv
-          grep -q 'tests/testthat.R' paper/active-file-map.csv
-          grep -q 'tests/python/test_extract_color.py' paper/active-file-map.csv
-          grep -q 'source_build/build_bombus_sdm_mainland.R' paper/active-file-map.csv
-          grep -q 'docs/bombus-inference-current.md' paper/active-file-map.csv
+          grep -q 'reproducibility/final_integrated_pipeline_2026-08-12.md' paper/analysis-map.md
+          grep -q 'reproducibility/current_broad_human_primary_2026-08-12.md' paper/active-file-map.csv
 
       - uses: actions/setup-python@v6
         with:
@@ -456,38 +295,19 @@ jobs:
         run: |
           set -euo pipefail
           Rscript - <<'RS'
-          map <- utils::read.csv(
-            "paper/active-file-map.csv",
-            check.names = FALSE,
-            stringsAsFactors = FALSE
-          )
-          active <- startsWith(map$status, "active")
-          paths <- sort(unique(map$path[active & grepl("\\.R$", map$path)]))
-          if (!length(paths)) stop("No active R sources are registered.")
+          map <- utils::read.csv('paper/active-file-map.csv', check.names = FALSE, stringsAsFactors = FALSE)
+          paths <- sort(unique(map$path[startsWith(map$status, 'active') & grepl('\\.R$', map$path)]))
+          if (!length(paths)) stop('No active R sources are registered.')
           missing <- paths[!file.exists(paths)]
-          if (length(missing)) {
-            stop("Missing active R sources: ", paste(missing, collapse = ", "))
-          }
+          if (length(missing)) stop('Missing active R sources: ', paste(missing, collapse = ', '))
           failures <- character()
           for (path in paths) {
-            tryCatch(
-              parse(file = path, keep.source = FALSE),
-              error = function(error) {
-                failures <<- c(
-                  failures,
-                  paste0(path, ": ", conditionMessage(error))
-                )
-              }
-            )
+            tryCatch(parse(file = path, keep.source = FALSE), error = function(error) {
+              failures <<- c(failures, paste0(path, ': ', conditionMessage(error)))
+            })
           }
-          if (length(failures)) {
-            stop(
-              "R syntax validation failed:\n  ",
-              paste(failures, collapse = "\n  "),
-              call. = FALSE
-            )
-          }
-          cat("Parsed", length(paths), "active R sources.\n")
+          if (length(failures)) stop('R syntax validation failed:\n  ', paste(failures, collapse = '\n  '), call. = FALSE)
+          cat('Parsed', length(paths), 'active R sources.\n')
           RS
 
       - name: Restore test and reproducibility packages

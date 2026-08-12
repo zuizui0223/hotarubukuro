@@ -1,114 +1,121 @@
-# Broad residual-spatial structure: biological rationale and finalization rules
+# Broad residual-spatial structure — biological rationale and adopted rules
 
-Date: 2026-08-11
+Date: 2026-08-11; current interpretation aligned 2026-08-12.
 
-## Why a residual spatial field is biologically necessary
+## Purpose
 
-The broad flower-colour analysis cannot treat residual geography as disposable autocorrelation. In *Campanula punctata*, population history, mating system and dispersal can generate persistent spatial covariance in traits even after measured climate and terrain are fitted. At the same time, available natural-history evidence is not rich enough to encode one explicit nationwide migration graph or genetic cluster map. The Matérn field is therefore used as an **agnostic residual biogeographic component**, not as a dispersal kernel or a direct estimate of genetic history.
+The Broad analysis uses a residual spatial field because measured climate, terrain, soil and radiation do not exhaust the geographical processes that can structure flower colour. The spatial field is deliberately **agnostic**: it adjusts for coherent residual geography without being labelled as a dispersal kernel, genetic history or one specific unmeasured environmental process.
 
-## Species-specific evidence
+## Species-specific rationale
 
-### Mainland mating and pollen movement potential
+### Mating system and pollen movement
 
-Mainland Honshu populations in the classic Izu comparison were predominantly highly self-incompatible and strongly outcrossing, with bumblebees as principal pollinators. The allozyme study reported mean outcrossing rates of approximately 0.62-0.79 in self-incompatible mainland and Oshima populations. This means that realized population connectivity cannot be inferred from seed movement alone: pollen-mediated gene flow is biologically important.
+Mainland Honshu populations in classic Izu comparisons were predominantly self-incompatible and strongly outcrossing, with bumblebees as principal pollinators. Allozyme work reported outcrossing rates of approximately 0.62–0.79 in self-incompatible mainland and Oshima populations. Population connectivity can therefore involve pollen as well as seed movement.
 
-- Inoue, K. & Amano, M. (1986). *Plant Species Biology* 1:89-97. DOI: 10.1111/j.1442-1984.1986.tb00018.x.
-- Inoue, K. & Kawahara, T. (1990). *American Journal of Botany* 77:1440-1448. DOI: 10.1002/j.1537-2197.1990.tb12554.x.
+- Inoue, K. & Amano, M. (1986). *Plant Species Biology* 1:89–97. DOI: 10.1111/j.1442-1984.1986.tb00018.x.
+- Inoue, K. & Kawahara, T. (1990). *American Journal of Botany* 77:1440–1448. DOI: 10.1002/j.1537-2197.1990.tb12554.x.
 
-### Genetic differentiation and island colonization
+### Regional differentiation and island history
 
-The same allozyme study found clear mainland-versus-Izu differentiation. Nei genetic identity was approximately 0.97 among mainland populations, 0.95 among island populations and 0.84 between mainland and island groups. About 14% of gene diversity was among mainland populations versus 31% among island populations. Island genetic diversity declined with distance from the mainland, and genetic plus geological evidence supported an older northern-island foundation followed by progressive southward dispersal.
-
-This evidence establishes two points relevant to the present spatial model:
-
-1. mainland populations can retain broad spatial genetic structure even in an outcrossing system;
-2. sea gaps and stepping-stone island history can produce discontinuities that Euclidean distance alone may smooth across.
-
-It does **not** imply that the current photographic sample contains the historic Izu allozyme populations or that a current SPDE field can be labelled that genetic structure.
+The allozyme study found clear mainland–Izu differentiation and stronger among-population differentiation in the island group. Genetic and geological evidence also supported progressive southward island colonization. These results make residual regional structure biologically plausible, while not identifying the latent field in the current photographic data with those historical populations.
 
 ### Seed biology and dispersal uncertainty
 
-Direct quantitative seed-dispersal distances for Japanese *C. punctata* were not located in the literature audit. A recent Korean seed study measured very small seeds (about 1.05 × 0.67 mm; 1000-seed mass about 0.0577 g) with underdeveloped embryos and strong improvement of germination after cold stratification. Earlier work specifically documented geographic variation in thermal germination responses in *C. punctata*. These observations support strong environmental filtering across the recruitment stage but do not supply a dispersal kernel.
+Direct quantitative seed-dispersal kernels for Japanese *C. punctata* are not available in the evidence base used here. Geographic variation in thermal germination responses is documented, but germination ecology does not supply a nationwide dispersal parameter.
 
-- Inoue, K. & Washitani, I. (1989). Geographical variation in thermal germination responses in *Campanula punctata*. *Plant Species Biology* 4:69-74. DOI: 10.1111/j.1442-1984.1989.tb00049.x.
-- Comparison of seed germination traits of five herbaceous perennial Campanulaceae species native to the Korean Peninsula (2025), *Agronomy* 15:2884.
+- Inoue, K. & Washitani, I. (1989). Geographical variation in thermal germination responses in *Campanula punctata*. *Plant Species Biology* 4:69–74. DOI: 10.1111/j.1442-1984.1989.tb00049.x.
 
-Related Campanula studies show that small capsule-dispersed seeds can be deposited largely near parent plants and that pollen can dominate interpopulation gene flow, but those distances are not transferred numerically to *C. punctata*.
+The Broad model therefore does not impose a species-specific migration or resistance surface unsupported by the data.
 
-## What the current stationary SPDE assumes
+## Adopted stationary SPDE interpretation
 
-The observation-level model currently uses a stationary, approximately isotropic Matérn field in a Japan-centred equal-area projection. This is a reasonable default nuisance model because it:
+The observation-level model uses a stationary, approximately isotropic Matérn field in a Japan-centred equal-area projection. It provides a conservative residual-geography adjustment because it:
 
 - allows continuously decaying spatial covariance without defining arbitrary genetic clusters;
 - separates measured environmental coefficients from broad unresolved geography;
 - does not require unobserved dispersal or population-genetic parameters.
 
-Its limitations are equally explicit:
+Limitations are explicit:
 
-- covariance depends on Euclidean distance rather than land connectivity;
-- the same range/variance process applies across the study domain;
-- coastlines, sea gaps and mountain corridors are not explicit barriers;
-- the field can absorb unmeasured environment, population history, sampling geography and their combination.
+- covariance is based on projected distance rather than realized connectivity;
+- one range/variance process applies across the domain;
+- coastline, sea gaps and corridors are not explicit in the adopted field;
+- the field may absorb unmeasured environment, population history, sampling geography and their combination.
 
-The inferred spatial range is therefore a model-based residual-correlation scale, not a seed-dispersal, pollen-dispersal or colonization distance.
+The inferred range is a residual-correlation scale, not a seed-, pollen- or colonization-distance estimate.
 
-## Spatial alternatives considered
+## Spatial alternatives evaluated
 
-### 1. Structural East/West factor
+### East/West structural adjustment
 
-The current 136.5°E East/West factor is a broad adjustment and has no demonstrated genetic boundary at that longitude. It should remain only if it improves transfer or stabilizes the residual model after the continuous spatial field is present. The finalization sensitivity compares stationary models with and without this factor.
+The 136.5°E East/West factor is treated as a broad structural adjustment rather than a demonstrated genetic boundary. It is retained because removing it did not provide sufficiently robust geographical-transfer improvement and worsened the conditional-intensity full-fit evidence.
 
-### 2. Coastline-barrier SPDE
+### Coastline-barrier SPDE
 
-A barrier SPDE is the most biologically defensible alternative to test because sea is a real connectivity discontinuity and species-specific island genetics demonstrate strong mainland-island differentiation. The barrier model assigns sea triangles a reduced effective range rather than treating them as complete walls. The finalization sensitivity compares:
+A coastline-barrier field was biologically motivated by island separation and population-genetic evidence. It was evaluated as a covariance sensitivity, not as a claim that all movement follows terrestrial paths.
 
-- stationary SPDE + East/West;
-- stationary SPDE without East/West;
-- coastline-barrier SPDE + East/West;
-- coastline-barrier SPDE without East/West.
+For pigmentation state, barrier formulations worsened both full-fit and held-out evidence. For conditional intensity, the barrier model produced a small WAIC improvement but not a robust, geographically transferable predictive gain. The stationary field is therefore retained.
 
-The barrier is a spatial covariance sensitivity, not a claim that all dispersal follows terrestrial paths.
+### More complex spatial structures
 
-### 3. Anisotropy
+Free anisotropy, nonstationary range, genetic-cluster random effects and resistance surfaces are not included because the current data lack independent evidence needed to identify those additional structures without conflating them with unmeasured environment or sampling geography.
 
-Japan has an elongated geography, but the literature audit did not identify a species-specific nationwide directional dispersal process or genetic anisotropy that would justify estimating a free anisotropic covariance solely from the colour data. Anisotropy is therefore not promoted unless stationary/barrier residual diagnostics reveal a systematic directional failure.
+## Model-retention rule
 
-### 4. Nonstationary spatial range
+A more complex spatial specification is promoted only if it jointly:
 
-Regional mating-system differences and island history make nonstationarity biologically possible. However, a free nonstationary field would be difficult to distinguish from unmeasured environment and platform sampling with the present opportunistic imagery. It is not used as a primary model without independent genetic/environmental covariates.
+1. fits successfully;
+2. improves full-fit evidence meaningfully;
+3. improves geographically blocked primary predictive loss;
+4. has a spatial-block bootstrap interval supporting positive predictive gain;
+5. improves most geographical folds;
+6. preserves acceptable fixed-effect collinearity and numerical stability;
+7. has a biological interpretation supported independently of the flower-colour response.
 
-### 5. Genetic clusters or resistance surfaces
+This rule makes predictive transfer and biological defensibility necessary, rather than choosing a covariance model from fit statistics alone.
 
-Nationwide population-genomic data linked to the 1,922 observations are not available in the current paper. No genetic-cluster random effect or landscape-resistance surface is therefore introduced post hoc. The spatial field remains deliberately agnostic until genetic sampling can test whether residual flower-colour geography follows isolation by distance, range history or particular barriers.
+## Adopted spatial results
 
-## Final spatial-model selection rule
+### Pigmentation state
 
-The stationary + East/West model remains the reference. A coastline-barrier or no-region alternative is adopted only when it:
+- stationary Matérn + East/West retained;
+- posterior range: **132.76 km**;
+- 95% CrI: **88.78–195.68 km**;
+- spatial SD: **2.105**;
+- 95% CrI: **1.629–2.696**.
 
-1. improves WAIC by at least 2 relative to the reference;
-2. improves geographically blocked primary predictive loss;
-3. has a spatial-block bootstrap 95% interval of paired predictive gain above zero;
-4. improves at least four of five geographical folds;
-5. keeps maximum fixed-effect VIF below 10;
-6. does not materially reverse the core environmental conclusions solely through spatial reallocation;
-7. yields stable spatial hyperparameters and no numerical pathologies.
+### Conditional visible intensity
 
-If no alternative satisfies this rule, the stationary Matérn field is retained because its purpose is conservative spatial adjustment, not mechanistic reconstruction of dispersal.
+- stationary Matérn + East/West retained;
+- Temperature PC1 × temperature-seasonality retained in the fixed effects;
+- posterior range: **65.72 km**;
+- 95% CrI: **31.05–132.63 km**;
+- spatial SD: **0.357**;
+- 95% CrI: **0.236–0.501**.
 
-## Interpreting state versus intensity spatial scales
+The range contrast between state and intensity is descriptive because the responses use different likelihoods and analysis subsets.
 
-The current posterior mean ranges are about 133 km for pigmentation state and 61 km for pigmented-only intensity, but their intervals overlap and the responses use different likelihoods and analysis subsets. The comparison is therefore descriptive only. It is compatible with, but does not establish, broader regional organization of the threshold-like pigment state and more local modulation of intensity after pigmentation is present.
+## Relationship to the rest of the paper
 
-A formal shared latent-field hurdle model would be required to compare cross-response spatial structure on a common scale. That model is not necessary for the present JBI claim and would introduce substantial additional identifiability assumptions.
+The adopted analysis separates:
 
-## Consequence for the paper
+- fixed Broad environmental terms: measured long-term abiotic geography;
+- stationary Matérn field: unresolved coherent geography after measured environment;
+- local Bombus test: a directional biotic hypothesis tested at sharp nearby boundaries;
+- local-departure analysis: final-eight-axis ecological events calibrated on 10,000 predictive maps;
+- human context: post-selection characterization only.
 
-The Broad act should distinguish:
+The downstream event analysis uses the finalized eight-axis natural reference and yields **16 observed candidates**. Human variables do not enter event selection.
 
-- fixed environmental terms: measured long-term abiotic geography;
-- retained environmental interactions: context dependence that also transfers geographically;
-- Matérn/barrier field: unresolved biogeographic continuity after measured environment;
-- later local Bombus test: a separate biotic hypothesis at 5 km;
-- later event/human analysis: departures relative to the separately cross-fitted natural predictive reference.
+## Claim ceiling
 
-No spatial-model sensitivity in this file automatically changes that separate cell-level natural reference or the 17 fixed local-departure candidates.
+The residual field improves spatially responsible inference but does not identify its biological source. Population history, dispersal limitation, lineage structure, unmeasured microenvironment and sampling structure remain testable explanations that require independent data.
+
+## Evidence records
+
+Final Broad coefficients and hyperparameters are frozen in:
+
+- `reproducibility/broad_environment_spatial_final_model_2026-08-11.md`;
+- `reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv`;
+- `reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv`;
+- `submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md`.

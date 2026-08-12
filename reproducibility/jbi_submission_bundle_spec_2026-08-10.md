@@ -14,16 +14,13 @@ Source of truth:
 - `paper/active-file-map.csv`;
 - `reproducibility/final_integrated_pipeline_2026-08-12.md`.
 
-## Current figure input
+## Figure input
 
-The submission workflow restores the checksum-locked Main-figure artifact produced from the current figure renderer and current evidence hierarchy:
+The submission workflow restores a checksum-locked Main-figure artifact produced from the current figure renderer and evidence hierarchy. Whenever manuscript-facing rendering changes, the figure artifact is regenerated and re-locked even when the underlying numerical evidence is unchanged.
 
-- figure workflow run: `31559274663`;
-- figure artifact: `9127198711`;
-- artifact SHA-256: `ff5d43e8f71224261b8b74ddb2d6e24a66a4f2349ad53fb72032118492bca924`;
-- source figure commit: `8f1b80d7994f948e16050edf217ad16c9e513df8`.
+The current branch is generating the ecological-layout refresh in which the panel titles follow the same progression as the Main text: two phenotypic layers -> broad environmental/residual geography -> weak local pollinator-maintenance correspondence -> natural-map-calibrated contemporary departures. Before merge, this section and `.github/workflows/jbi-submission-bundle.yml` must be pinned to the successful artifact from that renderer.
 
-The artifact contains four validated 600-dpi PNGs, four vector PDFs, source hashes and the manuscript numerical lock. Figure maps include explicit scale information and panel labels follow the current JBI-facing convention.
+The accepted artifact must contain four validated 600-dpi PNGs, four vector PDFs, source hashes and the manuscript numerical lock. Figure maps include explicit scale information and panel labels follow the current JBI-facing convention.
 
 ## Generated files
 
@@ -67,6 +64,17 @@ Packaging and reformatting must preserve the adopted evidence hierarchy:
 - all associated claim ceilings.
 
 The submission builder does not choose among analyses and does not reinterpret results.
+
+## Ecological narrative invariance
+
+Packaging must preserve the current biological hierarchy without strengthening causal claims:
+
+- pigmentation state and pigmented-only intensity are distinct ecological layers of the flower-colour phenotype;
+- Broad environmental associations define candidate adaptive/developmental contexts, while the SPDE field remains unresolved geography;
+- the focal Bombus result is weak and, if biological, is framed as local maintenance/loss of pigmentation state rather than progressive darkening;
+- apparent high-elevation Bombus overlap remains a negative shared-geography guardrail;
+- local departures are calibrated under the natural model before human context, which remains a contemporary provenance/local-modification hypothesis;
+- the final synthesis connects macroecological patterns to direct common-garden, pollination, genomic and provenance tests.
 
 ## Readiness semantics
 

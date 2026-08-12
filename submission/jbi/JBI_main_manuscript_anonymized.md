@@ -22,7 +22,7 @@
 
 Geographical variation within species is not merely descriptive noise around a species mean. Intraspecific trait variation can alter individual performance, population persistence, species interactions and the ecological breadth of populations across heterogeneous environments (Westerband et al., 2021). Understanding how such variation is organized across a species range is therefore central to explaining local adaptation and the geographical mosaic of ecological interactions. Yet the same phenotype can be shaped by several processes at once: abiotic conditions, dispersal and population history, biotic interactions and, increasingly, human movement or habitat modification. These alternatives matter because they imply different mechanisms and different expectations for how trait distributions should respond when environments or interacting species change.
 
-Flower colour is an unusually integrative trait for addressing this problem. Floral pigmentation is simultaneously a physiological phenotype and a reproductive signal: pigments and floral optics can covary with abiotic conditions, while visible colour can influence pollinator attraction, mating patterns and reproductive success (Rausher, 2008; Koski & Ashman, 2015; Trunschke et al., 2021). Geographic colour polymorphisms therefore provide a tractable window into how multiple selective agents and spatial history combine within one conspicuous phenotype. But that integrative potential creates an inferential danger. A climate gradient, a pollinator turnover and a historical population boundary can generate similar spatial patterns, so forcing all candidate processes into one same-scale regression can mistake shared geography for mechanism. The ecological need is therefore not simply for more predictors, but for an integrated design in which each process is examined at the spatial scale and comparison unit at which its biological meaning is most defensible.
+Flower colour is an unusually integrative trait for addressing this problem. Floral pigmentation is simultaneously a physiological phenotype and a reproductive signal: pigments and floral optics can covary with abiotic conditions, while visible colour can influence pollinator attraction, mating patterns and reproductive success (Rausher, 2008; Koski & Ashman, 2015; Trunschke et al., 2021). Geographic colour polymorphisms therefore provide a tractable window into how multiple selective agents and spatial history combine within one conspicuous phenotype. But that integrative potential creates an inferential danger. A climate gradient, a pollinator turnover and a historical population boundary can generate similar spatial patterns, so forcing all candidate processes into one same-scale regression can mistake shared geography for mechanism. The ecological need is therefore not simply for more predictors, but for an integrated design in which each process is examined at the spatial scale and comparison unit at which its biological meaning is most defensible; biotic interactions are especially scale dependent (Araújo & Rozenfeld, 2014).
 
 That integration first requires a phenotype measured densely enough to reveal the geography that subsequent mechanisms must explain. Range-wide flower-colour studies often rely on discrete morph frequencies, whereas quantitative reflectance or pigment measurements are usually available from fewer populations (Arista et al., 2013; Koski & Galloway, 2020). This matters because a single white-to-pink axis can merge biologically distinct transitions. A threshold-like loss or activation of anthocyanin-pathway expression can separate white and visibly pigmented flowers, whereas variation among already pigmented flowers can additionally reflect pigment amount, pigment chemistry and floral optics (Dick et al., 2011; van der Kooi et al., 2016; Tasaki et al., 2022). Distinguishing whether pigmentation is expressed from how intense that pigmentation becomes is therefore necessary not only for measurement precision, but also for asking whether different ecological processes act on different components of the phenotype.
 
@@ -58,7 +58,7 @@ We fitted separate observation-level INLA-SPDE models for pigmentation state and
 
 We audited the environmental model in two stages (Appendix S3). First, ten ecologically motivated interactions were evaluated under the same likelihood, fixed main effects, mesh and five response-blind geographical folds; a second guardrail fitted all 28 possible pairwise products among the eight environmental axes one at a time. Interaction promotion required posterior support plus improved prediction to withheld geography, spatial-block bootstrap support and fold consistency. VIF was treated as a diagnostic rather than a mechanical deletion threshold: values <5 were preferred, values of 5–10 required explicit coefficient, spatial and blocked-transfer stability, and >10 prevented promotion without exceptional justification. A narrow joint fit resolved overlapping interaction signals. Second, CHELSA VPD and site water balance tested whether atmospheric demand or integrated water balance added information beyond the primary moisture axis. Alternative spatial specifications compared the stationary field with a coastline-barrier field and tested whether the structural East/West term was needed. A model was not promoted by WAIC alone.
 
-For the later local-departure analysis, the primary predictive reference was aligned directly with the finalized pigmentation-state environment: the same eight measured abiotic axes were used in the cross-fitted state model, with five geographical folds based on approximately 100-km blocks. The resulting predictive maps were reused in the local-event replay. East/West remained a structural geographical adjustment in the observation-level Broad model rather than an abiotic matching dimension; the SPDE field belonged to the natural predictive reference rather than to measured-environment distance. The historical four-PC broad/within environmental representation was retained only as a sensitivity (Appendix S6).
+For the later local-departure analysis, the primary predictive reference was aligned directly with the finalized pigmentation-state environment: the same eight measured abiotic axes were used in the cross-fitted state model, with five geographical folds based on approximately 100-km blocks (Roberts et al., 2017; Valavi et al., 2019). The resulting predictive maps were reused in the local-event replay. East/West remained a structural geographical adjustment in the observation-level Broad model rather than an abiotic matching dimension; the SPDE field belonged to the natural predictive reference rather than to measured-environment distance. The historical four-PC broad/within environmental representation was retained only as a sensitivity (Appendix S6).
 
 ### Bumblebee SDMs and local sharp-transition test
 
@@ -160,6 +160,12 @@ Arista, M., Talavera, M., Berjano, R., & Ortiz, P. L. (2013). Abiotic factors ma
 
 Brun, P., Zimmermann, N. E., Hari, C., Pellissier, L., & Karger, D. N. (2022). Global climate-related predictors at kilometer resolution for the past and future. *Earth System Science Data*, 14, 5573-5603. https://doi.org/10.5194/essd-14-5573-2022
 
+Choi, N. H., Kim, G. H., Lim, M. Y., Kim, Z. H., & Jeong, B. R. (2012). Breeding of purple flower-colored dwarf ‘Jiknyeo’ from hybridization of *Campanula punctata* Lam. × *Campanula punctata* Lam. var. *rubriflora* Mak. *Korean Journal of Horticultural Science & Technology*, 30, 338-341. https://doi.org/10.7235/hort.2012.12015
+
+Davis, A. J. S., Singh, K. K., Thill, J.-C., & Meentemeyer, R. K. (2016). Accounting for residential propagule pressure improves prediction of urban plant invasion. *Ecosphere*, 7, e01232. https://doi.org/10.1002/ecs2.1232
+
+Dehnen-Schmutz, K., Touza, J., Perrings, C., & Williamson, M. (2007). A century of the ornamental plant trade and its impact on invasion success. *Diversity and Distributions*, 13, 527-534. https://doi.org/10.1111/j.1472-4642.2007.00359.x
+
 Dick, C. A., Buenrostro, J., Butler, T., Carlson, M. L., Kliebenstein, D. J., & Whittall, J. B. (2011). Arctic mustard flower color polymorphism controlled by petal-specific downregulation at the threshold of the anthocyanin biosynthetic pathway. *PLoS ONE*, 6, e18230. https://doi.org/10.1371/journal.pone.0018230
 
 Fick, S. E., & Hijmans, R. J. (2017). WorldClim 2: New 1-km spatial resolution climate surfaces for global land areas. *International Journal of Climatology*, 37, 4302-4358. https://doi.org/10.1002/joc.5086
@@ -190,6 +196,8 @@ Lindgren, F., Rue, H., & Lindström, J. (2011). An explicit link between Gaussia
 
 Luong, Y., Gasca-Herrera, A., Misiewicz, T. M., & Carter, B. E. (2023). A pipeline for the rapid collection of color data from photographs. *Applications in Plant Sciences*, 11, e11546. https://doi.org/10.1002/aps3.11546
 
+Mair, L., & Ruete, A. (2016). Explaining spatial variation in the recording effort of citizen science data across multiple taxa. *PLoS ONE*, 11, e0147796. https://doi.org/10.1371/journal.pone.0147796
+
 McKenzie, P. F., Church, S. H., & Hopkins, R. (2026). High-throughput iNaturalist image analysis reveals flower color divergence in *Monarda fistulosa*. *The American Naturalist*, 208, 101-109. https://doi.org/10.1086/739413
 
 Nagano, Y., Abe, K., Kitazawa, T., Hattori, M., Hirao, A. S., & Itino, T. (2014). Changes in pollinator fauna affect altitudinal variation of floral size in a bumblebee-pollinated herb. *Ecology and Evolution*, 4, 3395-3407. https://doi.org/10.1002/ece3.1191
@@ -208,6 +216,8 @@ Shvarts, M., Borochov, A., & Weiss, D. (1997). Low temperature enhances petunia 
 
 Simpson, D., Rue, H., Riebler, A., Martins, T. G., & Sørbye, S. H. (2017). Penalising model component complexity: A principled, practical approach to constructing priors. *Statistical Science*, 32, 1-28. https://doi.org/10.1214/16-STS576
 
+Soberón, J. (2007). Grinnellian and Eltonian niches and geographic distributions of species. *Ecology Letters*, 10, 1115-1123. https://doi.org/10.1111/j.1461-0248.2007.01107.x
+
 Sullivan, C. N., & Koski, M. H. (2021). The effects of climate change on floral anthocyanin polymorphisms. *Proceedings of the Royal Society B*, 288, 20202693. https://doi.org/10.1098/rspb.2020.2693
 
 Tasaki, K., et al. (2022). Identification of candidate genes responsible for flower colour intensity in *Gentiana triflora*. *Frontiers in Plant Science*, 13, 906879. https://doi.org/10.3389/fpls.2022.906879
@@ -216,17 +226,9 @@ Trunschke, J., Lunau, K., Pyke, G. H., Ren, Z.-X., & Wang, H. (2021). Flower col
 
 Valavi, R., Elith, J., Lahoz-Monfort, J. J., & Guillera-Arroita, G. (2019). blockCV: An R package for generating spatially or environmentally separated folds for k-fold cross-validation. *Methods in Ecology and Evolution*, 10, 225-232. https://doi.org/10.1111/2041-210X.13107
 
-Westerband, A. C., Funk, J. L., & Barton, K. E. (2021). Intraspecific trait variation in plants: a renewed focus on its role in ecological processes. *Annals of Botany*, 127, 397-410. https://doi.org/10.1093/aob/mcab011
-
 van der Kooi, C. J., Elzenga, J. T. M., Staal, M., & Stavenga, D. G. (2016). How to colour a flower: On the optical principles of flower coloration. *Proceedings of the Royal Society B*, 283, 20160429. https://doi.org/10.1098/rspb.2016.0429
 
-Choi, M. S., et al. (2012). Breeding of purple flower-colored dwarf ‘Jiknyeo’ from hybridization of *Campanula punctata* Lam. × *Campanula punctata* Lam. var. *rubriflora* Mak. DOI: 10.7235/hort.2012.12015.
-
-Davis, A. J. S., et al. (2016). Accounting for residential propagule pressure improves prediction of urban plant invasion. *Ecosphere*, 7, e01232. https://doi.org/10.1002/ecs2.1232
-
-Dehnen-Schmutz, K., Touza, J., Perrings, C., & Williamson, M. (2007). A century of the ornamental plant trade and its impact on invasion success. *Diversity and Distributions*, 13, 527-534. https://doi.org/10.1111/j.1472-4642.2007.00359.x
-
-Mair, L., & Ruete, A. (2016). Explaining spatial variation in the recording effort of citizen science data across multiple taxa. *PLoS ONE*, 11, e0147796. https://doi.org/10.1371/journal.pone.0147796
+Westerband, A. C., Funk, J. L., & Barton, K. E. (2021). Intraspecific trait variation in plants: a renewed focus on its role in ecological processes. *Annals of Botany*, 127, 397-410. https://doi.org/10.1093/aob/mcab011
 
 ## Data Accessibility Statement
 

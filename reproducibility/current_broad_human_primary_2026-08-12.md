@@ -1,18 +1,12 @@
-# Current-Broad-primary human-context result lock
+# Current-Broad human-context result lock
 
 Date: 2026-08-12
 
-## Decision
-
-The downstream local-departure/human-context analysis is now aligned directly to the finalized Broad pigmentation-state analysis.
-
-Primary chain:
+## Analysis chain
 
 `final eight Broad abiotic axes -> final8 cross-fitted pigmentation-state model + SPDE -> final8 local RMS matching -> 10,000 natural-map event replay -> post-selection global-maxT human context`
 
-The historical four-PC broad/within-neighbourhood matching is retained as a sensitivity only.
-
-## Primary event definition
+## Event definition
 
 - geographical radius: 10 km;
 - environmental axes: Temperature PC1, precipitation PC1, temperature seasonality, precipitation seasonality, topography PC1, soil PC1, soil PC2, RSDS;
@@ -21,12 +15,12 @@ The historical four-PC broad/within-neighbourhood matching is retained as a sens
 - caliper: <=1.0;
 - minimum eligible neighbours: 3;
 - focal event: observed pigmented cell whose eligible neighbours contain no observed pigmented flowers;
-- human variables are absent from graph construction and candidate selection;
+- human variables absent from graph construction and candidate selection;
 - East/West is a structural Broad adjustment and is not used as an abiotic matching dimension.
 
-## Natural-map result
+## Natural-map calibration
 
-The checksum-locked 10,000 predictive draws from the final-eight-axis cross-fitted state model were replayed on the new current-Broad local graph.
+The checksum-locked 10,000 predictive draws from the final-eight-axis cross-fitted state model are replayed on the same local graph.
 
 - observed candidates: **16**;
 - supported cells: **706**;
@@ -38,11 +32,11 @@ The checksum-locked 10,000 predictive draws from the final-eight-axis cross-fitt
 - candidate-fraction null mean: **0.031068**;
 - candidate-fraction upper-tail P: **0.12609**.
 
-Decision: locally discordant pigmented events are not excessive under the finalized Broad natural geography.
+Interpretation: the observed frequency of locally discordant pigmented events is compatible with the finalized natural geography.
 
-## Human-context result
+## Human-context family
 
-All eleven human/natural-context features were evaluated in one global maxT family.
+All eleven human/natural-context features are evaluated in one global maxT family.
 
 | Feature | observed focal-minus-white contrast | directional/two-sided P | global maxT FWER P |
 |---|---:|---:|---:|
@@ -58,27 +52,25 @@ All eleven human/natural-context features were evaluated in one global maxT fami
 | forest cover | -0.08058 | 0.28257 | 0.90331 |
 | mountainness | -0.05337 | 0.23538 | 0.83442 |
 
-The leading feature is population exposure within 5 km. It is strongly directional before familywise correction but remains just above the confirmatory 0.05 maxT threshold.
+The leading feature is population exposure within 5 km. It is directionally strong before familywise correction but remains just above the confirmatory 0.05 maxT threshold.
 
-Decision: **near-threshold short-scale settlement exposure; not a corrected-significant anthropogenic effect.**
+Interpretation: **near-threshold short-scale settlement exposure; not a corrected-significant anthropogenic effect.**
 
 ## Observation-process alternatives
-
-Measured candidate-specific effort alternatives were null under the same 10,000-map framework:
 
 - observation-effort rank: two-sided P=0.92411; maxT P=0.96320;
 - independent-site-support rank: two-sided P=0.71813; maxT P=0.75642.
 
-This weakens the simple explanation that candidate cells differ because they contain more photographs or more independent YAMAP activities. It does not remove broader route-access/source-inclusion bias.
+These diagnostics weaken a candidate-specific effort explanation based on more photographs or more independent YAMAP activities. They do not remove broader route-access or source-inclusion bias.
 
-## Ecological claim ceiling
+## Claim ceiling
 
 Supported:
 
-- the local event frequency is compatible with current Broad natural geography;
-- short-scale (especially 5-km) settlement exposure is the leading post-selection human-context signal;
+- local event frequency is compatible with the finalized Broad natural geography;
+- short-scale, especially 5-km, settlement exposure is the leading post-selection human-context signal;
 - the scale pattern is local rather than a broad 25–50-km population gradient;
-- candidate-specific measured observation effort does not explain the signal.
+- measured candidate-specific observation effort does not explain the signal.
 
 Not supported:
 
@@ -88,21 +80,27 @@ Not supported:
 - introgression;
 - a general urbanization syndrome.
 
-The 16 cells are provenance/field targets. Horticultural opportunity, fine-scale environmental modification/plasticity and broader observation accessibility remain competing explanations.
+The 16 cells are field/provenance targets. Horticultural opportunity, fine-scale environmental modification/plasticity and broader observation accessibility remain competing explanations.
 
-## Reproducibility lock
+## Reproducibility
 
-- branch: `agent/human-align-current-broad`;
-- PR: #43;
-- current-Broad replay workflow run: `31537102360`;
-- current-Broad output artifact: `9119306089`;
-- artifact digest: `sha256:f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4`;
-- final8 10,000-draw source artifact: `9094339466`;
-- final8 source digest: `sha256:413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`;
-- frozen cell/human input artifact: `9022276431`;
-- frozen input SHA-256: `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
+Current-Broad replay:
 
-Primary implementation:
+- workflow run: `31537102360`;
+- output artifact: `9119306089`;
+- artifact digest: `sha256:f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4`.
+
+Predictive-draw source:
+
+- artifact: `9094339466`;
+- digest: `sha256:413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`.
+
+Frozen cell/human evidence:
+
+- artifact: `9022276431`;
+- SHA-256: `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
+
+Executable entry points:
 
 - `analysis_sensitivity/run_human_context_current_broad_primary_fast.R`;
 - `.github/workflows/human-context-highrep-final.yml`;

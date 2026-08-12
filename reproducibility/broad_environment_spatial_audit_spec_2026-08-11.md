@@ -1,188 +1,167 @@
-# Comprehensive broad environmental and spatial-model audit
+# Broad environmental and spatial-model audit protocol
 
 Date: 2026-08-11
 
 ## Purpose
 
-The current Journal of Biogeography broad analysis uses two observation-level models:
+This protocol defines the robustness audit used to finalize the two Broad observation-level flower-colour models:
 
-1. Bernoulli pigmentation state for all environment-complete photographs; and
-2. Gaussian visible intensity conditional on the observations classified as pigmented.
+1. Bernoulli pigmentation state across the environment-complete observations;
+2. Gaussian visible intensity conditional on pigmentation.
 
-Both use eight environmental terms, an East/West structural adjustment and a stationary isotropic Matérn SPDE field. The current model is a strong broad reference, but it was assembled before a complete evidence audit of omitted public environmental proxies, observation-process controls and spatial structures implied by the natural history of *Campanula punctata*.
+The audit asks whether omitted environmental proxies, observation-process controls or alternative residual spatial structures improve geographically transferable inference enough to alter the adopted Broad models.
 
-This sensitivity is designed to establish the final observation-level broad model. It does not automatically replace the separate 1-km-cell cross-fitted natural predictive reference used to define the 17 local-departure targets.
+## Response hierarchy
 
-Frozen comparison input:
+The two responses are related but not interchangeable.
 
-- workflow: `31258851297`;
-- artifact: `9022276431`;
-- artifact SHA-256: `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
+- **Pigmentation state** represents the visible white/pigmented transition.
+- **Conditional visible intensity** represents standardized CIELAB a* variation among pigmented observations.
 
-## Ecological response hierarchy
+CIELAB a* is a visible-colour phenotype, not direct anthocyanin concentration, UV reflectance or pollinator vision.
 
-The two responses are nested but not interchangeable.
+## Retained environmental basis
 
-- **Pigmentation state** is a threshold-like visible white/pigmented classification and may reflect regional regulation, genetic differentiation, developmental plasticity or their combination.
-- **Conditional visible intensity** is the standardized CIELAB a* excess among pigmented photographs. It can reflect anthocyanin amount and composition, vacuolar chemistry, co-pigmentation, petal optics and image formation.
+The common Broad basis contains eight measured abiotic axes:
 
-CIELAB a* is not a direct anthocyanin, UV-reflectance or pollinator-vision measurement.
+- Temperature PC1;
+- precipitation PC1;
+- temperature seasonality;
+- precipitation seasonality;
+- topography PC1;
+- soil PC1;
+- soil PC2;
+- RSDS.
 
-## Literature-based environmental audit
+These represent warm-season thermal regime, climatic water supply, climatic variability, terrain, soil context and broad shortwave-radiation exposure.
 
-The evidence registry `reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv` distinguishes four classes.
+## Additional environmental proxies audited
 
-### Retained primary axes
+The audit evaluates biologically plausible extensions without presuming that additional predictors improve inference:
 
-1. **Warm-season thermal regime** — CHELSA BIO5, BIO10 and GDD5. Floral anthocyanin production can increase under cool conditions (Shvarts, Borochov & Weiss 1997; Stiles et al. 2007), and floral reflectance in *Campanula americana* covaries with temperature and colonization history (Koski & Galloway 2020).
-2. **Moisture supply** — CMI, annual precipitation and driest-month precipitation. Across floral polymorphisms, pigmentation has been positively associated with aridity/VPD (Sullivan & Koski 2021); experimental drought can deepen anthocyanin-associated petal colour (Zhang et al. 2023).
-3. **Temperature and precipitation seasonality** — retained as climatic context, with final joint adjudication of the already-supported Temperature PC1 × temperature-seasonality term.
-4. **Shortwave radiation** — retained as broad light exposure. Direct flower experiments show light/UV-B induction of anthocyanin, but CHELSA RSDS is total shortwave radiation rather than UV-B (Hennayake et al. 2006; Zhou et al. 2025).
-5. **Terrain relief and SoilGrids axes** — retained as contextual variables for drainage, resources, texture and unresolved microhabitat. They are not assigned a universal direction.
+- vapour-pressure deficit (VPD);
+- site water balance;
+- BIO6 cold extreme;
+- BIO13 wet extreme;
+- forest fraction;
+- distance to coast.
 
-### High-priority omitted public proxies tested here
+Observation-process sensitivities include:
 
-1. **VPD** — atmospheric demand can be more physiologically informative than precipitation supply.
-2. **Site water balance** — integrates moisture supply and demand.
-3. **BIO6** — a cold-extreme sensitivity; not promoted by default because the coldest month is biologically remote from summer corolla development.
-4. **BIO13** — a wet-extreme/oceanicity guardrail with weak direct floral-pigment mechanism.
-5. **Forest fraction** — proxy for canopy/open-habitat context and flower-level light environment, derived from current MLIT 1-km landscape outputs.
-6. **Distance to coast** — a composite coastality/island-context proxy, tested only as a geographical sensitivity.
+- day of year and year;
+- mask fraction;
+- image overexposure flag.
 
-### Observation-process sensitivities
+Important variables not represented adequately by the harmonized 1-km public-data boundary are treated as limitations rather than inferred indirectly. These include direct UV-B, observation-year pre-anthesis weather, flower-level canopy/light/hydrology, variety/genetic identity and direct dispersal kernels.
 
-- DOY and year indicators;
-- mask fraction and possible-overexposure flag.
-
-These controls ask whether the environmental coefficients survive broad phenology and image-formation diagnostics. They are not part of the primary ecological mechanism set.
-
-### Important gaps not inserted into the final model
-
-- **UV-B climatology:** available global products are much coarser and period-mismatched relative to the 1-km 2023–2025 design; RSDS remains the broad light proxy with an explicit claim ceiling.
-- **Actual pre-anthesis weather:** a key future analysis for separating plasticity from long-term differentiation, but it requires a separately specified time-varying acquisition and developmental window.
-- **Taxonomic identity:** the source table does not record var. *punctata* versus var. *hondoensis*. Geography cannot be used as a substitute; an image-level calyx or genetic audit is required.
-- **Soil P/K and direct rhizosphere moisture:** absent from the current harmonized public source boundary.
-
-## Environmental model grid
-
-Every model retains the current eight additive environmental terms and the current stationary region-adjusted SPDE while one evidence-based extension is evaluated.
+## Interaction audit
 
 ### Pigmentation state
 
-- additive reference;
-- dryness × RSDS sensitivity;
-- VPD;
-- site water balance;
-- VPD + site water balance;
-- BIO6;
-- BIO13;
-- BIO6 + BIO13;
-- forest fraction;
-- log distance to coast;
-- forest + coastality;
-- DOY/year controls;
-- image-QC controls;
-- all observation controls;
-- all six omitted environmental proxies;
-- all six proxies + dryness × RSDS.
+Candidate interactions are evaluated only when they have a biological rationale and remain estimable under the common Broad basis. No state interaction is promoted unless posterior support and geographically blocked transfer both satisfy the promotion rule.
 
 ### Conditional intensity
 
-The same extensions are evaluated on top of the exact-screen candidate Temperature PC1 × temperature seasonality. The narrow interaction adjudication also includes:
+The focal interaction is Temperature PC1 × temperature seasonality. Joint adjudication tests whether additional seasonality interactions contribute independently after the thermal interaction is fitted.
 
-- additive reference;
-- Temperature PC1 × temperature seasonality;
-- precipitation PC1 × temperature seasonality;
-- both terms;
-- the predeclared Temperature PC1 × temperature seasonality + dryness × precipitation seasonality bundle;
-- all three seasonality terms.
+The adopted intensity model retains Temperature PC1 × temperature seasonality and does not retain an additional precipitation PC1 × temperature-seasonality interaction.
 
-All environmental candidates are compared on one common complete-case population so that model improvement cannot be caused by changing the observations.
+## Spatial structures audited
 
-## Species biology and spatial-model hypotheses
+All spatial candidates use the same observation population and environmental basis appropriate to the response.
 
-### Evidence for regional continuity and barriers
+Evaluated structures:
 
-Direct species evidence supports neither a purely exchangeable regional factor nor unrestricted Euclidean continuity.
+1. stationary Matérn SPDE + East/West structural adjustment;
+2. stationary Matérn SPDE without East/West;
+3. coastline-barrier SPDE + East/West;
+4. coastline-barrier SPDE without East/West.
 
-- Mainland *C. punctata* is a self-incompatible perennial pollinated primarily by bumblebees; local pollinator assemblages can generate fine-scale floral selection mosaics (Nagano et al. 2014).
-- The species can spread clonally through rhizomatous/stoloniferous growth, increasing local persistence without implying rapid among-population movement.
-- Exact seed-dispersal kernels for *C. punctata* are not available in the current evidence base and are not invented here.
-- Allozyme data from 17 populations separated a mainland group from the Izu island group. Nei genetic identity was approximately 0.97 within mainland populations, 0.95 within islands and 0.84 between mainland and islands; island populations also showed stronger among-population differentiation and a progressive southward colonization signal (Inoue & Kawahara 1990).
-- Pollinator and breeding systems also differ sharply across the Izu chain (Inoue & Amano 1986; Inoue 1988).
+The coastline barrier is a covariance sensitivity motivated by island separation; it is not a mechanistic dispersal model.
 
-These findings justify a sea-barrier sensitivity and caution against interpreting the spatial field as one dispersal or historical process.
+More flexible anisotropic, nonstationary or genetic-cluster structures are not promoted without independent data sufficient to identify them.
 
-### Spatial specifications compared
+## Model comparison outputs
 
-1. current stationary SPDE + East/West factor;
-2. stationary SPDE without the 136.5°E factor;
-3. each stationary model with a 1-km exact-site IID effect;
-4. ocean-barrier SPDE + East/West factor;
-5. ocean-barrier SPDE without the factor;
-6. each barrier model with the exact-site IID effect.
+Each candidate reports, where applicable:
 
-The barrier triangles are defined from the processed elevation land/sea mask. The barrier range fraction is 0.2. This reduces latent correlation through ocean triangles but does not assert zero rare long-distance dispersal.
-
-The exact-site IID effect asks whether repeated photos/cells contain residual local heterogeneity beyond the continuous field. It is not interpreted as a genetic population effect.
-
-### Spatial claim ceiling
-
-The SPDE field can contain:
-
-- unmeasured environment;
-- taxonomic mixture;
-- population history and dispersal limitation;
-- island barriers;
-- observation structure;
-- other coherent geography.
-
-A better barrier or site-IID model supports a more appropriate residual covariance structure; it does not directly estimate migration, seed dispersal or colonization dates.
-
-## Model comparison
-
-Every full model reports:
-
-- WAIC, DIC and mean negative log CPO;
-- fixed effects and SPDE/site hyperparameters;
+- WAIC;
+- DIC;
+- mean negative log CPO;
+- fixed effects and uncertainty;
+- SPDE hyperparameters;
 - VIF;
 - five response-blind geographical folds;
-- held-out log loss for state or squared error for intensity;
-- AUC/Brier or RMSE/MAE/R²;
-- a spatial-block bootstrap of paired held-out loss gain;
-- fold consistency.
+- state: held-out log loss, AUC and Brier score;
+- intensity: held-out squared error, RMSE, MAE and R²;
+- spatial-block bootstrap of paired held-out loss gain;
+- number of geographical folds improved.
 
-A candidate receives strong support relative to the declared reference only when:
+## Promotion rule
 
-1. the model fits successfully;
-2. WAIC improves by at least 2 or mean negative log CPO improves by at least 0.001;
-3. the spatial-block bootstrap lower 95% limit for predictive gain is above zero;
-4. at least four of five geographical folds improve; and
-5. maximum VIF is below 10.
+An environmental or spatial expansion is promoted only when the evidence is jointly convincing. The audit requires:
 
-Parsimonious models are preferred when a larger bundle produces no clear additional transfer gain.
+1. successful model fit;
+2. meaningful full-fit improvement, such as ΔWAIC >=2 or an analogous CPO gain;
+3. improvement in the primary geographically blocked predictive loss;
+4. spatial-block bootstrap support for positive predictive gain;
+5. improvement in at least four of five geographical folds for strong promotion;
+6. acceptable fixed-effect collinearity and numerical stability;
+7. a biological interpretation justified independently of the response map.
 
-## Finalization rule
+VIF is a graded diagnostic:
 
-The audit will produce one response-specific final observation-level model.
+- <5 preferred;
+- 5–10 requires explicit stability evidence;
+- >10 blocks promotion absent exceptional mechanistic and predictive justification.
 
-- If no environmental extension clears the rule, retain the current environmental basis.
-- For conditional intensity, retain the Temperature PC1 × temperature-seasonality term only if it remains preferable after joint seasonality adjudication and the broader variable audit.
-- Select a non-current spatial structure only if its held-out and full-fit evidence is consistent and its interpretation is biologically defensible.
-- The final observation-level model may update coefficient interpretation and Figure 2/Appendix S3.
-- The separate cell-level natural predictive reference and the 17 local-departure identities remain unchanged unless a later, explicitly approved predictive-reference rebuild is undertaken.
+Parsimonious models are preferred when a larger candidate does not provide transferable improvement.
 
-## Key references
+## Adopted model decisions
 
-- Hennayake, C. K. et al. (2006). DOI `10.2525/ecb.44.103`.
-- Inoue, K. & Amano, M. (1986). DOI `10.1111/j.1442-1984.1986.tb00018.x`.
-- Inoue, K. (1988). DOI `10.1111/j.1442-1984.1988.tb00178.x`.
-- Inoue, K. & Kawahara, T. (1990). DOI `10.1002/j.1537-2197.1990.tb12554.x`.
-- Koski, M. H. & Galloway, L. F. (2020). DOI `10.3389/fpls.2020.00991`.
-- Nagano, Y. et al. (2014). DOI `10.1002/ece3.1191`.
-- Poggio, L. et al. (2021). DOI `10.5194/soil-7-217-240-2021`.
-- Shvarts, M., Borochov, A. & Weiss, D. (1997). DOI `10.1111/j.1399-3054.1997.tb03432.x`.
-- Stiles, E. A. et al. (2007). DOI `10.1111/j.1399-3054.2007.00855.x`.
-- Sullivan, C. N. & Koski, M. H. (2021). DOI `10.1098/rspb.2020.2693`.
-- Zhang, S. et al. (2023). DOI `10.1111/ppl.13859`.
-- Zhou, L.-J. et al. (2025). DOI `10.1111/pce.15390`.
+### Pigmentation state
+
+Retain:
+
+`state ~ East/West + eight abiotic axes + stationary SPDE`
+
+No tested interaction or environmental expansion satisfies the full promotion rule. The retained state model maximum VIF is 4.430.
+
+### Conditional visible intensity
+
+Retain:
+
+`intensity ~ East/West + eight abiotic axes + Temperature PC1:temperature seasonality + stationary SPDE`
+
+The retained interaction posterior mean is -0.204234 with 95% CrI -0.301869 to -0.106561. Maximum VIF is 6.340 for Temperature PC1; the interaction VIF is 1.664.
+
+VPD is not retained despite biological plausibility because it produces severe collinearity and lacks sufficient held-out transfer improvement.
+
+### Spatial structure
+
+Retain stationary Matérn + East/West for both response parts. Coastline-barrier formulations do not show the consistent held-out improvement required for promotion.
+
+## Interpretation boundary
+
+The audit supports a defensible residual covariance model and a stable measured-environment basis. It does not identify the SPDE field with migration, seed dispersal, pollen movement, colonization history or one unmeasured environmental mechanism.
+
+## Reproducibility
+
+Frozen comparison input:
+
+- workflow `31258851297`;
+- artifact `9022276431`;
+- SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
+
+Executable route:
+
+- `scripts/run_broad_environment_spatial_audit.R`;
+- `analysis_sensitivity/run_broad_environment_spatial_audit_wrapper.R`;
+- `.github/workflows/broad-environment-spatial-audit.yml`.
+
+Final decisions:
+
+- `reproducibility/broad_environment_spatial_final_model_2026-08-11.md`;
+- `reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv`;
+- `reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv`;
+- `submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md`.

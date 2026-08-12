@@ -1,24 +1,25 @@
 # Journal of Biogeography — submission checklist
 
-Checked against the current Wiley `Journal of Biogeography` Author Guidelines on 2026-08-10.
+Checked against the current Wiley `Journal of Biogeography` Author Guidelines on **2026-08-12**.
 
 ## Article category
 
 - Target: **Research Article**.
 - Main headers: Introduction, Materials and Methods, Results, Discussion, Acknowledgements, References.
 - JBI asks authors to state the theoretical foundation and conceptual advance clearly; the submission framing is trait biogeography + scale-aware inference, with *Campanula punctata* as the focal system rather than the only point of interest.
+- The ecological narrative treats floral colour polymorphism as a layered phenotype: broad environmental and residual geographical structure, local pollinator opportunity and contemporary human context are evaluated at different scales without being collapsed into one causal regression.
 - Repeatability is supported by detailed methods, versioned code, fixed seeds, checksum-locked artifacts and independent validators.
 
 ## Length and front matter
 
 - Main-text target: <=6,000 words.
-  - Current Introduction-through-Discussion count = 3,783 words by repository validator.
+  - Current Introduction-through-Discussion count = **5,072 words** by repository validator.
 - Title: <=115 characters including spaces; no abbreviations or Latin binomial.
   - Current title = 92 characters.
 - Running title: <40 characters.
   - Current running title = 34 characters.
 - Structured abstract: <=300 words under **Aim, Location, Taxon, Methods, Results, Main conclusions**.
-  - Current abstract = 293 words by repository validator.
+  - Current abstract = **291 words** by repository validator.
 - Keywords: 6–10, alphabetical.
   - Current count = 8.
 
@@ -34,10 +35,12 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 
 - Keep the Main paper to four narrative figures unless a fifth is essential.
 - Embed main figures and legends in the main document for review.
+- Use lowercase panel labels **(a), (b), (c), (d)** in the figures and legends.
+- Make every legend standalone by naming the geographical region and study taxon where applicable.
+- Every map panel must include a bar scale; current national map panels use WGS84 longitude/latitude and a **100-km bar scale**.
 - Supply separate vector PDF files and 600-dpi PNG review copies from the checksum-locked figure artifact.
 - Keep the matched YAMAP/iNaturalist/GBIF benchmark, full model tables and sensitivity grids in Supporting Information.
 - Tables must remain editable and self-contained.
-- Final map check: retain latitude/longitude, state the projection in captions, and add/confirm scale information under the live JBI map guidance.
 
 ## Supporting Information
 
@@ -88,6 +91,8 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 ## Pre-submission scientific checks
 
 - Main narrative contains only the three inferential acts: broad template -> local focal-pollinator test -> calibrated local departures/human follow-up.
+- Discussion explicitly returns those acts to the ecological question of how flower-colour polymorphism is differentiated and potentially maintained across scales, without claiming direct evidence of adaptation.
+- The final synthesis maps broad environmental associations to common-garden/fitness tests, residual spatial geography to population genomics, SDM correspondence to realized pollination measurements, and local departures to provenance/genomic follow-up.
 - Five-species community turnover remains Supporting Information.
 - High-elevation Bombus remains a negative guardrail, not a second positive mechanism.
 - Main Bombus result is labelled weak/local and includes the median/sign/raw/scale fragility in the same Results section.

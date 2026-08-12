@@ -1,19 +1,12 @@
-# Current input boundary
+# Input boundary
 
-The current manuscript does **not** use the historical 1,909-observation population or the old canonical snapshot as an active flower-colour input definition.
+The manuscript-facing source boundary is explicit:
 
-## Manuscript-facing source boundary
+- `Data_S1.csv` at repository root is the distributable derived flower-colour/source table;
+- the environment-complete ecological analysis contains 1,922 observations after documented raster-support exclusions;
+- large raster-derived, fitted-model and predictive-draw evidence is restored from checksum-locked GitHub Actions artifacts listed in `paper/analysis-map.md` and dated reproducibility records;
+- mutable external services are not allowed to silently replace manuscript evidence.
 
-- `Data_S1.csv` at repository root is the curated derived flower-colour/source table.
-- The environment-complete integrated analysis contains 1,922 observations after the documented topographic/soil support exclusions.
-- Current Broad, Bombus and human analyses restore their frozen source/evidence objects from checksum-locked GitHub Actions artifacts listed in `paper/analysis-map.md` and the dated reproducibility locks.
+For local development, acquisition/source-construction code is under `source_build/` and source registries/configuration are under `config/`. For exact artifact restoration and workflow entry points, use `docs/reproduction-guide.md`.
 
-## Historical canonical snapshot
-
-The former `inputs/canonical_snapshot.json` and `scripts/canonical_snapshot.sh` were used to restore static WorldPop/MLIT/DID support during the earlier current-input downstream reconstruction. The final current-Broad human workflow now restores the frozen static-human/source evidence directly from checksum-locked artifacts, so the snapshot restorer is no longer an active execution dependency.
-
-Both files are preserved for provenance at:
-
-`legacy/reproducibility-development/superseded-current-input-anomaly-pipeline-2026-08-12/`
-
-For the current evidence boundary, start with `paper/README.md`, `paper/analysis-map.md` and `paper/active-file-map.csv`.
+The distributed `Data_S1.csv` column semantics and privacy/provenance boundary are documented in `docs/data-s1-dictionary.md`.

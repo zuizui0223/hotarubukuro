@@ -30,8 +30,8 @@ permissions:
   actions: read
 
 env:
-  FIGURE_ARTIFACT_ID: "9057707602"
-  FIGURE_ARTIFACT_SHA256: "a1b2d44c09b5dd7d00f73dcab4232128936e9bfd5f8af7c433a617ad114968eb"
+  FIGURE_ARTIFACT_ID: "9136663517"
+  FIGURE_ARTIFACT_SHA256: "98aebc0216499542a0883c5584ed3d165c253b36bb7d7b9eac5c22c3ef2fb979"
 
 jobs:
   build-submission-bundle:

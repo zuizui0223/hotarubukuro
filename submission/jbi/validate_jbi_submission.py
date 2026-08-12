@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Lightweight submission-format checks for the Journal of Biogeography draft.
+"""Lightweight submission-format and manuscript-consistency checks for JBI.
 
-This validates only stable manuscript-format constraints captured from the Wiley
-Author Guidelines on 2026-08-09. The official portal must still be re-checked
-immediately before submission.
+This validates stable manuscript-format constraints captured from the Wiley
+Author Guidelines plus a small set of current science locks that must remain
+consistent across the submission-facing files. The official portal must still
+be re-checked immediately before submission.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ MAIN = ROOT / "JBI_main_manuscript_anonymized.md"
 COVER = ROOT / "JBI_cover_letter.md"
 FIGURE_CAPTIONS = ROOT / "JBI_main_figure_captions.md"
 FIGURE_README = ROOT / "figures" / "README.md"
+TRANSLATED_ABSTRACT = ROOT / "JBI_translated_abstract_ja.md"
+CHECKLIST = ROOT / "JBI_submission_checklist.md"
 SUPPORTING = (
     ROOT / "supporting" / "Appendix_S1_yamap_public_benchmark.md",
     ROOT / "supporting" / "Appendix_S2_image_phenotyping.md",
@@ -39,6 +42,12 @@ def assert_anonymous(label: str, body: str) -> None:
     for forbidden in FORBIDDEN_IDENTIFIERS:
         if forbidden.casefold() in body.casefold():
             fail(f"Potential identifying string in {label}: {forbidden}")
+
+
+def require_tokens(label: str, body: str, tokens: tuple[str, ...]) -> None:
+    missing = [token for token in tokens if token not in body]
+    if missing:
+        fail(f"{label} is missing current science token(s): {', '.join(missing)}")
 
 
 text = MAIN.read_text(encoding="utf-8")
@@ -102,14 +111,42 @@ if body_n > 6000:
 
 assert_anonymous("anonymized manuscript", text)
 
+# Current scientific hierarchy must remain explicit in Main.
+require_tokens(
+    "Main manuscript",
+    text,
+    ("1,922", "67 sharp transitions", "Sixteen local departures", "0.0548"),
+)
+
+# A citation/reference mismatch discovered during final QC motivated these
+# lightweight explicit guards for the literature that anchors scale-aware SDM
+# interpretation and geographical cross-validation.
+for citation, reference in (
+    ("Soberón, 2007", "Soberón, J. (2007)."),
+    ("Araújo & Rozenfeld, 2014", "Araújo, M. B., & Rozenfeld, A. (2014)."),
+    ("Roberts et al., 2017", "Roberts, D. R., et al. (2017)."),
+    ("Valavi et al., 2019", "Valavi, R., Elith, J., Lahoz-Monfort, J. J., & Guillera-Arroita, G. (2019)."),
+):
+    if citation not in main_body:
+        fail(f"Current Main citation missing: {citation}")
+    if reference not in text.split("## References", 1)[1]:
+        fail(f"Current Main reference missing: {reference}")
+
+appendix_texts: dict[str, str] = {}
 for appendix in SUPPORTING:
     if not appendix.is_file():
         fail(f"Missing current Supporting Information file: {appendix.name}")
     appendix_text = appendix.read_text(encoding="utf-8")
+    appendix_texts[appendix.name] = appendix_text
     appendix_lines = appendix_text.splitlines()
     if not appendix_lines or not appendix_lines[0].startswith("# Appendix S"):
         fail(f"Supporting Information file lacks an Appendix S title: {appendix.name}")
     assert_anonymous(f"Supporting Information {appendix.name}", appendix_text)
+
+s6 = appendix_texts["Appendix_S6_event_departures_human_context.md"]
+require_tokens("Appendix S6", s6, ("**16**", "0.27897", "0.05479"))
+if "The horticultural trade and ornamental plant invasions in Britain" in s6:
+    fail("Appendix S6 contains the superseded alternative Dehnen-Schmutz 2007 citation")
 
 if not FIGURE_CAPTIONS.is_file():
     fail("Missing current Main-figure captions")
@@ -117,6 +154,7 @@ figure_text = FIGURE_CAPTIONS.read_text(encoding="utf-8")
 figure_headings = re.findall(r"^## Figure ([1-4])\.", figure_text, flags=re.MULTILINE)
 if figure_headings != ["1", "2", "3", "4"]:
     fail(f"Figure captions must contain Figures 1-4 exactly once and in order: {figure_headings}")
+require_tokens("Main-figure captions", figure_text, ("1,922", "Sixty-seven", "**16**", "0.05479"))
 assert_anonymous("Main-figure captions", figure_text)
 
 if not FIGURE_README.is_file():
@@ -125,6 +163,22 @@ figure_readme_text = FIGURE_README.read_text(encoding="utf-8")
 for required_phrase in ("600-dpi PNG", "vector PDF", "Actions artifact"):
     if required_phrase not in figure_readme_text:
         fail(f"Figure README is missing required output-policy phrase: {required_phrase}")
+
+if not TRANSLATED_ABSTRACT.is_file():
+    fail("Missing translated abstract")
+translated = TRANSLATED_ABSTRACT.read_text(encoding="utf-8")
+require_tokens("Japanese translated abstract", translated, ("1,922", "67", "16地点", "0.0548"))
+if "17地点" in translated:
+    fail("Japanese translated abstract still contains superseded 17-site result")
+
+if not CHECKLIST.is_file():
+    fail("Missing submission checklist")
+checklist = CHECKLIST.read_text(encoding="utf-8")
+require_tokens(
+    "Submission checklist",
+    checklist,
+    (f"{body_n:,} words", f"{abstract_n} words", "16 current-Broad departures"),
+)
 
 cover = COVER.read_text(encoding="utf-8")
 cover_body = cover.split("Dear Senior Editors,", 1)[-1].split("Sincerely,", 1)[0]
@@ -139,4 +193,5 @@ print(f"PASS keywords={len(keywords)}")
 print(f"PASS intro_to_discussion_words={body_n}")
 print(f"PASS supporting_appendices={len(SUPPORTING)}")
 print(f"PASS main_figure_captions={len(figure_headings)}")
+print("PASS current_science_crossfile_consistency=1")
 print(f"PASS cover_interest_words={cover_n}")

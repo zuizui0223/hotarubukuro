@@ -81,7 +81,7 @@ fig1a <- ggplot2::ggplot() +
     "text",
     x = 3,
     y = 0.55,
-    label = "Repurposed observation stream → auditable quantitative trait",
+    label = "Repurposed image stream → two ecological colour layers",
     colour = mid_grey,
     size = 2.45
   ) +
@@ -90,7 +90,7 @@ fig1a <- ggplot2::ggplot() +
     ylim = c(0.35, 1.35),
     clip = "off"
   ) +
-  ggplot2::labs(title = "From hiking record to quantitative phenotype") +
+  ggplot2::labs(title = "From hiking record to pigmentation state and intensity") +
   ggplot2::theme_void(base_family = "sans") +
   ggplot2::theme(
     plot.title = ggplot2::element_text(
@@ -105,7 +105,7 @@ figure_1 <- figure_1 + patchwork::plot_layout(widths = c(1.05, 1))
 
 # Figure 2: shorten titles and place colour-bar titles above the bars.
 fig2a <- fig2a +
-  ggplot2::labs(title = "Environmental effects conditional on space") +
+  ggplot2::labs(title = "Broad environmental associations conditional on space") +
   ggplot2::theme(plot.title = ggplot2::element_text(size = 8.2))
 fig2b <- fig2b +
   ggplot2::guides(
@@ -126,7 +126,7 @@ fig2c <- fig2c +
     )
   )
 performance_plot <- performance_plot +
-  ggplot2::labs(title = "Blocked prediction") +
+  ggplot2::labs(title = "Transfer to withheld geography") +
   ggplot2::theme(plot.title = ggplot2::element_text(size = 7.8))
 fig2d <- range_plot / performance_plot +
   patchwork::plot_layout(heights = c(1, 1.2))
@@ -140,11 +140,11 @@ figure_2 <- (tag_panel(fig2a, "a") | tag_panel(fig2b, "b")) /
        ))
 figure_2 <- figure_2 + patchwork::plot_layout(widths = c(1.15, 1))
 
-# Figure 3: make the local-design message readable without losing limitations.
+# Figure 3: make the local-maintenance message readable without losing limitations.
 fig3b <- fig3b +
-  ggplot2::labs(title = "Selected boundaries are environmentally local")
+  ggplot2::labs(title = "Fixed boundaries are environmentally local")
 fig3c <- fig3c +
-  ggplot2::labs(title = "Focal-guild contrast across pairs")
+  ggplot2::labs(title = "Weak focal-guild contrast at state boundaries")
 sensitivity$display_p <- sprintf("%.3f", sensitivity$signflip_one_sided_p)
 sensitivity$label_x <- sensitivity$radius_km + ifelse(
   sensitivity$radius_km == 5,
@@ -191,7 +191,7 @@ fig3d <- ggplot2::ggplot(
     expand = ggplot2::expansion(mult = c(0.12, 0.24))
   ) +
   ggplot2::labs(
-    title = "Scale and exposure claim ceiling",
+    title = "Local correspondence attenuates across scales",
     subtitle = "Point labels are one-sided sign-flip P values",
     x = "Radius (km)",
     y = "Mean signed contrast"
@@ -201,8 +201,8 @@ figure_3 <- (tag_panel(fig3a, "a") | tag_panel(fig3b, "b")) /
   (tag_panel(fig3c, "c") | tag_panel(fig3d, "d"))
 
 # Figure 4a must reflect the current final-eight-axis event definition. Rebuild
-# the conceptual panel explicitly so the historical four-PC label from the
-# core development builder cannot leak into the final manuscript figure.
+# the conceptual panel explicitly so stale development labels cannot leak into
+# the final manuscript figure.
 angles <- seq(0, 2 * pi, length.out = 9)[-9]
 neighbour_nodes_current <- data.frame(
   x = 1.25 * cos(angles), y = 1.25 * sin(angles)
@@ -241,7 +241,7 @@ fig4a <- ggplot2::ggplot() +
   ggplot2::coord_equal(
     xlim = c(-2.15, 2.15), ylim = c(-2.10, 2.10), clip = "off"
   ) +
-  ggplot2::labs(title = "Repeatable local ecological event") +
+  ggplot2::labs(title = "Local colour departure as an ecological event") +
   ggplot2::theme_void(base_family = "sans") +
   ggplot2::theme(
     plot.title = ggplot2::element_text(face = "bold", colour = ink, size = 8.8),
@@ -250,13 +250,13 @@ fig4a <- ggplot2::ggplot() +
 
 # Figure 4b-c already come from the final-Broad/current-human adapter. Preserve
 # the adapter's current human feature family in 4d rather than reconstructing
-# the superseded DID-composite development panel.
+# a development-only composite panel.
 fig4c <- fig4c +
-  ggplot2::labs(title = "Events in repeated natural maps")
+  ggplot2::labs(title = "Departure frequency in repeated natural maps")
 fig4d <- fig4d +
   ggplot2::labs(
-    title = "Post-selection human context",
-    subtitle = "Current-Broad 10,000-map family; no global maxT P < .05"
+    title = "Possible contemporary human overlay",
+    subtitle = "10,000-map family; no global maxT P < .05"
   ) +
   ggplot2::theme(plot.title = ggplot2::element_text(size = 8.2))
 figure_4 <- (tag_panel(fig4a, "a") | tag_panel(fig4b, "b")) /
@@ -298,10 +298,10 @@ figure_rows <- list(
 figure_manifest <- do.call(rbind, figure_rows)
 figure_manifest$narrative_job <- rep(
   c(
-    "measurement and two-part trait representation",
-    "broad environment plus unresolved space",
-    "scale shift to local focal-pollinator boundaries",
-    "calibrated ecological departures and provenance follow-up"
+    "reveal pigmentation state and intensity as distinct colour layers",
+    "locate broad environmental and unresolved geographic structure",
+    "test weak local pollinator-maintenance correspondence at state boundaries",
+    "calibrate natural departures before contemporary provenance follow-up"
   ),
   each = 2
 )

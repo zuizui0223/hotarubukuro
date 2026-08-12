@@ -2,7 +2,7 @@
 
 Target: **Research Article**.
 
-This directory contains the current JBI-facing version of the adopted broad → fine → anomaly analysis. It is intentionally **not** a catalogue of the full project history. Main keeps only evidence that resolves a planted question or makes the next ecological question necessary; robustness grids, secondary biogeographic patterns and negative guardrails move to Supporting Information.
+This directory contains the current JBI-facing version of the adopted Broad → local Bombus → calibrated local-departure/human-context analysis. It is intentionally **not** a catalogue of the full project history. Main keeps only evidence that resolves a planted question or makes the next ecological question necessary; robustness grids, secondary biogeographic patterns and negative guardrails move to Supporting Information.
 
 ## Current submission files
 
@@ -64,7 +64,7 @@ Supporting Information is the **director's cut / evidence archive**, not a secon
 - all scale/exposure sensitivities;
 - five-species community-boundary correspondence;
 - montane/equal-elevation guardrails;
-- anomaly natural-map and human-context sensitivity families.
+- local-departure natural-map and human-context sensitivity families.
 
 Historical/debugging analyses are not promoted to SI merely because they remain reproducible.
 
@@ -78,4 +78,4 @@ Earlier Ecology & Evolution manuscripts, old 1,909/1,923 publication architectur
 
 The official JBI Author Guidelines and submission portal should still be re-checked immediately before upload because portal requirements can change.
 
-For the manuscript-facing analysis hierarchy, see `paper/analysis-map.md`; for the frozen scientific hierarchy, see `reproducibility/final_paper_pipeline_2026-08-09.md`.
+For the manuscript-facing analysis hierarchy, see `paper/analysis-map.md`; for the frozen scientific hierarchy, see `reproducibility/final_integrated_pipeline_2026-08-12.md`.

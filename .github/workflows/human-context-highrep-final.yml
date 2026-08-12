@@ -1,12 +1,11 @@
-name: Final 10000-map human-context adjudication
+name: Current-Broad-primary 10000-map human-context adjudication
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - .github/workflows/human-context-highrep-final.yml
-      - analysis_sensitivity/run_human_context_highrep_final.R
-      - R/natural_predictive_model.R
+      - analysis_sensitivity/run_human_context_current_broad_primary_fast.R
       - R/candidate_null_tools.R
       - R/local_pigmented_isolates.R
       - R/local_human_context.R
@@ -17,25 +16,20 @@ permissions:
   actions: read
 
 concurrency:
-  group: human-context-highrep-final-${{ github.ref }}
+  group: human-context-current-broad-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  OMP_NUM_THREADS: "1"
-  OPENBLAS_NUM_THREADS: "1"
-  MKL_NUM_THREADS: "1"
-  VECLIB_MAXIMUM_THREADS: "1"
-  NUMEXPR_NUM_THREADS: "1"
-  INLA_NUM_THREADS: "1"
-  OMP_DYNAMIC: "FALSE"
   REFERENCE_ARTIFACT_ID: "9022276431"
   REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  FINAL8_ARTIFACT_ID: "9094339466"
+  FINAL8_ARTIFACT_SHA256: "413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1"
 
 jobs:
   adjudicate:
-    name: Refit final8 and replay 10000 natural maps
+    name: Replay locked final8 Broad on final8 local graph
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v5
@@ -73,13 +67,13 @@ jobs:
           --report-dir reproducibility
           --scopes analysis,reproducibility,testing,reporting
 
-      - name: Restore checksum-locked current reference
+      - name: Restore checksum-locked reference and final8 draws
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf reference-artifact /tmp/reference.zip
+          rm -rf reference-artifact final8-artifact /tmp/reference.zip /tmp/final8.zip
           curl --fail --location --retry 5 --retry-all-errors \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
@@ -88,49 +82,65 @@ jobs:
           [[ "$(sha256sum /tmp/reference.zip | awk '{print $1}')" == "$REFERENCE_ARTIFACT_SHA256" ]]
           mkdir -p reference-artifact
           unzip -q /tmp/reference.zip -d reference-artifact
+
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FINAL8_ARTIFACT_ID}/zip" \
+            -o /tmp/final8.zip
+          [[ "$(sha256sum /tmp/final8.zip | awk '{print $1}')" == "$FINAL8_ARTIFACT_SHA256" ]]
+          mkdir -p final8-artifact
+          unzip -q /tmp/final8.zip -d final8-artifact
+
           test -s reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
-          test -s reference-artifact/results/ecological_v25_submission_presence/checkpoints/national_environment_spde_presence_draws10000.rds
           test -s reference-artifact/results/ecological_v21_local_human_neighbourhood/human_neighbourhood_cell_features.csv
           test -s reference-artifact/results/ecological_v22_did_human_context/did_cell_context.csv
+          test -s final8-artifact/final8_presence_draws10000.rds
 
-      - name: Run high-rep final adjudication
+      - name: Replay current-Broad-primary 10000 maps
         shell: bash
         run: |
           set -euo pipefail
-          Rscript analysis_sensitivity/run_human_context_highrep_final.R \
+          Rscript analysis_sensitivity/run_human_context_current_broad_primary_fast.R \
             --reference-root reference-artifact \
-            --output results/human_context_highrep_final \
+            --final8-root final8-artifact \
+            --output results/human_context_current_broad_primary \
             --draws 10000 \
             --seed 20260725
 
-      - name: Validate high-rep evidence
+      - name: Validate current-Broad-primary evidence
         shell: bash
         run: |
           set -euo pipefail
-          root=results/human_context_highrep_final
+          root=results/human_context_current_broad_primary
           for file in \
-            validation.json \
-            natural_reference_predictive_performance.csv \
-            response_blind_caliper_calibration.csv \
-            candidate_null_highrep.csv \
-            global_human_mechanism_maxT_highrep.csv \
-            global_human_decision_highrep.csv \
-            observation_bias_alternative_highrep.csv; do
+            current_broad_primary_validation.json \
+            current_broad_primary_graph_registry.csv \
+            current_broad_primary_graph_support.csv \
+            current_broad_primary_candidate_null.csv \
+            current_broad_primary_human_maxT.csv \
+            current_broad_primary_observation_bias.csv \
+            current_broad_primary_candidate_membership.csv \
+            current_broad_primary_decision.csv \
+            current_broad_primary_feature_registry.csv; do
             test -s "$root/$file"
           done
-          grep -q '"status": "PASS"' "$root/validation.json"
           python3 - <<'PY'
           import json
           from pathlib import Path
-          v=json.loads(Path('results/human_context_highrep_final/validation.json').read_text())
+          v=json.loads(Path('results/human_context_current_broad_primary/current_broad_primary_validation.json').read_text())
+          assert v['status'] == 'PASS', v
           assert v['n_maps'] == 10000, v
-          assert v['selected_final8_caliper'] == 0.81, v
-          assert v['matched_final8_supported_cells'] == v['current_supported_cells'], v
+          assert v['primary_definition']['radius_km'] == 10, v
+          assert v['primary_definition']['rms_caliper'] == 1, v
+          assert v['primary_definition']['minimum_neighbours'] == 3, v
+          assert v['primary_definition']['human_variables_used_in_selection'] is False, v
+          assert v['candidate_count'] > 0, v
           PY
 
       - uses: actions/upload-artifact@v4
         with:
-          name: human-context-highrep-final-${{ github.sha }}-${{ github.run_id }}
-          path: results/human_context_highrep_final
+          name: human-context-current-broad-${{ github.sha }}-${{ github.run_id }}
+          path: results/human_context_current_broad_primary
           if-no-files-found: error
           retention-days: 90

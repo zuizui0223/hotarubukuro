@@ -1,25 +1,26 @@
 # Current validation boundary
 
-This directory contains only checks that are reachable from a current workflow or current source build. A file is not current merely because it can still be executed.
+This directory contains only validators with a current workflow route. A validator is not current merely because it existed in a successful historical reconstruction.
 
-## Broad natural template and event-based departures
+## Main-figure bundle
 
-`scripts/run_downstream_current_inputs.sh` runs the current checks immediately after the stage they inspect:
+- `validate_jbi_figure_bundle.R` — shared figure-bundle validation used by the core builder.
+- `validate_jbi_figure_bundle_final_broad.R` — current final-Broad/Bombus/human numerical lock for the manuscript-facing Figure 1–4 bundle.
 
-- `validate_natural_predictive_model.R` and `audit_natural_predictive_model.R` — independent arithmetic/model-structure validation and the environment-only national claim ceiling;
-- `validate_human_landscape_features.R --baseline=reconstruction` — independent reconstruction-aware validation of post-selection landscape features;
-- `validate_local_pigmented_isolates.R` and `audit_local_pigmented_isolates.R --baseline=reconstruction` — candidate-definition reproduction plus reconstruction-aware claim reporting;
-- `validate_candidate_doy_check.R` — model-free Supporting Information flowering-date arithmetic;
-- `validate_local_human_context.R` and `audit_local_human_context.R`, both with `--baseline=reconstruction`;
-- `validate_did_sensitivity.R` and `audit_did_sensitivity.R`, both with `--baseline=reconstruction`;
-- `validate_joint_submission_isolate_ppc.R` — dynamic candidate identity, nested draw counts, boundary audit and manifest hashes.
-
-Under a reconstruction baseline, numerical findings that belong to a particular observation set are reported as `RESULT` or `not_applicable`; they are not relabelled as passes and are not forced to equal a historical run. Structural invariants, independent recalculations, selection independence and claim ceilings remain PASS/FAIL checks.
+The execution route is `.github/workflows/jbi-main-figures.yml`.
 
 ## Bombus source build
 
-`compare_bombus_sdm_rebuilds.R` is called by `.github/workflows/rebuild-bombus-sdm.yml` to compare two seeded mainland SDM rebuilds.
+- `compare_bombus_sdm_rebuilds.R` — compare two seeded mainland Bombus SDM rebuilds for reproducibility.
 
-## Historical audits
+The execution route is `.github/workflows/rebuild-bombus-sdm.yml`. Source-extraction QC remains with the source builder at `source_build/audit_bombus_extraction.R`.
 
-Audits tied to the old v11/v15 publication boundary or to fixed historical inferential outcomes are preserved under `legacy/reproducibility-development/validation/`. They must not be invoked from current workflows.
+## Archived downstream validators
+
+The former natural-predictive, 17-candidate, human-context, DID, joint-PPC and candidate-DOY validators belonged to the superseded four-PC downstream orchestration. Their full code is preserved at:
+
+`legacy/reproducibility-development/superseded-current-input-anomaly-pipeline-2026-08-12/validation/`
+
+They must not be invoked to validate the current 16-candidate/final-eight-axis human analysis. The current human result is instead locked by `.github/workflows/human-context-highrep-final.yml`, `.github/workflows/final-paper-analysis.yml`, `reproducibility/current_broad_human_primary_2026-08-12.md` and Appendix S6.
+
+Older fixed-result development audits remain under other `legacy/reproducibility-development/validation/` locations and are likewise outside the current paper interface.

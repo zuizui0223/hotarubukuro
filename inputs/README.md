@@ -1,17 +1,19 @@
 # Current input boundary
 
-The current manuscript does **not** use the historical 1,909-observation population as its active flower-colour dataset.
+The current manuscript does **not** use the historical 1,909-observation population or the old canonical snapshot as an active flower-colour input definition.
 
-## Manuscript-facing phenotype inputs
+## Manuscript-facing source boundary
 
 - `Data_S1.csv` at repository root is the curated derived flower-colour/source table.
-- The fresh 1,965-row reconstruction and 1,922-observation phenotype are rebuilt by `.github/workflows/reanalysis-current-inputs.yml` using the source-build utilities and pinned upstream implementation documented in `paper/analysis-map.md`.
-- Fresh Bombus support and public-source benchmark inputs used by the manuscript are restored from checksum-locked workflow artifacts.
+- The environment-complete integrated analysis contains 1,922 observations after the documented topographic/soil support exclusions.
+- Current Broad, Bombus and human analyses restore their frozen source/evidence objects from checksum-locked GitHub Actions artifacts listed in `paper/analysis-map.md` and the dated reproducibility locks.
 
-## Why `canonical_snapshot.json` remains here
+## Historical canonical snapshot
 
-`canonical_snapshot.json` is retained only because the current anomaly/human-context downstream script restores **static human-landscape support files** from that immutable bundle (WorldPop, MLIT land-use and DID caches). It is **not** the active flower-colour population definition and its old 1,909 identity must not be used to validate the current manuscript.
+The former `inputs/canonical_snapshot.json` and `scripts/canonical_snapshot.sh` were used to restore static WorldPop/MLIT/DID support during the earlier current-input downstream reconstruction. The final current-Broad human workflow now restores the frozen static-human/source evidence directly from checksum-locked artifacts, so the snapshot restorer is no longer an active execution dependency.
 
-`scripts/canonical_snapshot.sh` therefore remains current infrastructure for restoring those static files. The old 1,909 population expectation file and its population-check architecture are under `legacy/`.
+Both files are preserved for provenance at:
 
-For the current evidence map, start with `paper/README.md` and `paper/active-file-map.csv`.
+`legacy/reproducibility-development/superseded-current-input-anomaly-pipeline-2026-08-12/`
+
+For the current evidence boundary, start with `paper/README.md`, `paper/analysis-map.md` and `paper/active-file-map.csv`.

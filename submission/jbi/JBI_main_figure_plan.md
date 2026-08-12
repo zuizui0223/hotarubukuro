@@ -1,63 +1,59 @@
 # JBI Main figure plan — four narrative figures
 
-JBI allows a typical Research Article to carry several figures/tables, but the Main story should stay at four figures unless a fifth is indispensable.
+The Main story remains at four figures. Each figure either resolves the preceding ecological question or creates the reason for the next scale shift.
 
 ## Figure 1 — From hiking photograph to national flower-colour phenotype
 
-**Narrative job:** solve the measurement problem and plant the two-part-phenotype clue.
+**Narrative job:** solve the measurement problem and establish the two-part phenotype before ecological predictors are introduced.
 
 Panels:
 
-A. compact workflow: YAMAP hiking activity -> GPS-linked photograph -> author organism/flower/ROI check -> RGB/CIELAB -> pigmentation state + conditional intensity;
-B. national locations of the final observations;
+A. YAMAP hiking activity -> GPS-linked photograph -> author organism/flower/ROI check -> RGB/CIELAB -> pigmentation state + conditional intensity;
+B. national locations of the 1,922 final observations;
 C. response-blind a* mixture and white/pigmented boundary;
-D. examples/distributions showing that pigmented-only intensity is a second response, not a continuation of white noise.
+D. pigmented-only intensity as a separate response rather than a continuation of white-regime variation.
 
-Do not put the full YAMAP/iNaturalist/GBIF benchmark in the Main figure; that is Fig./Table S1 material.
+The full YAMAP/iNaturalist/GBIF benchmark remains Supporting Information.
 
-## Figure 2 — Broad environmental and spatial flower-colour template
+## Figure 2 — Finalized Broad environmental and spatial template
 
-**Narrative job:** establish the response-specific broad geography and create the reason not to interpret national Bombus map overlap causally.
-
-Panels:
-
-A. final observation-level environmental associations: additive pigmentation-state model and the conditional-intensity model containing Temperature PC1 × temperature seasonality. The interaction must be visible so the panel does not imply one constant national temperature slope for intensity;
-B. national cross-fitted pigmentation geography from the separately locked 1-km-cell natural predictive reference;
-C. cross-fitted conditional-intensity geography from that same locked predictive reference;
-D. final observation-level residual spatial ranges (state ≈132.8 km; intensity ≈65.7 km) plus the locked geographically blocked predictive-performance cards.
-
-Panels A/D and B/C deliberately represent two different model layers. A/D answer the observation-level ecological association/spatial-structure question after the final Broad audit. B/C preserve the independently validated cell-level predictive reference used later to calibrate local departures; they are not silently rebuilt when the observation-level interaction model changes.
-
-The caption should state that VPD/SWB and coastline-barrier alternatives did not improve transfer enough to replace the retained models, and that the spatial field is unresolved geography rather than a dispersal estimate or single historical mechanism.
-
-## Figure 3 — Zoom to sharp local boundaries for the pollinator hypothesis
-
-**Narrative job:** make the scale change visible.
+**Narrative job:** establish the response-specific national geography and show why national Bombus map overlap cannot simply be interpreted as a biotic effect.
 
 Panels:
 
-A. schematic/map of Bombus-blind 5-km pure white–pigmented transitions;
-B. environmental-similarity diagnostic (selected boundaries versus generic local edges);
-C. pigmented-minus-white occurrence-referenced *B. ardens*/*B. diversus* contrasts;
-D. compact sensitivity/claim-ceiling panel showing median/sign proportion and loss of signal at 10/25 km or under raw SDM support.
+A. final observation-level environmental associations: additive pigmentation-state model and conditional-intensity model with Temperature PC1 × temperature seasonality;
+B. cross-fitted pigmentation-state geography from the final eight-axis natural predictive reference used by the current downstream departure analysis;
+C. cross-fitted conditional-intensity geography;
+D. final residual spatial ranges (state ≈132.8 km; intensity ≈65.7 km) and geographically blocked predictive performance.
 
-Main caption must make the weak/magnitude-driven evidence visible; do not display only P=0.027.
+The caption states that VPD/SWB and coastline-barrier alternatives did not improve transfer enough to replace the retained models, and that the spatial field is unresolved geography rather than a dispersal estimate or single historical mechanism.
 
-High-elevation montane/alpine tests and five-species community turnover belong in Appendix S5.
+## Figure 3 — Zoom to sharp local boundaries for the focal-pollinator hypothesis
 
-## Figure 4 — Local ecological departures and the remaining provenance question
-
-**Narrative job:** show why the final question is about a repeatable event rather than a residual tail.
+**Narrative job:** make the scale change and the claim ceiling visible.
 
 Panels:
 
-A. event definition: pigmented cell inside environmentally similar white neighbourhood;
-B. map of 17 candidate locations;
-C. observed candidate count/fraction against repeated natural maps;
-D. post-selection population/DID contrast with familywise uncertainty.
+A. Bombus-blind, environment-blind 5-km pure white–pigmented transition design (67 non-overlapping pairs);
+B. finalized eight-axis Broad environmental-balance diagnostic for the already fixed pairs: selected median RMS distance 0.244 versus 0.318 for generic 5-km graph edges;
+C. pigmented-minus-white occurrence-referenced max(*B. ardens*, *B. diversus*) contrast;
+D. sensitivity/claim ceiling: median near zero, 49.3% positive, q=0.0815 across 5/10/25-km pure tests, attenuation at 10/25 km and failure on raw SDM support.
 
-Caption language: field/provenance targets, not anthropogenic or horticultural anomalies.
+Panel B is diagnostic only: environment did not select or weight pairs. High-elevation montane/alpine tests and five-species community turnover remain Appendix S5.
+
+## Figure 4 — Current-Broad local departures and the remaining provenance question
+
+**Narrative job:** show why the last question concerns reproducible local configurations and post-selection context rather than residual tails.
+
+Panels:
+
+A. current event definition: pigmented cell with at least three neighbours within 10 km that are similar in the finalized eight-axis abiotic state space (RMS <=1) and contain only observed white flowers;
+B. map of **16** current-Broad candidate locations;
+C. observed candidate count and fraction against 10,000 final-eight-axis cross-fitted natural maps (count P=0.279; fraction upper-tail P=0.126);
+D. post-selection human-context family, highlighting 5-km population exposure (contrast +0.0674, directional P=0.0080, global maxT FWER P=0.0548) while retaining the other scales/pathways for comparison.
+
+Caption language: near-threshold short-scale settlement exposure and field/provenance targets, not anthropogenic or horticultural anomalies.
 
 ## Main-text figure rule
 
-Every figure must do one of two things: resolve the question posed immediately before it, or create the reason for the next question. Robustness-only panels move to Supporting Information.
+Robustness-only evidence stays in Supporting Information. Main figures must make weak or null evidence visible rather than displaying nominal P values without the diagnostics that determine the claim ceiling.

@@ -1,6 +1,6 @@
 # Current paper — start here
 
-This page explains the science in the same order as the manuscript. For exact scripts, evidence files and artifact IDs, use [`paper/analysis-map.md`](analysis-map.md).
+This is the **single entry point** for the biology of the current paper. For exact scripts, evidence files and artifact IDs, use [`paper/analysis-map.md`](analysis-map.md).
 
 ## The biological question
 

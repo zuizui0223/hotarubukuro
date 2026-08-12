@@ -10,12 +10,19 @@ A small delivery-only normalization shortens the display labels in the wide
 Appendix S6 candidate table and joins the final causal-ceiling sentence to the
 preceding reproducibility paragraph. The underlying source values and meanings
 are unchanged.
+
+The Supporting Information DOCX is also normalized for reading: ordered lists
+are rendered as bullets so numbering cannot continue across appendices, and
+table rows are kept intact across page breaks. These changes affect layout only.
 """
 
 from __future__ import annotations
 
 import re
 
+from docx import Document
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
 import jbi_submission_bundle_core as core
@@ -25,6 +32,7 @@ TOKEN_PATTERN = re.compile(
     r"(\*\*[^\n]+?\*\*|`[^`\n]+`|\[[^\]]+\]\([^)]+\)|(?<![\w*])\*[^*\n]+?\*(?![\w*]))"
 )
 ORIGINAL_RENDER_MARKDOWN = core.render_markdown
+ORIGINAL_BUILD_SUPPORTING_DOCUMENT = core.build_supporting_document
 
 
 def _style_run(run, *, bold: bool, italic: bool) -> None:
@@ -105,8 +113,28 @@ def render_markdown(document, text: str, **kwargs) -> None:
     ORIGINAL_RENDER_MARKDOWN(document, normalize_delivery_markdown(text), **kwargs)
 
 
+def _keep_table_rows_together(document) -> None:
+    for table in document.tables:
+        for row in table.rows:
+            tr_pr = row._tr.get_or_add_trPr()
+            if tr_pr.find(qn("w:cantSplit")) is None:
+                tr_pr.append(OxmlElement("w:cantSplit"))
+
+
+def build_supporting_document(output) -> None:
+    """Build Supporting Information with stable, easy-to-scan list/table layout."""
+    ORIGINAL_BUILD_SUPPORTING_DOCUMENT(output)
+    document = Document(output)
+    for paragraph in document.paragraphs:
+        if paragraph.style is not None and paragraph.style.name == "List Number":
+            paragraph.style = document.styles["List Bullet"]
+    _keep_table_rows_together(document)
+    document.save(output)
+
+
 core.add_inline_runs = add_inline_runs
 core.render_markdown = render_markdown
+core.build_supporting_document = build_supporting_document
 
 
 if __name__ == "__main__":

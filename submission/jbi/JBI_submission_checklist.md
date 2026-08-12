@@ -1,6 +1,6 @@
 # Journal of Biogeography — submission checklist
 
-Checked against the current Wiley `Journal of Biogeography` Author Guidelines on 2026-08-10.
+Checked against the current Wiley `Journal of Biogeography` Author Guidelines on **2026-08-12**.
 
 ## Article category
 
@@ -34,10 +34,12 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 
 - Keep the Main paper to four narrative figures unless a fifth is essential.
 - Embed main figures and legends in the main document for review.
+- Use lowercase panel labels **(a), (b), (c), (d)** in the figures and legends.
+- Make every legend standalone by naming the geographical region and study taxon where applicable.
+- Every map panel must include a bar scale; current national map panels use WGS84 longitude/latitude and a **100-km bar scale**.
 - Supply separate vector PDF files and 600-dpi PNG review copies from the checksum-locked figure artifact.
 - Keep the matched YAMAP/iNaturalist/GBIF benchmark, full model tables and sensitivity grids in Supporting Information.
 - Tables must remain editable and self-contained.
-- Final map check: retain latitude/longitude, state the projection in captions, and add/confirm scale information under the live JBI map guidance.
 
 ## Supporting Information
 

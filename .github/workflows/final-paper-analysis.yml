@@ -73,50 +73,54 @@ jobs:
           decision=$(find evidence/human -type f -name current_broad_primary_decision.csv | head -n 1)
           null=$(find evidence/human -type f -name current_broad_primary_candidate_null.csv | head -n 1)
           maxt=$(find evidence/human -type f -name current_broad_primary_human_maxT.csv | head -n 1)
-          for p in "$cells" "$sharp" "$env_audit" "$decision" "$null" "$maxt"; do test -n "$p" && test -s "$p"; done
+          for p in "$cells" "$sharp" "$env_audit" "$decision" "$null" "$maxt"; do
+            test -n "$p" && test -s "$p"
+          done
 
           python3 - "$cells" "$sharp" "$env_audit" "$decision" "$null" "$maxt" <<'PY'
           import csv, sys
           cells, sharp, env_audit, decision, null, maxt = sys.argv[1:]
+
           def rows(path):
-              with open(path, encoding='utf-8') as f:
-                  return list(csv.DictReader(f))
+              with open(path, encoding="utf-8") as handle:
+                  return list(csv.DictReader(handle))
 
           assert len(rows(cells)) == 1305
 
-          focal = [r for r in rows(sharp) if str(r.get('focal_strict_local_test','')).lower() in ('true','t','1')]
+          focal = [r for r in rows(sharp) if str(r.get("focal_strict_local_test", "")).lower() in ("true", "t", "1")]
           assert len(focal) == 1
           r = focal[0]
-          assert int(float(r['radius_km'])) == 5
-          assert int(float(r['n_nonoverlapping_pairs'])) == 67
-          assert abs(float(r['mean_signed_bombus_difference']) - 0.03590) < 5e-5
-          assert abs(float(r['median_signed_bombus_difference']) - (-0.00277)) < 5e-5
-          assert abs(float(r['proportion_positive']) - 0.493) < 5e-3
-          assert abs(float(r['signflip_one_sided_p']) - 0.02716) < 5e-5
+          assert int(float(r["radius_km"])) == 5
+          assert int(float(r["n_nonoverlapping_pairs"])) == 67
+          assert abs(float(r["mean_signed_bombus_difference"]) - 0.03590) < 5e-5
+          assert abs(float(r["median_signed_bombus_difference"]) - (-0.00277)) < 5e-5
+          assert abs(float(r["proportion_positive"]) - 0.493) < 5e-3
+          assert abs(float(r["signflip_one_sided_p"]) - 0.02716) < 5e-5
 
-          audit = [r for r in rows(env_audit) if abs(float(r['radius_km'])-5) < 1e-9 and abs(float(r['transition_threshold'])-1) < 1e-9]
+          audit = [r for r in rows(env_audit) if abs(float(r["radius_km"]) - 5) < 1e-9 and abs(float(r["transition_threshold"]) - 1) < 1e-9]
           assert len(audit) == 1
-          assert int(float(audit[0]['n_nonoverlapping_pairs'])) == 67
-          assert float(audit[0]['median_selected_final8']) < float(audit[0]['median_all_local_edges_final8'])
+          assert int(float(audit[0]["n_nonoverlapping_pairs"])) == 67
+          assert float(audit[0]["median_selected_final8"]) < float(audit[0]["median_all_local_edges_final8"])
 
-          d = rows(decision)
-          assert len(d) == 1
-          assert int(float(d[0]['candidate_count'])) == 16
-          assert d[0]['best_population_scale'] == 'population_5km_rank'
-          assert abs(float(d[0]['best_population_contrast']) - 0.06744) < 5e-5
-          assert abs(float(d[0]['best_population_global_FWER']) - 0.05479) < 5e-5
+          decision_rows = rows(decision)
+          assert len(decision_rows) == 1
+          d = decision_rows[0]
+          assert int(float(d["candidate_count"])) == 16
+          assert d["best_population_scale"] == "population_5km_rank"
+          assert abs(float(d["best_population_contrast"]) - 0.06744) < 5e-5
+          assert abs(float(d["best_population_global_FWER"]) - 0.05479) < 5e-5
 
-          n = {r['metric']: r for r in rows(null)}
-          assert abs(float(n['candidate_count']['observed_value']) - 16) < 1e-9
-          assert abs(float(n['candidate_count']['null_mean']) - 13.5908) < 5e-4
-          assert abs(float(n['candidate_count']['empirical_p']) - 0.27897) < 5e-5
-          assert abs(float(n['candidate_fraction']['empirical_p']) - 0.12609) < 5e-5
+          n = {r["metric"]: r for r in rows(null)}
+          assert abs(float(n["candidate_count"]["observed_value"]) - 16) < 1e-9
+          assert abs(float(n["candidate_count"]["null_mean"]) - 13.5908) < 5e-4
+          assert abs(float(n["candidate_count"]["empirical_p"]) - 0.27897) < 5e-5
+          assert abs(float(n["candidate_fraction"]["empirical_p"]) - 0.12609) < 5e-5
 
-          h = {r['feature']: r for r in rows(maxt)}
-          p5 = h['population_5km_rank']
-          assert abs(float(p5['observed_focal_minus_white_neighbour']) - 0.06744) < 5e-5
-          assert abs(float(p5['directional_or_two_sided_p']) - 0.00800) < 5e-5
-          assert abs(float(p5['maxT_FWER_p']) - 0.05479) < 5e-5
+          h = {r["feature"]: r for r in rows(maxt)}
+          p5 = h["population_5km_rank"]
+          assert abs(float(p5["observed_focal_minus_white_neighbour"]) - 0.06744) < 5e-5
+          assert abs(float(p5["directional_or_two_sided_p"]) - 0.00800) < 5e-5
+          assert abs(float(p5["maxT_FWER_p"]) - 0.05479) < 5e-5
           PY
 
       - name: Validate manuscript and Supporting Information alignment
@@ -148,12 +152,13 @@ jobs:
             inputs/canonical_snapshot.json; do
             test ! -e "$path"
           done
-          # Historical four-PC/17-candidate sensitivity descriptions are allowed
-          # when explicitly labelled as provenance. Reject only wording that
-          # presents the superseded 17-candidate result as current/fixed.
+
+          # Historical four-PC/17-candidate sensitivity prose is legitimate
+          # provenance. Search only manuscript-facing prose (not this workflow)
+          # and reject explicit statements that promote 17 candidates as current.
           ! grep -R -n --exclude-dir=legacy --exclude-dir=.git \
-            -E '17 fixed local-departure|Observed candidates: 17|current primary[^[:cntrl:]]*17 candidates|primary[^[:cntrl:]]*17 candidates' \
-            paper submission/jbi reproducibility .github/workflows
+            -E '17 fixed local-departure|Observed candidates: 17|current primary has 17 candidates|current-Broad primary has 17 candidates|primary set contains 17 candidates' \
+            paper submission/jbi reproducibility
 
       - name: Write current stage manifest
         shell: bash

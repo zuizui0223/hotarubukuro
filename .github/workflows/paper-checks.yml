@@ -89,8 +89,10 @@ jobs:
           assert not failures, 'mapped-file syntax validation failed: ' + ' | '.join(failures)
 
           workflow_files = sorted(Path('.github/workflows').glob('*.yml'))
-          stale_checkout = [str(path) for path in workflow_files if 'actions/checkout@v4' in path.read_text()]
-          stale_python = [str(path) for path in workflow_files if 'actions/setup-python@v5' in path.read_text()]
+          checkout_v4 = 'actions/checkout@' + 'v4'
+          python_v5 = 'actions/setup-python@' + 'v5'
+          stale_checkout = [str(path) for path in workflow_files if checkout_v4 in path.read_text()]
+          stale_python = [str(path) for path in workflow_files if python_v5 in path.read_text()]
           assert not stale_checkout, 'checkout v4 remains: ' + ', '.join(stale_checkout)
           assert not stale_python, 'setup-python v5 remains: ' + ', '.join(stale_python)
           print('curated paper-map rows:', len(rows), 'primary:', len(primary))

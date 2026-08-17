@@ -51,7 +51,7 @@ The stored `q025`/`q975` values are a central 95% null interval. They are not th
 
 ## Executed result
 
-The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. Initial Actions runs stopped only after the scientific result tables had already been written because of a metadata-table row-count bug; the result values below were recovered directly from the uploaded scientific artifact. The workflow now validates the scientific output contract independently of that post-computation metadata bug.
+The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. Initial Actions runs stopped only after the scientific result tables had already been written because of a metadata-table row-count bug; the result values below were recovered directly from the uploaded scientific artifact. The current workflow explicitly requires all scientific outputs, reconstructs metadata separately and validates the output contract before the run can succeed.
 
 Frozen input:
 

@@ -51,7 +51,7 @@ The stored `q025`/`q975` values are a central 95% null interval. They are not th
 
 ## Executed result
 
-The calculation has been reproduced twice through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. Both initial Actions runs stopped only after the scientific result tables had already been written because of a metadata-table row-count bug; the result values below were recovered directly from the uploaded scientific artifact. A workflow-only correction now catches that known post-computation metadata failure and validates the scientific output contract.
+The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. Initial Actions runs stopped only after the scientific result tables had already been written because of a metadata-table row-count bug; the result values below were recovered directly from the uploaded scientific artifact. The workflow now validates the scientific output contract independently of that post-computation metadata bug.
 
 Frozen input:
 
@@ -72,6 +72,8 @@ Frozen input:
 For pigmentation state, environmentally dissimilar pairs are more phenotypically divergent than environmentally similar pairs even after matching pairs into comparable geographical-distance strata, and the magnitude of that environmental contrast is larger than expected from the cross-fitted space-only null at the predefined one-sided 5% level (`p = 0.03393`). The observed value lies just below the 97.5th percentile of the central 95% interval; this is compatible with the one-sided result because the directional 5% test uses the 95th percentile, not the 97.5th percentile.
 
 For conditional intensity, the corresponding environmental contrast is negative and is not above the spatial null (`p = 0.87226`). Thus the phenotype-excess signal is specific to pigmentation state in this analysis.
+
+The pair-level secondary correlations are descriptive only because pairs share sites and are not independent; they are not used to overturn or reinforce the stratum-level posterior-predictive result.
 
 ## Interpretation
 

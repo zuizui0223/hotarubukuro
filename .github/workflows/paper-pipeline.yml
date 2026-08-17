@@ -61,14 +61,66 @@ concurrency:
   group: paper-pipeline-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  PIPELINE_PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || 'audit' }}
-
 jobs:
+  select-profile:
+    name: Select audit or full reproduction
+    runs-on: ubuntu-24.04
+    outputs:
+      profile: ${{ steps.select.outputs.profile }}
+      resume: ${{ steps.select.outputs.resume }}
+    steps:
+      - name: Check out enough history to classify PR changes
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Select execution profile
+        id: select
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_PROFILE: ${{ inputs.profile }}
+          REQUESTED_RESUME: ${{ inputs.resume }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          profile=audit
+          resume=false
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            profile="${REQUESTED_PROFILE:-audit}"
+            resume="${REQUESTED_RESUME:-false}"
+          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
+            changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+            printf '%s\n' "$changed"
+            integration_pattern='^(run_pipeline\.py|config/paper_pipeline\.lock\.json|\.github/workflows/paper-pipeline\.yml|validation/validate_jbi_repository_alignment\.py|tests/python/test_run_pipeline\.py|pyproject\.toml|dependencies/|R/|scripts/(setup_r_environment|build_bombus_occurrence_reference_support|run_bombus_local_sharp_transition|render_jbi_main_figures_final_broad|build_jbi_submission_bundle|jbi_submission_bundle_core|validate_jbi_submission_bundle)\.(R|py)|analysis_sensitivity/(audit_bombus_final8_environment_distance|run_human_context_current_broad_primary_fast)\.R|submission/jbi/validate_jbi_submission\.py)'
+            if grep -Eq "$integration_pattern" <<<"$changed"; then
+              profile=reproduce
+            fi
+          fi
+
+          case "$profile" in
+            audit|reproduce) ;;
+            *) echo "Unsupported profile: $profile" >&2; exit 2 ;;
+          esac
+          case "$resume" in
+            true|false) ;;
+            *) echo "Unsupported resume value: $resume" >&2; exit 2 ;;
+          esac
+
+          echo "profile=$profile" >> "$GITHUB_OUTPUT"
+          echo "resume=$resume" >> "$GITHUB_OUTPUT"
+          echo "selected profile=$profile resume=$resume"
+
   run:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || 'audit' }}
+    name: ${{ needs.select-profile.outputs.profile }}
+    needs: select-profile
     runs-on: ubuntu-24.04
     timeout-minutes: 240
+    env:
+      PIPELINE_PROFILE: ${{ needs.select-profile.outputs.profile }}
+      PIPELINE_RESUME: ${{ needs.select-profile.outputs.resume }}
 
     steps:
       - name: Check out the current paper
@@ -122,10 +174,10 @@ jobs:
         run: |
           set -euo pipefail
           resume_flag=--no-resume
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.resume }}" == "true" ]]; then
+          if [[ "$PIPELINE_RESUME" == "true" ]]; then
             resume_flag=--resume
           fi
-          python run_pipeline.py "${PIPELINE_PROFILE}" "$resume_flag"
+          python run_pipeline.py "$PIPELINE_PROFILE" "$resume_flag"
 
       - name: Upload audit manifest
         if: always()

@@ -141,11 +141,15 @@ figure_2 <- (tag_panel(fig2a, "a") | tag_panel(fig2b, "b")) /
        ))
 figure_2 <- figure_2 + patchwork::plot_layout(widths = c(1.15, 1))
 
-# Figure 3: make the local-maintenance message readable without losing limitations.
+# Figure 3: make the local ecological discovery primary while keeping the
+# observed heterogeneity and scale dependence visible in the same figure.
 fig3b <- fig3b +
   ggplot2::labs(title = "Fixed boundaries are environmentally local")
 fig3c <- fig3c +
-  ggplot2::labs(title = "Weak focal-guild boundary contrast")
+  ggplot2::labs(
+    title = "Focal-Bombus support is higher at 5 km",
+    subtitle = "Mean +0.036; boundary responses vary"
+  )
 sensitivity$display_p <- sprintf("%.3f", sensitivity$signflip_one_sided_p)
 sensitivity$label_x <- sensitivity$radius_km + ifelse(
   sensitivity$radius_km == 5,
@@ -192,8 +196,8 @@ fig3d <- ggplot2::ggplot(
     expand = ggplot2::expansion(mult = c(0.12, 0.24))
   ) +
   ggplot2::labs(
-    title = "Local correspondence attenuates across scales",
-    subtitle = "Point labels are one-sided sign-flip P values",
+    title = "Correspondence peaks at 5 km",
+    subtitle = "Labels: one-sided sign-flip P",
     x = "Radius (km)",
     y = "Mean signed contrast"
   ) +
@@ -308,7 +312,7 @@ figure_manifest$narrative_job <- rep(
   c(
     "reveal pigmentation state and intensity as distinct colour layers",
     "locate broad environmental and unresolved geographic structure",
-    "test weak local pollinator-maintenance correspondence at state boundaries",
+    "localize focal-Bombus correspondence to short-range state boundaries",
     "calibrate natural departures before contemporary provenance follow-up"
   ),
   each = 2

@@ -2,7 +2,7 @@
 
 Dear Senior Editors,
 
-We submit our Research Article, “From broad geography to local boundaries: biogeography of flower-colour polymorphism from hiking photographs.” The paper addresses a biogeographic problem: how one intraspecific phenotype can be structured by processes acting at different scales. Using a national quantitative flower-colour dataset built from author-screened hiking photographs, we test four linked questions: national trait geography, broad environment and residual space, local bumblebee opportunity, and natural-map-calibrated local departures followed by human context. The conceptual advance is scale-matched inference for intraspecific trait biogeography.
+We submit our Research Article, “From broad geography to local boundaries: biogeography of flower-colour polymorphism from hiking photographs.” Using a new national quantitative trait dataset built from screened YAMAP images, the paper resolves one flower-colour map into response-specific environmental geography, coherent residual spatial structure, a localized focal-Bombus hypothesis and calibrated provenance targets. Its conceptual advance is scale-matched attribution: changing comparison unit separates signals that a single national regression would confound. Positive, heterogeneous and null results together yield a testable model for how physiological and reproductive value, history and occasional human movement can maintain an intraspecific polymorphism.
 
 Sincerely,
 

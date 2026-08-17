@@ -24,6 +24,7 @@ on:
       - paper/**
       - submission/jbi/**
       - docs/reproduction-guide.md
+      - docs/broad_spatial_inertia_environment_tracking.md
       - validation/**
       - scripts/**
       - analysis_sensitivity/**
@@ -42,6 +43,7 @@ on:
       - paper/**
       - submission/jbi/**
       - docs/reproduction-guide.md
+      - docs/broad_spatial_inertia_environment_tracking.md
       - validation/**
       - scripts/**
       - analysis_sensitivity/**
@@ -60,6 +62,17 @@ permissions:
 concurrency:
   group: paper-pipeline-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GOTO_NUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
 
 jobs:
   select-profile:
@@ -94,7 +107,7 @@ jobs:
           elif [[ "$EVENT_NAME" == "pull_request" ]]; then
             changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
             printf '%s\n' "$changed"
-            integration_pattern='^(run_pipeline\.py|config/paper_pipeline\.lock\.json|\.github/workflows/paper-pipeline\.yml|validation/validate_jbi_repository_alignment\.py|tests/python/test_run_pipeline\.py|pyproject\.toml|dependencies/|R/|scripts/(setup_r_environment|build_bombus_occurrence_reference_support|run_bombus_local_sharp_transition|render_jbi_main_figures_final_broad|build_jbi_submission_bundle|jbi_submission_bundle_core|validate_jbi_submission_bundle)\.(R|py)|analysis_sensitivity/(audit_bombus_final8_environment_distance|run_human_context_current_broad_primary_fast)\.R|submission/jbi/validate_jbi_submission\.py)'
+            integration_pattern='^(run_pipeline\.py|config/paper_pipeline\.lock\.json|\.github/workflows/paper-pipeline\.yml|validation/validate_jbi_repository_alignment\.py|tests/python/test_run_pipeline\.py|pyproject\.toml|dependencies/|R/(broad_spatial_inertia_environment_tracking|natural_predictive_model|pipeline_support)\.R|scripts/(setup_r_environment|fit_broad_space_null_phenotype_excess|run_broad_space_null_phenotype_excess_pipeline|build_bombus_occurrence_reference_support|run_bombus_local_sharp_transition|render_jbi_main_figures_final_broad|build_jbi_submission_bundle|jbi_submission_bundle_core|validate_jbi_submission_bundle)\.(R|py)|analysis_sensitivity/(audit_bombus_final8_environment_distance|run_human_context_current_broad_primary_fast)\.R|submission/jbi/validate_jbi_submission\.py)'
             if grep -Eq "$integration_pattern" <<<"$changed"; then
               profile=reproduce
             fi
@@ -117,7 +130,7 @@ jobs:
     name: ${{ needs.select-profile.outputs.profile }}
     needs: select-profile
     runs-on: ubuntu-24.04
-    timeout-minutes: 240
+    timeout-minutes: 360
     env:
       PIPELINE_PROFILE: ${{ needs.select-profile.outputs.profile }}
       PIPELINE_RESUME: ${{ needs.select-profile.outputs.resume }}
@@ -165,6 +178,7 @@ jobs:
           key: paper-pipeline-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
           restore-keys: |
             paper-pipeline-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            broad-excess-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
             current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
 
       - name: Run canonical paper pipeline
@@ -196,6 +210,7 @@ jobs:
           name: jbi-paper-reproduction-${{ github.sha }}-${{ github.run_id }}
           path: |
             results/paper_pipeline
+            results/broad_space_null_phenotype_excess
             results/bombus_occurrence_reference_support
             results/ecological_v18_bombus_local_sharp_transition
             results/bombus_final8_environment_audit

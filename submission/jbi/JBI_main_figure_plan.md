@@ -1,10 +1,10 @@
-# JBI Main figure plan
+# JBI Main figure plan — four reveals in one investigation
 
-The paper uses four Main figures. A fast reader should understand the whole story from these figures alone.
+The paper uses four Main figures. A fast reader should understand not only each result, but why the next figure had to exist.
 
-## Figure 1 — Build the flower-colour phenotype
+## Figure 1 — Reveal the hidden phenotype
 
-**Question:** What did we measure?
+**Starting mystery:** What geographical flower-colour variation can be recovered from hiking photographs?
 
 Panels:
 
@@ -13,13 +13,15 @@ Panels:
 - (c) white/pigmented boundary;
 - (d) colour intensity among pigmented flowers.
 
-**Take-home:** pigmentation state and colour intensity are different parts of the phenotype.
+**Reveal:** flower colour is not one white-to-dark axis. Pigmentation state and conditional intensity are different biological responses.
+
+**Handoff to Figure 2:** once two phenotypes are visible nationally, do they follow the same geography?
 
 The YAMAP/iNaturalist/GBIF benchmark stays in Supporting Information.
 
-## Figure 2 — Show the broad environmental and spatial pattern
+## Figure 2 — Split the broad geography
 
-**Question:** Do state and intensity follow the same geography?
+**Question created by Figure 1:** Do pigmentation state and intensity follow the same environmental and spatial pattern?
 
 Panels:
 
@@ -28,13 +30,15 @@ Panels:
 - (c) cross-fitted colour intensity;
 - (d) residual spatial ranges and blocked prediction.
 
-**Take-home:** state and intensity differ, and strong spatial structure remains after measured environment.
+**Reveal:** state and intensity differ, and coherent spatial structure remains after measured environment.
+
+**Handoff to Figure 3:** the Broad map has not isolated a biotic mechanism. Because Bombus SDMs share environmental geography, the pollinator hypothesis must be tested at local colour boundaries.
 
 Do not label the spatial field as population history. VPD, water-balance and barrier-model checks stay in Appendix S3.
 
-## Figure 3 — Zoom in for the Bombus question
+## Figure 3 — Reveal where local Bombus opportunity may matter
 
-**Question:** Is focal-bumblebee habitat opportunity higher on the pigmented side of local boundaries?
+**Question created by Figure 2:** At the population-neighbourhood scale, does focal-bumblebee habitat opportunity increase from white to pigmented sides of independently fixed boundaries?
 
 Panels:
 
@@ -43,13 +47,17 @@ Panels:
 - (c) pigmented-minus-white focal-Bombus contrast;
 - (d) scale and raw-SDM sensitivities.
 
-**Take-home:** the mean contrast is positive at 5 km, but the overall evidence is weak and scale dependent.
+**Reveal:** focal-Bombus support is higher on the pigmented side on average at the finest replicated scale. Its concentration in a subset of boundaries, attenuation at 10 and 25 km and absence along the intensity axis localize the plausible contribution to short-range maintenance of pigmentation state.
 
-High-elevation and five-species checks stay in Appendix S5.
+**Supporting guardrail:** the stronger-looking national overlap with montane/alpine Bombus disappears after elevation matching in Appendix S5. This is not the Main dish; it demonstrates why broad maps would confound a pollinator explanation with shared mountain environment and validates the local comparison.
 
-## Figure 4 — Calibrate local departures before human context
+**Handoff to Figure 4:** after Broad environment, coherent residual geography and a localized Bombus hypothesis, what should count as a genuinely exceptional colour configuration?
 
-**Question:** Are local pigmented departures unusual under the natural model?
+Five-species turnover and the full highland/elevation audit remain in Appendix S5.
+
+## Figure 4 — Calibrate apparent exceptions against natural geography
+
+**Question created by Figure 3:** Are local pigmented departures more frequent than the finalized natural geography predicts?
 
 Panels:
 
@@ -58,12 +66,14 @@ Panels:
 - (c) event count/fraction versus 10,000 natural maps;
 - (d) human context tested only after sites are fixed.
 
-**Take-home:** the 16 sites are not unusually common. Short-range population exposure is suggestive, not proof of human origin.
+**Reveal:** natural predictive maps explain the observed frequency of 16 configurations while turning them into reproducible field/provenance targets. Short-range population exposure is the leading human-context clue, not proof of origin.
+
+**Ending:** the figures identify where physiology, population history, realized pollination and provenance should be tested directly, and converge on a spatially varying model of polymorphism maintenance.
 
 ## Figure rule
 
-Each Main figure must answer one biological question.
+Each Main figure must change the reader's interpretation and create the next question.
 
-Do not use a Main panel only to show that a workflow was careful. Put technical robustness in Supporting Information unless it changes the biological interpretation.
+Do not use a Main panel only to prove that the workflow was careful. Put technical robustness in Supporting Information unless it changes the biological inference.
 
 Panel labels are lowercase (a)-(d). Every map has a 100-km bar scale.

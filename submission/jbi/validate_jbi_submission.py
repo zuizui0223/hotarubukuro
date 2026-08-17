@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Lightweight submission-format and manuscript-consistency checks for JBI.
-
-This validates stable manuscript-format constraints captured from the Wiley
-Author Guidelines plus a small set of current science locks that must remain
-consistent across the submission-facing files. The official portal must still
-be re-checked immediately before submission.
-"""
+"""Validate the current JBI submission package and achievement-forward science locks."""
 
 from __future__ import annotations
 
@@ -49,7 +43,7 @@ def assert_anonymous(label: str, body: str) -> None:
 def require_tokens(label: str, body: str, tokens: tuple[str, ...]) -> None:
     missing = [token for token in tokens if token not in body]
     if missing:
-        fail(f"{label} is missing current science token(s): {', '.join(missing)}")
+        fail(f"{label} is missing current token(s): {', '.join(missing)}")
 
 
 text = MAIN.read_text(encoding="utf-8")
@@ -79,6 +73,11 @@ for heading in ("Aim", "Location", "Taxon", "Methods", "Results", "Main conclusi
 abstract_n = len(words(abstract))
 if abstract_n > 300:
     fail(f"Abstract exceeds 300 words: {abstract_n}")
+require_tokens(
+    "Abstract species-name format",
+    abstract,
+    ("spotted bellflower (*Campanula punctata*)",),
+)
 
 keyword_line = re.search(r"\*\*Keywords:\*\*\s*(.+)", text)
 if not keyword_line:
@@ -90,10 +89,10 @@ if [k.casefold() for k in keywords] != sorted(k.casefold() for k in keywords):
     fail("Keywords are not alphabetical")
 
 required = [
-    "## Introduction",
-    "## Materials and Methods",
-    "## Results",
-    "## Discussion",
+    "## 1. Introduction",
+    "## 2. Materials and Methods",
+    "## 3. Results",
+    "## 4. Discussion",
     "## Acknowledgements",
     "## References",
     "## Data Accessibility Statement",
@@ -106,7 +105,19 @@ for header in required:
 if positions != sorted(positions):
     fail("Required sections are not in the expected order")
 
-main_body = text.split("## Introduction", 1)[1].split("## Acknowledgements", 1)[0]
+numbered_subsections = (
+    "### 1.1 The geographical mystery of flower-colour polymorphism",
+    "### 1.5 Predictions",
+    "### 2.1 Study system and YAMAP sampling",
+    "### 2.6 Reproducibility and inferential order",
+    "### 3.1 A new image stream revealed a national quantitative polymorphism",
+    "### 3.5 Post-selection analysis identified a short-range human-context clue",
+    "### 4.1 The national trait dataset changed the biological question",
+    "### 4.6 A spatially varying balance can maintain flower-colour polymorphism",
+)
+require_tokens("Numbered Main structure", text, numbered_subsections)
+
+main_body = text.split("## 1. Introduction", 1)[1].split("## Acknowledgements", 1)[0]
 body_n = len(words(main_body))
 if body_n > 6000:
     fail(f"Introduction-through-Discussion exceeds 6000 words: {body_n}")
@@ -114,9 +125,26 @@ if body_n > 6000:
 assert_anonymous("anonymized manuscript", text)
 
 require_tokens(
-    "Main manuscript",
+    "JBI species and software style",
+    main_body,
+    (
+        "spotted bellflower (*Campanula punctata* Lam.; Campanulaceae)",
+        "R 4.5.3 (R Core Team, 2026)",
+        "'INLA' package version 25.10.19",
+    ),
+)
+
+require_tokens(
+    "Main manuscript science locks",
     text,
-    ("1,922", "67 sharp transitions", "Sixteen local departures", "0.0548"),
+    (
+        "1,922",
+        "3.81 times",
+        "67 sharp transitions",
+        "Sixteen pigmented cells",
+        "0.0548",
+        "calibrated field targets",
+    ),
 )
 
 for citation, reference in (
@@ -124,6 +152,8 @@ for citation, reference in (
     ("Araújo & Rozenfeld, 2014", "Araújo, M. B., & Rozenfeld, A. (2014)."),
     ("Roberts et al., 2017", "Roberts, D. R., et al. (2017)."),
     ("Valavi et al., 2019", "Valavi, R., Elith, J., Lahoz-Monfort, J. J., & Guillera-Arroita, G. (2019)."),
+    ("R Core Team, 2026", "R Core Team. (2026)."),
+    ("Rue et al., 2009", "Rue, H., Martino, S., & Chopin, N. (2009)."),
 ):
     if citation not in main_body:
         fail(f"Current Main citation missing: {citation}")
@@ -201,7 +231,14 @@ checklist = CHECKLIST.read_text(encoding="utf-8")
 require_tokens(
     "Submission checklist",
     checklist,
-    (f"{body_n:,} words", f"{abstract_n} words", "16 current-Broad departures"),
+    (
+        f"{body_n:,} words",
+        f"{abstract_n} words",
+        "16 current-Broad departures",
+        "R 4.5.3",
+        "INLA 25.10.19",
+        "Taxon authority",
+    ),
 )
 
 cover = COVER.read_text(encoding="utf-8")
@@ -217,6 +254,8 @@ print(f"PASS keywords={len(keywords)}")
 print(f"PASS intro_to_discussion_words={body_n}")
 print(f"PASS supporting_appendices={len(SUPPORTING)}")
 print(f"PASS main_figure_captions={len(figure_headings)}")
+print("PASS species_authority_and_software_versions=1")
+print("PASS achievement_forward_science_locks=1")
 print("PASS current_science_crossfile_consistency=1")
 print("PASS jbi_figure_label_and_map_scale_consistency=1")
 print(f"PASS cover_interest_words={cover_n}")

@@ -81,10 +81,6 @@ This result does **not** mean that the observation-level temperature or topograp
 
 Likewise, `space` must not be equated with population history. It remains a composite residual geographical field that can include unmeasured environment, dispersal/population history, sampling structure and other spatially structured processes.
 
-## Secondary metrics
-
-Response-scale diagnostics are retained in the Action artifact (`fold_model_scores.csv` and `heldout_predictions.csv`). They are diagnostics, not additive variance partitions.
-
 ## Reproducibility
 
 Run locally with the frozen cell table available:
@@ -97,24 +93,14 @@ Rscript scripts/fit_broad_spatial_inertia_environment_tracking.R \
   --seed=20260725
 ```
 
-The reproducible GitHub Actions entry point is:
-
-`.github/workflows/broad-spatial-inertia-environment-tracking.yml`
+The reproducible GitHub Actions entry point is `.github/workflows/broad-spatial-inertia-environment-tracking.yml`.
 
 Successful result artifact:
 
 - artifact ID: `9291248341`
 - artifact ZIP SHA-256: `484e8485b067f48b38315402a5a9b7975ebdad75c1717b2aa86c793f6fe5a426`
 
-Primary outputs:
-
-- `fold_model_scores.csv`
-- `heldout_predictions.csv`
-- `model_log_score_totals.csv`
-- `shapley_predictive_decomposition.csv`
-- `component_interpretation.csv`
-- `analysis_metadata.csv`
-- `RESULT_SUMMARY.md`
+Primary outputs are `fold_model_scores.csv`, `heldout_predictions.csv`, `model_log_score_totals.csv`, `shapley_predictive_decomposition.csv`, `component_interpretation.csv`, `analysis_metadata.csv`, and `RESULT_SUMMARY.md`.
 
 ## Claim boundary
 

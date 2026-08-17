@@ -103,7 +103,7 @@ Command component:
 - `scripts/run_broad_space_null_phenotype_excess_pipeline.R`
 - `.github/workflows/broad-spatial-inertia-environment-tracking.yml`
 
-The canonical pipeline repairs the known post-computation metadata-row mismatch only when every scientific output exists, then validates the result against numerical tolerances.
+The metadata-row mismatch identified during PR #50 integration is fixed in the source script. The wrapper now requires normal completion, verifies every scientific output and then validates the accepted result against numerical tolerances.
 
 Expected result from 500 posterior-predictive realizations, seed 20260725, five geographical folds and five geographical-distance strata per fold:
 

@@ -2,9 +2,9 @@
 
 **Article type:** Research Article
 
-**Title:** From broad geography to local boundaries: flower-colour biogeography from hiking photographs
+**Title:** From broad geography to local boundaries: biogeography of flower-colour polymorphism from hiking photographs
 
-**Running title:** Layered flower-colour biogeography
+**Running title:** Flower-colour polymorphism
 
 ## Authors
 

@@ -6,9 +6,30 @@ This folder contains the current manuscript, Supporting Information, figures and
 
 ## JBI fit
 
-The paper is framed as **intraspecific trait biogeography**. Its central mystery is why white and pigmented flowers remain geographically structured within one species when environment, history, pollinators and human movement share space.
+The paper is framed as **intraspecific trait biogeography**. It asks how one flower-colour polymorphism can record environment, coherent residual geography, local pollinator opportunity and possible human movement at different spatial scales.
 
-The conceptual advance is not that many predictor families were analysed. It is that each answer reveals the next confounding layer, so the comparison unit changes as the explanation becomes more local.
+The conceptual advance is not a larger predictor set. It is **scale-matched attribution**: each analysis returns a positive scientific output and determines the comparison unit needed for the next process.
+
+## The achievement chain
+
+1. **Create the missing trait geography.** Author-screened YAMAP images yield a national quantitative dataset that is 3.81 times denser than the matched iNaturalist record for the focal species.
+2. **Reveal two ecological layers.** Pigmentation state and pigmented-only intensity show different environmental and spatial organization.
+3. **Partition broad environment from coherent residual geography.** INLA-SPDE delivers both a candidate abiotic landscape and spatial scales for future microclimate/genomic sampling.
+4. **Localize the pollinator hypothesis.** A scale change separates shared highland geography from a small local state-boundary signal and identifies 67 sites for direct pollination tests.
+5. **Calibrate local exceptions.** Predictive replay turns 16 striking configurations into reproducible field/provenance targets rather than untested anomalies.
+6. **Identify the leading human clue.** Post-selection analysis points to short-range settlement exposure and its likely spatial scale without assigning provenance.
+7. **Converge on one model.** Spatial variation in physiological and reproductive value, history and occasional human movement can maintain the polymorphism.
+
+The paper does not become rigorous by minimizing these outputs. It becomes rigorous by letting strong, heterogeneous and null results perform different inferential jobs.
+
+## Numbered Main structure
+
+- **1. Introduction** — the biogeographic problem, dual function of colour and dependent hypotheses.
+- **2. Materials and Methods** — 2.1–2.6, including software versions, reproducibility and inferential order.
+- **3. Results** — 3.1–3.5, organized around the information gained at each stage.
+- **4. Discussion** — 4.1–4.6, from new trait geography to a spatially varying polymorphism-maintenance model.
+
+Acknowledgements, References and declarations remain unnumbered.
 
 ## Read in this order
 
@@ -17,7 +38,7 @@ The conceptual advance is not that many predictor families were analysed. It is 
 3. `supporting/` — technical detail and robustness.
 4. `JBI_submission_checklist.md` — journal and portal checks.
 
-Other files support the submission process:
+Other submission files:
 
 - `JBI_title_page_template.md`
 - `JBI_cover_letter.md`
@@ -25,28 +46,9 @@ Other files support the submission process:
 - `JBI_sdm_model_building_checklist.md`
 - `validate_jbi_submission.py`
 
-## The paper is one investigation
-
-1. **Reveal the phenotype.** YAMAP images make a national quantitative polymorphism visible and separate pigmentation state from intensity.
-2. **Split the geography.** State and intensity show different environmental patterns, while substantial unresolved space remains.
-3. **Distrust the broad overlap.** The Bombus hypothesis moves to local boundaries; strong-looking highland overlap disappears, and the focal signal is weak and local.
-4. **Calibrate the apparent exceptions.** Sixteen departures look striking but remain compatible with natural predictive maps; human context is a later provenance clue.
-5. **Converge on one model.** Physiological value, population history, local reproductive benefit and occasional human movement can contribute at different spatial scales.
-
-Each answer creates the need for the next comparison.
-
-## Numbered Main structure
-
-- **1. Introduction** — the mystery and why each confounding layer requires a new scale.
-- **2. Materials and Methods** — 2.1–2.6, from YAMAP sampling to inferential order.
-- **3. Results** — 3.1–3.5, from trait discovery to the human-context clue.
-- **4. Discussion** — 4.1–4.6, from the first reveal to direct causal tests.
-
-Acknowledgements, References and declarations remain unnumbered.
-
 ## What stays in Supporting Information?
 
-Supporting Information keeps details that are important for audit but would interrupt the unfolding Main argument.
+Supporting Information keeps details needed for audit that would interrupt the Main argument.
 
 - **S1:** YAMAP/public-database benchmark and sampling process
 - **S2:** image phenotyping, mixture model and QC
@@ -54,19 +56,6 @@ Supporting Information keeps details that are important for audit but would inte
 - **S4:** Bombus SDM construction and calibration
 - **S5:** local Bombus sensitivities and negative controls
 - **S6:** 10,000-map departure calibration and full human-context family
-
-## Writing rule
-
-A paragraph should complete one movement:
-
-`setup -> evidence -> changed interpretation -> next implication`
-
-The reader should always understand why the next subsection had to exist. Technical safeguards stay in Supporting Information unless they change the biological inference.
-
-Editorial guides:
-
-- `JBI_background_architecture.md` — the three revealed bottlenecks in the Introduction
-- `JBI_narrative_dependency_architecture.md` — whole-paper sequence and paragraph rules
 
 ## Generated review package
 
@@ -78,7 +67,7 @@ Editorial guides:
 - separate figure files;
 - readiness and hash manifests.
 
-CI also renders every DOCX through LibreOffice.
+CI validates scientific tokens, anonymity, JBI formatting, software-version reporting and cross-file consistency, then renders every DOCX through LibreOffice.
 
 `review_science_bundle_complete=true` means the anonymous scientific package passed structural checks. It does **not** mean that author-controlled portal fields are complete.
 

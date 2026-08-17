@@ -15,7 +15,7 @@ The conceptual advance is not a larger predictor set. It is **scale-matched attr
 1. **Create the missing trait geography.** Author-screened YAMAP images yield a national quantitative dataset that is 3.81 times denser than the matched iNaturalist record for the focal species.
 2. **Reveal two ecological layers.** Pigmentation state and pigmented-only intensity show different environmental and spatial organization.
 3. **Partition broad environment from coherent residual geography.** INLA-SPDE delivers both a candidate abiotic landscape and spatial scales for future microclimate/genomic sampling.
-4. **Localize the pollinator hypothesis.** A scale change separates shared highland geography from a small local state-boundary signal and identifies 67 sites for direct pollination tests.
+4. **Reveal where pollinator opportunity may matter.** Sixty-seven 5-km white-pigmented boundaries identify a short-range, state-specific focal-Bombus pattern and direct field sites. A separate equal-elevation guardrail then shows why stronger-looking highland overlap is shared mountain geography rather than the primary biotic test.
 5. **Calibrate local exceptions.** Predictive replay turns 16 striking configurations into reproducible field/provenance targets rather than untested anomalies.
 6. **Identify the leading human clue.** Post-selection analysis points to short-range settlement exposure and its likely spatial scale without assigning provenance.
 7. **Converge on one model.** Spatial variation in physiological and reproductive value, history and occasional human movement can maintain the polymorphism.
@@ -54,7 +54,7 @@ Supporting Information keeps details needed for audit that would interrupt the M
 - **S2:** image phenotyping, mixture model and QC
 - **S3:** full environmental/spatial model checks
 - **S4:** Bombus SDM construction and calibration
-- **S5:** local Bombus sensitivities and negative controls
+- **S5:** local Bombus sensitivities and highland/elevation guardrails
 - **S6:** 10,000-map departure calibration and full human-context family
 
 ## Generated review package

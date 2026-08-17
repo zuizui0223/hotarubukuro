@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Integrate the accepted PR #50 spatial-null result into the current JBI package."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str) -> None:
+    file = Path(path)
+    text = file.read_text(encoding="utf-8")
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one replacement target, found {count}")
+    file.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+manuscript = "submission/jbi/JBI_main_manuscript_anonymized.md"
+
+replace_once(
+    manuscript,
+    "Pigmentation state and intensity showed different geography. Pigmentation was less likely in warmer climates, whereas intensity depended on Temperature PC1 × temperature seasonality and was lower in wetter and more rugged environments.",
+    "Pigmentation state and intensity showed different geography, and a cross-fitted space-only sensitivity detected environmental alignment beyond spatial continuity for state but not intensity. Pigmentation was less likely in warmer climates, whereas intensity depended on Temperature PC1 × temperature seasonality and was lower in wetter and more rugged environments.",
+)
+
+replace_once(
+    manuscript,
+    "Model extensions were retained only when ecologically motivated and supported by prediction to held-out geographical blocks. Collinearity, hydroclimate alternatives and spatial specifications were checked in Appendix S3. The later departure analysis used the same eight abiotic axes and five approximately 100-km geographical folds (Roberts et al., 2017; Valavi et al., 2019).",
+    """Model extensions were retained only when ecologically motivated and supported by prediction to held-out geographical blocks. Collinearity, hydroclimate alternatives and spatial specifications were checked in Appendix S3.
+
+As a supporting sensitivity, we asked a complementary question at the 1-km-cell scale: whether phenotype divergence between environmentally dissimilar held-out locations exceeded an intercept + Matérn SPDE expectation at comparable geographical separation. Environmental distance used a separate frozen, response-blind six-score representation of broad and within-neighbourhood climate, aridity and topography. For each of five held-out geographical folds, pairs were divided into five geographical-distance strata, upper and lower environmental-distance quartiles were contrasted, and the observed mean high-minus-low divergence was compared with 500 space-only posterior-predictive realizations (seed 20260725). This FST/PST-inspired comparison is explicitly non-genetic: the spatial field is an empirical continuity expectation rather than drift, and any excess is environmental alignment rather than proof of selection or local adaptation (Appendix S3).
+
+The later departure analysis used the same eight abiotic axes and five approximately 100-km geographical folds (Roberts et al., 2017; Valavi et al., 2019).""",
+)
+
+replace_once(
+    manuscript,
+    "The spatial models also quantified a second, coherent layer of geography after those measured associations. Residual correlation range was 132.8 km (95% CrI 88.8-195.7) for pigmentation state and 65.7 km (31.0-132.6) for conditional intensity. Thus the broad stage delivered two outputs: a response-specific abiotic landscape and an independently testable map of unresolved regional structure. The ranges describe remaining correlation rather than seed, pollen or colonization distances.",
+    """The spatial models also quantified a second, coherent layer of geography after those measured associations. Residual correlation range was 132.8 km (95% CrI 88.8-195.7) for pigmentation state and 65.7 km (31.0-132.6) for conditional intensity. Thus the broad stage delivered two outputs: a response-specific abiotic landscape and an independently testable map of unresolved regional structure. The ranges describe remaining correlation rather than seed, pollen or colonization distances.
+
+The complementary cross-fitted spatial-null test sharpened the state–intensity difference. For pigmentation state, the mean high-minus-low environmental-distance contrast in held-out phenotype divergence was 0.1068, compared with a space-only posterior-predictive median of 0.0582 (excess +0.0486; one-sided P=0.0339). Conditional intensity showed no positive excess (observed -0.0472; null median -0.0013; P=0.8723). At comparable geographical separation, environmental difference therefore aligned with white–pigmented state divergence beyond fitted spatial continuity, whereas variation within already pigmented flowers did not.""",
+)
+
+replace_once(
+    manuscript,
+    "The result is also more informative than a single temperature rule. State and intensity differed, the temperature effect on intensity depended on seasonality, and rugged terrain retained an independent association after climate and space. These patterns point to distinct developmental or selective contexts rather than one universal “darker in the cold” response. They directly motivate factorial common-garden tests of mean temperature, thermal variability and water availability with petal chemistry, flower temperature, water relations and fitness measured together.",
+    """The result is also more informative than a single temperature rule. State and intensity differed, the temperature effect on intensity depended on seasonality, and rugged terrain retained an independent association after climate and space. These patterns point to distinct developmental or selective contexts rather than one universal “darker in the cold” response. They directly motivate factorial common-garden tests of mean temperature, thermal variability and water availability with petal chemistry, flower temperature, water relations and fitness measured together.
+
+The cross-fitted spatial-null comparison reached the same state–intensity distinction from a different direction. At comparable geographical separation, pigmentation-state divergence increased with environmental difference beyond what the fitted continuous field reproduced, whereas conditional intensity did not. This does not convert the spatial field into neutral genetic divergence or demonstrate adaptation. It shows that geographical proximity alone is insufficient to explain the environmental ordering of the white–pigmented switch, and it prioritizes common-garden and genomic tests of environment-aligned state differentiation.""",
+)
+
+replace_once(
+    manuscript,
+    "Repurposed images revealed the phenotype; broad models separated measured environment from coherent residual geography; local boundaries identified a short-range, state-specific Bombus signal;",
+    "Repurposed images revealed the phenotype; broad models separated measured environment from coherent residual geography, while cross-fitted spatial-null replay detected environment-aligned divergence specifically for pigmentation state; local boundaries identified a short-range, state-specific Bombus signal;",
+)
+
+appendix = "submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md"
+replace_once(
+    appendix,
+    """Two modelling layers remain conceptually distinct but are explicitly aligned where the paper requires them to connect.
+
+- The **observation-level INLA-SPDE models** estimate broad environmental associations, response-specific interactions and residual spatial covariance.
+- The **1-km-cell cross-fitted pigmentation-state reference** generates natural predictive maps for Main 3. Its environmental basis is the same finalized eight measured abiotic axes used by the Broad state analysis, and the resulting event detector yields 16 observed local-departure candidates.""",
+    """Three modelling layers remain conceptually distinct but are explicitly aligned where the paper requires them to connect.
+
+- The **observation-level INLA-SPDE models** estimate broad environmental associations, response-specific interactions and residual spatial covariance.
+- The **cross-fitted space-only divergence sensitivity** asks whether environmental difference orders held-out phenotype divergence beyond an intercept + Matérn SPDE continuity expectation at comparable geographical separation. It uses a separate frozen six-score broad/within environmental representation and does not reinterpret the spatial field as genetic drift.
+- The **1-km-cell cross-fitted pigmentation-state reference** generates natural predictive maps for Main 3. Its environmental basis is the same finalized eight measured abiotic axes used by the Broad state analysis, and the resulting event detector yields 16 observed local-departure candidates.""",
+)
+
+replace_once(
+    appendix,
+    """The ranges are descriptive residual spatial scales, not seed or pollen dispersal distances. Historical allozyme work documenting mainland–Izu differentiation, regional mating-system differences and progressive island colonization makes unresolved biogeographic structure biologically plausible, but the present spatial field may also contain unmeasured environment and sampling geography and is not assigned to a single mechanism.
+
+## Current 1-km natural reference passed to Main 3""",
+    """The ranges are descriptive residual spatial scales, not seed or pollen dispersal distances. Historical allozyme work documenting mainland–Izu differentiation, regional mating-system differences and progressive island colonization makes unresolved biogeographic structure biologically plausible, but the present spatial field may also contain unmeasured environment and sampling geography and is not assigned to a single mechanism.
+
+## Cross-fitted space-only phenotype-divergence sensitivity
+
+This supporting analysis asks a different question from coefficient estimation: at comparable geographical separation, are environmentally dissimilar held-out locations more phenotypically different than a model based on spatial continuity alone predicts?
+
+The analysis reused the frozen 1-km cell table and five geographical folds. Its separate response-blind environmental representation contained six multiscale scores: broad and within-neighbourhood PC1s for climate, aridity and topography. This basis is retained as an orthogonal multiscale sensitivity and does not replace the final eight-axis observation-level coefficient model.
+
+For each response and held-out fold, an `intercept + Matérn SPDE` model was fitted to the other four folds. Five hundred posterior-predictive phenotype realizations were generated for locations in the omitted fold. Held-out location pairs were divided into five equal-count geographical-distance strata; within every stratum, phenotype divergence among the upper environmental-distance quartile was contrasted with divergence among the lower quartile. The primary statistic was the mean high-minus-low contrast across the resulting 25 fold-by-distance strata. Environmental scaling was estimated from each training partition only, and every tested pair lay wholly inside a fold omitted from its spatial-null fit.
+
+**Table S3.5. Phenotype divergence beyond the cross-fitted space-only expectation.** The null interval is the central 95% interval from 500 posterior-predictive realizations; P is the predefined directional upper-tail probability.
+
+| Response | Observed high-env − low-env divergence | Space-null median | Central 95% null | Excess over null median | One-sided P |
+|---|---:|---:|---:|---:|---:|
+| Pigmentation state | **0.106802** | 0.058240 | 0.018098 to 0.108066 | **+0.048562** | **0.03393** |
+| Conditional visible intensity | -0.047179 | -0.001287 | -0.075026 to 0.087732 | -0.045891 | 0.87226 |
+
+Pigmentation-state divergence therefore increased with environmental difference beyond the fitted continuous-spatial expectation, whereas conditional intensity did not. The observed state statistic lies below the 97.5th percentile of the central interval but above the 95th percentile used by the predefined one-sided 5% test.
+
+This is an FST/PST-inspired analogy only. The space-only field is unresolved geographical continuity and can combine unmeasured environment, population history, dispersal, sampling geometry and other spatial processes. The excess establishes environmental alignment beyond that fitted expectation; it is not FST, PST or QST and does not demonstrate drift, selection, local adaptation or a unique causal environmental mechanism.
+
+## Current 1-km natural reference passed to Main 3""",
+)
+
+replace_once(
+    appendix,
+    "- **Residual geography:** substantial continuous regional structure remains and may combine unmeasured environment, population history, dispersal and sampling geography.",
+    "- **Residual geography:** substantial continuous regional structure remains and may combine unmeasured environment, population history, dispersal and sampling geography.\n- **Spatial-null sensitivity:** pigmentation-state divergence, but not conditional intensity, shows environmental alignment beyond cross-fitted spatial continuity; this is not genetic differentiation or evidence of selection.",
+)
+
+replace_once(
+    appendix,
+    "- `reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv`.",
+    "- `reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv`;\n- `docs/broad_spatial_inertia_environment_tracking.md`;\n- `scripts/fit_broad_space_null_phenotype_excess.R`;\n- `scripts/run_broad_space_null_phenotype_excess_pipeline.R`.",
+)
+
+replace_once(
+    "docs/broad_spatial_inertia_environment_tracking.md",
+    "The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. A post-computation metadata-table row-count bug affected only runner exit status after the scientific result tables were already written; the workflow validates the scientific output contract independently.",
+    "The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. During PR #50 integration, a metadata-table row-count defect was found after the scientific result tables had been written. It is now fixed at source: the fitter must exit normally, the canonical wrapper requires every scientific output table, and the accepted values are checked against numerical tolerances.",
+)
+
+replace_once(
+    "submission/jbi/JBI_cover_letter.md",
+    "We submit our Research Article, “From broad geography to local boundaries: biogeography of flower-colour polymorphism from hiking photographs.” Using a new national quantitative trait dataset built from screened YAMAP images, the paper resolves one flower-colour map into response-specific environmental geography, coherent residual spatial structure, a localized focal-Bombus hypothesis and calibrated provenance targets. Its conceptual advance is scale-matched attribution: changing comparison unit separates signals that a single national regression would confound. Positive, heterogeneous and null results together yield a testable model for how physiological and reproductive value, history and occasional human movement can maintain an intraspecific polymorphism.",
+    "We submit our Research Article, “From broad geography to local boundaries: biogeography of flower-colour polymorphism from hiking photographs.” Using a new national quantitative trait dataset built from screened YAMAP images, the paper resolves one flower-colour map into response-specific environmental geography, coherent residual spatial structure, a localized focal-Bombus hypothesis and calibrated provenance targets. A cross-fitted space-only sensitivity further shows that environmental difference aligns with pigmentation-state divergence beyond spatial continuity, but not with conditional intensity. Its conceptual advance is scale-matched attribution: changing comparison unit separates signals that a single national regression would confound. Positive, heterogeneous and null results together yield a testable model for how physiological and reproductive value, history and occasional human movement can maintain an intraspecific polymorphism.",
+)
+
+replace_once(
+    "submission/jbi/JBI_translated_abstract_ja.md",
+    "花色状態では暖地ほど有色化確率が低く、有色花内の強度ではTemperature PC1 × 気温季節性の相互作用が支持された。",
+    "花色状態では暖地ほど有色化確率が低く、有色花内の強度ではTemperature PC1 × 気温季節性の相互作用が支持された。さらに、地理距離を揃えたcross-fitted space-only nullとの比較では、環境差に沿う表現型分化が花色状態で空間期待を上回ったが、有色花内強度では上回らなかった。",
+)
+
+replace_once(
+    "submission/jbi/JBI_supporting_information_outline.md",
+    "- final coefficients and spatial ranges;\n- cross-fitted natural model used later.",
+    "- final coefficients and spatial ranges;\n- cross-fitted space-only phenotype-divergence sensitivity;\n- cross-fitted natural model used later.",
+)
+replace_once(
+    "submission/jbi/JBI_supporting_information_outline.md",
+    "**Main point:** broad environmental associations are stable enough to motivate physiological hypotheses, but they do not prove adaptation. The spatial field remains unresolved geography.",
+    "**Main point:** broad environmental associations are stable enough to motivate physiological hypotheses, and pigmentation-state divergence shows environmental alignment beyond a cross-fitted spatial expectation. Neither result proves adaptation; the spatial field remains unresolved geography.",
+)
+
+lock_path = Path("config/paper_pipeline.lock.json")
+lock = json.loads(lock_path.read_text(encoding="utf-8"))
+lock["paper_version"] = "jbi-2026-08-18-pr50-pr51-manuscript-integrated"
+check = {
+    "label": "cross-fitted Broad sensitivity in JBI manuscript",
+    "path": "submission/jbi/JBI_main_manuscript_anonymized.md",
+    "patterns": [
+        "0\\.1068",
+        "0\\.0582",
+        "\\+0\\.0486",
+        "0\\.0339",
+        "0\\.8723",
+        "rather than proof of selection or local adaptation",
+    ],
+}
+checks = lock["alignment"]["checks"]
+checks[:] = [item for item in checks if item.get("label") != check["label"]]
+checks.append(check)
+lock_path.write_text(
+    json.dumps(lock, ensure_ascii=False, separators=(",", ":")) + "\n",
+    encoding="utf-8",
+)
+
+Path(".github/workflows/integrate-pr50-manuscript.yml").unlink()
+Path("scripts/integrate_pr50_manuscript.py").unlink()

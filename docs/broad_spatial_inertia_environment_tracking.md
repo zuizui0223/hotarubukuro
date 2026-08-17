@@ -60,14 +60,22 @@ The earlier four-model blocked predictive comparison answers a different questio
 
 ## Reproducibility
 
+Use the canonical wrapper rather than sourcing the fitter directly. The wrapper requires normal model completion, checks all five scientific result tables, writes metadata and the stable summary, and enforces the eight reported numerical locks.
+
 ```bash
-Rscript scripts/fit_broad_space_null_phenotype_excess.R \
+Rscript scripts/run_broad_space_null_phenotype_excess_pipeline.R \
   --cells=results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
   --output=results/broad_space_null_phenotype_excess \
   --samples=500 \
   --seed=20260725 \
   --max-pairs-per-fold=15000 \
   --geo-bins=5
+```
+
+The same stage is included in the repository-wide exact route:
+
+```bash
+python run_pipeline.py reproduce --from-stage run_broad_space_null_excess
 ```
 
 GitHub Actions entry point: `.github/workflows/broad-spatial-inertia-environment-tracking.yml`.

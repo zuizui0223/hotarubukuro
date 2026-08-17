@@ -1,6 +1,6 @@
 # Current paper — start here
 
-This is the **single entry point** for the biology of the current paper. For exact scripts, evidence files and artifact IDs, use [`paper/analysis-map.md`](analysis-map.md).
+This is the **single entry point for the biology** of the current paper. The single execution entry is [`../run_pipeline.py`](../run_pipeline.py); exact scripts, evidence files and artifact IDs are mapped in [`analysis-map.md`](analysis-map.md).
 
 ## The biological question
 
@@ -87,10 +87,20 @@ The current data do not prove those mechanisms. They tell us where to test them 
 - local Bombus boundaries → visitation, pollen transfer and seed set;
 - 16 departures → field history, vouchers and genomic provenance.
 
+## Reproduce or audit the paper
+
+```bash
+python run_pipeline.py audit
+python run_pipeline.py reproduce
+```
+
+`audit` verifies manuscript/repository/evidence-lock alignment. `reproduce` reruns the accepted downstream analyses and rebuilds figures and the review bundle from checksum-locked evidence. Live source refresh is intentionally separate.
+
 ## What to read next
 
 - **Exact result → evidence mapping:** [`analysis-map.md`](analysis-map.md)
-- **How to rerun each stage:** [`../docs/reproduction-guide.md`](../docs/reproduction-guide.md)
+- **Canonical reproduction contract:** [`../docs/reproduction-guide.md`](../docs/reproduction-guide.md)
+- **Pipeline lock:** [`../config/paper_pipeline.lock.json`](../config/paper_pipeline.lock.json)
 - **Current manuscript:** [`../submission/jbi/JBI_main_manuscript_anonymized.md`](../submission/jbi/JBI_main_manuscript_anonymized.md)
 - **Supporting Information:** [`../submission/jbi/supporting/`](../submission/jbi/supporting/)
 - **Data dictionary:** [`../docs/data-s1-dictionary.md`](../docs/data-s1-dictionary.md)

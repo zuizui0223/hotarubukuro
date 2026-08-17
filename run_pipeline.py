@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -44,6 +45,36 @@ THREAD_ENV = {
 
 class PipelineError(RuntimeError):
     """Raised when a reproducibility contract is violated."""
+
+
+class StripAuthorizationOnCrossHostRedirect(urllib.request.HTTPRedirectHandler):
+    """Do not forward repository credentials to signed artifact storage URLs."""
+
+    def redirect_request(
+        self,
+        request: urllib.request.Request,
+        response: Any,
+        code: int,
+        message: str,
+        headers: Any,
+        new_url: str,
+    ) -> urllib.request.Request | None:
+        redirected = super().redirect_request(
+            request,
+            response,
+            code,
+            message,
+            headers,
+            new_url,
+        )
+        if redirected is None:
+            return None
+        old_origin = urllib.parse.urlsplit(request.full_url)[:2]
+        new_origin = urllib.parse.urlsplit(new_url)[:2]
+        if old_origin != new_origin:
+            for header in ("Authorization", "Proxy-Authorization", "Cookie"):
+                redirected.remove_header(header)
+        return redirected
 
 
 def utc_now() -> str:
@@ -313,12 +344,13 @@ class Pipeline:
                     "User-Agent": "hotarubukuro-paper-pipeline/1",
                 },
             )
+            opener = urllib.request.build_opener(StripAuthorizationOnCrossHostRedirect())
             with tempfile.NamedTemporaryFile(
                 prefix=f"{name}-", suffix=".zip", dir=self.cache_dir, delete=False
             ) as temporary:
                 temporary_path = Path(temporary.name)
                 try:
-                    with urllib.request.urlopen(request, timeout=180) as response:
+                    with opener.open(request, timeout=180) as response:
                         shutil.copyfileobj(response, temporary)
                 except (urllib.error.URLError, TimeoutError) as error:
                     temporary_path.unlink(missing_ok=True)

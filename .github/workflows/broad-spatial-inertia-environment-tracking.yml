@@ -1,4 +1,4 @@
-name: Broad spatial inertia vs environmental tracking
+name: Broad space-null phenotype excess
 
 on:
   workflow_dispatch:
@@ -7,15 +7,14 @@ on:
       - agent/broad-spatial-inertia-environment-tracking
     paths:
       - .github/workflows/broad-spatial-inertia-environment-tracking.yml
-      - R/broad_spatial_inertia_environment_tracking.R
-      - scripts/fit_broad_spatial_inertia_environment_tracking.R
+      - scripts/fit_broad_space_null_phenotype_excess.R
 
 permissions:
   contents: read
   actions: read
 
 concurrency:
-  group: broad-spatial-inertia-environment-tracking-${{ github.ref }}
+  group: broad-space-null-phenotype-excess-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -30,17 +29,19 @@ env:
   OMP_DYNAMIC: "FALSE"
   REFERENCE_ARTIFACT_ID: "9022276431"
   REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
-  TRACKING_POSTERIOR_SAMPLES: "500"
-  TRACKING_SEED: "20260725"
+  EXCESS_POSTERIOR_SAMPLES: "500"
+  EXCESS_SEED: "20260725"
+  EXCESS_MAX_PAIRS_PER_FOLD: "15000"
+  EXCESS_GEO_BINS: "5"
 
 jobs:
   fit:
-    name: Four-model blocked INLA decomposition
+    name: Cross-fitted space-null excess test
     runs-on: ubuntu-24.04
     timeout-minutes: 360
 
     steps:
-      - name: Checkout sensitivity branch
+      - name: Checkout analysis branch
         uses: actions/checkout@v5
         with:
           fetch-depth: 1
@@ -67,15 +68,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: broad-tracking-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          key: broad-excess-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
           restore-keys: |
+            broad-tracking-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
             current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
-            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
 
       - name: Restore declared R analysis environment
         run: >-
           Rscript scripts/setup_r_environment.R
-          --report-dir reproducibility/broad_tracking
+          --report-dir reproducibility/broad_space_null_excess
           --scopes analysis,reproducibility
 
       - name: Download frozen active Broad reference artifact
@@ -97,34 +98,41 @@ jobs:
           test -s reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
           echo "reference_zip_sha256=${actual}" | tee reference-artifact/reference_lock.txt
 
-      - name: Fit four blocked models and decompose predictive gain
+      - name: Fit cross-fitted space null and test phenotype excess
         shell: bash
         run: |
           set -euo pipefail
-          Rscript scripts/fit_broad_spatial_inertia_environment_tracking.R \
+          Rscript scripts/fit_broad_space_null_phenotype_excess.R \
             --cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
-            --output=results/broad_spatial_inertia_environment_tracking \
-            --samples=${TRACKING_POSTERIOR_SAMPLES} \
-            --seed=${TRACKING_SEED}
+            --output=results/broad_space_null_phenotype_excess \
+            --samples=${EXCESS_POSTERIOR_SAMPLES} \
+            --seed=${EXCESS_SEED} \
+            --max-pairs-per-fold=${EXCESS_MAX_PAIRS_PER_FOLD} \
+            --geo-bins=${EXCESS_GEO_BINS}
 
       - name: Validate output contract
         shell: bash
         run: |
           set -euo pipefail
-          out=results/broad_spatial_inertia_environment_tracking
-          for f in fold_model_scores.csv heldout_predictions.csv model_log_score_totals.csv shapley_predictive_decomposition.csv component_interpretation.csv analysis_metadata.csv; do
+          out=results/broad_space_null_phenotype_excess
+          for f in primary_space_null_excess_test.csv matched_distance_stratum_contrasts.csv heldout_pair_space_null_excess.csv secondary_pair_diagnostics.csv heldout_space_null_predictions.csv analysis_metadata.csv; do
             test -s "$out/$f"
           done
           python3 - <<'PY'
           import csv
           from pathlib import Path
-          p = Path('results/broad_spatial_inertia_environment_tracking/fold_model_scores.csv')
-          rows = list(csv.DictReader(p.open()))
-          assert len(rows) == 2 * 5 * 4, len(rows)
-          assert {r['response'] for r in rows} == {'pigmentation_state', 'conditional_intensity'}
-          assert {r['model'] for r in rows} == {'null', 'environment', 'space', 'environment_plus_space'}
-          assert {int(float(r['fold'])) for r in rows} == {1,2,3,4,5}
-          print('validated fold-model rows:', len(rows))
+          root = Path('results/broad_space_null_phenotype_excess')
+          primary = list(csv.DictReader((root/'primary_space_null_excess_test.csv').open()))
+          assert len(primary) == 2, len(primary)
+          assert {r['response'] for r in primary} == {'pigmentation_state', 'conditional_intensity'}
+          for r in primary:
+              p = float(r['posterior_predictive_p_upper'])
+              assert 0 <= p <= 1
+              assert int(float(r['n_fold_geo_strata'])) > 0
+          pairs = list(csv.DictReader((root/'heldout_pair_space_null_excess.csv').open()))
+          assert len(pairs) > 0
+          assert {r['response'] for r in pairs} == {'pigmentation_state', 'conditional_intensity'}
+          print('validated primary rows:', len(primary), 'pair rows:', len(pairs))
           PY
 
       - name: Write concise result summary
@@ -134,16 +142,19 @@ jobs:
           python3 - <<'PY'
           import csv
           from pathlib import Path
-          root = Path('results/broad_spatial_inertia_environment_tracking')
-          interp = list(csv.DictReader((root/'component_interpretation.csv').open()))
-          shap = list(csv.DictReader((root/'shapley_predictive_decomposition.csv').open()))
-          lines = ['# Broad spatial inertia vs environmental tracking', '']
-          for row in interp:
-              lines.append(f"- {row['response']}: {row['interpretation']} (environment_minus_space={float(row['environment_minus_space']):.6f})")
-          lines += ['', '## Shapley predictive gains']
-          for row in shap:
-              lines.append(f"- {row['response']} / {row['component']}: gain={float(row['shapley_predictive_gain']):.6f}; share={float(row['share_of_allocated_gain']):.4f}")
-          lines += ['', 'Interpretation is explicitly non-genetic: these are blocked predictive information contributions, not F_ST, P_ST, Q_ST, heritability, drift, or selection estimates.']
+          root = Path('results/broad_space_null_phenotype_excess')
+          rows = list(csv.DictReader((root/'primary_space_null_excess_test.csv').open()))
+          lines = ['# Broad cross-fitted space-null phenotype excess', '']
+          for r in rows:
+              lines.append(
+                  f"- {r['response']}: observed high-minus-low environmental divergence contrast="
+                  f"{float(r['observed_contrast']):.6f}; space-null median={float(r['space_null_median']):.6f}; "
+                  f"95% null=[{float(r['space_null_q025']):.6f}, {float(r['space_null_q975']):.6f}]; "
+                  f"excess={float(r['phenotype_excess_over_space_null']):.6f}; "
+                  f"posterior-predictive p_upper={float(r['posterior_predictive_p_upper']):.6f}; "
+                  f"exceeds_q975={r['exceeds_space_null_q975']}"
+              )
+          lines += ['', 'Primary question: at matched geographic separation, do environmentally dissimilar held-out pairs show more phenotype divergence than a cross-fitted space-only SPDE null predicts?', '', 'This is F_ST/P_ST-inspired only; the space null is unresolved geography, not neutral genetic F_ST, and the test does not demonstrate selection or local adaptation.']
           (root/'RESULT_SUMMARY.md').write_text('\n'.join(lines)+'\n')
           print('\n'.join(lines))
           PY
@@ -152,7 +163,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          mkdir -p results/broad_spatial_inertia_environment_tracking
+          mkdir -p results/broad_space_null_phenotype_excess
           {
             echo "workflow_run=${GITHUB_RUN_ID}"
             echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
@@ -160,18 +171,20 @@ jobs:
             echo "branch=${GITHUB_REF_NAME}"
             echo "reference_artifact_id=${REFERENCE_ARTIFACT_ID}"
             echo "reference_artifact_sha256=${REFERENCE_ARTIFACT_SHA256}"
-            echo "posterior_samples=${TRACKING_POSTERIOR_SAMPLES}"
-            echo "seed=${TRACKING_SEED}"
-          } > results/broad_spatial_inertia_environment_tracking/workflow_provenance.txt
+            echo "posterior_samples=${EXCESS_POSTERIOR_SAMPLES}"
+            echo "seed=${EXCESS_SEED}"
+            echo "max_pairs_per_fold=${EXCESS_MAX_PAIRS_PER_FOLD}"
+            echo "geo_bins=${EXCESS_GEO_BINS}"
+          } > results/broad_space_null_phenotype_excess/workflow_provenance.txt
 
-      - name: Upload Broad tracking results
+      - name: Upload Broad space-null results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: broad-spatial-inertia-environment-tracking-${{ github.sha }}-${{ github.run_id }}
+          name: broad-space-null-phenotype-excess-${{ github.sha }}-${{ github.run_id }}
           path: |
-            results/broad_spatial_inertia_environment_tracking
-            reproducibility/broad_tracking
+            results/broad_space_null_phenotype_excess
+            reproducibility/broad_space_null_excess
             reference-artifact/reference_lock.txt
           if-no-files-found: warn
           compression-level: 6

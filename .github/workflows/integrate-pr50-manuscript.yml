@@ -40,6 +40,26 @@ jobs:
       - name: Apply manuscript integration
         run: python scripts/integrate_pr50_manuscript.py
 
+      - name: Synchronize submission checklist
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('submission/jbi/JBI_submission_checklist.md')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              'Current Introduction-through-Discussion count = **4,162 words** by repository validator.': 'Current Introduction-through-Discussion count = **4,452 words** by repository validator.',
+              'Current abstract = **290 words** by repository validator.': 'Current abstract = **299 words** by repository validator.',
+              '**Broad killing part:** environment is shown to explain response-specific geography, while SPDE delivers coherent residual ranges that guide microclimate and genomic sampling rather than being dismissed as unexplained noise.': '**Broad killing part:** environment is shown to explain response-specific geography, while SPDE delivers coherent residual ranges that guide microclimate and genomic sampling rather than being dismissed as unexplained noise. A cross-fitted space-only sensitivity further shows environment-aligned divergence beyond spatial continuity for pigmentation state but not conditional intensity, without relabelling that excess as genetic differentiation or adaptation.'
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f'Checklist replacement target count was {text.count(old)} for: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Validate manuscript and repository contracts
         shell: bash
         run: |

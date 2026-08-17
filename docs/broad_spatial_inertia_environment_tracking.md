@@ -35,28 +35,17 @@ Environmental distance is Euclidean distance in the six frozen Broad/within resp
 
 ## Primary estimand
 
-For each response, the primary statistic is the mean across the 25 fold-by-geographical-distance strata of
+For each response, the primary statistic is the mean across the 25 fold-by-geographical-distance strata of `mean phenotype divergence among high-environment-distance pairs - mean phenotype divergence among low-environment-distance pairs`.
 
-`mean phenotype divergence among high-environment-distance pairs - mean phenotype divergence among low-environment-distance pairs`.
+The observed statistic is compared with the distribution of that statistic under the cross-fitted space-only posterior predictive null. The directional upper-tail probability is `P(space-null contrast >= observed contrast)`, estimated from 500 posterior-predictive realisations with `(1 + count) / 501`.
 
-The observed statistic is compared with the distribution of that statistic under the cross-fitted space-only posterior predictive null.
-
-The directional posterior-predictive upper-tail probability is `P(space-null contrast >= observed contrast)`, estimated from 500 posterior-predictive realisations with the finite-sample correction `(1 + count) / 501`.
-
-The stored `q025`/`q975` values are a central 95% null interval. They are not the cutoff for the one-sided 5% test; the relevant directional cutoff is the 95th percentile.
+The stored `q025`/`q975` values are a central 95% null interval. They are not the cutoff for the one-sided 5% test; the directional cutoff is the 95th percentile.
 
 ## Executed result
 
 The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. A post-computation metadata-table row-count bug affected only runner exit status after the scientific result tables were already written; the workflow now requires all scientific outputs, reconstructs metadata independently and validates the output contract.
 
-Frozen input:
-
-- source artifact ID: `9022276431`
-- source artifact ZIP SHA-256: `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`
-- posterior-predictive realisations: 500
-- seed: `20260725`
-- geographical folds: 5
-- geographical-distance strata per fold: 5
+Frozen input: source artifact ID `9022276431`, ZIP SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`, 500 posterior-predictive realisations, seed `20260725`, five geographical folds and five geographical-distance strata per fold.
 
 ### Primary spatial-null excess test
 
@@ -65,19 +54,19 @@ Frozen input:
 | Pigmentation state | **0.106802** | 0.058240 | [0.018098, 0.108066] | **+0.048562** | **0.03393** |
 | Conditional intensity | -0.047179 | -0.001287 | [-0.075026, 0.087732] | -0.045891 | 0.87226 |
 
-For pigmentation state, environmentally dissimilar pairs are more phenotypically divergent than environmentally similar pairs after matching pairs into comparable geographical-distance strata, and the magnitude of that contrast is larger than expected from the cross-fitted space-only null at the predefined one-sided 5% level (`p = 0.03393`). The observed value lies just below the 97.5th percentile of the central 95% interval; that is compatible with the one-sided result because the directional 5% test uses the 95th percentile.
+For pigmentation state, environmentally dissimilar pairs are more phenotypically divergent than environmentally similar pairs after matching pairs into comparable geographical-distance strata, and the contrast is larger than expected from the cross-fitted space-only null at the predefined one-sided 5% level (`p = 0.03393`). The observed value lies just below the 97.5th percentile of the central 95% interval; this is compatible with the directional result because the one-sided 5% test uses the 95th percentile.
 
-For conditional intensity, the corresponding environmental contrast is negative and is not above the spatial null (`p = 0.87226`). Thus the phenotype-excess signal is specific to pigmentation state in this analysis.
+For conditional intensity, the environmental contrast is negative and is not above the spatial null (`p = 0.87226`). The phenotype-excess signal is therefore specific to pigmentation state in this analysis.
 
-Pair-level secondary correlations are descriptive only because pairs share sites and are not independent; they are not inferential substitutes for the stratum-level posterior-predictive test.
+Pair-level secondary correlations are descriptive only because pairs share sites and are not independent.
 
 ## Interpretation
 
 > For pigmentation state, geographical proximity alone does not fully account for the observed pattern of differentiation. Among locations separated by comparable geographical distances, greater environmental difference is associated with greater phenotype differentiation than a cross-fitted continuous-spatial null predicts. The same excess is not detected for conditional pigment intensity.
 
-In the F_ST/P_ST-inspired intuition, pigmentation state therefore shows a **P_ST-like phenotypic divergence that exceeds an F_ST-like spatial expectation along environmental difference**, but only as an analogy to the structure of the test. It must not be rewritten as `P_ST > F_ST` because neither quantity is actually estimated here.
+In the F_ST/P_ST-inspired intuition, pigmentation state shows a **P_ST-like phenotypic divergence that exceeds an F_ST-like spatial expectation along environmental difference**, only as an analogy to the structure of the test. It must not be rewritten as `P_ST > F_ST` because neither quantity is actually estimated here.
 
-The earlier four-model blocked predictive comparison answers a different question—what predicts withheld geography better—and is retained only as a secondary predictive diagnostic rather than the inferential target here.
+The earlier four-model blocked predictive comparison answers a different question—what predicts withheld geography better—and remains secondary.
 
 ## Reproducibility
 

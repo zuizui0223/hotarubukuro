@@ -1,0 +1,178 @@
+name: Broad spatial inertia vs environmental tracking
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/broad-spatial-inertia-environment-tracking
+    paths:
+      - .github/workflows/broad-spatial-inertia-environment-tracking.yml
+      - R/broad_spatial_inertia_environment_tracking.R
+      - scripts/fit_broad_spatial_inertia_environment_tracking.R
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: broad-spatial-inertia-environment-tracking-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GOTO_NUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  TRACKING_POSTERIOR_SAMPLES: "500"
+  TRACKING_SEED: "20260725"
+
+jobs:
+  fit:
+    name: Four-model blocked INLA decomposition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout sensitivity branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: broad-tracking-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R analysis environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility/broad_tracking
+          --scopes analysis,reproducibility
+
+      - name: Download frozen active Broad reference artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf reference-artifact /tmp/broad-reference.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFERENCE_ARTIFACT_ID}/zip" \
+            -o /tmp/broad-reference.zip
+          actual="$(sha256sum /tmp/broad-reference.zip | awk '{print $1}')"
+          test "$actual" = "$REFERENCE_ARTIFACT_SHA256"
+          mkdir -p reference-artifact
+          unzip -q /tmp/broad-reference.zip -d reference-artifact
+          test -s reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          echo "reference_zip_sha256=${actual}" | tee reference-artifact/reference_lock.txt
+
+      - name: Fit four blocked models and decompose predictive gain
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/fit_broad_spatial_inertia_environment_tracking.R \
+            --cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+            --output=results/broad_spatial_inertia_environment_tracking \
+            --samples=${TRACKING_POSTERIOR_SAMPLES} \
+            --seed=${TRACKING_SEED}
+
+      - name: Validate output contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=results/broad_spatial_inertia_environment_tracking
+          for f in fold_model_scores.csv heldout_predictions.csv model_log_score_totals.csv shapley_predictive_decomposition.csv component_interpretation.csv analysis_metadata.csv; do
+            test -s "$out/$f"
+          done
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+          p = Path('results/broad_spatial_inertia_environment_tracking/fold_model_scores.csv')
+          rows = list(csv.DictReader(p.open()))
+          assert len(rows) == 2 * 5 * 4, len(rows)
+          assert {r['response'] for r in rows} == {'pigmentation_state', 'conditional_intensity'}
+          assert {r['model'] for r in rows} == {'null', 'environment', 'space', 'environment_plus_space'}
+          assert {int(float(r['fold'])) for r in rows} == {1,2,3,4,5}
+          print('validated fold-model rows:', len(rows))
+          PY
+
+      - name: Write concise result summary
+        if: success()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+          root = Path('results/broad_spatial_inertia_environment_tracking')
+          interp = list(csv.DictReader((root/'component_interpretation.csv').open()))
+          shap = list(csv.DictReader((root/'shapley_predictive_decomposition.csv').open()))
+          lines = ['# Broad spatial inertia vs environmental tracking', '']
+          for row in interp:
+              lines.append(f"- {row['response']}: {row['interpretation']} (environment_minus_space={float(row['environment_minus_space']):.6f})")
+          lines += ['', '## Shapley predictive gains']
+          for row in shap:
+              lines.append(f"- {row['response']} / {row['component']}: gain={float(row['shapley_predictive_gain']):.6f}; share={float(row['share_of_allocated_gain']):.4f}")
+          lines += ['', 'Interpretation is explicitly non-genetic: these are blocked predictive information contributions, not F_ST, P_ST, Q_ST, heritability, drift, or selection estimates.']
+          (root/'RESULT_SUMMARY.md').write_text('\n'.join(lines)+'\n')
+          print('\n'.join(lines))
+          PY
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p results/broad_spatial_inertia_environment_tracking
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "reference_artifact_id=${REFERENCE_ARTIFACT_ID}"
+            echo "reference_artifact_sha256=${REFERENCE_ARTIFACT_SHA256}"
+            echo "posterior_samples=${TRACKING_POSTERIOR_SAMPLES}"
+            echo "seed=${TRACKING_SEED}"
+          } > results/broad_spatial_inertia_environment_tracking/workflow_provenance.txt
+
+      - name: Upload Broad tracking results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: broad-spatial-inertia-environment-tracking-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/broad_spatial_inertia_environment_tracking
+            reproducibility/broad_tracking
+            reference-artifact/reference_lock.txt
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

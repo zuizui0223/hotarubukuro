@@ -4,15 +4,36 @@ This repository contains the data, code and submission files for a range-wide st
 
 ## Start here
 
-**Current paper — start here:** [`paper/README.md`](paper/README.md)
+**Current paper — biology:** [`paper/README.md`](paper/README.md)  
+**Current paper — execution:** [`run_pipeline.py`](run_pipeline.py)
 
 Choose the page that matches what you want to do:
 
 - **Understand the biology:** [`paper/README.md`](paper/README.md)
 - **Check which result comes from which analysis:** [`paper/analysis-map.md`](paper/analysis-map.md)
-- **Reproduce the analyses:** [`docs/reproduction-guide.md`](docs/reproduction-guide.md)
+- **Audit or reproduce the paper:** [`docs/reproduction-guide.md`](docs/reproduction-guide.md)
 - **Read the current manuscript and Supporting Information:** [`submission/jbi/`](submission/jbi/)
 - **Understand `Data_S1.csv`:** [`docs/data-s1-dictionary.md`](docs/data-s1-dictionary.md)
+
+## One execution front door
+
+Repository/manuscript alignment and submission-source checks:
+
+```bash
+python run_pipeline.py audit
+```
+
+Rebuild the accepted downstream analyses, four JBI figures and review bundle from checksum-locked evidence:
+
+```bash
+python run_pipeline.py reproduce
+```
+
+The same command is exposed as the **Paper pipeline** GitHub Actions workflow. A manual `reproduce` dispatch supplies the GitHub token and declared Ubuntu/R/Python environment, so the whole paper package is rebuilt from one entry point.
+
+`reproduce` deliberately does **not** refresh GBIF, CHELSA, SoilGrids or other live sources. It starts from the accepted Broad evidence, seeded Bombus SDMs and final-eight-axis posterior draws recorded in [`config/paper_pipeline.lock.json`](config/paper_pipeline.lock.json). A source refresh is a new analysis and remains separate from exact manuscript reproduction.
+
+Original YAMAP photographs are third-party content and are not redistributed. The exact paper path therefore begins at the public derived trait table and checksum-locked accepted evidence, not at raw photograph download.
 
 ## The study in four questions
 
@@ -46,12 +67,13 @@ Original YAMAP photographs are third-party content and are **not redistributed**
 
 ## Repository map
 
-- `paper/` — the shortest route from biological question to evidence
+- `run_pipeline.py` — canonical audit/reproduction orchestrator
+- `config/paper_pipeline.lock.json` — artifact checksums, stage commands and manuscript locks
+- `.github/workflows/paper-pipeline.yml` — one-click canonical execution
+- `paper/` — shortest route from biological question to evidence
 - `submission/jbi/` — manuscript, Supporting Information, figure captions and submission checks
-- `R/` — reusable analysis functions
-- `scripts/` — executable analyses, figure builders and submission builders
-- `source_build/` — data-construction tools
-- `analysis_sensitivity/` — manuscript-relevant robustness analyses
+- `R/`, `scripts/`, `analysis_sensitivity/` — analysis components called by the orchestrator or focused diagnostics
+- `source_build/` — source refresh and data-construction tools; not silently mixed into exact reproduction
 - `validation/`, `tests/` — independent checks
 - `reproducibility/` — frozen decisions, evidence IDs and numerical locks
 - `legacy/` — development history; not part of the current reproduction path

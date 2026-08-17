@@ -72,6 +72,18 @@ Avoid:
 
 > The latent spatial component should be interpreted as an agnostic residual biogeographic structure with a bounded inferential ceiling.
 
+## Paragraph rule
+
+Do not make every short idea its own paragraph. A paragraph should carry one **complete argument** from setup to evidence to meaning.
+
+Good paragraph shape:
+
+> question or claim -> evidence -> biological meaning -> limit or next test
+
+Keep sentences short, but merge adjacent paragraphs when they are parts of the same argument. Split only when the biological topic, evidence type or inferential job changes. As a rough guide, most Main-text paragraphs should fall around 90-180 words rather than a series of 40-60-word fragments.
+
+The fast-reader test applies to paragraph openings, not to paragraph count. A reader should be able to scan the first sentence of each paragraph without the prose feeling like a list of disconnected claims.
+
 ## Phrases to use sparingly
 
 These are not forbidden, but repeated use makes the text sound generated:

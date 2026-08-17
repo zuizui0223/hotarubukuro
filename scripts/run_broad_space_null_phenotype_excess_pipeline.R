@@ -24,30 +24,11 @@ scientific_outputs <- c(
   "heldout_space_null_predictions.csv"
 )
 
-fit_error <- tryCatch(
-  {
-    source("scripts/fit_broad_space_null_phenotype_excess.R", local = .GlobalEnv)
-    NULL
-  },
-  error = function(error) error
-)
+source("scripts/fit_broad_space_null_phenotype_excess.R", local = .GlobalEnv)
 
 missing_scientific <- scientific_outputs[
   !file.exists(file.path(output_dir, scientific_outputs))
 ]
-if (!is.null(fit_error)) {
-  known_metadata_error <- grepl(
-    "arguments imply differing number of rows",
-    conditionMessage(fit_error),
-    fixed = TRUE
-  )
-  if (!known_metadata_error || length(missing_scientific)) {
-    stop(fit_error)
-  }
-  message(
-    "Scientific outputs were complete; repairing the known PR #50 metadata-only row mismatch."
-  )
-}
 if (length(missing_scientific)) {
   stop(
     "Broad spatial-null analysis did not create: ",

@@ -355,9 +355,9 @@ metadata <- data.frame(
     paste(environment_terms, collapse = ";"),
     "Euclidean distance in the frozen response-blind environmental basis, scaled on each training fold",
     "mean across fold-by-geographic-distance strata of observed(high-environment - low-environment phenotype divergence), compared with the same statistic under cross-fitted space-only posterior prediction",
-    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation",
-    stringsAsFactors = FALSE
-  )
+    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation"
+  ),
+  stringsAsFactors = FALSE
 )
 utils::write.csv(metadata, file.path(output_dir, "analysis_metadata.csv"), row.names = FALSE)
 

@@ -4,17 +4,9 @@
 
 At the same approximate geographical separation, are environmentally dissimilar locations more phenotypically different than a model based on spatial continuity alone would predict?
 
-This is the intended F_ST/P_ST-inspired analogy. It is **not** an F_ST, P_ST or Q_ST analysis: there are no neutral genetic markers, additive genetic variances, heritability estimates or common-garden phenotypes.
+The scientifically relevant quantity is **phenotype divergence in excess of the cross-fitted space-only null, conditional on comparable geographical separation**.
 
-## Biological mapping
-
-- `space-only SPDE`: an F_ST-like **spatial null / geographical expectation** in the limited sense that it represents how much phenotype resemblance or divergence is expected from continuous geography alone.
-- observed flower-colour divergence: the P_ST-like **phenotypic signal** in the limited sense that it is the realised phenotype difference to be compared with that spatial expectation.
-- environmental divergence: the axis used to ask whether observed phenotypic divergence systematically exceeds the space-only expectation.
-
-The scientifically relevant quantity is therefore not an environment-versus-space model-performance comparison. It is **phenotype divergence in excess of the cross-fitted space-only null, conditional on comparable geographical separation**.
-
-`space` remains unresolved geography, not neutral genetic F_ST. It can contain unmeasured environment, dispersal/population history, sampling geometry and other spatially structured processes.
+`space` is an unresolved geographical expectation. It can contain unmeasured environment, dispersal or population history, sampling geometry and other spatially structured processes, so it is not interpreted as a single biological mechanism.
 
 ## Cross-fitted spatial-null design
 
@@ -43,7 +35,7 @@ The stored `q025`/`q975` values are a central 95% null interval. They are not th
 
 ## Executed result
 
-The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. A post-computation metadata-table row-count bug affected only runner exit status after the scientific result tables were already written; the workflow now requires all scientific outputs, reconstructs metadata independently and validates the output contract.
+The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. A post-computation metadata-table row-count bug affected only runner exit status after the scientific result tables were already written; the workflow validates the scientific output contract independently.
 
 Frozen input: source artifact ID `9022276431`, ZIP SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`, 500 posterior-predictive realisations, seed `20260725`, five geographical folds and five geographical-distance strata per fold.
 
@@ -63,8 +55,6 @@ Pair-level secondary correlations are descriptive only because pairs share sites
 ## Interpretation
 
 > For pigmentation state, geographical proximity alone does not fully account for the observed pattern of differentiation. Among locations separated by comparable geographical distances, greater environmental difference is associated with greater phenotype differentiation than a cross-fitted continuous-spatial null predicts. The same excess is not detected for conditional pigment intensity.
-
-In the F_ST/P_ST-inspired intuition, pigmentation state shows a **P_ST-like phenotypic divergence that exceeds an F_ST-like spatial expectation along environmental difference**, only as an analogy to the structure of the test. It must not be rewritten as `P_ST > F_ST` because neither quantity is actually estimated here.
 
 The earlier four-model blocked predictive comparison answers a different question—what predicts withheld geography better—and remains secondary.
 
@@ -86,7 +76,7 @@ Primary outputs: `primary_space_null_excess_test.csv`, `matched_distance_stratum
 
 ## Claim boundary
 
-Do not use `F_ST > P_ST`, `P_ST > F_ST`, `selection exceeds drift`, `genetic differentiation`, `local adaptation demonstrated` or equivalent causal/genetic language. The space-only null is not a neutral genetic model, and environmental divergence can still proxy omitted spatially structured factors.
+This test shows an environmental alignment beyond a fitted spatial expectation. It does not by itself distinguish causal environmental effects from omitted spatially structured factors, nor does it demonstrate selection or local adaptation.
 
 Manuscript-safe headline:
 

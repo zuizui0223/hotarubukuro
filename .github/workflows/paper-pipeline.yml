@@ -1,0 +1,155 @@
+name: Paper pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Pipeline profile
+        required: true
+        default: audit
+        type: choice
+        options:
+          - audit
+          - reproduce
+      resume:
+        description: Reuse complete outputs when present
+        required: true
+        default: false
+        type: boolean
+  pull_request:
+    branches: [main]
+    paths:
+      - run_pipeline.py
+      - config/paper_pipeline.lock.json
+      - paper/**
+      - submission/jbi/**
+      - docs/reproduction-guide.md
+      - validation/**
+      - scripts/**
+      - analysis_sensitivity/**
+      - R/**
+      - source_build/**
+      - tests/**
+      - dependencies/**
+      - pyproject.toml
+      - .github/workflows/**
+      - README.md
+  push:
+    branches: [main]
+    paths:
+      - run_pipeline.py
+      - config/paper_pipeline.lock.json
+      - paper/**
+      - submission/jbi/**
+      - docs/reproduction-guide.md
+      - validation/**
+      - scripts/**
+      - analysis_sensitivity/**
+      - R/**
+      - source_build/**
+      - tests/**
+      - dependencies/**
+      - pyproject.toml
+      - .github/workflows/**
+      - README.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: paper-pipeline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIPELINE_PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || 'audit' }}
+
+jobs:
+  run:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || 'audit' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+
+    steps:
+      - name: Check out the current paper
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Read pinned R version
+        if: env.PIPELINE_PROFILE == 'reproduce'
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up R
+        if: env.PIPELINE_PROFILE == 'reproduce'
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        if: env.PIPELINE_PROFILE == 'reproduce'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          cat dependencies/apt-packages.txt dependencies/submission-apt-packages.txt \
+            | grep -vE '^\s*(#|$)' \
+            | sort -u \
+            | xargs sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        if: env.PIPELINE_PROFILE == 'reproduce'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: paper-pipeline-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            paper-pipeline-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Run canonical paper pipeline
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          resume_flag=--no-resume
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.resume }}" == "true" ]]; then
+            resume_flag=--resume
+          fi
+          python run_pipeline.py "${PIPELINE_PROFILE}" "$resume_flag"
+
+      - name: Upload audit manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-pipeline-${{ env.PIPELINE_PROFILE }}-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/paper_pipeline
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload reproduced JBI package
+        if: env.PIPELINE_PROFILE == 'reproduce' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jbi-paper-reproduction-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/paper_pipeline
+            results/bombus_occurrence_reference_support
+            results/ecological_v18_bombus_local_sharp_transition
+            results/bombus_final8_environment_audit
+            results/human_context_current_broad
+            results/jbi_figure_bundle
+            results/jbi_submission_bundle
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

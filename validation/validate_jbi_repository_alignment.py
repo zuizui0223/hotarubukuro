@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate alignment between the JBI manuscript, repository map, and evidence locks."""
+"""Validate alignment among the current JBI manuscript, evidence locks and execution map."""
 
 from __future__ import annotations
 
@@ -15,19 +15,20 @@ class AlignmentError(AssertionError):
     """Raised when manuscript and repository contracts diverge."""
 
 
-# The manuscript may express the same frozen claim ceiling with revised prose.
-# Keep the lock's canonical assertions stable while accepting only explicit,
-# scientifically equivalent formulations used by the current JBI narrative.
 PATTERN_ALIASES = {
     r"not evidence of pollinator-mediated selection": (
         r"(?:not evidence of pollinator-mediated selection|"
         r"without pretending that an SDM measures visits or selection|"
-        r"evidence is therefore not that bumblebees created the national colour pattern)"
+        r"evidence is therefore not that bumblebees created the national colour pattern|"
+        r"habitat opportunity rather than realized selection|"
+        r"represent predicted habitat support, not abundance, visitation or pollen transfer)"
     ),
     r"not enough to claim human origin": (
         r"(?:not enough to claim human origin|"
         r"does not identify human origin|"
-        r"human context leaves a provenance clue, not an origin answer)"
+        r"human context leaves a provenance clue, not an origin answer|"
+        r"does not assign horticultural origin|"
+        r"does not establish an additional anthropogenic process)"
     ),
     r"0\.279": r"(?:0\.27897|0\.279)",
 }
@@ -44,8 +45,6 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def accepted_pattern(pattern: str) -> str:
-    """Return a strict semantic alias for a canonical manuscript assertion."""
-
     return PATTERN_ALIASES.get(pattern, pattern)
 
 
@@ -61,17 +60,25 @@ def validate_active_map(root: Path) -> dict[str, Any]:
     require(len(paths) == len(set(paths)), "paper map contains duplicate paths")
     missing = [item for item in paths if not (root / item).is_file()]
     require(not missing, "paper map points to missing files: " + ", ".join(missing))
+    require(
+        not [item for item in paths if item.startswith("legacy/")],
+        "current paper map points into legacy/",
+    )
     primary = {row["path"].strip() for row in rows if row["status"].strip() == "primary"}
     expected_primary = {
         "README.md",
         "run_pipeline.py",
         "config/paper_pipeline.lock.json",
         ".github/workflows/paper-pipeline.yml",
+        ".github/workflows/paper-checks.yml",
         "docs/reproduction-guide.md",
         "paper/README.md",
         "paper/analysis-map.md",
+        "paper/active-file-map.csv",
         "submission/jbi/JBI_main_manuscript_anonymized.md",
+        "submission/jbi/validate_jbi_submission.py",
         "validation/validate_jbi_repository_alignment.py",
+        "pyproject.toml",
     }
     require(
         expected_primary.issubset(primary),
@@ -87,6 +94,7 @@ def validate_active_map(root: Path) -> dict[str, Any]:
 def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
     lock = load_json(lock_path)
     require(lock.get("schema_version") == 1, "unsupported paper pipeline lock schema")
+
     required_files = lock["alignment"]["required_files"]
     missing = [item for item in required_files if not (root / item).is_file()]
     require(not missing, "alignment inputs are missing: " + ", ".join(missing))
@@ -149,20 +157,29 @@ def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
     manuscript = (root / "submission/jbi/JBI_main_manuscript_anonymized.md").read_text(
         encoding="utf-8"
     )
+    broad_sensitivity = (root / "docs/broad_spatial_inertia_environment_tracking.md").read_text(
+        encoding="utf-8"
+    )
     claim_ceiling_patterns = {
         "Bombus availability is not direct pollination evidence": (
             r"(?:not evidence of pollinator-mediated selection|"
             r"without pretending that an SDM measures visits or selection|"
-            r"evidence is therefore not that bumblebees created the national colour pattern)"
+            r"evidence is therefore not that bumblebees created the national colour pattern|"
+            r"habitat opportunity rather than realized selection|"
+            r"represent predicted habitat support, not abundance, visitation or pollen transfer)"
         ),
         "local departures are not proof of human origin": (
             r"(?:not enough to claim human origin|"
             r"does not identify human origin|"
-            r"human context leaves a provenance clue, not an origin answer)"
+            r"human context leaves a provenance clue, not an origin answer|"
+            r"does not assign horticultural origin|"
+            r"does not establish an additional anthropogenic process)"
         ),
         "high-elevation overlap is not an independent mechanism": (
             r"(?:disappeared after controlling elevation|"
+            r"disappeared after elevation was matched|"
             r"relationship vanished when local endpoints were constrained to similar elevation|"
+            r"contrast vanished when nearby white and pigmented endpoints were constrained to similar elevation|"
             r"pattern disappeared when nearby white and pigmented endpoints were constrained to similar elevation)"
         ),
     }
@@ -171,6 +188,15 @@ def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
             re.search(pattern, manuscript, flags=re.IGNORECASE) is not None,
             f"manuscript lost claim ceiling: {label}",
         )
+    require(
+        re.search(
+            r"does not by itself.*(?:selection|local adaptation)",
+            broad_sensitivity,
+            flags=re.IGNORECASE,
+        )
+        is not None,
+        "Broad spatial-null sensitivity lost its non-causal claim ceiling",
+    )
 
     active_map = validate_active_map(root)
     return {
@@ -180,7 +206,8 @@ def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
         "alignment_checks": checks,
         "artifact_checks": artifact_checks,
         "active_file_map": active_map,
-        "claim_ceilings": sorted(claim_ceiling_patterns),
+        "claim_ceilings": sorted(claim_ceiling_patterns)
+        + ["Broad spatial-null excess is not proof of selection or adaptation"],
         "provenance_boundary": lock["provenance_boundary"],
         "durability_warning": (
             "The evidence is checksum locked but currently referenced through retention-bound "

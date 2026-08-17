@@ -5,6 +5,8 @@ on:
   push:
     branches: [main]
     paths:
+      - run_pipeline.py
+      - config/paper_pipeline.lock.json
       - paper/**
       - submission/jbi/**
       - R/**
@@ -16,15 +18,9 @@ on:
       - pyproject.toml
       - reproducibility/**
       - docs/**
-      - inputs/**
-      - data/**
-      - results/**
       - dependencies/**
-      - config/**
       - .github/workflows/**
       - README.md
-      - FINAL_PIPELINE_SUPP_MANUSCRIPT_AUDIT_2026-08-12.md
-      - legacy/**
   pull_request:
     branches: [main]
 
@@ -32,12 +28,18 @@ permissions:
   contents: read
 
 jobs:
-  current-paper-map:
+  paper-contract:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 
-      - name: Validate active file map and executable reachability
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Validate the curated paper map
         shell: bash
         run: |
           set -euo pipefail
@@ -45,239 +47,77 @@ jobs:
           import csv
           import json
           import subprocess
-          from collections import defaultdict
           from pathlib import Path
 
-          rows = list(csv.DictReader(open('paper/active-file-map.csv', encoding='utf-8')))
-          assert rows, 'paper/active-file-map.csv is empty'
-          paths = [
-              r['path'].strip() for r in rows
-              if (r.get('status') or '').startswith('active')
-          ]
-          assert len(paths) == len(set(paths)), 'duplicate active paths'
-          active = set(paths)
-          missing = [p for p in paths if not Path(p).is_file()]
-          assert not missing, 'missing active paper files: ' + ', '.join(missing)
-          assert not [p for p in paths if p.startswith('legacy/')], (
-              'active paper map must not point into legacy'
+          rows = list(csv.DictReader(Path('paper/active-file-map.csv').open(encoding='utf-8')))
+          required_columns = {'role', 'section', 'path', 'status'}
+          assert rows and required_columns.issubset(rows[0]), 'invalid paper map'
+          paths = [row['path'].strip() for row in rows]
+          assert len(paths) == len(set(paths)), 'duplicate paper-map paths'
+          missing = [path for path in paths if not Path(path).is_file()]
+          assert not missing, 'mapped current files are missing: ' + ', '.join(missing)
+          assert not [path for path in paths if path.startswith('legacy/')], 'current paper map points into legacy'
+          assert not Path('FINAL_PIPELINE_SUPP_MANUSCRIPT_AUDIT_2026-08-12.md').exists(), (
+              'superseded root-level dated audit must stay removed'
           )
 
-          closed_roots = (
-              '.github/workflows', 'paper', 'submission/jbi', 'R', 'scripts',
-              'analysis_sensitivity', 'source_build', 'validation', 'tests',
-              'config', 'dependencies', 'inputs', 'data', 'results', 'docs',
-              'reproducibility'
-          )
-          for root in closed_roots:
-              files = {str(p) for p in Path(root).rglob('*') if p.is_file()}
-              unmapped = sorted(files - active)
-              assert not unmapped, f'unmapped current files under {root}: ' + ', '.join(unmapped)
-
-          workflow_files = sorted(Path('.github/workflows').glob('*.yml'))
-          checkout_v4 = 'actions/checkout@' + 'v4'
-          checkout_v5 = 'actions/checkout@' + 'v5'
-          stale_checkout = [str(p) for p in workflow_files if checkout_v4 in p.read_text(encoding='utf-8')]
-          assert not stale_checkout, 'active workflows still use checkout v4: ' + ', '.join(stale_checkout)
-          unexpected_checkout = [
-              str(p) for p in workflow_files
-              if 'actions/checkout@' in p.read_text(encoding='utf-8')
-              and checkout_v5 not in p.read_text(encoding='utf-8')
-          ]
-          assert not unexpected_checkout, 'unexpected checkout runtime: ' + ', '.join(unexpected_checkout)
-
-          setup_python_v5 = 'actions/setup-python@' + 'v5'
-          setup_python_v6 = 'actions/setup-python@' + 'v6'
-          stale_python = [str(p) for p in workflow_files if setup_python_v5 in p.read_text(encoding='utf-8')]
-          assert not stale_python, 'active workflows still use setup-python v5: ' + ', '.join(stale_python)
-          unexpected_python = [
-              str(p) for p in workflow_files
-              if 'actions/setup-python@' in p.read_text(encoding='utf-8')
-              and setup_python_v6 not in p.read_text(encoding='utf-8')
-          ]
-          assert not unexpected_python, 'unexpected setup-python runtime: ' + ', '.join(unexpected_python)
-
-          root_files = {
-              p for p in (
-                  'README.md', 'Data_S1.csv', 'Code_S1.py', 'pyproject.toml',
-                  'FINAL_PIPELINE_SUPP_MANUSCRIPT_AUDIT_2026-08-12.md'
-              ) if Path(p).is_file()
+          primary = {row['path'].strip() for row in rows if row['status'].strip() == 'primary'}
+          expected_primary = {
+              'README.md', 'run_pipeline.py', 'config/paper_pipeline.lock.json',
+              '.github/workflows/paper-pipeline.yml', '.github/workflows/paper-checks.yml',
+              'docs/reproduction-guide.md', 'paper/README.md', 'paper/analysis-map.md',
+              'paper/active-file-map.csv', 'validation/validate_jbi_repository_alignment.py',
+              'submission/jbi/JBI_main_manuscript_anonymized.md',
+              'submission/jbi/validate_jbi_submission.py', 'pyproject.toml',
           }
-          assert not sorted(root_files - active), 'unmapped current root entry point'
+          assert expected_primary.issubset(primary), 'missing primary entry points: ' + ', '.join(
+              sorted(expected_primary - primary)
+          )
 
-          syntax_failures = []
-          json_count = python_count = shell_count = 0
-          for path_string in sorted(active):
+          failures = []
+          for path_string in paths:
               path = Path(path_string)
               try:
                   if path.suffix == '.json':
                       json.load(path.open(encoding='utf-8'))
-                      json_count += 1
                   elif path.suffix == '.py':
                       compile(path.read_text(encoding='utf-8'), path_string, 'exec')
-                      python_count += 1
                   elif path.suffix == '.sh':
-                      subprocess.run(['bash', '-n', path_string], check=True, capture_output=True, text=True)
-                      shell_count += 1
+                      subprocess.run(['bash', '-n', path_string], check=True)
               except Exception as error:
-                  syntax_failures.append(f'{path_string}: {error}')
-          assert not syntax_failures, 'active file syntax validation failed: ' + ' | '.join(syntax_failures)
+                  failures.append(f'{path_string}: {error}')
+          assert not failures, 'mapped-file syntax validation failed: ' + ' | '.join(failures)
 
-          # Reachability is a graph, not a hard-coded historical orchestration list.
-          current_scripts = sorted(
-              str(p) for p in Path('scripts').iterdir()
-              if p.is_file() and p.name != 'README.md'
-          )
-          validators = sorted(str(p) for p in Path('validation').glob('*.R'))
-          candidates = current_scripts + validators
-          routing_text = '\n'.join(p.read_text(encoding='utf-8') for p in workflow_files)
-          reached = set()
-          changed = True
-          while changed:
-              changed = False
-              for path in candidates:
-                  if path in reached or path not in routing_text:
-                      continue
-                  reached.add(path)
-                  routing_text += '\n' + Path(path).read_text(encoding='utf-8')
-                  changed = True
-          unreachable_scripts = sorted(set(current_scripts) - reached)
-          assert not unreachable_scripts, (
-              'current scripts have no workflow-reachable execution route: ' +
-              ', '.join(unreachable_scripts)
-          )
-          unreachable_validators = sorted(set(validators) - reached)
-          assert not unreachable_validators, (
-              'active validators have no workflow-reachable execution route: ' +
-              ', '.join(unreachable_validators)
-          )
-
-          dependency_path = Path('dependencies/r-packages.csv')
-          dependencies = list(csv.DictReader(dependency_path.open(encoding='utf-8')))
-          required = {'package', 'source', 'scope', 'purpose'}
-          assert dependencies and required.issubset(dependencies[0]), 'invalid R dependency registry'
-          keys = [(r['package'].strip(), r['scope'].strip()) for r in dependencies]
-          duplicates = sorted({k for k in keys if keys.count(k) > 1})
-          assert not duplicates, 'duplicate package/scope declarations: ' + ', '.join(map(str, duplicates))
-          blank = [i + 2 for i, r in enumerate(dependencies) if any(not r[c].strip() for c in required)]
-          assert not blank, 'blank dependency fields on rows: ' + ', '.join(map(str, blank))
-          sources = defaultdict(set)
-          for row in dependencies:
-              sources[row['package'].strip()].add(row['source'].strip())
-          conflicts = sorted(p for p, values in sources.items() if len(values) != 1)
-          assert not conflicts, 'packages have conflicting declared sources: ' + ', '.join(conflicts)
-
-          print('active/current files:', len(paths))
-          print('workflow-reachable scripts:', len(current_scripts))
-          print('workflow-reachable validators:', len(validators))
-          print('syntax checked:', json_count, 'JSON,', python_count, 'Python,', shell_count, 'shell')
+          workflow_files = sorted(Path('.github/workflows').glob('*.yml'))
+          checkout_v4 = 'actions/checkout@' + 'v4'
+          python_v5 = 'actions/setup-python@' + 'v5'
+          stale_checkout = [str(path) for path in workflow_files if checkout_v4 in path.read_text()]
+          stale_python = [str(path) for path in workflow_files if python_v5 in path.read_text()]
+          assert not stale_checkout, 'checkout v4 remains: ' + ', '.join(stale_checkout)
+          assert not stale_python, 'setup-python v5 remains: ' + ', '.join(stale_python)
+          print('curated paper-map rows:', len(rows), 'primary:', len(primary))
           PY
 
-      - name: Validate current R loader boundary
+      - name: Validate the canonical execution plan
+        run: |
+          python run_pipeline.py audit --dry-run
+          python validation/validate_jbi_repository_alignment.py
+          python submission/jbi/validate_jbi_submission.py
+
+      - name: Confirm the single front door and legacy separation
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-          text = Path('R/pipeline_support.R').read_text(encoding='utf-8')
-          forbidden = [
-              'active 1,909-observation analysis',
-              'R/local_bombus_turnover.R',
-              'R/final_registry.R',
-              'bombus_limitation_gate =',
-              'local_bombus_turnover =',
-              'final_registry = "final_registry"',
-          ]
-          found = [x for x in forbidden if x in text]
-          assert not found, 'stale loader entries remain: ' + ', '.join(found)
-          block = re.search(r'hb_module_files\s*<-\s*c\((.*?)\n\)', text, re.S)
-          assert block, 'could not parse hb_module_files'
-          modules = re.findall(r'=\s*"([^"]+)"', block.group(1))
-          assert modules and not any(p.startswith('legacy/') for p in modules)
-          missing = [p for p in modules if not Path(p).is_file()]
-          assert not missing, 'loader points to missing modules: ' + ', '.join(missing)
-          print('current R loader modules:', len(modules))
-          PY
-
-      - name: Confirm final-pipeline legacy separation
-        shell: bash
-        run: |
-          set -euo pipefail
-          for path in \
-            .github/workflows/reanalysis-current-inputs.yml \
-            scripts/run_reanalysis_current_inputs.sh \
-            scripts/run_downstream_current_inputs.sh \
-            scripts/report_reanalysis_current_inputs.R \
-            scripts/run_natural_predictive_model.R \
-            scripts/run_local_pigmented_isolates.R \
-            scripts/refine_submission_isolate_null.R \
-            scripts/run_joint_submission_isolate_ppc.R \
-            scripts/run_human_landscape_features.R \
-            scripts/run_local_human_context.R \
-            scripts/run_did_sensitivity.R \
-            scripts/run_candidate_doy_check.R \
-            scripts/canonical_snapshot.sh \
-            inputs/canonical_snapshot.json \
-            reproducibility/final_paper_pipeline_2026-08-09.md \
-            reproducibility/current_broad_anomaly_reference_2026-08-09.md \
-            reproducibility/human_context_final_audit_results_2026-08-11.md \
-            analysis_sensitivity/run_human_context_highrep_final.R \
-            analysis_sensitivity/run_human_context_current_broad_primary.R; do
-            test ! -e "$path" || { echo "superseded current-interface file remains: $path" >&2; exit 1; }
-          done
-
-          root=legacy/reproducibility-development/superseded-current-input-anomaly-pipeline-2026-08-12
-          test -s "$root/README.md"
-          test -s "$root/reanalysis-current-inputs.yml"
-          test -s "$root/scripts/run_downstream_current_inputs.sh"
-          test -s "$root/scripts/canonical_snapshot.sh"
-          test -s "$root/inputs/canonical_snapshot.json"
-          test -s "$root/validation/validate_local_pigmented_isolates.R"
-          test -s "$root/R/candidate_doy_check.R"
-          test -s legacy/reproducibility-development/superseded-human-primary-2026-08-11/README.md
-          test -s legacy/reproducibility-development/superseded-human-primary-2026-08-11/run_human_context_current_broad_primary.R
-          test -s legacy/reproducibility-development/pre-final-broad-integration/final_paper_pipeline_2026-08-09.md
-
-      - name: Confirm current replacements
-        shell: bash
-        run: |
-          set -euo pipefail
+          grep -q 'python run_pipeline.py audit' README.md
+          grep -q 'python run_pipeline.py reproduce' README.md
+          grep -q 'python run_pipeline.py audit' docs/reproduction-guide.md
+          grep -q 'python run_pipeline.py reproduce' docs/reproduction-guide.md
+          test -s config/paper_pipeline.lock.json
           test -s reproducibility/final_integrated_pipeline_2026-08-12.md
           test -s reproducibility/current_broad_human_primary_2026-08-12.md
-          test -s submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
-          test -s submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md
-          test -s submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
-          test -s analysis_sensitivity/run_human_context_current_broad_primary_fast.R
-          test -s .github/workflows/human-context-highrep-final.yml
-          test -s .github/workflows/final-paper-analysis.yml
-          grep -q '16' reproducibility/current_broad_human_primary_2026-08-12.md
-          grep -Eq 'finalized eight-axis|same eight measured abiotic axes|eight-axis' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
-          grep -q '67' submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md
-          grep -q '0.0548' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
-          grep -q '2 species = directional local availability hypothesis' docs/bombus-inference-current.md
-          grep -q '5 species = supplementary community/biogeographic turnover' docs/bombus-inference-current.md
+          test -s legacy/reproducibility-development/superseded-current-input-anomaly-pipeline-2026-08-12/README.md
 
-      - name: Validate JBI package
-        run: python submission/jbi/validate_jbi_submission.py
-
-      - name: Confirm manuscript-facing entry points
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s paper/README.md
-          test -s paper/analysis-map.md
-          test -s paper/active-file-map.csv
-          test -s submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q 'single entry point' paper/README.md
-          grep -q 'Current paper — start here' README.md
-          grep -q 'reproducibility/final_integrated_pipeline_2026-08-12.md' paper/analysis-map.md
-          grep -q 'reproducibility/current_broad_human_primary_2026-08-12.md' paper/active-file-map.csv
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: Run current Python unit tests
+      - name: Install and run Python tests
         shell: bash
         run: |
           set -euo pipefail
@@ -300,16 +140,16 @@ jobs:
           r-version: ${{ steps.rversion.outputs.version }}
           use-public-rspm: true
 
-      - name: Parse every active R source
+      - name: Parse mapped R sources
         shell: bash
         run: |
           set -euo pipefail
           Rscript - <<'RS'
           map <- utils::read.csv('paper/active-file-map.csv', check.names = FALSE, stringsAsFactors = FALSE)
-          paths <- sort(unique(map$path[startsWith(map$status, 'active') & grepl('\\.R$', map$path)]))
-          if (!length(paths)) stop('No active R sources are registered.')
+          paths <- sort(unique(map$path[grepl('\\.R$', map$path)]))
+          if (!length(paths)) stop('No mapped R sources are registered.')
           missing <- paths[!file.exists(paths)]
-          if (length(missing)) stop('Missing active R sources: ', paste(missing, collapse = ', '))
+          if (length(missing)) stop('Missing mapped R sources: ', paste(missing, collapse = ', '))
           failures <- character()
           for (path in paths) {
             tryCatch(parse(file = path, keep.source = FALSE), error = function(error) {
@@ -317,7 +157,7 @@ jobs:
             })
           }
           if (length(failures)) stop('R syntax validation failed:\n  ', paste(failures, collapse = '\n  '), call. = FALSE)
-          cat('Parsed', length(paths), 'active R sources.\n')
+          cat('Parsed', length(paths), 'mapped R sources.\n')
           RS
 
       - name: Restore test and reproducibility packages

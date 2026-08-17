@@ -27,6 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          import re
           from pathlib import Path
 
           fit_path = Path('scripts/fit_broad_space_null_phenotype_excess.R')
@@ -41,7 +42,8 @@ jobs:
           )'''
           if fit.count(old) != 1:
               raise SystemExit(f'expected one malformed metadata block, found {fit.count(old)}')
-          fit_path.write_text(fit.replace(old, new, 1))
+          fit = fit.replace(old, new, 1)
+          fit_path.write_text(fit)
 
           wrapper_path = Path('scripts/run_broad_space_null_phenotype_excess_pipeline.R')
           wrapper = wrapper_path.read_text()
@@ -78,13 +80,29 @@ jobs:
           if (length(missing_scientific)) {'''
           if wrapper.count(old) != 1:
               raise SystemExit(f'expected one exception block, found {wrapper.count(old)}')
-          wrapper_path.write_text(wrapper.replace(old, new, 1))
+          wrapper = wrapper.replace(old, new, 1)
+          wrapper_path.write_text(wrapper)
 
           test_path = Path('tests/python/test_run_pipeline.py')
           tests = test_path.read_text()
-          test = '''\n\ndef test_broad_space_null_metadata_source_finishes_normally() -> None:\n    fit = (ROOT / "scripts/fit_broad_space_null_phenotype_excess.R").read_text()\n    wrapper = (ROOT / "scripts/run_broad_space_null_phenotype_excess_pipeline.R").read_text()\n    assert '"local adaptation"\\n  ),\\n  stringsAsFactors = FALSE\\n)' in fit\n    assert "known_metadata_error" not in wrapper\n    assert "tryCatch(" not in wrapper\n'''
+          test = '''
+
+          def test_broad_space_null_metadata_source_finishes_normally() -> None:
+              fit = (ROOT / "scripts/fit_broad_space_null_phenotype_excess.R").read_text()
+              wrapper = (ROOT / "scripts/run_broad_space_null_phenotype_excess_pipeline.R").read_text()
+              metadata_tail = fit.split("metadata <- data.frame(", 1)[1]
+              assert metadata_tail.count("stringsAsFactors = FALSE") == 1
+              assert re.search(
+                  r'value = c\\([\\s\\S]*"local adaptation"\\s*\\),\\s*stringsAsFactors = FALSE\\s*\\)',
+                  metadata_tail,
+              )
+              assert "known_metadata_error" not in wrapper
+              assert "tryCatch(" not in wrapper
+          '''
           if 'test_broad_space_null_metadata_source_finishes_normally' not in tests:
-              test_path.write_text(tests.rstrip() + test + '\n')
+              if 'import re\n' not in tests:
+                  tests = tests.replace('import json\n', 'import json\nimport re\n', 1)
+              test_path.write_text(tests.rstrip() + '\n' + test.strip() + '\n')
 
           workflow = Path('.github/workflows/fix-pr48-broad-metadata.yml')
           workflow.unlink()
@@ -95,13 +113,22 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          import re
           from pathlib import Path
+
           fit = Path('scripts/fit_broad_space_null_phenotype_excess.R').read_text()
           wrapper = Path('scripts/run_broad_space_null_phenotype_excess_pipeline.R').read_text()
+          metadata_tail = fit.split('metadata <- data.frame(', 1)[1]
+          assert metadata_tail.count('stringsAsFactors = FALSE') == 1
+          assert re.search(
+              r'value = c\([\s\S]*"local adaptation"\s*\),\s*stringsAsFactors = FALSE\s*\)',
+              metadata_tail,
+          )
           assert 'known_metadata_error' not in wrapper
           assert 'tryCatch(' not in wrapper
-          assert '"local adaptation"\n  ),\n  stringsAsFactors = FALSE\n)' in fit
           PY
+          python -m pip install pytest
+          python -m pytest tests/python/test_run_pipeline.py
           git diff --check
 
       - name: Commit fix

@@ -46,6 +46,8 @@ Merged PR #50 asks a different question from coefficient estimation: at comparab
 
 **Claim ceiling:** the spatial null contains unresolved geography. This is not FST/PST/QST and does not establish selection, local adaptation or a unique causal environmental mechanism. It is retained as a reproducible Broad sensitivity, not substituted for the current observation-level JBI model.
 
+The result is now reported directly in Main Methods 2.3, Results 3.2 and Discussion 4.2, with the complete design and Table S3.5 in Appendix S3.
+
 Details: [`../docs/broad_spatial_inertia_environment_tracking.md`](../docs/broad_spatial_inertia_environment_tracking.md).
 
 ## 3. Local boundaries reveal where Bombus opportunity may matter

@@ -22,6 +22,21 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Keep the added Abstract result concise
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/integrate_pr50_manuscript.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'Pigmentation state and intensity showed different geography, and a cross-fitted space-only sensitivity detected environmental alignment beyond spatial continuity for state but not intensity. Pigmentation was less likely in warmer climates, whereas intensity depended on Temperature PC1 × temperature seasonality and was lower in wetter and more rugged environments.'
+          new = 'Pigmentation state and intensity differed geographically; only state exceeded a cross-fitted spatial expectation along environmental difference. Pigmentation was less likely in warmer climates, whereas intensity depended on Temperature PC1 × temperature seasonality and was lower in wetter and more rugged environments.'
+          if text.count(old) != 1:
+              raise SystemExit('Expected one Abstract replacement payload in integration script')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply manuscript integration
         run: python scripts/integrate_pr50_manuscript.py
 

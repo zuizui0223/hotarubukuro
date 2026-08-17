@@ -1,25 +1,26 @@
 # Journal of Biogeography — submission checklist
 
-Checked against the current Wiley `Journal of Biogeography` Author Guidelines on **2026-08-12**.
+Checked against the current Wiley `Journal of Biogeography` Author Guidelines on **2026-08-17**.
 
 ## Article category
 
 - Target: **Research Article**.
 - Main headers: Introduction, Materials and Methods, Results, Discussion, Acknowledgements, References.
-- JBI asks authors to state the theoretical foundation and conceptual advance clearly; the submission framing is trait biogeography + scale-aware inference, with *Campanula punctata* as the focal system rather than the only point of interest.
+- JBI asks authors to state the theoretical foundation and conceptual advance clearly; the submission framing is **intraspecific trait biogeography + scale-dependent ecological processes**, with *Campanula punctata* as the focal system rather than the only point of interest.
+- The Main text now states four linked questions explicitly: (1) national quantitative trait geography, (2) broad environment and residual geography, (3) local focal-Bombus boundaries, and (4) natural-map-calibrated local departures followed by human context.
 - The ecological narrative treats floral colour polymorphism as a layered phenotype: broad environmental and residual geographical structure, local pollinator opportunity and contemporary human context are evaluated at different scales without being collapsed into one causal regression.
 - Repeatability is supported by detailed methods, versioned code, fixed seeds, checksum-locked artifacts and independent validators.
 
 ## Length and front matter
 
 - Main-text target: <=6,000 words.
-  - Current Introduction-through-Discussion count = **3,215 words** by repository validator.
+  - Current Introduction-through-Discussion count = **3,047 words** by repository validator.
 - Title: <=115 characters including spaces; no abbreviations or Latin binomial.
-  - Current title = 92 characters.
+  - Current title = 108 characters.
 - Running title: <40 characters.
-  - Current running title = 34 characters.
+  - Current running title = 26 characters.
 - Structured abstract: <=300 words under **Aim, Location, Taxon, Methods, Results, Main conclusions**.
-  - Current abstract = **287 words** by repository validator.
+  - Current abstract = **300 words** by repository validator.
 - Keywords: 6–10, alphabetical.
   - Current count = 8.
 
@@ -90,9 +91,13 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 
 ## Pre-submission scientific checks
 
-- Main text follows one biological sequence: national phenotype -> broad environment/space -> local focal-Bombus test -> calibrated local departures -> human follow-up.
+- The four Main questions are explicit and appear in the same order in Introduction, Methods, Results and Discussion.
+- Question 1 is a biogeographic data contribution: a new national quantitative intraspecific trait geography from a non-biodiversity image stream, not merely a platform benchmark.
+- Question 2 is the main broad biogeographic test: pigmentation state and intensity are compared against abiotic environment and residual continuous geography.
+- Question 3 changes scale for the biotic hypothesis rather than treating an environment-derived Bombus SDM as another national causal predictor.
+- Question 4 first tests whether apparent local departures are excessive under natural spatial variation, then examines human context only after candidate identities are fixed.
 - Discussion returns to the ecological meaning of anthocyanin pigmentation: possible physiological function, reproductive signalling, spatially varying costs/benefits and persistence of the polymorphism.
-- The final synthesis maps broad environmental associations to common-garden/fitness tests, residual spatial geography to population genomics, SDM correspondence to realized pollination measurements, and local departures to provenance/genomic follow-up.
+- The final synthesis states the JBI-level conceptual advance: one intraspecific geographical pattern can reflect processes operating at different scales, and those processes should be tested at biologically appropriate comparison scales.
 - Five-species community turnover remains Supporting Information.
 - High-elevation Bombus remains a negative control, not a second positive mechanism.
 - Main Bombus result is labelled weak/local and reports its median, sign proportion, scale attenuation and raw-support failure.

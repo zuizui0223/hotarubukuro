@@ -101,8 +101,9 @@ jobs:
       - name: Fit cross-fitted space null and test phenotype excess
         shell: bash
         run: |
-          # GitHub invokes bash with -e; disable it only while capturing the R runner's
-          # known metadata-only exit after all scientific tables have been written.
+          # The current R runner writes all scientific outputs before a known metadata-only
+          # row mismatch. Capture that exit explicitly, require every scientific output,
+          # then construct and validate metadata independently.
           set +e
           set -uo pipefail
           out=results/broad_space_null_phenotype_excess

@@ -35,15 +35,15 @@ Separate INLA-SPDE models show that pigmentation state and pigmented-only intens
 
 Details: Appendix S3.
 
-### 3. A pollinator hypothesis localized to the scale where it can be interpreted
+### 3. Local boundaries reveal where Bombus opportunity may matter
 
-Bombus SDMs were not inserted as another national causal predictor because they share environmental geography with flower colour.
+Pollinator-mediated selection is realized through local visits, pollen transfer and reproductive success, so the primary test was placed at the population-neighbourhood scale rather than on a national map. The 5-km radius was the finest predeclared scale with enough replicated transitions; it was not treated as an exact bumblebee foraging distance.
 
-Instead, 67 white-pigmented boundaries were fixed before Bombus values were read. The mean focal-Bombus contrast was +0.03590 at 5 km, while its median, sign balance, scale attenuation and raw-SDM sensitivity show substantial heterogeneity.
+Sixty-seven white-pigmented boundaries were fixed before Bombus values were read. Mean focal-Bombus support was +0.03590 higher on the pigmented side at 5 km. Its concentration in a subset of boundaries, attenuation at 10 and 25 km and absence along the intensity axis localize the plausible contribution to short-range maintenance of pigmentation state.
 
-The equal-elevation guardrail also distinguishes apparent highland Bombus overlap from an independent biotic mechanism.
+Only after that local result is established does the highland guardrail enter. Apparent national overlap with montane/alpine Bombus disappears when nearby endpoints are matched for elevation, showing why broad maps can confuse pollinators with shared mountain environment.
 
-**Scientific gain:** if Bombus contributes, the present data localize the hypothesis to short-range maintenance of pigmentation state, not national darkening.
+**Scientific gain:** the scale change identifies a small, state-specific local Bombus signal, explains why it would be blurred or confounded nationally, and supplies 67 sites for direct visitation and selection tests.
 
 Details: Appendices S4–S5.
 

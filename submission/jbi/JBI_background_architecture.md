@@ -1,93 +1,101 @@
-# Introduction plan
+# Introduction plan — one mystery, three revealed bottlenecks
 
-This file is an editing note for the Introduction. It is not part of the submitted paper.
+This file is an editorial guide. It keeps the Introduction focused on the biological mystery rather than presenting four analyses as parallel aims.
 
-## What the reader should understand
+## The single mystery
 
-By the end of the Introduction, a reader should know four things:
+> Why do white and pigmented flowers remain geographically structured within one species, and why does colour intensity vary again within pigmented flowers?
 
-1. flower colour can affect both plant physiology and pollinator attraction;
-2. white/pigmented state and colour intensity may be different biological traits;
-3. broad climate, population history and Bombus distributions share geography, so scale matters;
-4. the paper asks three linked questions rather than running one large predictor screen.
+The reader should enter the paper wanting one answer. Each attempted answer should expose a deeper layer that makes the next analysis necessary.
 
-## Paragraph order
+## The three bottlenecks
 
-### 1. Why within-species variation matters
+### 1. Measurement bottleneck
 
-Start with the biological problem. Do not start with YAMAP, INLA or data limitations.
+The polymorphism cannot be explained nationally until it can be measured nationally.
 
-Question: why does one species keep different flower colours across its range?
+The reveal is not simply that YAMAP supplies many records. It is that a seemingly continuous white-to-dark phenotype separates into:
 
-### 2. Why flower colour matters
+- whether visible pigmentation is present;
+- how intense colour is after pigmentation is present.
 
-Explain the two functions in ordinary words:
+Solving measurement changes the biological question.
 
-- anthocyanin pigmentation can change stress physiology and flower heat balance;
-- visible colour can change pollinator behaviour and reproductive success.
+### 2. Attribution bottleneck
 
-This creates the main adaptive idea: the cost-benefit balance of pigmentation may change across space.
+A national trait map makes the causal problem harder, not easier.
 
-### 3. Why state and intensity are separated
+Climate, terrain, residual population/history processes and Bombus SDMs share geography. A single national coefficient can therefore make shared space look like mechanism.
 
-Explain the biology before the statistics.
+The Broad model establishes the environmental and continuous spatial template. Its answer then creates the need to change scale for the pollinator hypothesis.
 
-- state asks whether visible pigmentation is present;
-- intensity asks how strong the colour is after pigmentation is present.
+### 3. Exception bottleneck
 
-The reader should understand why a process can affect one but not the other.
+The Broad natural template makes local exceptions visible, but appearance is not evidence.
 
-### 4. What environmental effects are plausible
+A large residual or striking point may still arise from structured natural variation. The local event must be defined biologically and replayed on natural predictive maps before human context is inspected.
 
-Give the specific physiological background:
+## Numbered Introduction structure
 
-- low temperature can increase floral anthocyanin expression;
-- aridity can be associated with stronger pigmentation;
-- dark petals can change floral heat load;
-- moisture, climatic variability and terrain can modify these effects.
+### 1.1 The geographical mystery of flower-colour polymorphism
 
-Do not imply that the study measured these mechanisms directly.
+Start with persistence of white and pigmented flowers, not with YAMAP or INLA.
 
-### 5. Why YAMAP is used
+Establish that flower colour can affect both physiology and reproduction, so its cost-benefit balance may change across space.
 
-Only now introduce the data source.
+### 1.2 The first hidden layer: state is not intensity
 
-Main point: we needed many georeferenced flowers, so we built the phenotype ourselves from author-screened hiking photographs.
+Explain the two-part phenotype biologically before mentioning mixture models.
 
-Keep platform benchmarking and image-QC detail in Supporting Information.
+The reader should anticipate that a factor can affect pigment ON/OFF without controlling progressive darkening.
 
-### 6. Why the analysis changes scale
+### 1.3 Solving measurement reveals the attribution problem
 
-Explain the confounding problem in simple terms.
+Introduce YAMAP as the discovery device.
 
-Bombus SDMs are built from environmental data. A national flower-colour/Bombus overlap can therefore reflect shared climate. The solution is not another coefficient. The solution is to test Bombus at nearby colour boundaries.
+Then turn the apparent solution into the next problem: a dense national map reveals shared geography among candidate processes.
 
-### 7. Why local departures come last
+### 1.4 From broad geography to local boundaries and local exceptions
 
-A surprising point on a map is not automatically a new biological process.
+Explain why Bombus is tested at nearby boundaries and why human context comes only after natural calibration.
 
-Define local departures against the natural model first. Look at human context only after candidate sites are fixed.
+The transition should feel inevitable:
 
-### 8. End with the three predictions
+`national map -> spatial confounding -> local boundary -> calibrated local exception`
 
-Use short, directional predictions.
+### 1.5 Predictions
 
-1. pigmentation should be more common in cooler environments, while intensity may have a different environmental pattern;
-2. local pigmented sides should have higher focal-Bombus habitat opportunity if bumblebees help maintain pigmentation;
-3. local departures should be more frequent than the natural model predicts if an extra process is needed.
+Use three dependent predictions, not four independent projects.
+
+1. state and intensity should show different broad geography;
+2. focal Bombus support should increase locally from white to pigmented if pollinators help maintain visible pigmentation;
+3. departure events should exceed natural-map expectations if an additional process is required.
 
 Human context is a follow-up to prediction 3.
 
+## Required emotional/intellectual movement
+
+The Introduction should produce this sequence in the reader:
+
+1. “Why does the polymorphism persist?”
+2. “We could not even see it quantitatively at national scale.”
+3. “Now that we can see it, the phenotype itself splits in two.”
+4. “Now that the map exists, broad overlap is confounded.”
+5. “So the study must zoom in.”
+6. “Even local exceptions must first survive a natural null.”
+
+The attraction is discovery, not methodological self-defence.
+
 ## Plain-English rule
 
-Each paragraph should do one job.
+Use concrete verbs and make each paragraph complete one causal step.
 
 Prefer:
 
-> Pigmentation was less common in warmer climates.
+> Making the national pattern visible did not solve the causal problem; it exposed it.
 
 over:
 
-> The broad-scale geographical organization of pigmentation state showed a negative association with thermal conditions.
+> The resulting enhanced phenotype resolution necessitated an additional scale-aware attribution framework.
 
-If a sentence mainly defends a method, move the detail to Supporting Information unless the defence is needed to understand the biological inference.
+Methods may be sophisticated. The prose should make the necessity feel obvious.

@@ -1,114 +1,117 @@
-# Whole-paper narrative and writing rules
+# Whole-paper narrative — reveal one deeper layer at a time
 
-This file is an editorial guide. It keeps the manuscript readable and stops the analysis history from taking over the biology.
+This file is an editorial guide. The paper should read as one ecological investigation, not as four analyses collected under one title.
 
-## The story in four acts
+## The central rule
 
-### Act 1. Make the polymorphism visible
+Every stage must do two things:
 
-We build a national quantitative flower-colour dataset from YAMAP photographs.
+1. answer the question created by the previous stage;
+2. reveal the confounding layer that makes the next stage necessary.
 
-Payoff: white/pigmented state and colour intensity can be studied separately.
+The scientific contribution is not the number of models. It is the irreversible sequence of comparisons.
 
-### Act 2. Ask how environment and geography relate to the two colour traits
+## Prologue — The hidden national polymorphism
 
-State and intensity show different broad patterns.
+The reader begins with one mystery: why do white and pigmented flowers persist across Japan?
 
-Payoff: flower colour is not one simple white-to-dark axis. Thermal and moisture patterns generate physiological hypotheses; remaining spatial structure generates population-genetic hypotheses.
+The obstacle is that the quantitative national phenotype does not yet exist.
 
-### Act 3. Zoom in for the Bombus question
+YAMAP is introduced as the discovery device, not as a database benchmark. Author screening and deterministic phenotyping turn recreational photographs into a national trait geography.
 
-We test bumblebee habitat opportunity at nearby white-pigmented boundaries rather than in the national environmental model.
+**Reveal:** the apparent white-to-dark gradient is not one phenotype. Pigmentation state and pigmented-only intensity can be separated.
 
-Payoff: the signal is weak and local. If it is biological, it fits maintenance of a pigmented state better than progressive darkening.
+## Act I — The first map gives two answers, not one
 
-### Act 4. Ask whether local exceptions need another explanation
+Broad environmental and spatial models test the two responses separately.
 
-We define pigmented departures without human variables and compare them with 10,000 natural maps.
+**Answer:** state and intensity show different environmental geography, and substantial coherent space remains after measured environment.
 
-Payoff: 16 observed departures are not unusually common. Human context therefore remains a provenance follow-up, not the main explanation of the national pattern.
+**Reveal:** climate matters, but the national pattern still contains unresolved geography. A national Bombus overlap would be difficult to interpret because the SDMs share environmental space with flower colour.
 
-## What the reader should remember
+The Broad analysis therefore does not close the story. It creates the need to zoom in.
 
-The final biological model is simple:
+## Act II — The tempting pollinator explanation weakens under magnification
 
-- climate may change the physiological value or expression of pigmentation;
-- local pollinators may change its reproductive value;
-- population history can move or preserve variants;
-- human movement may occasionally modify local patterns.
+The study moves from national maps to independently fixed local white-pigmented boundaries.
 
-The paper does not prove all four mechanisms. It narrows where each one should be tested next.
+**Apparent answer:** mean focal-Bombus support is higher on pigmented sides at 5 km.
 
-## Main-text rule
+**Closer inspection:** the median is near zero, fewer than half the pairs are positive, the signal fades with scale and raw SDM values do not reproduce it.
 
-For each section, keep only:
+A second, visually stronger clue—montane Bombus overlap—disappears after elevation is controlled locally.
 
-1. the question;
-2. the minimum method needed to understand the comparison;
-3. the main result;
-4. what the result means biologically;
-5. what it does not show;
-6. the next direct test.
+**Reveal:** broad map agreement is not the mechanism. If pollinators matter, they are more likely to modify local maintenance of visible pigmentation than to create national darkening.
 
-Put tuning grids, full sensitivity families, VIF detail, artifact provenance and most negative controls in Supporting Information.
+## Act III — The apparent anomalies return to nature
 
-## Plain-English style
+The Broad template now allows a biological local exception to be defined: a pigmented cell among nearby environmentally similar white cells.
 
-Use short sentences and concrete verbs.
+**Apparent answer:** 16 sites look exceptional.
 
-Good:
+**Reversal:** the same event occurs often enough in 10,000 natural predictive maps that the observed frequency is not unusual.
 
-> We selected the pairs before reading Bombus values.
+**Reveal:** spatially structured nature can generate striking local exceptions. Human context may still leave a provenance clue, but it cannot be introduced as the cause of the sites.
 
-Avoid:
+## Ending — One spatially changing balance
 
-> Pair identification was undertaken under a response-blind and exposure-blind selection framework.
+The story must converge on one ecological model:
 
-Good:
+- climate changes the physiological expression, benefit and cost of pigmentation;
+- population history preserves or moves variants across regions;
+- local pollinator opportunity may modify the reproductive value of a visible pigmented state;
+- human movement may occasionally add a local source.
 
-> The spatial field may contain population history, but it is not a genetic map.
+The polymorphism can persist because the balance changes across space. Neither white nor pigmented flowers need to be favoured everywhere.
 
-Avoid:
+## Macro-to-micro final shot
 
-> The latent spatial component should be interpreted as an agnostic residual biogeographic structure with a bounded inferential ceiling.
+The ending is not “more work is needed.” Each unresolved layer points to a direct test:
+
+- thermal/moisture geography -> common garden, reciprocal transplant, pigment physiology and fitness;
+- residual spatial geography -> ancestry, isolation by distance and admixture;
+- local Bombus boundaries -> visitation, stigma contact, pollen deposition and seed set;
+- 16 departure sites -> vouchers, planting history and genomic provenance.
+
+The macro analysis has produced the sampling design for the next causal study.
+
+## Numbered manuscript structure
+
+The submitted paper uses ordinary scientific numbering:
+
+- 1. Introduction
+- 2. Materials and Methods
+- 3. Results
+- 4. Discussion
+
+Subsections describe biological topics, not “Question 1–4.” The movie acts are the logical movement inside the prose.
 
 ## Paragraph rule
 
-Do not make every short idea its own paragraph. A paragraph should carry one **complete argument** from setup to evidence to meaning.
+A paragraph should carry one complete movement:
 
-Good paragraph shape:
+`setup -> evidence -> changed interpretation -> next implication`
 
-> question or claim -> evidence -> biological meaning -> limit or next test
+Keep sentences direct, but do not split each sentence into a separate paragraph. Most Main-text paragraphs should be roughly 90–180 words.
 
-Keep sentences short, but merge adjacent paragraphs when they are parts of the same argument. Split only when the biological topic, evidence type or inferential job changes. As a rough guide, most Main-text paragraphs should fall around 90-180 words rather than a series of 40-60-word fragments.
+## Transition test
 
-The fast-reader test applies to paragraph openings, not to paragraph count. A reader should be able to scan the first sentence of each paragraph without the prose feeling like a list of disconnected claims.
+At the end of every major subsection, ask:
 
-## Phrases to use sparingly
+> Does the reader understand why the next subsection had to exist?
 
-These are not forbidden, but repeated use makes the text sound generated:
+If not, the paper is still a list.
 
-- Taken together
-- Importantly
-- Notably
-- More broadly
-- This framework
-- This architecture
-- This distinction matters
-- It is worth noting
-- therefore / thus at the start of every paragraph
+## Fast-reader test
 
-Prefer to state the result directly.
+A reader who reads only:
 
-## ADHD / fast-reader test
+- the title;
+- numbered headings;
+- the first and last sentence of each paragraph;
+- Figures 1–4;
+- Sections 4.5–4.6
 
-A reader who only reads:
+should be able to retell the investigation as:
 
-- section headings;
-- the first sentence of each paragraph;
-- Figure 1-4;
-- the final Discussion section
-
-should still understand the whole paper.
-
-If that reader cannot explain the story, the prose is still too dependent on transitions or technical detail.
+> reveal the phenotype -> split the geography -> distrust broad overlap -> zoom to local boundaries -> calibrate apparent exceptions -> design direct tests.

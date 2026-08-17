@@ -1,106 +1,94 @@
 # Current paper — start here
 
-This is the **single entry point for the biology** of the current paper. The single execution entry is [`../run_pipeline.py`](../run_pipeline.py); exact scripts, evidence files and artifact IDs are mapped in [`analysis-map.md`](analysis-map.md).
+This is the **single entry point** for the biology of the current paper. For exact scripts, evidence files and artifact IDs, use [`analysis-map.md`](analysis-map.md).
 
-## The biological question
+## The mystery
 
-Why do white and pigmented flowers of *Campanula punctata* vary across Japan?
+Why do white and pigmented flowers of *Campanula punctata* remain geographically structured across Japan?
 
-The paper tests whether different parts of flower colour respond to different ecological processes. It separates:
+The paper does not treat climate, population history, pollinators and human context as four parallel predictor families. It starts with one hidden trait pattern and moves inward each time the previous answer reveals a new ambiguity.
 
-- **pigmentation state:** white-like versus visibly pigmented;
-- **colour intensity:** how strong the visible colour is after pigmentation is present.
+## First reveal — the national phenotype had to be built
 
-The study then asks four questions.
+We constructed a quantitative flower-colour dataset from author-screened YAMAP hiking photographs.
 
-## 1. Can we measure the polymorphism across Japan?
-
-We built the dataset from YAMAP hiking photographs.
-
-Every retrieved candidate was screened by the authors. We checked the taxon, focal flower, usable petal region, coordinates and duplicate images before extracting colour.
+Every retrieved candidate was checked for taxon identity, focal flower, usable petal region, coordinates and duplicate images before colour extraction.
 
 **Current analysis:** 1,922 observations in 1,305 1-km cells; 966 white-like and 956 pigmented.
 
-**Why this matters:** the study does not rely on an existing trait database. The national quantitative phenotype was constructed for this project.
+The key discovery is that flower colour contains two responses:
+
+- **pigmentation state:** whether visible pigmentation is present;
+- **conditional intensity:** how strong colour is after pigmentation is present.
+
+A single white-to-dark axis would have hidden the rest of the story.
 
 Details: Appendices S1-S2.
 
-## 2. How do environment and geography relate to flower colour?
+## Second reveal — the two responses have different broad geography
 
-We fitted separate spatial models for pigmentation state and colour intensity.
+Pigmentation was less likely in warmer climates. Among pigmented flowers, intensity depended on Temperature PC1 × temperature seasonality and was lower in wetter and more rugged environments.
 
-Main result:
+Substantial continuous spatial structure remained after measured environment.
 
-- pigmentation was less likely in warmer climates;
-- among pigmented flowers, intensity depended on Temperature PC1 × temperature seasonality and was lower in wetter and more rugged environments;
-- substantial spatial structure remained after measured environment.
-
-**What this means:** state and intensity are not one simple white-to-dark ecological axis.
-
-**What it does not mean:** the models do not prove local adaptation or identify the residual spatial field as population history.
+This answers one question and creates the next. Climate is related to flower colour, but it does not exhaust the geography; the remaining field may contain unmeasured environment, population structure, dispersal and sampling geography.
 
 Details: Appendix S3.
 
-## 3. Do bumblebees help explain local white-pigmented boundaries?
+## Third reveal — the attractive pollinator map weakens when we zoom in
 
-We did not add Bombus SDMs to the national environmental model. Those SDMs are themselves built from environmental data, so national overlap can be hard to interpret.
+Bombus SDMs are themselves built from environmental geography. A national overlap with flower colour could therefore mistake shared climate for a biotic mechanism.
 
-Instead, we selected nearby white-pigmented boundaries first and read Bombus support only afterwards.
+We first fixed 67 non-overlapping white-pigmented boundaries within 5 km, then read focal-Bombus support.
 
-**Primary design:** 67 non-overlapping pure transitions within 5 km.
+**Result:** mean contrast +0.03590; median -0.00277; 49.3% positive pairs; P=0.02716; q=0.08148 across the three main scales. The effect fades at 10 and 25 km and is not reproduced by raw SDM support.
 
-**Result:** mean focal-Bombus contrast +0.03590; median -0.00277; 49.3% positive pairs; P=0.02716; q=0.08148 across the three main scales.
+A stronger-looking overlap with montane Bombus also disappears when nearby endpoints are constrained to similar elevation.
 
-**Interpretation:** weak local correspondence only. If it is biological, it fits local maintenance of a pigmented state better than progressive darkening.
+**Interpretation:** broad map agreement is not the mechanism. If the weak focal signal is biological, it fits local maintenance of a pigmented state better than progressive darkening.
 
 Details: Appendices S4-S5.
 
-## 4. Are local pigmented departures unusual, and do they have a human context?
+## Fourth reveal — apparent anomalies first belong to nature
 
-We defined a local event before looking at any human variable: a pigmented cell surrounded by at least three nearby, environmentally similar white cells.
+We defined a local event before reading human variables: a pigmented cell surrounded by at least three nearby, environmentally similar white cells.
 
-The same detector was replayed on 10,000 predictive maps.
+The same detector was replayed on 10,000 natural predictive maps.
 
 **Result:** 16 observed departures; count P=0.27897; candidate-fraction P=0.12609.
 
-So the observed number is not unusual under the natural model.
+The sites look unusual, but their frequency is compatible with the natural model.
 
-Only then did we test human context. Population exposure within 5 km was the strongest feature (+0.06744; directional P=0.00800), but global maxT FWER P=0.05479.
+Only then was human context tested. Population exposure within 5 km was the strongest feature (+0.06744; directional P=0.00800), but global maxT FWER P=0.05479.
 
-**Interpretation:** these sites are good provenance targets, not demonstrated anthropogenic anomalies.
+**Interpretation:** human context leaves a provenance clue, not an origin answer.
 
 Details: Appendix S6.
 
-## The ecological story
+## The ecological answer
 
-The working model is simple:
+The layers converge on one working model:
 
-1. climate changes the physiological context of anthocyanin pigmentation;
-2. local pollinators may change the reproductive value of visible pigmentation;
-3. population history can preserve or move colour variants across space;
-4. human movement may occasionally add a local source.
+- climate changes the physiological expression, benefit and cost of anthocyanin pigmentation;
+- population history preserves or moves colour variants across regions;
+- local pollinator opportunity may modify the reproductive value of a visible pigmented state;
+- human movement may occasionally add a local source.
 
-The current data do not prove those mechanisms. They tell us where to test them next.
+White and pigmented flowers can persist together if that balance changes across space. The current data identify this adaptive hypothesis without claiming to prove selection.
 
-- temperature/moisture gradients → common-garden and reciprocal-transplant experiments;
-- residual spatial geography → population genomics, ancestry and admixture;
+## The next causal layer
+
+The national analysis now specifies where each mechanism should be tested directly:
+
+- temperature/moisture gradients → common-garden and reciprocal-transplant experiments, pigment physiology and fitness;
+- residual spatial geography → ancestry, isolation by distance and admixture;
 - local Bombus boundaries → visitation, pollen transfer and seed set;
 - 16 departures → field history, vouchers and genomic provenance.
-
-## Reproduce or audit the paper
-
-```bash
-python run_pipeline.py audit
-python run_pipeline.py reproduce
-```
-
-`audit` verifies manuscript/repository/evidence-lock alignment. `reproduce` reruns the accepted downstream analyses and rebuilds figures and the review bundle from checksum-locked evidence. Live source refresh is intentionally separate.
 
 ## What to read next
 
 - **Exact result → evidence mapping:** [`analysis-map.md`](analysis-map.md)
-- **Canonical reproduction contract:** [`../docs/reproduction-guide.md`](../docs/reproduction-guide.md)
-- **Pipeline lock:** [`../config/paper_pipeline.lock.json`](../config/paper_pipeline.lock.json)
+- **How to rerun each stage:** [`../docs/reproduction-guide.md`](../docs/reproduction-guide.md)
 - **Current manuscript:** [`../submission/jbi/JBI_main_manuscript_anonymized.md`](../submission/jbi/JBI_main_manuscript_anonymized.md)
 - **Supporting Information:** [`../submission/jbi/supporting/`](../submission/jbi/supporting/)
 - **Data dictionary:** [`../docs/data-s1-dictionary.md`](../docs/data-s1-dictionary.md)

@@ -115,6 +115,24 @@ assert_close(
   "state posterior-predictive p"
 )
 assert_close(
+  intensity$observed_contrast,
+  -0.047179,
+  5e-4,
+  "intensity observed contrast"
+)
+assert_close(
+  intensity$space_null_median,
+  -0.001287,
+  5e-4,
+  "intensity space-null median"
+)
+assert_close(
+  intensity$phenotype_excess_over_space_null,
+  -0.045891,
+  5e-4,
+  "intensity excess over spatial null"
+)
+assert_close(
   intensity$posterior_predictive_p_upper,
   0.87226,
   5e-4,

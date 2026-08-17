@@ -51,7 +51,7 @@ The stored `q025`/`q975` values are a central 95% null interval. They are not th
 
 ## Executed result
 
-The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. Initial Actions runs stopped only after the scientific result tables had already been written because of a metadata-table row-count bug; the result values below were recovered directly from the uploaded scientific artifact. The current workflow explicitly requires all scientific outputs, reconstructs metadata separately and validates the output contract before the run can succeed.
+The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. The first completed scientific artifact exposed a metadata-table row-count bug only after the scientific result tables had been written; the result values below were recovered directly from that artifact and reproduced on subsequent fits. The workflow now requires all scientific outputs, reconstructs metadata independently and validates the output contract.
 
 Frozen input:
 
@@ -99,9 +99,7 @@ Rscript scripts/fit_broad_space_null_phenotype_excess.R \
   --geo-bins=5
 ```
 
-GitHub Actions entry point:
-
-`.github/workflows/broad-spatial-inertia-environment-tracking.yml`
+GitHub Actions entry point: `.github/workflows/broad-spatial-inertia-environment-tracking.yml`.
 
 Primary outputs:
 

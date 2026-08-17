@@ -4,6 +4,12 @@ Target article type: **Research Article**.
 
 This folder contains the current manuscript, Supporting Information, figures and submission checks.
 
+## JBI fit
+
+The paper is framed as **intraspecific trait biogeography**. Its general question is how one geographical phenotype can reflect processes acting at different spatial scales. Flower colour is the focal trait because anthocyanin pigmentation can link plant physiology with pollinator signalling, while residual geography and contemporary human movement provide additional spatial processes to test.
+
+The conceptual advance is not that many predictors were analysed together. It is that each process is tested at the comparison scale where it has the clearest biological meaning.
+
 ## Read in this order
 
 1. `JBI_main_manuscript_anonymized.md` — the paper.
@@ -21,40 +27,38 @@ Other files support the submission process:
 
 ## The paper in four questions
 
-### 1. What is the flower-colour phenotype?
+### 1. National trait geography
 
-We built a national dataset from author-screened YAMAP hiking photographs.
+Can a recreational image stream reveal a quantitative, range-wide flower-colour polymorphism?
 
-The phenotype has two parts:
+We built the dataset from author-screened YAMAP hiking photographs and separated:
 
 - white-like versus pigmented state;
 - colour intensity among pigmented flowers.
 
-### 2. How do environment and geography relate to those two traits?
+This is the new data layer that makes the later biogeographic tests possible.
 
-Pigmentation is less common in warmer climates.
+### 2. Broad environment and residual geography
 
-Colour intensity follows a different pattern involving temperature seasonality, moisture and terrain.
+Do pigmentation state and intensity show the same broad geography?
 
-A strong spatial pattern remains after measured environment.
+No. Pigmentation is less common in warmer climates, while intensity follows a different pattern involving temperature seasonality, moisture and terrain. Strong spatial structure remains after measured environment.
 
-### 3. Do local white-pigmented boundaries line up with focal bumblebee habitat opportunity?
+### 3. Local focal-pollinator opportunity
 
-Only weakly.
+At nearby white-pigmented boundaries, is focal-bumblebee habitat support higher on the pigmented side?
 
-The main test uses 67 fixed local boundaries. The signal is small, fragile and not treated as evidence of pollinator-mediated selection.
+Only weakly. The main test uses 67 fixed local boundaries. The signal is small, scale-sensitive and not treated as evidence of pollinator-mediated selection.
 
-### 4. Are local pigmented departures unusual?
+### 4. Local departures and human context
 
-No.
+Are pigmented cells surrounded by environmentally similar white cells more frequent than expected under the fitted natural geography, and do independently selected departures show distinctive human context?
 
-Sixteen observed departures are compatible with 10,000 natural predictive maps.
-
-Human context is tested only after those sites are fixed. Short-range population exposure is the strongest feature, but global maxT FWER P=0.05479.
+No excess is detected. Sixteen observed departures are compatible with 10,000 natural predictive maps. Human context is tested only after those sites are fixed; short-range population exposure is the strongest feature, but global maxT FWER P=0.05479.
 
 ## What stays in Supporting Information?
 
-Supporting Information keeps the details that are important for audit but would slow the Main story.
+Supporting Information keeps details that are important for audit but would slow the Main story.
 
 - **S1:** YAMAP/public-database benchmark and sampling process
 - **S2:** image phenotyping, mixture model and QC
@@ -65,9 +69,7 @@ Supporting Information keeps the details that are important for audit but would 
 
 ## Writing rule
 
-The Main text uses short, direct English.
-
-A paragraph should answer one question. Technical safeguards stay in Supporting Information unless the reader needs them to understand the biological result.
+The Main text uses short, direct English, but paragraphs are not fragments. One paragraph should carry one complete argument: setup -> evidence -> biological meaning -> limit or next test.
 
 Editorial guides:
 

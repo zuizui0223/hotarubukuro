@@ -2,7 +2,7 @@
 
 Dear Senior Editors,
 
-We submit our Research Article, “From broad geography to local boundaries: flower-colour biogeography from hiking photographs.” We built a national quantitative flower-colour dataset from author-screened hiking photographs and used it to ask how climate, spatial history and local bumblebee opportunity relate to one intraspecific polymorphism. Pigmentation state and colour intensity showed different geography, while the Bombus signal was weak and local. The study shows how macroecological trait maps can identify where physiological, pollination and genomic mechanisms should be tested next.
+We submit our Research Article, “From broad geography to local boundaries: biogeography of flower-colour polymorphism from hiking photographs.” The paper addresses a biogeographic problem: how one intraspecific phenotype can be structured by processes acting at different scales. Using a national quantitative flower-colour dataset built from author-screened hiking photographs, we test four linked questions: national trait geography, broad environment and residual space, local bumblebee opportunity, and natural-map-calibrated local departures followed by human context. The conceptual advance is scale-matched inference for intraspecific trait biogeography.
 
 Sincerely,
 

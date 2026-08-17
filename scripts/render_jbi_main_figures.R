@@ -147,8 +147,8 @@ fig3b <- fig3b +
   ggplot2::labs(title = "Fixed boundaries are environmentally local")
 fig3c <- fig3c +
   ggplot2::labs(
-    title = "Local focal-Bombus signal at 5 km",
-    subtitle = "Mean support is higher on pigmented sides; boundary responses vary"
+    title = "Focal-Bombus support is higher at 5 km",
+    subtitle = "Mean +0.036; boundary responses vary"
   )
 sensitivity$display_p <- sprintf("%.3f", sensitivity$signflip_one_sided_p)
 sensitivity$label_x <- sensitivity$radius_km + ifelse(
@@ -196,8 +196,8 @@ fig3d <- ggplot2::ggplot(
     expand = ggplot2::expansion(mult = c(0.12, 0.24))
   ) +
   ggplot2::labs(
-    title = "Local correspondence is strongest at 5 km",
-    subtitle = "Point labels are one-sided sign-flip P values",
+    title = "Correspondence peaks at 5 km",
+    subtitle = "Labels: one-sided sign-flip P",
     x = "Radius (km)",
     y = "Mean signed contrast"
   ) +

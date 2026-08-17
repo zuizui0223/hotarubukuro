@@ -160,4 +160,8 @@ The same detector is applied to 10,000 predictive maps.
 - current PR #51 four-figure bundle: artifact `9291438085`, SHA-256 `51dde9026c4348205c494db3594414c0f099166f8878dc1c82edbb173f9e2848`
 - YAMAP benchmark: run/artifact `31289927019` / `9031041034`; provider-overlap audit `31290095532` / `9031085975`
 
-Integrated cross-file validation is run by `.github/workflows/final-paper-analysis.yml`. Canonical execution and all active locks are in `run_pipeline.py` and `config/paper_pipeline.lock.json`.
+Integrated cross-file validation is run by `.github/workflows/final-paper-analysis.yml`.
+
+Canonical integrated lock: `reproducibility/final_integrated_pipeline_2026-08-12.md`.
+
+Canonical execution and all active locks are in `run_pipeline.py` and `config/paper_pipeline.lock.json`.

@@ -6,14 +6,14 @@ This folder contains the current manuscript, Supporting Information, figures and
 
 ## JBI fit
 
-The paper is framed as **intraspecific trait biogeography**. Its general question is how one geographical phenotype can reflect processes acting at different spatial scales. Flower colour is the focal trait because anthocyanin pigmentation can link plant physiology with pollinator signalling, while residual geography and contemporary human movement provide additional spatial processes to test.
+The paper is framed as **intraspecific trait biogeography**. Its central mystery is why white and pigmented flowers remain geographically structured within one species when environment, history, pollinators and human movement share space.
 
-The conceptual advance is not that many predictors were analysed together. It is that each process is tested at the comparison scale where it has the clearest biological meaning.
+The conceptual advance is not that many predictor families were analysed. It is that each answer reveals the next confounding layer, so the comparison unit changes as the explanation becomes more local.
 
 ## Read in this order
 
 1. `JBI_main_manuscript_anonymized.md` — the paper.
-2. `JBI_main_figure_captions.md` — the four-figure story.
+2. `JBI_main_figure_captions.md` — the four-figure visual story.
 3. `supporting/` — technical detail and robustness.
 4. `JBI_submission_checklist.md` — journal and portal checks.
 
@@ -25,40 +25,28 @@ Other files support the submission process:
 - `JBI_sdm_model_building_checklist.md`
 - `validate_jbi_submission.py`
 
-## The paper in four questions
+## The paper is one investigation
 
-### 1. National trait geography
+1. **Reveal the phenotype.** YAMAP images make a national quantitative polymorphism visible and separate pigmentation state from intensity.
+2. **Split the geography.** State and intensity show different environmental patterns, while substantial unresolved space remains.
+3. **Distrust the broad overlap.** The Bombus hypothesis moves to local boundaries; strong-looking highland overlap disappears, and the focal signal is weak and local.
+4. **Calibrate the apparent exceptions.** Sixteen departures look striking but remain compatible with natural predictive maps; human context is a later provenance clue.
+5. **Converge on one model.** Physiological value, population history, local reproductive benefit and occasional human movement can contribute at different spatial scales.
 
-Can a recreational image stream reveal a quantitative, range-wide flower-colour polymorphism?
+Each answer creates the need for the next comparison.
 
-We built the dataset from author-screened YAMAP hiking photographs and separated:
+## Numbered Main structure
 
-- white-like versus pigmented state;
-- colour intensity among pigmented flowers.
+- **1. Introduction** — the mystery and why each confounding layer requires a new scale.
+- **2. Materials and Methods** — 2.1–2.6, from YAMAP sampling to inferential order.
+- **3. Results** — 3.1–3.5, from trait discovery to the human-context clue.
+- **4. Discussion** — 4.1–4.6, from the first reveal to direct causal tests.
 
-This is the new data layer that makes the later biogeographic tests possible.
-
-### 2. Broad environment and residual geography
-
-Do pigmentation state and intensity show the same broad geography?
-
-No. Pigmentation is less common in warmer climates, while intensity follows a different pattern involving temperature seasonality, moisture and terrain. Strong spatial structure remains after measured environment.
-
-### 3. Local focal-pollinator opportunity
-
-At nearby white-pigmented boundaries, is focal-bumblebee habitat support higher on the pigmented side?
-
-Only weakly. The main test uses 67 fixed local boundaries. The signal is small, scale-sensitive and not treated as evidence of pollinator-mediated selection.
-
-### 4. Local departures and human context
-
-Are pigmented cells surrounded by environmentally similar white cells more frequent than expected under the fitted natural geography, and do independently selected departures show distinctive human context?
-
-No excess is detected. Sixteen observed departures are compatible with 10,000 natural predictive maps. Human context is tested only after those sites are fixed; short-range population exposure is the strongest feature, but global maxT FWER P=0.05479.
+Acknowledgements, References and declarations remain unnumbered.
 
 ## What stays in Supporting Information?
 
-Supporting Information keeps details that are important for audit but would slow the Main story.
+Supporting Information keeps details that are important for audit but would interrupt the unfolding Main argument.
 
 - **S1:** YAMAP/public-database benchmark and sampling process
 - **S2:** image phenotyping, mixture model and QC
@@ -69,18 +57,22 @@ Supporting Information keeps details that are important for audit but would slow
 
 ## Writing rule
 
-The Main text uses short, direct English, but paragraphs are not fragments. One paragraph should carry one complete argument: setup -> evidence -> biological meaning -> limit or next test.
+A paragraph should complete one movement:
+
+`setup -> evidence -> changed interpretation -> next implication`
+
+The reader should always understand why the next subsection had to exist. Technical safeguards stay in Supporting Information unless they change the biological inference.
 
 Editorial guides:
 
-- `JBI_background_architecture.md` — Introduction order
-- `JBI_narrative_dependency_architecture.md` — whole-paper story and plain-English rules
+- `JBI_background_architecture.md` — the three revealed bottlenecks in the Introduction
+- `JBI_narrative_dependency_architecture.md` — whole-paper sequence and paragraph rules
 
 ## Generated review package
 
 `.github/workflows/jbi-submission-bundle.yml` builds:
 
-- anonymized Main DOCX with Figures 1-4;
+- anonymized Main DOCX with Figures 1–4;
 - combined Supporting Information DOCX;
 - title-page, cover-letter, translated-abstract and SDM-checklist DOCX files;
 - separate figure files;

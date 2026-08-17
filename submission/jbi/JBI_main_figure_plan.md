@@ -1,10 +1,10 @@
-# JBI Main figure plan
+# JBI Main figure plan — four reveals in one investigation
 
-The paper uses four Main figures. A fast reader should understand the whole story from these figures alone.
+The paper uses four Main figures. A fast reader should understand not only each result, but why the next figure had to exist.
 
-## Figure 1 — Build the flower-colour phenotype
+## Figure 1 — Reveal the hidden phenotype
 
-**Question:** What did we measure?
+**Starting mystery:** What geographical flower-colour variation can be recovered from hiking photographs?
 
 Panels:
 
@@ -13,13 +13,15 @@ Panels:
 - (c) white/pigmented boundary;
 - (d) colour intensity among pigmented flowers.
 
-**Take-home:** pigmentation state and colour intensity are different parts of the phenotype.
+**Reveal:** flower colour is not one white-to-dark axis. Pigmentation state and conditional intensity are different biological responses.
+
+**Handoff to Figure 2:** once two phenotypes are visible nationally, do they follow the same geography?
 
 The YAMAP/iNaturalist/GBIF benchmark stays in Supporting Information.
 
-## Figure 2 — Show the broad environmental and spatial pattern
+## Figure 2 — Split the broad geography
 
-**Question:** Do state and intensity follow the same geography?
+**Question created by Figure 1:** Do pigmentation state and intensity follow the same environmental and spatial pattern?
 
 Panels:
 
@@ -28,13 +30,15 @@ Panels:
 - (c) cross-fitted colour intensity;
 - (d) residual spatial ranges and blocked prediction.
 
-**Take-home:** state and intensity differ, and strong spatial structure remains after measured environment.
+**Reveal:** state and intensity differ, and coherent spatial structure remains after measured environment.
+
+**Handoff to Figure 3:** the Broad map has not isolated a biotic mechanism. Because Bombus SDMs share environmental geography, the pollinator hypothesis must be tested locally.
 
 Do not label the spatial field as population history. VPD, water-balance and barrier-model checks stay in Appendix S3.
 
-## Figure 3 — Zoom in for the Bombus question
+## Figure 3 — Test and weaken the tempting pollinator explanation
 
-**Question:** Is focal-bumblebee habitat opportunity higher on the pigmented side of local boundaries?
+**Question created by Figure 2:** Does focal-bumblebee habitat opportunity increase across independently fixed local white-pigmented boundaries?
 
 Panels:
 
@@ -43,13 +47,15 @@ Panels:
 - (c) pigmented-minus-white focal-Bombus contrast;
 - (d) scale and raw-SDM sensitivities.
 
-**Take-home:** the mean contrast is positive at 5 km, but the overall evidence is weak and scale dependent.
+**Reveal:** the mean contrast is positive at 5 km, but the evidence is fragile, magnitude-driven and scale dependent. The result narrows to a possible local maintenance effect rather than a national pollinator mechanism.
 
-High-elevation and five-species checks stay in Appendix S5.
+**Handoff to Figure 4:** after Broad environment, residual space and weak local Bombus correspondence, what should count as a genuinely exceptional colour configuration?
 
-## Figure 4 — Calibrate local departures before human context
+The high-elevation false lead and five-species turnover remain in Appendix S5.
 
-**Question:** Are local pigmented departures unusual under the natural model?
+## Figure 4 — Return apparent exceptions to the natural null
+
+**Question created by Figure 3:** Are local pigmented departures more frequent than the finalized natural geography predicts?
 
 Panels:
 
@@ -58,12 +64,14 @@ Panels:
 - (c) event count/fraction versus 10,000 natural maps;
 - (d) human context tested only after sites are fixed.
 
-**Take-home:** the 16 sites are not unusually common. Short-range population exposure is suggestive, not proof of human origin.
+**Reveal:** the 16 sites look exceptional but are not unusually common under natural maps. Short-range population exposure is a provenance clue, not proof of human origin.
+
+**Ending:** the figures do not nominate one dominant cause. They identify where physiology, population history, realized pollination and provenance should be tested directly.
 
 ## Figure rule
 
-Each Main figure must answer one biological question.
+Each Main figure must change the reader's interpretation and create the next question.
 
-Do not use a Main panel only to show that a workflow was careful. Put technical robustness in Supporting Information unless it changes the biological interpretation.
+Do not use a Main panel only to prove that the workflow was careful. Put technical robustness in Supporting Information unless it causes a genuine biological reversal.
 
 Panel labels are lowercase (a)-(d). Every map has a 100-km bar scale.

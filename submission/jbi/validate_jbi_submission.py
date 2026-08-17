@@ -90,10 +90,10 @@ if [k.casefold() for k in keywords] != sorted(k.casefold() for k in keywords):
     fail("Keywords are not alphabetical")
 
 required = [
-    "## Introduction",
-    "## Materials and Methods",
-    "## Results",
-    "## Discussion",
+    "## 1. Introduction",
+    "## 2. Materials and Methods",
+    "## 3. Results",
+    "## 4. Discussion",
     "## Acknowledgements",
     "## References",
     "## Data Accessibility Statement",
@@ -106,7 +106,19 @@ for header in required:
 if positions != sorted(positions):
     fail("Required sections are not in the expected order")
 
-main_body = text.split("## Introduction", 1)[1].split("## Acknowledgements", 1)[0]
+numbered_subsections = (
+    "### 1.1 The geographical mystery of flower-colour polymorphism",
+    "### 1.5 Predictions",
+    "### 2.1 Study system and YAMAP sampling",
+    "### 2.6 Reproducibility and inferential order",
+    "### 3.1 A national polymorphism becomes measurable",
+    "### 3.5 Human context leaves a clue, not a provenance answer",
+    "### 4.1 The national map revealed rather than solved the mystery",
+    "### 4.6 From the map to direct tests",
+)
+require_tokens("Numbered Main structure", text, numbered_subsections)
+
+main_body = text.split("## 1. Introduction", 1)[1].split("## Acknowledgements", 1)[0]
 body_n = len(words(main_body))
 if body_n > 6000:
     fail(f"Introduction-through-Discussion exceeds 6000 words: {body_n}")

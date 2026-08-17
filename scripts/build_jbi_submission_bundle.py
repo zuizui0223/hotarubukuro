@@ -27,6 +27,10 @@ from docx.shared import Pt, RGBColor
 
 import jbi_submission_bundle_core as core
 
+# Keep generated DOCX metadata and Supporting Information subtitles synced to
+# the current manuscript-facing title.
+core.TITLE = "From broad geography to local boundaries: biogeography of flower-colour polymorphism from hiking photographs"
+core.RUNNING_TITLE = "Flower-colour polymorphism"
 
 TOKEN_PATTERN = re.compile(
     r"(\*\*[^\n]+?\*\*|`[^`\n]+`|\[[^\]]+\]\([^)]+\)|(?<![\w*])\*[^*\n]+?\*(?![\w*]))"

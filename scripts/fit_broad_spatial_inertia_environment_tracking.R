@@ -86,23 +86,36 @@ fit_fixed_fold <- function(train, test, response, family, basis,
                            trials = NULL, seed_value) {
   train_X <- cbind(Intercept = 1, basis$train)
   test_X <- cbind(Intercept = 1, basis$test)
-  all_X <- rbind(train_X, test_X)
-  fit_data <- as.data.frame(all_X)
-  fit_data$y <- c(train[[response]], rep(NA_real_, nrow(test)))
-  fixed_terms <- colnames(all_X)
+  estimation_data <- list(y = train[[response]])
+  prediction_data <- list(y = rep(NA_real_, nrow(test)))
+  if (family == "binomial") {
+    estimation_data$Ntrials <- train[[trials]]
+    prediction_data$Ntrials <- test[[trials]]
+  }
+  stack_estimation <- INLA::inla.stack(
+    data = estimation_data, A = list(1), effects = list(X = train_X),
+    tag = "est", compress = FALSE, remove.unused = FALSE
+  )
+  stack_prediction <- INLA::inla.stack(
+    data = prediction_data, A = list(1), effects = list(X = test_X),
+    tag = "pred", compress = FALSE, remove.unused = FALSE
+  )
+  stack <- INLA::inla.stack(stack_estimation, stack_prediction)
+  stack_data <- INLA::inla.stack.data(stack)
+  fixed_terms <- colnames(train_X)
   formula <- stats::as.formula(
     paste("y ~ -1 +", paste(fixed_terms, collapse = " + "))
   )
   arguments <- list(
-    formula = formula, data = fit_data, family = family,
-    control.predictor = list(compute = TRUE, link = 1),
+    formula = formula, data = stack_data, family = family,
+    control.predictor = list(
+      A = INLA::inla.stack.A(stack), compute = TRUE, link = 1
+    ),
     control.compute = list(config = TRUE), verbose = inla_verbose
   )
-  if (family == "binomial") {
-    arguments$Ntrials <- c(train[[trials]], test[[trials]])
-  }
+  if (family == "binomial") arguments$Ntrials <- stack_data$Ntrials
   fit <- do.call(INLA::inla, arguments)
-  prediction_index <- seq.int(nrow(train) + 1L, nrow(train) + nrow(test))
+  prediction_index <- INLA::inla.stack.index(stack, "pred")$data
   sample_predictor(fit, prediction_index, family, seed_value)
 }
 

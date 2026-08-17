@@ -41,17 +41,13 @@ For each response, the primary statistic is the mean across the 25 fold-by-geogr
 
 The observed statistic is compared with the distribution of that statistic under the cross-fitted space-only posterior predictive null.
 
-The directional posterior-predictive upper-tail probability is
-
-`P(space-null contrast >= observed contrast)`
-
-estimated from 500 posterior-predictive realisations with the finite-sample correction `(1 + count) / 501`.
+The directional posterior-predictive upper-tail probability is `P(space-null contrast >= observed contrast)`, estimated from 500 posterior-predictive realisations with the finite-sample correction `(1 + count) / 501`.
 
 The stored `q025`/`q975` values are a central 95% null interval. They are not the cutoff for the one-sided 5% test; the relevant directional cutoff is the 95th percentile.
 
 ## Executed result
 
-The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. The first completed scientific artifact exposed a metadata-table row-count bug only after the scientific result tables had been written; the result values below were recovered directly from that artifact and reproduced on subsequent fits. The workflow now requires all scientific outputs, reconstructs metadata independently and validates the output contract.
+The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. A post-computation metadata-table row-count bug affected only runner exit status after the scientific result tables were already written; the workflow now requires all scientific outputs, reconstructs metadata independently and validates the output contract.
 
 Frozen input:
 
@@ -69,25 +65,21 @@ Frozen input:
 | Pigmentation state | **0.106802** | 0.058240 | [0.018098, 0.108066] | **+0.048562** | **0.03393** |
 | Conditional intensity | -0.047179 | -0.001287 | [-0.075026, 0.087732] | -0.045891 | 0.87226 |
 
-For pigmentation state, environmentally dissimilar pairs are more phenotypically divergent than environmentally similar pairs even after matching pairs into comparable geographical-distance strata, and the magnitude of that environmental contrast is larger than expected from the cross-fitted space-only null at the predefined one-sided 5% level (`p = 0.03393`). The observed value lies just below the 97.5th percentile of the central 95% interval; this is compatible with the one-sided result because the directional 5% test uses the 95th percentile, not the 97.5th percentile.
+For pigmentation state, environmentally dissimilar pairs are more phenotypically divergent than environmentally similar pairs after matching pairs into comparable geographical-distance strata, and the magnitude of that contrast is larger than expected from the cross-fitted space-only null at the predefined one-sided 5% level (`p = 0.03393`). The observed value lies just below the 97.5th percentile of the central 95% interval; that is compatible with the one-sided result because the directional 5% test uses the 95th percentile.
 
 For conditional intensity, the corresponding environmental contrast is negative and is not above the spatial null (`p = 0.87226`). Thus the phenotype-excess signal is specific to pigmentation state in this analysis.
 
-The pair-level secondary correlations are descriptive only because pairs share sites and are not independent; they are not used to overturn or reinforce the stratum-level posterior-predictive result.
+Pair-level secondary correlations are descriptive only because pairs share sites and are not independent; they are not inferential substitutes for the stratum-level posterior-predictive test.
 
 ## Interpretation
-
-The result supports the following restricted statement:
 
 > For pigmentation state, geographical proximity alone does not fully account for the observed pattern of differentiation. Among locations separated by comparable geographical distances, greater environmental difference is associated with greater phenotype differentiation than a cross-fitted continuous-spatial null predicts. The same excess is not detected for conditional pigment intensity.
 
 In the F_ST/P_ST-inspired intuition, pigmentation state therefore shows a **P_ST-like phenotypic divergence that exceeds an F_ST-like spatial expectation along environmental difference**, but only as an analogy to the structure of the test. It must not be rewritten as `P_ST > F_ST` because neither quantity is actually estimated here.
 
-This analysis also changes the interpretation of the earlier four-model blocked predictive comparison. That comparison answers which information source predicts withheld geography better. It is retained only as a secondary predictive diagnostic and is not the inferential target for the F_ST/P_ST-inspired question.
+The earlier four-model blocked predictive comparison answers a different question—what predicts withheld geography better—and is retained only as a secondary predictive diagnostic rather than the inferential target here.
 
 ## Reproducibility
-
-Main runner:
 
 ```bash
 Rscript scripts/fit_broad_space_null_phenotype_excess.R \
@@ -101,20 +93,12 @@ Rscript scripts/fit_broad_space_null_phenotype_excess.R \
 
 GitHub Actions entry point: `.github/workflows/broad-spatial-inertia-environment-tracking.yml`.
 
-Primary outputs:
-
-- `primary_space_null_excess_test.csv`
-- `matched_distance_stratum_contrasts.csv`
-- `heldout_pair_space_null_excess.csv`
-- `heldout_space_null_predictions.csv`
-- `secondary_pair_diagnostics.csv`
-- `analysis_metadata.csv`
-- `RESULT_SUMMARY.md`
+Primary outputs: `primary_space_null_excess_test.csv`, `matched_distance_stratum_contrasts.csv`, `heldout_pair_space_null_excess.csv`, `heldout_space_null_predictions.csv`, `secondary_pair_diagnostics.csv`, `analysis_metadata.csv`, and `RESULT_SUMMARY.md`.
 
 ## Claim boundary
 
 Do not use `F_ST > P_ST`, `P_ST > F_ST`, `selection exceeds drift`, `genetic differentiation`, `local adaptation demonstrated` or equivalent causal/genetic language. The space-only null is not a neutral genetic model, and environmental divergence can still proxy omitted spatially structured factors.
 
-The manuscript-safe headline is:
+Manuscript-safe headline:
 
 > **Pigmentation-state divergence exceeds a cross-fitted spatial expectation along environmental difference, whereas conditional intensity does not.**

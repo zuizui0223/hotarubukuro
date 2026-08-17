@@ -1,109 +1,120 @@
-# Broad spatial inertia versus environmental tracking
+# Broad phenotype divergence beyond a cross-fitted spatial null
 
 ## Question
 
-Does geographically blocked prediction of flower-colour phenotype depend more on measured environment or on residual continuous geography?
+At the same approximate geographical separation, are environmentally dissimilar locations more phenotypically different than a model based on spatial continuity alone would predict?
 
-This is an **F_ST/P_ST-inspired interpretation only**. The analysis does not contain neutral genetic markers, additive genetic variance, heritability estimates or common-garden phenotypes, so it must not be described as an F_ST, P_ST or Q_ST test.
+This is the intended F_ST/P_ST-inspired analogy. It is **not** an F_ST, P_ST or Q_ST analysis: there are no neutral genetic markers, additive genetic variances, heritability estimates or common-garden phenotypes.
 
 ## Biological mapping
 
-- `environment`: measured environmental tracking that transfers to withheld geography.
-- `space`: residual geographical continuity after excluding measured environmental predictors. It may contain population/dispersal history, unmeasured environment and other spatially structured processes.
-- observed phenotype: the combined geographical phenotype; it is not P_ST in the population-genetic sense.
+- `space-only SPDE`: an F_ST-like **spatial null / geographical expectation** in the limited sense that it represents how much phenotype resemblance or divergence is expected from continuous geography alone.
+- observed flower-colour divergence: the P_ST-like **phenotypic signal** in the limited sense that it is the realised phenotype difference to be compared with that spatial expectation.
+- environmental divergence: the axis used to ask whether observed phenotypic divergence systematically exceeds the space-only expectation.
 
-The intended biological contrast is therefore **spatial inertia versus environmental tracking**.
+The scientifically relevant quantity is therefore not an environment-versus-space model-performance comparison. It is **phenotype divergence in excess of the cross-fitted space-only null, conditional on comparable geographical separation**.
 
-## Model set
+`space` remains unresolved geography, not neutral genetic F_ST. It can contain unmeasured environment, dispersal/population history, sampling geometry and other spatially structured processes.
 
-The executed analysis used the same 1-km analysis cells, frozen 50-km response-blind environmental basis and five approximately 100-km geographical folds as the active broad predictive reference.
+## Cross-fitted spatial-null design
 
-1. `null`: intercept only.
-2. `environment`: intercept + the frozen environmental basis.
-3. `space`: intercept + the Matérn SPDE field.
-4. `environment_plus_space`: intercept + environment + SPDE.
+The analysis reuses the frozen active Broad 1-km cell table, the existing five geographical folds and the frozen response-blind environmental basis.
 
-The comparison was performed on held-out geographical folds. In-sample WAIC was not used as the primary evidence because the question is whether each information source transfers geographically.
+For each response and each held-out geographical fold:
 
-## Primary score and decomposition
+1. fit `intercept + Matérn SPDE` to the other four folds only;
+2. generate 500 posterior-predictive phenotype realisations for locations in the held-out fold;
+3. construct held-out location pairs and calculate geographical distance, environmental distance and observed phenotype divergence;
+4. divide pairs into five equal-count geographical-distance strata;
+5. within each geographical-distance stratum, contrast the upper environmental-distance quartile against the lower quartile;
+6. compare the observed `high-environment minus low-environment` phenotype-divergence contrast with the identical contrast generated from each space-only posterior-predictive realisation.
 
-For each response and held-out fold, posterior predictive log density was retained for all four models. The full-model predictive gain over the null was allocated by a two-player Shapley decomposition:
+Because every tested pair lies wholly inside a fold omitted from model fitting, the observed phenotype used to test excess is not used to fit its own spatial null.
 
-- environment gain = 0.5 * [(environment - null) + (full - space)]
-- space gain = 0.5 * [(space - null) + (full - environment)]
+Environmental distance is Euclidean distance in the six frozen Broad/within response-blind environmental PC scores, with scaling estimated on the corresponding training folds only.
 
-This symmetrises model-entry order and avoids calling shared environment/space geography uniquely environmental or uniquely spatial.
+## Primary estimand
+
+For each response, the primary statistic is the mean across the 25 fold-by-geographical-distance strata of
+
+`mean phenotype divergence among high-environment-distance pairs - mean phenotype divergence among low-environment-distance pairs`.
+
+The observed statistic is compared with the distribution of that statistic under the cross-fitted space-only posterior predictive null.
+
+The directional posterior-predictive upper-tail probability is
+
+`P(space-null contrast >= observed contrast)`
+
+estimated from 500 posterior-predictive realisations with the finite-sample correction `(1 + count) / 501`.
+
+The stored `q025`/`q975` values are a central 95% null interval. They are not the cutoff for the one-sided 5% test; the relevant directional cutoff is the 95th percentile.
 
 ## Executed result
 
-GitHub Actions run `32037340750` completed all 40 fits (2 responses x 5 folds x 4 models) on commit `703bb3dc027b132014a1bef0a8c826a10d4ee36e`.
+The calculation has been reproduced twice through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. Both initial Actions runs stopped only after the scientific result tables had already been written because of a metadata-table row-count bug; the result values below were recovered directly from the uploaded scientific artifact. A workflow-only correction now catches that known post-computation metadata failure and validates the scientific output contract.
 
-The frozen active Broad reference artifact was locked before fitting:
+Frozen input:
 
 - source artifact ID: `9022276431`
 - source artifact ZIP SHA-256: `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`
-- posterior samples per fit: 500
-- seed: 20260725
+- posterior-predictive realisations: 500
+- seed: `20260725`
+- geographical folds: 5
+- geographical-distance strata per fold: 5
 
-### Held-out log predictive density
+### Primary spatial-null excess test
 
-Higher values are better.
-
-| Response | Null | Environment | Space | Environment + space |
-|---|---:|---:|---:|---:|
-| Pigmentation state | -1219.7933 | -1010.2320 | **-743.9521** | -746.4872 |
-| Conditional intensity | -919.1875 | -916.1431 | **-890.7378** | -896.2634 |
-
-For both responses, the `space` model had the highest total held-out log predictive density. Adding the frozen environmental basis to the spatial field did not improve blocked predictive density: relative to `space`, the full model changed by -2.5351 for pigmentation state and -5.5256 for conditional intensity.
-
-### Shapley allocation of predictive gain over null
-
-| Response | Environment gain | Space gain | Full gain over null | Environment share | Space share |
+| Response | Observed high-env - low-env divergence | Space-null median | Central 95% null | Excess over null median | One-sided posterior-predictive p |
 |---|---:|---:|---:|---:|---:|
-| Pigmentation state | 103.5131 | **369.7930** | 473.3061 | 0.2187 | **0.7813** |
-| Conditional intensity | -1.2406 | **24.1647** | 22.9241 | -0.0541 | **1.0541** |
+| Pigmentation state | **0.106802** | 0.058240 | [0.018098, 0.108066] | **+0.048562** | **0.03393** |
+| Conditional intensity | -0.047179 | -0.001287 | [-0.075026, 0.087732] | -0.045891 | 0.87226 |
 
-The predefined interpretation is therefore `spatial_inertia_dominant` for both responses.
+For pigmentation state, environmentally dissimilar pairs are more phenotypically divergent than environmentally similar pairs even after matching pairs into comparable geographical-distance strata, and the magnitude of that environmental contrast is larger than expected from the cross-fitted space-only null at the predefined one-sided 5% level (`p = 0.03393`). The observed value lies just below the 97.5th percentile of the central 95% interval; this is compatible with the one-sided result because the directional 5% test uses the 95th percentile, not the 97.5th percentile.
 
-Pigmentation state nevertheless contains substantial transferable environmental information: the environment-only model improves strongly over the null, and its Shapley gain is positive. The much larger spatial contribution indicates that residual continuous geography carries considerably more held-out predictive information under this model basis.
+For conditional intensity, the corresponding environmental contrast is negative and is not above the spatial null (`p = 0.87226`). Thus the phenotype-excess signal is specific to pigmentation state in this analysis.
 
-Conditional intensity gives a sharper result. The environment-only model improves only slightly over the null, and environmental information has a slightly negative Shapley contribution once its interaction with space is averaged over model-entry order. Thus the motivating expectation that conditional intensity would be more environment-dominant than pigmentation state is **not supported by this blocked predictive analysis**.
+## Interpretation
 
-## Biological interpretation
+The result supports the following restricted statement:
 
-The result strengthens the manuscript's existing claim that the broad flower-colour pattern is a geographical template rather than a single measured environmental mechanism.
+> For pigmentation state, geographical proximity alone does not fully account for the observed pattern of differentiation. Among locations separated by comparable geographical distances, greater environmental difference is associated with greater phenotype differentiation than a cross-fitted continuous-spatial null predicts. The same excess is not detected for conditional pigment intensity.
 
-A safe reading is:
+In the F_ST/P_ST-inspired intuition, pigmentation state therefore shows a **P_ST-like phenotypic divergence that exceeds an F_ST-like spatial expectation along environmental difference**, but only as an analogy to the structure of the test. It must not be rewritten as `P_ST > F_ST` because neither quantity is actually estimated here.
 
-> Residual continuous geography carried more transferable predictive information than the frozen measured environmental basis for both pigmentation state and conditional intensity. Measured environment contributed appreciably to pigmentation-state geography, but provided little incremental blocked predictive information once spatial continuity was represented; this was even more pronounced for conditional intensity.
-
-This result does **not** mean that the observation-level temperature or topographic coefficients are false. The decomposition uses the cell-level predictive reference and its frozen 50-km broad/within environmental PCs, whereas the observation-level Appendix S3 model uses a different environmental parameterization. The two analyses answer different questions: association after conditioning on a spatial field versus transfer of predictive information to withheld geography.
-
-Likewise, `space` must not be equated with population history. It remains a composite residual geographical field that can include unmeasured environment, dispersal/population history, sampling structure and other spatially structured processes.
+This analysis also changes the interpretation of the earlier four-model blocked predictive comparison. That comparison answers which information source predicts withheld geography better. It is retained only as a secondary predictive diagnostic and is not the inferential target for the F_ST/P_ST-inspired question.
 
 ## Reproducibility
 
-Run locally with the frozen cell table available:
+Main runner:
 
 ```bash
-Rscript scripts/fit_broad_spatial_inertia_environment_tracking.R \
+Rscript scripts/fit_broad_space_null_phenotype_excess.R \
   --cells=results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
-  --output=results/broad_spatial_inertia_environment_tracking \
+  --output=results/broad_space_null_phenotype_excess \
   --samples=500 \
-  --seed=20260725
+  --seed=20260725 \
+  --max-pairs-per-fold=15000 \
+  --geo-bins=5
 ```
 
-The reproducible GitHub Actions entry point is `.github/workflows/broad-spatial-inertia-environment-tracking.yml`.
+GitHub Actions entry point:
 
-Successful result artifact:
+`.github/workflows/broad-spatial-inertia-environment-tracking.yml`
 
-- artifact ID: `9291248341`
-- artifact ZIP SHA-256: `484e8485b067f48b38315402a5a9b7975ebdad75c1717b2aa86c793f6fe5a426`
+Primary outputs:
 
-Primary outputs are `fold_model_scores.csv`, `heldout_predictions.csv`, `model_log_score_totals.csv`, `shapley_predictive_decomposition.csv`, `component_interpretation.csv`, `analysis_metadata.csv`, and `RESULT_SUMMARY.md`.
+- `primary_space_null_excess_test.csv`
+- `matched_distance_stratum_contrasts.csv`
+- `heldout_pair_space_null_excess.csv`
+- `heldout_space_null_predictions.csv`
+- `secondary_pair_diagnostics.csv`
+- `analysis_metadata.csv`
+- `RESULT_SUMMARY.md`
 
 ## Claim boundary
 
-Do not use phrases such as `P_ST > F_ST`, `selection exceeds drift`, `genetic differentiation`, or `local adaptation demonstrated`. Those require population-genetic and/or common-garden evidence absent from this dataset.
+Do not use `F_ST > P_ST`, `P_ST > F_ST`, `selection exceeds drift`, `genetic differentiation`, `local adaptation demonstrated` or equivalent causal/genetic language. The space-only null is not a neutral genetic model, and environmental divergence can still proxy omitted spatially structured factors.
 
-The manuscript-safe conclusion is not that measured environment overcomes geographical similarity. Under the frozen predictive basis, **spatial inertia dominates geographically transferable predictive information for both phenotype components, while measured environment retains a meaningful but secondary contribution for pigmentation state**.
+The manuscript-safe headline is:
+
+> **Pigmentation-state divergence exceeds a cross-fitted spatial expectation along environmental difference, whereas conditional intensity does not.**

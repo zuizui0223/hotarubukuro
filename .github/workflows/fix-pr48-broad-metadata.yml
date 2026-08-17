@@ -1,0 +1,142 @@
+name: Fix PR 48 Broad metadata path
+
+on:
+  push:
+    branches:
+      - agent/unify-jbi-reproducible-pipeline
+    paths:
+      - '.github/workflows/fix-pr48-broad-metadata.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Fix the source bug and remove the exception path
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          fit_path = Path('scripts/fit_broad_space_null_phenotype_excess.R')
+          fit = fit_path.read_text()
+          old = '''    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation",
+              stringsAsFactors = FALSE
+            )
+          )'''
+          new = '''    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation"
+            ),
+            stringsAsFactors = FALSE
+          )'''
+          if fit.count(old) != 1:
+              raise SystemExit(f'expected one malformed metadata block, found {fit.count(old)}')
+          fit = fit.replace(old, new, 1)
+          fit_path.write_text(fit)
+
+          wrapper_path = Path('scripts/run_broad_space_null_phenotype_excess_pipeline.R')
+          wrapper = wrapper_path.read_text()
+          old = '''fit_error <- tryCatch(
+            {
+              source("scripts/fit_broad_space_null_phenotype_excess.R", local = .GlobalEnv)
+              NULL
+            },
+            error = function(error) error
+          )
+
+          missing_scientific <- scientific_outputs[
+            !file.exists(file.path(output_dir, scientific_outputs))
+          ]
+          if (!is.null(fit_error)) {
+            known_metadata_error <- grepl(
+              "arguments imply differing number of rows",
+              conditionMessage(fit_error),
+              fixed = TRUE
+            )
+            if (!known_metadata_error || length(missing_scientific)) {
+              stop(fit_error)
+            }
+            message(
+              "Scientific outputs were complete; repairing the known PR #50 metadata-only row mismatch."
+            )
+          }
+          if (length(missing_scientific)) {'''
+          new = '''source("scripts/fit_broad_space_null_phenotype_excess.R", local = .GlobalEnv)
+
+          missing_scientific <- scientific_outputs[
+            !file.exists(file.path(output_dir, scientific_outputs))
+          ]
+          if (length(missing_scientific)) {'''
+          if wrapper.count(old) != 1:
+              raise SystemExit(f'expected one exception block, found {wrapper.count(old)}')
+          wrapper = wrapper.replace(old, new, 1)
+          wrapper_path.write_text(wrapper)
+
+          test_path = Path('tests/python/test_run_pipeline.py')
+          tests = test_path.read_text()
+          test = '''
+
+          def test_broad_space_null_metadata_source_finishes_normally() -> None:
+              fit = (ROOT / "scripts/fit_broad_space_null_phenotype_excess.R").read_text()
+              wrapper = (ROOT / "scripts/run_broad_space_null_phenotype_excess_pipeline.R").read_text()
+              metadata_tail = fit.split("metadata <- data.frame(", 1)[1]
+              assert metadata_tail.count("stringsAsFactors = FALSE") == 1
+              assert re.search(
+                  r'value = c\\([\\s\\S]*local adaptation"\\s*\\),\\s*stringsAsFactors = FALSE\\s*\\)',
+                  metadata_tail,
+              )
+              assert "known_metadata_error" not in wrapper
+              assert "tryCatch(" not in wrapper
+          '''
+          if 'test_broad_space_null_metadata_source_finishes_normally' not in tests:
+              if 'import re\n' not in tests:
+                  tests = tests.replace('import json\n', 'import json\nimport re\n', 1)
+              test_path.write_text(tests.rstrip() + '\n' + test.strip() + '\n')
+
+          workflow = Path('.github/workflows/fix-pr48-broad-metadata.yml')
+          workflow.unlink()
+          PY
+
+      - name: Validate static contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          fit = Path('scripts/fit_broad_space_null_phenotype_excess.R').read_text()
+          wrapper = Path('scripts/run_broad_space_null_phenotype_excess_pipeline.R').read_text()
+          metadata_tail = fit.split('metadata <- data.frame(', 1)[1]
+          assert metadata_tail.count('stringsAsFactors = FALSE') == 1
+          assert re.search(
+              r'value = c\([\s\S]*local adaptation"\s*\),\s*stringsAsFactors = FALSE\s*\)',
+              metadata_tail,
+          )
+          assert 'known_metadata_error' not in wrapper
+          assert 'tryCatch(' not in wrapper
+          PY
+          python -m pip install pytest
+          python -m pytest tests/python/test_run_pipeline.py
+          git diff --check
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Fix Broad spatial-null metadata generation at source'
+          git push origin "HEAD:${GITHUB_REF_NAME}"

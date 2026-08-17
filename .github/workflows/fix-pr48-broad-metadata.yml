@@ -27,27 +27,26 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
-          import re
           from pathlib import Path
 
           fit_path = Path('scripts/fit_broad_space_null_phenotype_excess.R')
           fit = fit_path.read_text()
-          old = '''    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation",
+          old_fit = '''    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation",
               stringsAsFactors = FALSE
             )
           )'''
-          new = '''    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation"
+          new_fit = '''    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation"
             ),
             stringsAsFactors = FALSE
           )'''
-          if fit.count(old) != 1:
-              raise SystemExit(f'expected one malformed metadata block, found {fit.count(old)}')
-          fit = fit.replace(old, new, 1)
+          if fit.count(old_fit) != 1:
+              raise SystemExit(f'expected one malformed metadata block, found {fit.count(old_fit)}')
+          fit = fit.replace(old_fit, new_fit, 1)
           fit_path.write_text(fit)
 
           wrapper_path = Path('scripts/run_broad_space_null_phenotype_excess_pipeline.R')
           wrapper = wrapper_path.read_text()
-          old = '''fit_error <- tryCatch(
+          old_wrapper = '''fit_error <- tryCatch(
             {
               source("scripts/fit_broad_space_null_phenotype_excess.R", local = .GlobalEnv)
               NULL
@@ -72,15 +71,15 @@ jobs:
             )
           }
           if (length(missing_scientific)) {'''
-          new = '''source("scripts/fit_broad_space_null_phenotype_excess.R", local = .GlobalEnv)
+          new_wrapper = '''source("scripts/fit_broad_space_null_phenotype_excess.R", local = .GlobalEnv)
 
           missing_scientific <- scientific_outputs[
             !file.exists(file.path(output_dir, scientific_outputs))
           ]
           if (length(missing_scientific)) {'''
-          if wrapper.count(old) != 1:
-              raise SystemExit(f'expected one exception block, found {wrapper.count(old)}')
-          wrapper = wrapper.replace(old, new, 1)
+          if wrapper.count(old_wrapper) != 1:
+              raise SystemExit(f'expected one exception block, found {wrapper.count(old_wrapper)}')
+          wrapper = wrapper.replace(old_wrapper, new_wrapper, 1)
           wrapper_path.write_text(wrapper)
 
           test_path = Path('tests/python/test_run_pipeline.py')
@@ -90,22 +89,18 @@ jobs:
           def test_broad_space_null_metadata_source_finishes_normally() -> None:
               fit = (ROOT / "scripts/fit_broad_space_null_phenotype_excess.R").read_text()
               wrapper = (ROOT / "scripts/run_broad_space_null_phenotype_excess_pipeline.R").read_text()
-              metadata_tail = fit.split("metadata <- data.frame(", 1)[1]
-              assert metadata_tail.count("stringsAsFactors = FALSE") == 1
-              assert re.search(
-                  r'value = c\\([\\s\\S]*"local adaptation"\\s*\\),\\s*stringsAsFactors = FALSE\\s*\\)',
-                  metadata_tail,
-              )
+              expected = """    \"F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation\"
+            ),
+            stringsAsFactors = FALSE
+          )"""
+              assert expected in fit
               assert "known_metadata_error" not in wrapper
               assert "tryCatch(" not in wrapper
           '''
           if 'test_broad_space_null_metadata_source_finishes_normally' not in tests:
-              if 'import re\n' not in tests:
-                  tests = tests.replace('import json\n', 'import json\nimport re\n', 1)
               test_path.write_text(tests.rstrip() + '\n' + test.strip() + '\n')
 
-          workflow = Path('.github/workflows/fix-pr48-broad-metadata.yml')
-          workflow.unlink()
+          Path('.github/workflows/fix-pr48-broad-metadata.yml').unlink()
           PY
 
       - name: Validate static contracts
@@ -113,17 +108,15 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
-          import re
           from pathlib import Path
 
           fit = Path('scripts/fit_broad_space_null_phenotype_excess.R').read_text()
           wrapper = Path('scripts/run_broad_space_null_phenotype_excess_pipeline.R').read_text()
-          metadata_tail = fit.split('metadata <- data.frame(', 1)[1]
-          assert metadata_tail.count('stringsAsFactors = FALSE') == 1
-          assert re.search(
-              r'value = c\([\s\S]*"local adaptation"\s*\),\s*stringsAsFactors = FALSE\s*\)',
-              metadata_tail,
-          )
+          expected = '''    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation"
+            ),
+            stringsAsFactors = FALSE
+          )'''
+          assert expected in fit
           assert 'known_metadata_error' not in wrapper
           assert 'tryCatch(' not in wrapper
           PY

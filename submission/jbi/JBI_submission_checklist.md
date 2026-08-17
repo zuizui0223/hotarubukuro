@@ -5,16 +5,17 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 ## Article category
 
 - Target: **Research Article**.
-- Main headers: Introduction, Materials and Methods, Results, Discussion, Acknowledgements, References.
-- JBI asks authors to state the theoretical foundation and conceptual advance clearly; the submission framing is **intraspecific trait biogeography + scale-dependent ecological processes**, with *Campanula punctata* as the focal system rather than the only point of interest.
-- The Main text now states four linked questions explicitly: (1) national quantitative trait geography, (2) broad environment and residual geography, (3) local focal-Bombus boundaries, and (4) natural-map-calibrated local departures followed by human context.
-- The ecological narrative treats floral colour polymorphism as a layered phenotype: broad environmental and residual geographical structure, local pollinator opportunity and contemporary human context are evaluated at different scales without being collapsed into one causal regression.
+- Main numbered headers: **1. Introduction, 2. Materials and Methods, 3. Results, 4. Discussion**, followed by unnumbered Acknowledgements, References and declarations.
+- Numbered subheadings such as 2.1–2.6 and 4.1–4.6 identify scientific topics; they do not repeat four parallel research questions.
+- JBI asks authors to state the theoretical foundation and conceptual advance clearly. The submission framing is **intraspecific trait biogeography + scale-dependent ecological inference**, with *Campanula punctata* as the focal system rather than the only point of interest.
+- The Main text follows one dependent mystery: national trait measurement reveals two phenotypes; broad environment reveals residual geography; broad pollinator overlap forces a local test; and apparent local exceptions are calibrated against natural maps before human context is read.
+- The conceptual advance is the sequence itself: each answer exposes the next confounding layer, so the comparison unit changes as the biological explanation becomes more local.
 - Repeatability is supported by detailed methods, versioned code, fixed seeds, checksum-locked artifacts and independent validators.
 
 ## Length and front matter
 
 - Main-text target: <=6,000 words.
-  - Current Introduction-through-Discussion count = **3,047 words** by repository validator.
+  - Current Introduction-through-Discussion count = **3,543 words** by repository validator.
 - Title: <=115 characters including spaces; no abbreviations or Latin binomial.
   - Current title = 108 characters.
 - Running title: <40 characters.
@@ -91,13 +92,14 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 
 ## Pre-submission scientific checks
 
-- The four Main questions are explicit and appear in the same order in Introduction, Methods, Results and Discussion.
-- Question 1 is a biogeographic data contribution: a new national quantitative intraspecific trait geography from a non-biodiversity image stream, not merely a platform benchmark.
-- Question 2 is the main broad biogeographic test: pigmentation state and intensity are compared against abiotic environment and residual continuous geography.
-- Question 3 changes scale for the biotic hypothesis rather than treating an environment-derived Bombus SDM as another national causal predictor.
-- Question 4 first tests whether apparent local departures are excessive under natural spatial variation, then examines human context only after candidate identities are fixed.
-- Discussion returns to the ecological meaning of anthocyanin pigmentation: possible physiological function, reproductive signalling, spatially varying costs/benefits and persistence of the polymorphism.
-- The final synthesis states the JBI-level conceptual advance: one intraspecific geographical pattern can reflect processes operating at different scales, and those processes should be tested at biologically appropriate comparison scales.
+- The manuscript opens with one biological mystery: why white and pigmented flowers remain geographically structured within one species.
+- The Introduction makes the dependency explicit: solving measurement exposes attribution; resolving broad geography exposes the scale problem; the broad natural model defines what can count as a local exception.
+- Results contain three genuine reversals rather than four parallel outputs:
+  - one apparent colour gradient separates into state and intensity;
+  - a convincing broad Bombus overlap collapses under local/elevation control, leaving only weak focal correspondence;
+  - visually striking local departures remain plausible under natural predictive maps.
+- Discussion converges on one ecological model: the physiological and reproductive value of pigmentation changes across space, while population history and occasional human movement modify where variants occur.
+- The final synthesis maps environmental geography to common-garden/fitness tests, residual space to genomics, local Bombus boundaries to realized pollination, and local departures to provenance work.
 - Five-species community turnover remains Supporting Information.
 - High-elevation Bombus remains a negative control, not a second positive mechanism.
 - Main Bombus result is labelled weak/local and reports its median, sign proportion, scale attenuation and raw-support failure.

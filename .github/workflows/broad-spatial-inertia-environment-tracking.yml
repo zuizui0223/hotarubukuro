@@ -140,7 +140,7 @@ jobs:
               ('environment_terms', 'broad_pc1_climate_50km;broad_pc1_aridity_50km;broad_pc1_topography_50km;within_pc1_climate_50km;within_pc1_aridity_50km;within_pc1_topography_50km'),
               ('environment_distance', 'Euclidean distance in the frozen response-blind environmental basis, scaled on each training fold'),
               ('primary_estimand', 'mean across fold-by-geographic-distance strata of observed(high-environment - low-environment phenotype divergence), compared with the same statistic under cross-fitted space-only posterior prediction'),
-              ('claim_boundary', 'F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation'),
+              ('claim_boundary', 'spatial-null comparison only; does not establish selection, local adaptation, or a unique causal environmental mechanism'),
           ]
           with (root/'analysis_metadata.csv').open('w', newline='') as f:
               w = csv.writer(f)
@@ -193,7 +193,7 @@ jobs:
                   f"one-sided posterior-predictive p_upper={p:.6f}; "
                   f"directional_5pct_excess={str(directional).upper()}"
               )
-          lines += ['', 'Primary question: at matched geographic separation, do environmentally dissimilar held-out pairs show more phenotype divergence than a cross-fitted space-only SPDE null predicts?', '', 'The p_upper test is directional (high-environment divergence > low-environment divergence). The stored q025/q975 interval is the central 95% null interval and therefore uses a 97.5% upper endpoint; it is not the cutoff for the one-sided 5% test.', '', 'This is F_ST/P_ST-inspired only; the space null is unresolved geography, not neutral genetic F_ST, and the test does not demonstrate selection or local adaptation.']
+          lines += ['', 'Primary question: at matched geographic separation, do environmentally dissimilar held-out pairs show more phenotype divergence than a cross-fitted space-only SPDE null predicts?', '', 'The p_upper test is directional (high-environment divergence > low-environment divergence). The stored q025/q975 interval is the central 95% null interval and therefore uses a 97.5% upper endpoint; it is not the cutoff for the one-sided 5% test.', '', 'Interpretation boundary: the space null is unresolved geography; environmental alignment beyond it does not by itself demonstrate selection, local adaptation, or a unique causal environmental mechanism.']
           (root/'RESULT_SUMMARY.md').write_text('\n'.join(lines)+'\n')
           print('\n'.join(lines))
           PY

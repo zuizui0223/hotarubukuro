@@ -129,6 +129,8 @@ def test_safe_extract_rejects_path_traversal(tmp_path: Path) -> None:
     with pytest.raises(run_pipeline.PipelineError, match="Unsafe ZIP member"):
         run_pipeline.Pipeline.safe_extract(archive, destination)
     assert not (tmp_path / "escape.txt").exists()
+
+
 def test_broad_space_null_metadata_source_finishes_normally() -> None:
     fit = (ROOT / "scripts/fit_broad_space_null_phenotype_excess.R").read_text()
     wrapper = (ROOT / "scripts/run_broad_space_null_phenotype_excess_pipeline.R").read_text()
@@ -139,3 +141,14 @@ def test_broad_space_null_metadata_source_finishes_normally() -> None:
     assert expected in fit
     assert "known_metadata_error" not in wrapper
     assert "tryCatch(" not in wrapper
+    for value in (
+        "0.106802",
+        "0.058240",
+        "0.048562",
+        "0.03393",
+        "-0.047179",
+        "-0.001287",
+        "-0.045891",
+        "0.87226",
+    ):
+        assert value in wrapper

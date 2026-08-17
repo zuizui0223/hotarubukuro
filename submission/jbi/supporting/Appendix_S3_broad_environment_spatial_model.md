@@ -9,9 +9,10 @@ This Appendix documents the finalized broad geographical component of the paper 
 
 The Broad stage contains measured environment and continuous space only. Bombus SDMs are not inserted as national environmental covariates, and human-context variables do not enter this stage.
 
-Two modelling layers remain conceptually distinct but are explicitly aligned where the paper requires them to connect.
+Three modelling layers remain conceptually distinct but are explicitly aligned where the paper requires them to connect.
 
 - The **observation-level INLA-SPDE models** estimate broad environmental associations, response-specific interactions and residual spatial covariance.
+- The **cross-fitted space-only divergence sensitivity** asks whether environmental difference orders held-out phenotype divergence beyond an intercept + Matérn SPDE continuity expectation at comparable geographical separation. It uses a separate frozen six-score broad/within environmental representation and does not reinterpret the spatial field as genetic drift.
 - The **1-km-cell cross-fitted pigmentation-state reference** generates natural predictive maps for Main 3. Its environmental basis is the same finalized eight measured abiotic axes used by the Broad state analysis, and the resulting event detector yields 16 observed local-departure candidates.
 
 The image response is a reproducible display-referred CIELAB phenotype. Neither pigmentation state nor conditional a* intensity is interpreted as a direct assay of anthocyanin concentration, anthocyanin identity, vacuolar pH, spectral reflectance, ultraviolet contrast, petal temperature or Bombus colour contrast.
@@ -169,6 +170,25 @@ For conditional intensity, using the retained thermal interaction, removing East
 
 The ranges are descriptive residual spatial scales, not seed or pollen dispersal distances. Historical allozyme work documenting mainland–Izu differentiation, regional mating-system differences and progressive island colonization makes unresolved biogeographic structure biologically plausible, but the present spatial field may also contain unmeasured environment and sampling geography and is not assigned to a single mechanism.
 
+## Cross-fitted space-only phenotype-divergence sensitivity
+
+This supporting analysis asks a different question from coefficient estimation: at comparable geographical separation, are environmentally dissimilar held-out locations more phenotypically different than a model based on spatial continuity alone predicts?
+
+The analysis reused the frozen 1-km cell table and five geographical folds. Its separate response-blind environmental representation contained six multiscale scores: broad and within-neighbourhood PC1s for climate, aridity and topography. This basis is retained as an orthogonal multiscale sensitivity and does not replace the final eight-axis observation-level coefficient model.
+
+For each response and held-out fold, an `intercept + Matérn SPDE` model was fitted to the other four folds. Five hundred posterior-predictive phenotype realizations were generated for locations in the omitted fold. Held-out location pairs were divided into five equal-count geographical-distance strata; within every stratum, phenotype divergence among the upper environmental-distance quartile was contrasted with divergence among the lower quartile. The primary statistic was the mean high-minus-low contrast across the resulting 25 fold-by-distance strata. Environmental scaling was estimated from each training partition only, and every tested pair lay wholly inside a fold omitted from its spatial-null fit.
+
+**Table S3.5. Phenotype divergence beyond the cross-fitted space-only expectation.** The null interval is the central 95% interval from 500 posterior-predictive realizations; P is the predefined directional upper-tail probability.
+
+| Response | Observed high-env − low-env divergence | Space-null median | Central 95% null | Excess over null median | One-sided P |
+|---|---:|---:|---:|---:|---:|
+| Pigmentation state | **0.106802** | 0.058240 | 0.018098 to 0.108066 | **+0.048562** | **0.03393** |
+| Conditional visible intensity | -0.047179 | -0.001287 | -0.075026 to 0.087732 | -0.045891 | 0.87226 |
+
+Pigmentation-state divergence therefore increased with environmental difference beyond the fitted continuous-spatial expectation, whereas conditional intensity did not. The observed state statistic lies below the 97.5th percentile of the central interval but above the 95th percentile used by the predefined one-sided 5% test.
+
+This is an FST/PST-inspired analogy only. The space-only field is unresolved geographical continuity and can combine unmeasured environment, population history, dispersal, sampling geometry and other spatial processes. The excess establishes environmental alignment beyond that fitted expectation; it is not FST, PST or QST and does not demonstrate drift, selection, local adaptation or a unique causal environmental mechanism.
+
 ## Current 1-km natural reference passed to Main 3
 
 The downstream predictive layer is distinct from the observation-level coefficient model but is deliberately aligned with the finalized pigmentation-state environment.
@@ -192,6 +212,7 @@ The final Broad result is response specific.
 - **Pigmentation state:** the clearest measured environmental signal is a broad cool-climate association; no interaction passed the complete promotion rule.
 - **Conditional intensity:** the temperature association is context dependent, becoming more negative with increasing thermal seasonality; wetter/moister climate and greater terrain relief are associated with weaker visible intensity after spatial adjustment.
 - **Residual geography:** substantial continuous regional structure remains and may combine unmeasured environment, population history, dispersal and sampling geography.
+- **Spatial-null sensitivity:** pigmentation-state divergence, but not conditional intensity, shows environmental alignment beyond cross-fitted spatial continuity; this is not genetic differentiation or evidence of selection.
 
 The model does not show that long-term climate directly caused the colour of an individual photographed flower, does not infer genetic adaptation from spatial association, and does not turn an environment-derived Bombus SDM into an independent national causal predictor. Those limits motivate the separate local Bombus design in Appendix S5 and the natural-map/post-selection human design in Appendix S6.
 
@@ -208,7 +229,10 @@ Current Broad evidence is locked in:
 - `reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv`;
 - `reproducibility/environment_interaction_inla_screen_spec_2026-08-11.md`;
 - `reproducibility/broad_environment_spatial_audit_spec_2026-08-11.md`;
-- `reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv`.
+- `reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv`;
+- `docs/broad_spatial_inertia_environment_tracking.md`;
+- `scripts/fit_broad_space_null_phenotype_excess.R`;
+- `scripts/run_broad_space_null_phenotype_excess_pipeline.R`.
 
 The integrated downstream handoff is locked in:
 

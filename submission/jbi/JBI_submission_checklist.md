@@ -14,13 +14,13 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 ## Length and front matter
 
 - Main-text target: <=6,000 words.
-  - Current Introduction-through-Discussion count = **4,162 words** by repository validator.
+  - Current Introduction-through-Discussion count = **4,452 words** by repository validator.
 - Title: <=115 characters including spaces; no abbreviations or Latin binomial.
   - Current title = 108 characters.
 - Running title: <40 characters.
   - Current running title = 26 characters.
 - Structured abstract: <=300 words under **Aim, Location, Taxon, Methods, Results, Main conclusions**.
-  - Current abstract = **290 words** by repository validator.
+  - Current abstract = **299 words** by repository validator.
 - Keywords: 6–10, alphabetical.
   - Current count = 8.
 - The first abstract mention uses common name followed by the scientific name: spotted bellflower (*Campanula punctata*).
@@ -104,7 +104,7 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 
 - **Data killing part:** the Main reports that the matched YAMAP stream contained 3.81 times as many focal-species records as iNaturalist and explains how author screening, image hashing and deterministic phenotyping created a new national quantitative trait dataset.
 - **Phenotype killing part:** state and intensity are presented as different biological layers, not merely two response transformations.
-- **Broad killing part:** environment is shown to explain response-specific geography, while SPDE delivers coherent residual ranges that guide microclimate and genomic sampling rather than being dismissed as unexplained noise.
+- **Broad killing part:** environment is shown to explain response-specific geography, while SPDE delivers coherent residual ranges that guide microclimate and genomic sampling rather than being dismissed as unexplained noise. A cross-fitted space-only sensitivity further shows environment-aligned divergence beyond spatial continuity for pigmentation state but not conditional intensity, without relabelling that excess as genetic differentiation or adaptation.
 - **Bombus killing part:** the 5-km local comparison is the main ecological result. It identifies a short-range, state-boundary signal and 67 sites for direct pollination tests; its attenuation and heterogeneity refine the scale and phenotype component of the hypothesis. Only afterward does the highland/elevation guardrail demonstrate why a national overlay would confound pollinators with mountain environment.
 - **Departure killing part:** predictive replay converts 16 apparent exceptions into reproducibly calibrated field/provenance targets rather than erasing them as a null result.
 - **Human killing part:** short-range population exposure is identified as the leading human-context hypothesis and its likely spatial scale, without claiming provenance.

@@ -35,7 +35,7 @@ The stored `q025`/`q975` values are a central 95% null interval. They are not th
 
 ## Executed result
 
-The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. A post-computation metadata-table row-count bug affected only runner exit status after the scientific result tables were already written; the workflow validates the scientific output contract independently.
+The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. During PR #50 integration, a metadata-table row-count defect was found after the scientific result tables had been written. It is now fixed at source: the fitter must exit normally, the canonical wrapper requires every scientific output table, and the accepted values are checked against numerical tolerances.
 
 Frozen input: source artifact ID `9022276431`, ZIP SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`, 500 posterior-predictive realisations, seed `20260725`, five geographical folds and five geographical-distance strata per fold.
 

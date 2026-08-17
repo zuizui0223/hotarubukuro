@@ -32,13 +32,13 @@ Panels:
 
 **Reveal:** state and intensity differ, and coherent spatial structure remains after measured environment.
 
-**Handoff to Figure 3:** the Broad map has not isolated a biotic mechanism. Because Bombus SDMs share environmental geography, the pollinator hypothesis must be tested locally.
+**Handoff to Figure 3:** the Broad map has not isolated a biotic mechanism. Because Bombus SDMs share environmental geography, the pollinator hypothesis must be tested at local colour boundaries.
 
 Do not label the spatial field as population history. VPD, water-balance and barrier-model checks stay in Appendix S3.
 
-## Figure 3 — Test and weaken the tempting pollinator explanation
+## Figure 3 — Reveal where local Bombus opportunity may matter
 
-**Question created by Figure 2:** Does focal-bumblebee habitat opportunity increase across independently fixed local white-pigmented boundaries?
+**Question created by Figure 2:** At the population-neighbourhood scale, does focal-bumblebee habitat opportunity increase from white to pigmented sides of independently fixed boundaries?
 
 Panels:
 
@@ -47,13 +47,15 @@ Panels:
 - (c) pigmented-minus-white focal-Bombus contrast;
 - (d) scale and raw-SDM sensitivities.
 
-**Reveal:** the mean contrast is positive at 5 km, but the evidence is fragile, magnitude-driven and scale dependent. The result narrows to a possible local maintenance effect rather than a national pollinator mechanism.
+**Reveal:** focal-Bombus support is higher on the pigmented side on average at the finest replicated scale. Its concentration in a subset of boundaries, attenuation at 10 and 25 km and absence along the intensity axis localize the plausible contribution to short-range maintenance of pigmentation state.
 
-**Handoff to Figure 4:** after Broad environment, residual space and weak local Bombus correspondence, what should count as a genuinely exceptional colour configuration?
+**Supporting guardrail:** the stronger-looking national overlap with montane/alpine Bombus disappears after elevation matching in Appendix S5. This is not the Main dish; it demonstrates why broad maps would confound a pollinator explanation with shared mountain environment and validates the local comparison.
 
-The high-elevation false lead and five-species turnover remain in Appendix S5.
+**Handoff to Figure 4:** after Broad environment, coherent residual geography and a localized Bombus hypothesis, what should count as a genuinely exceptional colour configuration?
 
-## Figure 4 — Return apparent exceptions to the natural null
+Five-species turnover and the full highland/elevation audit remain in Appendix S5.
+
+## Figure 4 — Calibrate apparent exceptions against natural geography
 
 **Question created by Figure 3:** Are local pigmented departures more frequent than the finalized natural geography predicts?
 
@@ -64,14 +66,14 @@ Panels:
 - (c) event count/fraction versus 10,000 natural maps;
 - (d) human context tested only after sites are fixed.
 
-**Reveal:** the 16 sites look exceptional but are not unusually common under natural maps. Short-range population exposure is a provenance clue, not proof of human origin.
+**Reveal:** natural predictive maps explain the observed frequency of 16 configurations while turning them into reproducible field/provenance targets. Short-range population exposure is the leading human-context clue, not proof of origin.
 
-**Ending:** the figures do not nominate one dominant cause. They identify where physiology, population history, realized pollination and provenance should be tested directly.
+**Ending:** the figures identify where physiology, population history, realized pollination and provenance should be tested directly, and converge on a spatially varying model of polymorphism maintenance.
 
 ## Figure rule
 
 Each Main figure must change the reader's interpretation and create the next question.
 
-Do not use a Main panel only to prove that the workflow was careful. Put technical robustness in Supporting Information unless it causes a genuine biological reversal.
+Do not use a Main panel only to prove that the workflow was careful. Put technical robustness in Supporting Information unless it changes the biological inference.
 
 Panel labels are lowercase (a)-(d). Every map has a 100-km bar scale.

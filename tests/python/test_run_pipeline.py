@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -75,6 +76,48 @@ def test_audit_dry_run_needs_no_external_runtime() -> None:
     assert "profile=audit" in result.stdout
     assert "validate_alignment" in result.stdout
     assert "would write results/paper_pipeline/run_manifest.json" in result.stdout
+
+
+def test_cross_host_redirect_drops_repository_credentials() -> None:
+    request = urllib.request.Request(
+        "https://api.github.com/repos/example/repo/actions/artifacts/1/zip",
+        headers={
+            "Authorization": "Bearer secret",
+            "Cookie": "session=secret",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    handler = run_pipeline.StripAuthorizationOnCrossHostRedirect()
+    redirected = handler.redirect_request(
+        request,
+        None,
+        302,
+        "Found",
+        {},
+        "https://results-receiver.actions.githubusercontent.com/artifact.zip?sig=temporary",
+    )
+    assert redirected is not None
+    assert redirected.get_header("Authorization") is None
+    assert redirected.get_header("Cookie") is None
+    assert redirected.get_header("Accept") == "application/vnd.github+json"
+
+
+def test_same_host_redirect_retains_repository_credentials() -> None:
+    request = urllib.request.Request(
+        "https://api.github.com/repos/example/repo/actions/artifacts/1/zip",
+        headers={"Authorization": "Bearer secret"},
+    )
+    handler = run_pipeline.StripAuthorizationOnCrossHostRedirect()
+    redirected = handler.redirect_request(
+        request,
+        None,
+        302,
+        "Found",
+        {},
+        "https://api.github.com/repos/example/repo/actions/artifacts/1/redirect",
+    )
+    assert redirected is not None
+    assert redirected.get_header("Authorization") == "Bearer secret"
 
 
 def test_safe_extract_rejects_path_traversal(tmp_path: Path) -> None:

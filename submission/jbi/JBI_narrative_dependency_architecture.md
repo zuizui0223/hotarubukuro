@@ -31,27 +31,29 @@ Broad environmental and spatial models test the two responses separately.
 
 The Broad analysis therefore does not close the story. It creates the need to zoom in.
 
-## Act II — The tempting pollinator explanation weakens under magnification
+## Act II — Local boundaries reveal where pollinator opportunity may matter
 
-The study moves from national maps to independently fixed local white-pigmented boundaries.
+The study moves first to 67 independently fixed white-pigmented boundaries within 5 km. This is the finest predeclared radius with enough replicated transitions and represents a local population-neighbourhood comparison, not an assumed bumblebee foraging distance.
 
-**Apparent answer:** mean focal-Bombus support is higher on pigmented sides at 5 km.
+**Primary answer:** mean focal-Bombus support is higher on pigmented sides at the local scale.
 
-**Closer inspection:** the median is near zero, fewer than half the pairs are positive, the signal fades with scale and raw SDM values do not reproduce it.
+**Ecological refinement:** the signal is concentrated in a subset of boundaries, attenuates at 10 and 25 km and is absent along the intensity axis. These features localize the plausible contribution to short-range maintenance or loss of pigmentation state rather than national darkening.
 
-A second, visually stronger clue—montane Bombus overlap—disappears after elevation is controlled locally.
+Only after the local result is established does the broad highland pattern enter.
 
-**Reveal:** broad map agreement is not the mechanism. If pollinators matter, they are more likely to modify local maintenance of visible pigmentation than to create national darkening.
+**Guardrail:** montane/alpine Bombus overlap looks stronger nationally but disappears after elevation is controlled locally. This demonstrates why broad maps can confuse a pollinator explanation with shared mountain environment and validates the local comparison.
 
-## Act III — The apparent anomalies return to nature
+**Reveal:** changing scale separates a small, state-specific local biotic signal from broad abiotic co-distribution and supplies 67 sites for direct pollination tests.
+
+## Act III — Apparent anomalies become calibrated field targets
 
 The Broad template now allows a biological local exception to be defined: a pigmented cell among nearby environmentally similar white cells.
 
-**Apparent answer:** 16 sites look exceptional.
+**Observed pattern:** 16 sites express this exact configuration.
 
-**Reversal:** the same event occurs often enough in 10,000 natural predictive maps that the observed frequency is not unusual.
+**Calibration:** the same event occurs often enough in 10,000 natural predictive maps that the observed frequency is compatible with the natural model.
 
-**Reveal:** spatially structured nature can generate striking local exceptions. Human context may still leave a provenance clue, but it cannot be introduced as the cause of the sites.
+**Reveal:** the calibration does not erase the sites. It turns them into reproducibly selected natural-history and provenance targets, while preventing human context from being introduced as their cause.
 
 ## Ending — One spatially changing balance
 
@@ -70,7 +72,7 @@ The ending is not “more work is needed.” Each unresolved layer points to a d
 
 - thermal/moisture geography -> common garden, reciprocal transplant, pigment physiology and fitness;
 - residual spatial geography -> ancestry, isolation by distance and admixture;
-- local Bombus boundaries -> visitation, stigma contact, pollen deposition and seed set;
+- 67 local Bombus boundaries -> visitation, visual contrast, stigma contact, pollen deposition and seed set;
 - 16 departure sites -> vouchers, planting history and genomic provenance.
 
 The macro analysis has produced the sampling design for the next causal study.
@@ -114,4 +116,4 @@ A reader who reads only:
 
 should be able to retell the investigation as:
 
-> reveal the phenotype -> split the geography -> distrust broad overlap -> zoom to local boundaries -> calibrate apparent exceptions -> design direct tests.
+> reveal the phenotype -> split the geography -> test local Bombus boundaries -> use broad highland overlap as a confounding guardrail -> calibrate apparent exceptions -> design direct tests.

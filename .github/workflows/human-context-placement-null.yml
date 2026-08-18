@@ -1,0 +1,250 @@
+name: Human context placement null
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "R/local_departure_placement_null.R"
+      - "R/local_pigmented_isolates.R"
+      - "R/local_human_context.R"
+      - "R/candidate_null_tools.R"
+      - "R/spatial_context.R"
+      - "analysis_sensitivity/run_local_departure_placement_null.R"
+      - "tests/testthat/test-local-departure-placement-null.R"
+      - ".github/workflows/human-context-placement-null.yml"
+      - "reproducibility/local_departure_placement_null/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: human-context-placement-null-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  placement-null:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      REFERENCE_ARTIFACT_ID: "9022276431"
+      FINAL8_ARTIFACT_ID: "9094339466"
+      R_KEEP_PKG_SOURCE: "yes"
+    steps:
+      - name: Check out analysis branch with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install spatial system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+
+      - name: Install locked analysis dependencies
+        run: |
+          Rscript -e 'install.packages(c("jsonlite", "terra", "testthat"), repos = "https://cloud.r-project.org")'
+
+      - name: Download immutable reference and final8 artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p reference-artifact final8-artifact input-provenance
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFERENCE_ARTIFACT_ID}/zip" \
+            > input-provenance/reference-artifact.zip
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FINAL8_ARTIFACT_ID}/zip" \
+            > input-provenance/final8-artifact.zip
+          sha256sum input-provenance/*.zip \
+            | tee input-provenance/github_artifact_sha256.txt
+          unzip -q input-provenance/reference-artifact.zip -d reference-artifact
+          unzip -q input-provenance/final8-artifact.zip -d final8-artifact
+          test -s reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s reference-artifact/results/ecological_v21_local_human_neighbourhood/human_neighbourhood_cell_features.csv
+          test -s reference-artifact/results/ecological_v22_did_human_context/did_cell_context.csv
+          test -s final8-artifact/final8_presence_draws10000.rds
+
+      - name: Recover the frozen WorldPop source declaration
+        run: |
+          set -euo pipefail
+          mkdir -p input-provenance worldpop-input
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import re
+          import subprocess
+
+          target = "jpn_ppp_2020_1km_Aggregated.tif"
+          commits = subprocess.check_output(
+              ["git", "rev-list", "--all", "--", "inputs/canonical_snapshot.json"],
+              text=True,
+          ).splitlines()
+          snapshot_commit = None
+          snapshot_text = None
+          for commit in commits:
+              probe = subprocess.run(
+                  ["git", "show", f"{commit}:inputs/canonical_snapshot.json"],
+                  text=True,
+                  capture_output=True,
+              )
+              if probe.returncode == 0 and target in probe.stdout:
+                  snapshot_commit = commit
+                  snapshot_text = probe.stdout
+                  break
+          if snapshot_text is None:
+              raise SystemExit("No historical canonical snapshot declares the WorldPop raster")
+
+          snapshot_path = pathlib.Path("input-provenance/canonical_snapshot_worldpop.json")
+          snapshot_path.write_text(snapshot_text, encoding="utf-8")
+          root = json.loads(snapshot_text)
+          candidates = []
+
+          def walk(value):
+              if isinstance(value, dict):
+                  encoded = json.dumps(value, ensure_ascii=False)
+                  if target in encoded:
+                      candidates.append(value)
+                  for child in value.values():
+                      walk(child)
+              elif isinstance(value, list):
+                  for child in value:
+                      walk(child)
+
+          walk(root)
+          if not candidates:
+              raise SystemExit("WorldPop declaration was not parsed from the snapshot")
+          record = min(candidates, key=lambda item: len(json.dumps(item)))
+
+          urls = []
+          hashes = []
+          def collect(value, key=""):
+              if isinstance(value, dict):
+                  for child_key, child in value.items():
+                      collect(child, child_key)
+              elif isinstance(value, list):
+                  for child in value:
+                      collect(child, key)
+              elif isinstance(value, str):
+                  if value.startswith(("https://", "http://")):
+                      urls.append((key, value))
+                  if re.fullmatch(r"[0-9a-fA-F]{64}", value):
+                      hashes.append((key, value.lower()))
+
+          collect(record)
+          preferred_urls = [value for key, value in urls if target in value]
+          if not preferred_urls:
+              preferred_urls = [value for key, value in urls if "worldpop" in value.lower()]
+          if not preferred_urls:
+              preferred_urls = [value for key, value in urls]
+          preferred_hashes = [value for key, value in hashes if "sha256" in key.lower()]
+          if not preferred_hashes:
+              preferred_hashes = [value for key, value in hashes]
+          if not preferred_urls or not preferred_hashes:
+              raise SystemExit("Frozen WorldPop URL or SHA-256 is absent")
+
+          provenance = {
+              "snapshot_commit": snapshot_commit,
+              "snapshot_path": "inputs/canonical_snapshot.json",
+              "target_filename": target,
+              "source_url": preferred_urls[0],
+              "expected_sha256": preferred_hashes[0],
+              "declaration": record,
+          }
+          pathlib.Path("input-provenance/worldpop_provenance.json").write_text(
+              json.dumps(provenance, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          pathlib.Path("input-provenance/worldpop_url.txt").write_text(
+              preferred_urls[0] + "\n", encoding="utf-8"
+          )
+          pathlib.Path("input-provenance/worldpop_expected_sha256.txt").write_text(
+              preferred_hashes[0] + "\n", encoding="utf-8"
+          )
+          PY
+
+      - name: Download and verify frozen WorldPop raster
+        run: |
+          set -euo pipefail
+          url="$(cat input-provenance/worldpop_url.txt)"
+          expected="$(cat input-provenance/worldpop_expected_sha256.txt)"
+          curl --fail --location --retry 5 --retry-all-errors \
+            "$url" \
+            --output worldpop-input/jpn_ppp_2020_1km_Aggregated.tif
+          actual="$(sha256sum worldpop-input/jpn_ppp_2020_1km_Aggregated.tif | cut -d' ' -f1)"
+          test "$actual" = "$expected"
+          printf '%s  %s\n' "$actual" \
+            worldpop-input/jpn_ppp_2020_1km_Aggregated.tif \
+            > input-provenance/worldpop_actual_sha256.txt
+
+      - name: Run focused unit tests
+        run: |
+          Rscript -e 'testthat::test_file("tests/testthat/test-local-departure-placement-null.R", stop_on_failure = TRUE)'
+
+      - name: Replay event detection on 10,000 natural maps
+        run: |
+          Rscript analysis_sensitivity/run_local_departure_placement_null.R \
+            --reference-root reference-artifact \
+            --final8-root final8-artifact \
+            --worldpop-raster worldpop-input/jpn_ppp_2020_1km_Aggregated.tif \
+            --worldpop-provenance input-provenance/worldpop_provenance.json \
+            --draws 10000 \
+            --seed 20260725 \
+            --minimum-exact-draws 200 \
+            --fallback-draws 1000 \
+            --output results/local_departure_placement_null
+
+      - name: Validate the new question and the frozen comparator
+        run: |
+          Rscript - <<'RS'
+          result <- read.csv(
+            "results/local_departure_placement_null/placement_null_primary_decision.csv",
+            check.names = FALSE
+          )
+          stopifnot(nrow(result) == 1L)
+          stopifnot(result$n_natural_maps == 10000L)
+          stopifnot(result$observed_candidate_count == 16L)
+          stopifnot(result$exact_count_null_maps >= 200L)
+          stopifnot(result$count_conditioning_mode == "exact_candidate_count")
+          stopifnot(!result$human_variables_used_in_candidate_detection)
+          stopifnot(!result$provenance_claim_supported)
+          stopifnot(abs(result$candidate_count_p - 0.27897) < 0.0002)
+          stopifnot(abs(result$candidate_fraction_p - 0.12609) < 0.0002)
+          stopifnot(abs(result$current_method_5km_contrast - 0.06744) < 0.0002)
+          stopifnot(abs(result$current_method_5km_directional_p - 0.00800) < 0.0002)
+          stopifnot(abs(result$current_method_5km_global_FWER - 0.05479) < 0.0002)
+          stopifnot(is.finite(result$primary_directional_p))
+          stopifnot(is.finite(result$primary_global_human_maxT_FWER))
+          validation <- jsonlite::read_json(
+            "results/local_departure_placement_null/placement_null_validation.json",
+            simplifyVector = TRUE
+          )
+          stopifnot(identical(validation$status, "PASS"))
+          RS
+
+      - name: Publish result in the workflow summary
+        if: always()
+        run: |
+          if test -s results/local_departure_placement_null/RESULT_SUMMARY.md; then
+            cat results/local_departure_placement_null/RESULT_SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the immutable placement-null bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-departure-placement-null-${{ github.sha }}
+          path: |
+            results/local_departure_placement_null
+            input-provenance
+          if-no-files-found: error
+          retention-days: 90

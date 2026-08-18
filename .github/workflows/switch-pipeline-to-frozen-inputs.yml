@@ -18,7 +18,7 @@ jobs:
         with:
           ref: agent/unify-jbi-reproducible-pipeline
 
-      - name: Make Git-frozen archives primary and Actions artifacts fallback-only
+      - name: Replace retention-bound restore stages with Git-frozen materializers
         shell: bash
         run: |
           set -euo pipefail
@@ -27,134 +27,71 @@ jobs:
           import re
           from pathlib import Path
 
-          frozen = {
-              'broad': ('reproducibility/frozen_inputs/broad-minimal.zip', 'f9c54ff940a6eb4cf5ced7ae5049bd95fe15bc700bb72c364c95162d8755820a'),
-              'bombus_sdm': ('reproducibility/frozen_inputs/bombus-sdm-minimal.zip', '9c3993e3b42307ed3780f3b235740b6dc9a33f3962e07b6137a61217a4cabf52'),
-              'final8_draws': ('reproducibility/frozen_inputs/final8-draws-minimal.zip', '4c4456bc5fdca96db3cc7279f75eb146d1e8f828b2c8cc6e00bd7c9f9db8226e'),
-          }
-
           lock_path = Path('config/paper_pipeline.lock.json')
           lock = json.loads(lock_path.read_text(encoding='utf-8'))
-          for name, (archive, digest) in frozen.items():
-              lock['artifacts'][name]['local_archive'] = archive
-              lock['artifacts'][name]['local_sha256'] = digest
+          replacements = {
+              'restore_broad': {
+                  'kind': 'command',
+                  'command': ['{python}', 'scripts/materialize_frozen_input.py', 'broad'],
+                  'outputs': lock['artifacts']['broad']['required'],
+              },
+              'restore_bombus_sdm': {
+                  'kind': 'command',
+                  'command': ['{python}', 'scripts/materialize_frozen_input.py', 'bombus_sdm'],
+                  'outputs': lock['artifacts']['bombus_sdm']['required'],
+              },
+              'restore_final8_draws': {
+                  'kind': 'command',
+                  'command': ['{python}', 'scripts/materialize_frozen_input.py', 'final8_draws'],
+                  'outputs': lock['artifacts']['final8_draws']['required'],
+              },
+          }
+          lock['stages'].update(replacements)
           lock['provenance_boundary']['exact_reproduction_starts_from'] = 'repository-frozen checksum-locked accepted Broad evidence, seeded Bombus SDMs, and final-eight-axis posterior draws'
-          lock['provenance_boundary']['interpretation'] = 'The reproduce profile regenerates the accepted Broad spatial-null sensitivity, local Bombus and human-context analyses, figures, and JBI review bundle from permanent Git-frozen inputs. Historical Actions artifacts are provenance/fallback references only.'
+          lock['provenance_boundary']['interpretation'] = 'The reproduce profile regenerates the accepted Broad spatial-null sensitivity, local Bombus and human-context analyses, figures, and JBI review bundle from permanent Git-frozen inputs. Historical Actions artifact IDs and checksums remain provenance references only.'
           lock_path.write_text(json.dumps(lock, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
 
-          pipeline = Path('run_pipeline.py')
-          text = pipeline.read_text(encoding='utf-8')
-          pattern = re.compile(r"    def restore_artifact\(self, name: str\) -> None:\n.*?\n    @staticmethod\n    def safe_extract", re.S)
-          replacement = '''    def restore_artifact(self, name: str) -> None:
-        artifact = self.lock["artifacts"].get(name)
-        if not artifact:
-            raise PipelineError(f"Artifact is not defined in lock: {name}")
-
-        archive: Path | None = None
-        local_archive = artifact.get("local_archive")
-        if local_archive:
-            local_path = safe_resolve(self.root, local_archive)
-            local_expected = str(artifact.get("local_sha256", "")).lower()
-            if local_path.is_file():
-                if not local_expected:
-                    raise PipelineError(f"Local archive checksum is not defined for {name}")
-                actual = sha256_file(local_path)
-                if actual != local_expected:
-                    raise PipelineError(
-                        f"Checksum mismatch for repository-frozen artifact {name}: expected {local_expected}, observed {actual}"
-                    )
-                archive = local_path
-                print(f"    using repository-frozen archive {local_archive}")
-            elif self.dry_run:
-                print(f"    would use repository-frozen archive {local_archive}")
-                return
-
-        if archive is None:
-            artifact_id = int(artifact["id"])
-            expected = artifact["sha256"].lower()
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
-            cached = self.cache_dir / f"{name}-{artifact_id}.zip"
-            if cached.exists() and sha256_file(cached) != expected:
-                print(f"    cached checksum mismatch; deleting {cached}")
-                cached.unlink()
-            if not cached.exists():
-                if self.dry_run:
-                    print(f"    would download fallback artifact {artifact_id} -> {cached}")
-                    return
-                if not self.token:
-                    raise PipelineError(
-                        f"Repository-frozen archive is missing for {name}, and no token is available for the historical Actions-artifact fallback."
-                    )
-                repository = self.lock["repository"]
-                url = f"https://api.github.com/repos/{repository}/actions/artifacts/{artifact_id}/zip"
-                print(f"    downloading historical fallback artifact {name} ({artifact_id})")
-                request = urllib.request.Request(
-                    url,
-                    headers={
-                        "Authorization": f"Bearer {self.token}",
-                        "Accept": "application/vnd.github+json",
-                        "User-Agent": "hotarubukuro-paper-pipeline/1",
-                    },
-                )
-                opener = urllib.request.build_opener(StripAuthorizationOnCrossHostRedirect())
-                with tempfile.NamedTemporaryFile(prefix=f"{name}-", suffix=".zip", dir=self.cache_dir, delete=False) as temporary:
-                    temporary_path = Path(temporary.name)
-                    try:
-                        with opener.open(request, timeout=180) as response:
-                            shutil.copyfileobj(response, temporary)
-                    except (urllib.error.URLError, TimeoutError) as error:
-                        temporary_path.unlink(missing_ok=True)
-                        raise PipelineError(f"Could not download artifact {artifact_id}: {error}") from error
-                actual = sha256_file(temporary_path)
-                if actual != expected:
-                    temporary_path.unlink(missing_ok=True)
-                    raise PipelineError(f"Checksum mismatch for fallback artifact {name}: expected {expected}, observed {actual}")
-                temporary_path.replace(cached)
-            else:
-                print(f"    using checksum-verified fallback cache {cached}")
-            actual = sha256_file(cached)
-            if actual != expected:
-                raise PipelineError(f"Checksum mismatch for fallback artifact {name}: expected {expected}, observed {actual}")
-            archive = cached
-
-        destination = safe_resolve(self.root, artifact["destination"])
-        if not artifact.get("merge", False) and destination.exists():
-            shutil.rmtree(destination)
-        destination.mkdir(parents=True, exist_ok=True)
-        self.safe_extract(archive, destination)
-        print(f"    restored into {destination.relative_to(self.root) if destination != self.root else '.'}")
-
-    @staticmethod
-    def safe_extract'''
-          new_text, count = pattern.subn(replacement, text, count=1)
-          if count != 1:
-              raise SystemExit(f'Could not replace restore_artifact exactly once; replacements={count}')
-          pipeline.write_text(new_text, encoding='utf-8')
-
           guide = Path('docs/reproduction-guide.md')
-          g = guide.read_text(encoding='utf-8')
-          g = g.replace('Exact reproduction starts from three checksum-locked inputs:', 'Exact reproduction starts from three checksum-locked inputs permanently frozen under `reproducibility/frozen_inputs/`:')
-          g = g.replace('Local artifact restoration requires `GITHUB_TOKEN` or `GH_TOKEN` with Actions-artifact read access. The canonical workflow supplies its own token.', 'Local exact reproduction does not require a GitHub token: the three required archives are versioned in the repository. Historical Actions artifacts remain checksum-locked provenance/fallback references.')
-          g = re.sub(r'## Remaining durability gate\n\n.*?\Z', '## Durability status\n\nThe exact-reproduction binary inputs are permanently versioned in `reproducibility/frozen_inputs/` with SHA-256 locks. GitHub Actions artifacts are no longer required for execution. A future DOI deposit may mirror these files, but it is not a prerequisite for reproducing the frozen paper state.\n', g, flags=re.S)
-          guide.write_text(g, encoding='utf-8')
+          text = guide.read_text(encoding='utf-8')
+          text = text.replace(
+              'Exact reproduction starts from three checksum-locked inputs:',
+              'Exact reproduction starts from three checksum-locked inputs permanently frozen under `reproducibility/frozen_inputs/`:'
+          )
+          text = text.replace(
+              'Local artifact restoration requires `GITHUB_TOKEN` or `GH_TOKEN` with Actions-artifact read access. The canonical workflow supplies its own token.',
+              'Local exact reproduction does not require a GitHub token: the three required archives are versioned in the repository. Historical Actions artifact IDs/checksums remain provenance references only.'
+          )
+          text = re.sub(
+              r'## Remaining durability gate\n\n.*?\Z',
+              '## Durability status\n\nThe exact-reproduction binary inputs are permanently versioned in `reproducibility/frozen_inputs/` with SHA-256 locks. GitHub Actions artifacts are no longer required for execution. A future DOI mirror is optional rather than a reproduction prerequisite.\n',
+              text,
+              flags=re.S,
+          )
+          guide.write_text(text, encoding='utf-8')
 
           md = Path('reproducibility/FROZEN_RELEASE_2026-08-18.md')
           if md.exists() and '## Permanent binary inputs' not in md.read_text(encoding='utf-8'):
-              md.write_text(md.read_text(encoding='utf-8') + '\n## Permanent binary inputs\n\nThe three exact-reproduction archives are versioned under `reproducibility/frozen_inputs/`; their SHA-256 identities are recorded in `SHA256SUMS`. Historical Actions artifacts are provenance/fallback only.\n', encoding='utf-8')
+              md.write_text(md.read_text(encoding='utf-8') + '\n## Permanent binary inputs\n\nThe exact-reproduction archives are versioned under `reproducibility/frozen_inputs/`, with SHA-256 identities in `SHA256SUMS`. Historical Actions artifacts are provenance references only.\n', encoding='utf-8')
 
           fj = Path('reproducibility/frozen_release_2026-08-18.json')
           if fj.exists():
               data = json.loads(fj.read_text(encoding='utf-8'))
-              data['permanent_binary_inputs'] = {name: {'path': p, 'sha256': d} for name, (p, d) in frozen.items()}
+              data['permanent_binary_inputs'] = {
+                  'broad': {'path': 'reproducibility/frozen_inputs/broad-minimal.zip', 'sha256': 'f9c54ff940a6eb4cf5ced7ae5049bd95fe15bc700bb72c364c95162d8755820a'},
+                  'bombus_sdm': {'path': 'reproducibility/frozen_inputs/bombus-sdm-minimal.zip', 'sha256': '9c3993e3b42307ed3780f3b235740b6dc9a33f3962e07b6137a61217a4cabf52'},
+                  'final8_draws': {'path': 'reproducibility/frozen_inputs/final8-draws-minimal.zip', 'sha256': '4c4456bc5fdca96db3cc7279f75eb146d1e8f828b2c8cc6e00bd7c9f9db8226e'},
+              }
               data['actions_artifacts_required_for_execution'] = False
               fj.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           PY
 
-          python3 -m py_compile run_pipeline.py
-          python3 run_pipeline.py audit --dry-run
+          python3 scripts/materialize_frozen_input.py broad
+          python3 scripts/materialize_frozen_input.py bombus_sdm
+          python3 scripts/materialize_frozen_input.py final8_draws
+          python3 run_pipeline.py reproduce --dry-run
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add run_pipeline.py config/paper_pipeline.lock.json docs/reproduction-guide.md reproducibility
-          git commit -m "Use permanent Git-frozen inputs for exact reproduction"
+          git add config/paper_pipeline.lock.json docs/reproduction-guide.md reproducibility
+          git commit -m "Make Git-frozen inputs canonical for exact reproduction"
           git push origin HEAD:agent/unify-jbi-reproducible-pipeline

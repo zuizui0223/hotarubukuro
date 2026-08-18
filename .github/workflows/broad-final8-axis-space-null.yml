@@ -9,6 +9,13 @@ on:
       - .github/workflows/broad-final8-axis-space-null.yml
       - scripts/fit_broad_final8_axis_space_null_attribution.R
       - docs/broad_final8_axis_attribution.md
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/broad-final8-axis-space-null.yml
+      - scripts/fit_broad_final8_axis_space_null_attribution.R
+      - docs/broad_final8_axis_attribution.md
 
 permissions:
   contents: read

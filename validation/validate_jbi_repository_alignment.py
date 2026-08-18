@@ -28,6 +28,7 @@ PATTERN_ALIASES = {
         r"does not identify human origin|"
         r"human context leaves a provenance clue, not an origin answer|"
         r"does not assign horticultural origin|"
+        r"not a demonstrated human process or horticultural origin|"
         r"does not establish an additional anthropogenic process)"
     ),
     r"0\.279": r"(?:0\.27897|0\.279)",
@@ -173,6 +174,7 @@ def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
             r"does not identify human origin|"
             r"human context leaves a provenance clue, not an origin answer|"
             r"does not assign horticultural origin|"
+            r"not a demonstrated human process or horticultural origin|"
             r"does not establish an additional anthropogenic process)"
         ),
         "high-elevation overlap is not an independent mechanism": (

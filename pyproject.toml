@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hotarubukuro-analysis"
-version = "2.5.0"
+version = "2.6.0"
 description = "Reproducible floral-colour source-build, paper-pipeline and submission utilities"
 requires-python = ">=3.9"
 dependencies = [
@@ -18,15 +18,15 @@ submission = ["python-docx>=1.1,<2"]
 test = ["pytest>=8,<10"]
 
 [project.scripts]
-hotarubukuro-color = "source_build.extract_color:main"
-hotarubukuro-paper = "run_pipeline:main"
+hotarubukuro-color = "hotarubukuro_analysis.cli:color_main"
+hotarubukuro-paper = "hotarubukuro_analysis.cli:paper_main"
 
 [tool.setuptools]
 py-modules = ["Code_S1", "run_pipeline"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["source_build*"]
+include = ["hotarubukuro_analysis*", "source_build*"]
 namespaces = true
 
 [tool.pytest.ini_options]

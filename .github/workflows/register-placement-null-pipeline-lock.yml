@@ -1,0 +1,42 @@
+name: Register placement-null result in paper lock
+
+on:
+  push:
+    branches:
+      - agent/v22-placement-null-human-context
+    paths:
+      - scripts/register_placement_null_pipeline_lock.py
+      - .github/workflows/register-placement-null-pipeline-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: agent/v22-placement-null-human-context
+
+      - name: Register the checksum-locked v22 stage
+        run: |
+          set -euo pipefail
+          python scripts/register_placement_null_pipeline_lock.py
+          python -m json.tool config/paper_pipeline.lock.json >/dev/null
+          git diff --check
+
+      - name: Commit the idempotent lock update
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- config/paper_pipeline.lock.json; then
+            echo "paper pipeline lock already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config/paper_pipeline.lock.json
+          git commit -m "Register accepted v22 placement-null result"
+          git push origin HEAD:agent/v22-placement-null-human-context

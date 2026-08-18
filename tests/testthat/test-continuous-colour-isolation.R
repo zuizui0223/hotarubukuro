@@ -9,7 +9,10 @@ testthat::test_that("nearest same-colour distance is threshold-free", {
     as.numeric(metrics$same_colour_nn_km[, 1L]),
     c(1, 1, 6, 6)
   )
-  testthat::expect_equal(metrics$any_colour_nn_km, c(1, 1, 3, 6))
+  testthat::expect_equal(
+    as.numeric(metrics$any_colour_nn_km),
+    c(1, 1, 3, 6)
+  )
 })
 
 testthat::test_that("relative isolation separates colour spacing from cell spacing", {
@@ -51,6 +54,6 @@ testthat::test_that("nearest-same matrix handles several maps at once", {
     c(TRUE, FALSE, TRUE, FALSE)
   )
   result <- v23_nearest_same_matrix(states, distance)
-  testthat::expect_equal(result[, 1L], c(1, 1, 6, 6))
-  testthat::expect_equal(result[, 2L], c(4, 9, 4, 9))
+  testthat::expect_equal(as.numeric(result[, 1L]), c(1, 1, 6, 6))
+  testthat::expect_equal(as.numeric(result[, 2L]), c(4, 9, 4, 9))
 })

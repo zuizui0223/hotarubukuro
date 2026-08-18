@@ -169,7 +169,7 @@ jobs:
           assert {r['subset_rule'] for r in rows} == {
               'all', 'drop_resolution_nearest', 'drop_published_nearest'
           }
-          run_rows = [r for r in rows if r['run_label']]
+          run_rows = [r for r in rows if r['run_label'] not in ('', 'NA')]
           assert len(run_rows) == 12, len(run_rows)
           assert {r['run_label'] for r in run_rows} == set('ABCDEF')
 

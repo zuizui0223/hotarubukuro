@@ -10,6 +10,13 @@ on:
       - scripts/register_continuous_isolation_paper_contract.py
       - scripts/run_continuous_isolation_paper_contract.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/integrate_continuous_isolation_manuscript.py
+      - scripts/register_continuous_isolation_paper_contract.py
+      - scripts/run_continuous_isolation_paper_contract.py
+      - .github/workflows/integrate-continuous-isolation-manuscript.yml
 
 permissions:
   contents: write

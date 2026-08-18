@@ -6,6 +6,7 @@ on:
       - agent/continuous-colour-isolation-human-context
     paths:
       - scripts/integrate_continuous_isolation_manuscript.py
+      - scripts/register_continuous_isolation_paper_contract.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
 
 permissions:
@@ -21,31 +22,48 @@ jobs:
           fetch-depth: 0
           ref: agent/continuous-colour-isolation-human-context
 
-      - name: Apply deterministic manuscript integration
+      - name: Apply deterministic manuscript and paper-contract integration
         shell: bash
         run: |
           set -euo pipefail
           python scripts/integrate_continuous_isolation_manuscript.py
+          python scripts/register_continuous_isolation_paper_contract.py
+          python -m json.tool config/paper_pipeline.lock.json >/dev/null
           git diff --check
           grep -q 'rho=0.252' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q 'relative isolation' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
           grep -q 'P=0.0009' submission/jbi/JBI_translated_abstract_ja.md
+          grep -q 'continuous_pigmented_cells' validation/validate_jbi_figure_bundle.R
+          grep -q 'accepted_continuous_colour_isolation' config/paper_pipeline.lock.json
 
-      - name: Commit generated manuscript sources
+      - name: Commit generated paper sources and contracts
         shell: bash
         run: |
           set -euo pipefail
           paths=(
+            config/paper_pipeline.lock.json
+            paper/README.md
+            paper/analysis-map.md
+            paper/active-file-map.csv
+            validation/validate_jbi_repository_alignment.py
+            validation/validate_jbi_figure_bundle.R
             submission/jbi/JBI_main_manuscript_anonymized.md
             submission/jbi/JBI_translated_abstract_ja.md
+            submission/jbi/JBI_main_figure_captions.md
+            submission/jbi/JBI_main_figure_plan.md
+            submission/jbi/JBI_cover_letter.md
+            submission/jbi/JBI_submission_checklist.md
+            submission/jbi/validate_jbi_submission.py
             submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+            scripts/render_jbi_main_figures.R
+            .github/workflows/jbi-main-figures.yml
           )
           if git diff --quiet -- "${paths[@]}"; then
-            echo "manuscript integration already current"
+            echo "continuous-isolation paper integration already current"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "${paths[@]}"
-          git commit -m "Integrate continuous isolation into JBI narrative"
+          git commit -m "Integrate continuous isolation into paper contract"
           git push origin HEAD:agent/continuous-colour-isolation-human-context

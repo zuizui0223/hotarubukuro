@@ -4,63 +4,109 @@
 
 At the same approximate geographical separation, are environmentally dissimilar locations more phenotypically different than a model based on spatial continuity alone would predict?
 
-The scientifically relevant quantity is **phenotype divergence in excess of the cross-fitted space-only null, conditional on comparable geographical separation**.
+The estimand is **phenotype divergence in excess of a cross-fitted space-only null, conditional on comparable geographical separation**.
 
 `space` is an unresolved geographical expectation. It can contain unmeasured environment, dispersal or population history, sampling geometry and other spatially structured processes, so it is not interpreted as a single biological mechanism.
 
 ## Cross-fitted spatial-null design
 
-The analysis reuses the frozen active Broad 1-km cell table, the existing five geographical folds and the frozen response-blind environmental basis.
-
-For each response and each held-out geographical fold:
+For each response and each of five held-out geographical folds:
 
 1. fit `intercept + Matérn SPDE` to the other four folds only;
-2. generate 500 posterior-predictive phenotype realisations for locations in the held-out fold;
+2. generate 500 posterior-predictive phenotype realizations at locations in the held-out fold;
 3. construct held-out location pairs and calculate geographical distance, environmental distance and observed phenotype divergence;
 4. divide pairs into five equal-count geographical-distance strata;
-5. within each geographical-distance stratum, contrast the upper environmental-distance quartile against the lower quartile;
-6. compare the observed `high-environment minus low-environment` phenotype-divergence contrast with the identical contrast generated from each space-only posterior-predictive realisation.
+5. within each stratum, contrast the upper environmental-distance quartile against the lower quartile;
+6. compare the observed `high-environment minus low-environment` phenotype-divergence contrast with the identical statistic from the space-only posterior-predictive realizations.
 
-Because every tested pair lies wholly inside a fold omitted from model fitting, the observed phenotype used to test excess is not used to fit its own spatial null.
+Every tested pair lies wholly inside a fold omitted from model fitting.
 
-Environmental distance is Euclidean distance in the six frozen Broad/within response-blind environmental PC scores, with scaling estimated on the corresponding training folds only.
+## Provenance correction: the accepted result uses four legacy multiscale PCs
 
-## Primary estimand
+The accepted PR #50 numerical result is reproducible, but its later metadata description was incorrect.
 
-For each response, the primary statistic is the mean across the 25 fold-by-geographical-distance strata of `mean phenotype divergence among high-environment-distance pairs - mean phenotype divergence among low-environment-distance pairs`.
+The fitter calls `v16_environment_terms(50)`, which resolves to:
 
-The observed statistic is compared with the distribution of that statistic under the cross-fitted space-only posterior predictive null. The directional upper-tail probability is `P(space-null contrast >= observed contrast)`, estimated from 500 posterior-predictive realisations with `(1 + count) / 501`.
+- `broad50km_pc1`;
+- `broad50km_pc2`;
+- `within50km_pc1`;
+- `within50km_pc2`.
 
-The stored `q025`/`q975` values are a central 95% null interval. They are not the cutoff for the one-sided 5% test; the directional cutoff is the 95th percentile.
+These are four legacy multiscale PCs, not six named climate/aridity/topography scores and not the final eight measured abiotic axes. Broad PC1 is principally an elevation–temperature contrast; broad PC2 is weighted toward precipitation and radiation; within-neighbourhood PC1 combines temperature, elevation and precipitation; and within-neighbourhood PC2 is strongly radiation weighted.
 
-## Executed result
+A former workflow overwrote the metadata with six labels that were not the columns used by the fitter. The workflow and canonical wrapper now record the implemented four-PC basis explicitly.
 
-The calculation has been reproduced through all 10 space-only SPDE fits (2 responses x 5 folds) on the frozen Broad input. During PR #50 integration, a metadata-table row-count defect was found after the scientific result tables had been written. It is now fixed at source: the fitter must exit normally, the canonical wrapper requires every scientific output table, and the accepted values are checked against numerical tolerances.
+## Accepted legacy four-PC result
 
-Frozen input: source artifact ID `9022276431`, ZIP SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`, 500 posterior-predictive realisations, seed `20260725`, five geographical folds and five geographical-distance strata per fold.
+Frozen input: artifact `9022276431`, ZIP SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`; 500 posterior-predictive realizations; seed `20260725`; five geographical folds and five geographical-distance strata per fold.
 
-### Primary spatial-null excess test
-
-| Response | Observed high-env - low-env divergence | Space-null median | Central 95% null | Excess over null median | One-sided posterior-predictive p |
+| Response | Observed high-env − low-env divergence | Space-null median | Central 95% null | Excess | One-sided P |
 |---|---:|---:|---:|---:|---:|
-| Pigmentation state | **0.106802** | 0.058240 | [0.018098, 0.108066] | **+0.048562** | **0.03393** |
-| Conditional intensity | -0.047179 | -0.001287 | [-0.075026, 0.087732] | -0.045891 | 0.87226 |
+| Pigmentation state | **0.106802** | 0.058240 | 0.018098 to 0.108066 | **+0.048562** | **0.03393** |
+| Conditional intensity | -0.047179 | -0.001287 | -0.075026 to 0.087732 | -0.045891 | 0.87226 |
 
-For pigmentation state, environmentally dissimilar pairs are more phenotypically divergent than environmentally similar pairs after matching pairs into comparable geographical-distance strata, and the contrast is larger than expected from the cross-fitted space-only null at the predefined one-sided 5% level (`p = 0.03393`). The observed value lies just below the 97.5th percentile of the central 95% interval; this is compatible with the directional result because the one-sided 5% test uses the 95th percentile.
+This result supports state-specific environmental alignment along the **legacy multiscale topoclimate/radiation basis**. It cannot identify Temperature PC1 or any other final-model axis as the source of that excess.
 
-For conditional intensity, the environmental contrast is negative and is not above the spatial null (`p = 0.87226`). The phenotype-excess signal is therefore specific to pigmentation state in this analysis.
+## Final-eight-axis rerun
 
-Pair-level secondary correlations are descriptive only because pairs share sites and are not independent.
+PR #56 reran the same design with the exact final measured axes used by the observation-level Broad model:
 
-## Interpretation
+- Temperature PC1;
+- precipitation PC1;
+- temperature seasonality;
+- precipitation seasonality;
+- topography PC1;
+- soil PC1;
+- soil PC2;
+- RSDS.
 
-> For pigmentation state, geographical proximity alone does not fully account for the observed pattern of differentiation. Among locations separated by comparable geographical distances, greater environmental difference is associated with greater phenotype differentiation than a cross-fitted continuous-spatial null predicts. The same excess is not detected for conditional pigment intensity.
+### Omnibus distance across all eight axes
 
-The earlier four-model blocked predictive comparison answers a different question—what predicts withheld geography better—and remains secondary.
+| Response | Observed high-env − low-env divergence | Space-null median | Excess | One-sided P |
+|---|---:|---:|---:|---:|
+| Pigmentation state | 0.026205 | 0.026663 | -0.000458 | 0.51497 |
+| Conditional intensity | 0.021725 | 0.024745 | -0.003019 | 0.53493 |
+
+The final-eight-axis omnibus does not reproduce the legacy four-PC state result.
+
+### Axis-specific attribution
+
+For pigmentation state, Temperature PC1 is the only raw 5% axis:
+
+- observed high-temperature-distance minus low-temperature-distance phenotype divergence: 0.100608;
+- space-null median: 0.048475;
+- excess: **+0.052133**;
+- raw one-sided posterior-predictive P: **0.00998**;
+- BH q across eight axes: **0.07984**;
+- shared-draw maxT FWER P: **0.07784**.
+
+The Temperature PC1 excess is positive on average in all five geographical folds and in 19 of 25 fold-by-distance strata. It is therefore the strongest named candidate axis, but it is not familywise supported at 0.05.
+
+No other pigmentation-state axis has raw P<0.05. No conditional-intensity axis is supported; the largest positive candidates are Soil PC1 (raw P=0.14371; maxT P=0.63673) and Temperature PC1 (raw P=0.15369; maxT P=0.58283).
+
+Successful final-eight-axis workflow run: `32111354890`. Artifact: `9315132730`; digest `sha256:56cb9d0da2a04f583ae97f495d6a2fd58a91602c111374a5bebf3f38925e4a1e`.
+
+## Difference from the observation-level full model
+
+The full environment + SPDE model asks which axis has a directional partial association with a response after the other measured axes and a continuous spatial field are included.
+
+The cross-fitted space-only test instead asks whether absolute difference along an environmental basis or axis orders absolute phenotype divergence in withheld geography beyond spatial continuity. It is unsigned and pair based.
+
+Consequently:
+
+- a credible full-model coefficient does not imply axis-specific divergence beyond space;
+- an axis-specific divergence result does not supply the direction of the trait response;
+- the direction must come from the full-model coefficient, while the held-out test supplies evidence about spatially transferable divergence;
+- observation-level and cell-pair results should be presented as complementary, not interchangeable.
+
+Current triangulation is:
+
+- **Pigmentation state:** the full model supports lower pigmentation probability toward warmer Temperature PC1; Temperature PC1 is also the strongest held-out divergence axis, but axis-family correction remains above 0.05.
+- **Conditional intensity:** precipitation, temperature seasonality, topography and the Temperature PC1 × temperature-seasonality interaction remain directional full-model terms, but none is shown to organize held-out pairwise divergence beyond space.
 
 ## Reproducibility
 
-Use the canonical wrapper rather than sourcing the fitter directly. The wrapper requires normal model completion, checks all five scientific result tables, writes metadata and the stable summary, and enforces the eight reported numerical locks.
+Legacy four-PC route:
 
 ```bash
 Rscript scripts/run_broad_space_null_phenotype_excess_pipeline.R \
@@ -72,20 +118,22 @@ Rscript scripts/run_broad_space_null_phenotype_excess_pipeline.R \
   --geo-bins=5
 ```
 
-The same stage is included in the repository-wide exact route:
+Final-eight-axis route:
 
 ```bash
-python run_pipeline.py reproduce --from-stage run_broad_space_null_excess
+Rscript scripts/fit_broad_final8_axis_space_null_attribution.R \
+  --cells=results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+  --output=results/broad_final8_axis_space_null_attribution \
+  --samples=500 \
+  --seed=20260725 \
+  --max-pairs-per-fold=15000 \
+  --geo-bins=5
 ```
-
-GitHub Actions entry point: `.github/workflows/broad-spatial-inertia-environment-tracking.yml`.
-
-Primary outputs: `primary_space_null_excess_test.csv`, `matched_distance_stratum_contrasts.csv`, `heldout_pair_space_null_excess.csv`, `heldout_space_null_predictions.csv`, `secondary_pair_diagnostics.csv`, `analysis_metadata.csv`, and `RESULT_SUMMARY.md`.
 
 ## Claim boundary
 
-This test shows an environmental alignment beyond a fitted spatial expectation. It does not by itself distinguish causal environmental effects from omitted spatially structured factors, nor does it demonstrate selection or local adaptation.
+The robust manuscript-facing conclusion is not that “environment as a whole” exceeds space under every representation.
 
-Manuscript-safe headline:
+> **The observation-level model identifies a cool-climate association of pigmentation state. A legacy multiscale topoclimate distance shows state divergence beyond spatial continuity, while the exact final-eight-axis omnibus is null. Temperature PC1 is the strongest named held-out axis, but its eight-axis-corrected evidence remains inconclusive. Conditional intensity shows directional full-model associations without held-out divergence beyond space.**
 
-> **Pigmentation-state divergence exceeds a cross-fitted spatial expectation along environmental difference, whereas conditional intensity does not.**
+None of these results demonstrates selection, local adaptation, plasticity or a unique anthocyanin mechanism.

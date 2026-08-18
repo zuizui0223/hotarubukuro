@@ -136,4 +136,4 @@ The robust manuscript-facing conclusion is not that “environment as a whole”
 
 > **The observation-level model identifies a cool-climate association of pigmentation state. A legacy multiscale topoclimate distance shows state divergence beyond spatial continuity, while the exact final-eight-axis omnibus is null. Temperature PC1 is the strongest named held-out axis, but its eight-axis-corrected evidence remains inconclusive. Conditional intensity shows directional full-model associations without held-out divergence beyond space.**
 
-None of these results demonstrates selection, local adaptation, plasticity or a unique anthocyanin mechanism.
+None of these results demonstrates selection, local adaptation, plasticity or a unique anthocyanin mechanism. This result does not by itself demonstrate selection or local adaptation.

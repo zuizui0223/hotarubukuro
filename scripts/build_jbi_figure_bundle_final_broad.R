@@ -6,11 +6,142 @@
 # final-eight-axis audit of the already frozen Bombus transition pairs.
 # Figure 4 is rebuilt from the current-Broad 16-candidate / 10,000-map human
 # artifact rather than the superseded four-PC primary.
+# The one-shot profile carries only inputs used by the current four figures;
+# superseded Figure 4 products are intentionally not part of that contract.
 
 source_path <- "scripts/build_jbi_figure_bundle.R"
 if (!file.exists(source_path)) stop("Missing core figure builder: ", source_path, call. = FALSE)
-text <- paste(readLines(source_path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+builder_lines <- readLines(source_path, warn = FALSE, encoding = "UTF-8")
 
+replace_literal_once <- function(lines, old, new) {
+  hits <- which(grepl(old, lines, fixed = TRUE))
+  if (length(hits) != 1L) {
+    stop("Expected exactly one builder match for: ", old, "; found ", length(hits), call. = FALSE)
+  }
+  lines[[hits]] <- sub(old, new, lines[[hits]], fixed = TRUE)
+  lines
+}
+
+drop_exact_once <- function(lines, target) {
+  hits <- which(lines == target)
+  if (length(hits) != 1L) {
+    stop("Expected exactly one obsolete builder line: ", target, "; found ", length(hits), call. = FALSE)
+  }
+  lines[-hits]
+}
+
+replace_exact_range_once <- function(lines, start_line, end_line, replacement) {
+  starts <- which(lines == start_line)
+  ends <- which(lines == end_line)
+  if (length(starts) != 1L) {
+    stop("Expected exactly one builder range start; found ", length(starts), call. = FALSE)
+  }
+  ends <- ends[ends >= starts[[1]]]
+  if (length(ends) != 1L) {
+    stop("Expected exactly one builder range end after start; found ", length(ends), call. = FALSE)
+  }
+  start <- starts[[1]]
+  end <- ends[[1]]
+  before <- if (start > 1L) lines[seq_len(start - 1L)] else character()
+  after <- if (end < length(lines)) lines[(end + 1L):length(lines)] else character()
+  c(before, replacement, after)
+}
+
+# Figure 1 and Figure 2 need two compact numerical inputs that are preserved
+# verbatim from the accepted Broad evidence. Route those reads to permanent,
+# Git-frozen CSVs rather than making the current renderer depend on old result trees.
+builder_lines <- replace_literal_once(
+  builder_lines,
+  "results/ecological_v11_pigmentation_hurdle/pigmentation_mixture_components.csv",
+  "reproducibility/figure_inputs/pigmentation_mixture_components.csv"
+)
+builder_lines <- replace_literal_once(
+  builder_lines,
+  "results/ecological_v16_predictive_replication/predictive_replication_model_performance.csv",
+  "reproducibility/figure_inputs/predictive_replication_model_performance.csv"
+)
+
+# The final adapter rebuilds Figure 4 from current-Broad outputs below. Remove
+# the superseded isolate / neighbourhood / DID products from the core preflight
+# and read block so exact reproduction does not require unused historical files.
+obsolete_required_lines <- c(
+  '  "results/ecological_v20_local_white_isolates/local_isolate_candidates.csv",',
+  '  "results/ecological_v20_local_white_isolates/local_isolate_natural_null.csv",',
+  '  "results/ecological_v20_local_white_isolates/local_isolate_natural_null_summary.csv",',
+  '  "results/ecological_v21_local_human_neighbourhood/human_neighbourhood_population_scale_summary.csv",',
+  '  "results/ecological_v22_did_human_context/did_contrast_summary.csv"'
+)
+for (line in obsolete_required_lines) builder_lines <- drop_exact_once(builder_lines, line)
+builder_lines <- replace_literal_once(
+  builder_lines,
+  '  "results/ecological_v18_bombus_local_sharp_transition/sharp_transition_nonoverlapping_pairs.csv",',
+  '  "results/ecological_v18_bombus_local_sharp_transition/sharp_transition_nonoverlapping_pairs.csv"'
+)
+
+obsolete_read_lines <- c(
+  "candidates <- hb_read_csv(required_inputs[[10]])",
+  "isolate_null <- hb_read_csv(required_inputs[[11]])",
+  "isolate_summary <- hb_read_csv(required_inputs[[12]])",
+  "population_summary <- hb_read_csv(required_inputs[[13]])",
+  "did_summary <- hb_read_csv(required_inputs[[14]])"
+)
+for (line in obsolete_read_lines) builder_lines <- drop_exact_once(builder_lines, line)
+
+builder_lines <- replace_exact_range_once(
+  builder_lines,
+  "candidates$longitude <- read_num(candidates$longitude)",
+  '  (tag_panel(fig4c, "C") | tag_panel(fig4d, "D"))',
+  c(
+    "# The current adapter below supplies all data-driven Figure 4 panels.",
+    "# Retain only the provenance-blind conceptual event panel as a placeholder.",
+    "figure_4 <- fig4a"
+  )
+)
+
+lock_start <- "primary_focal <- sharp_summary[sharp_summary$focal_strict_local_test %in% TRUE, , drop = FALSE]"
+lock_write <- '  figure_lock, file.path(output_dir, "figure_numerical_lock.csv"), row.names = FALSE'
+start_hits <- which(builder_lines == lock_start)
+write_hits <- which(builder_lines == lock_write)
+if (length(start_hits) != 1L || length(write_hits) != 1L || write_hits[[1]] <= start_hits[[1]]) {
+  stop(
+    "Could not isolate the legacy Figure 4 numerical-lock block.",
+    call. = FALSE
+  )
+}
+lock_end <- write_hits[[1]] + 1L
+if (lock_end > length(builder_lines) || builder_lines[[lock_end]] != ")") {
+  stop("Legacy numerical-lock write call has an unexpected shape.", call. = FALSE)
+}
+stable_lock <- c(
+  "primary_focal <- sharp_summary[sharp_summary$focal_strict_local_test %in% TRUE, , drop = FALSE]",
+  "if (nrow(primary_focal) != 1L) stop(\"Expected one focal local-transition row.\", call. = FALSE)",
+  "figure_lock <- data.frame(",
+  "  metric = c(",
+  "    \"phenotype_observations\", \"white_like_observations\", \"pigmented_observations\",",
+  "    \"cells_1km\", \"pigmentation_boundary_a\", \"focal_pairs_5km\",",
+  "    \"focal_mean_contrast\", \"focal_median_contrast\", \"focal_positive_fraction\",",
+  "    \"focal_signflip_p\"",
+  "  ),",
+  "  value = c(",
+  "    nrow(analysis), sum(analysis$pigmented_mixture50 == 0L),",
+  "    sum(analysis$pigmented_mixture50 == 1L), nrow(cells), threshold,",
+  "    read_num(primary_focal$n_nonoverlapping_pairs),",
+  "    read_num(primary_focal$mean_signed_bombus_difference),",
+  "    read_num(primary_focal$median_signed_bombus_difference),",
+  "    read_num(primary_focal$proportion_positive),",
+  "    read_num(primary_focal$signflip_one_sided_p)",
+  "  ),",
+  "  stringsAsFactors = FALSE",
+  ")",
+  "utils::write.csv(",
+  "  figure_lock, file.path(output_dir, \"figure_numerical_lock.csv\"), row.names = FALSE",
+  ")"
+)
+before_lock <- if (start_hits[[1]] > 1L) builder_lines[seq_len(start_hits[[1]] - 1L)] else character()
+after_lock <- if (lock_end < length(builder_lines)) builder_lines[(lock_end + 1L):length(builder_lines)] else character()
+builder_lines <- c(before_lock, stable_lock, after_lock)
+
+text <- paste(builder_lines, collapse = "\n")
 replace_once <- function(text, old, new) {
   hits <- gregexpr(old, text, fixed = TRUE)[[1]]
   n_hits <- if (length(hits) == 1L && hits[[1]] < 0L) 0L else length(hits)

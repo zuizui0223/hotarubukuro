@@ -26,6 +26,7 @@ if (!file.exists(cells_path)) stop("Missing flower-cell table: ", cells_path, ca
 
 cells <- utils::read.csv(cells_path, check.names = FALSE, stringsAsFactors = FALSE)
 species <- c("ardens", "diversus", "beaticola", "consobrinus", "honshuensis")
+focal_species <- c("ardens", "diversus")
 raw_columns <- paste0("bee_", species)
 required_columns <- c("exact_site_id", raw_columns)
 missing_columns <- setdiff(required_columns, names(cells))
@@ -33,20 +34,32 @@ if (length(missing_columns)) {
   stop("Flower-cell table is missing: ", paste(missing_columns, collapse = ", "), call. = FALSE)
 }
 
-# Each species is put on an occurrence-referenced support scale. For species k,
-# A_k(x) is the empirical CDF of selected-model cloglog predictions at the exact
-# occurrence cells, evaluated at the flower-cell prediction. A_k is therefore a
-# relative support score anchored to the species' observed occurrence domain; it
-# is not occurrence probability, abundance, visitation, or pollination pressure.
-occurrence_reference <- function(short) {
-  model_path <- file.path(sdm_root, "models", paste0(short, "_ENMeval.rds"))
-  selected_path <- file.path(sdm_root, "evaluation", paste0(short, "_selected_model.csv"))
-  if (!file.exists(model_path) || !file.exists(selected_path)) {
-    stop("Missing seeded SDM model/evaluation for ", short, call. = FALSE)
-  }
+seed_paths <- function(short) {
+  c(
+    model = file.path(sdm_root, "models", paste0(short, "_ENMeval.rds")),
+    selected = file.path(sdm_root, "evaluation", paste0(short, "_selected_model.csv"))
+  )
+}
+seeded <- vapply(species, function(short) all(file.exists(seed_paths(short))), logical(1))
+missing_focal <- focal_species[!seeded[match(focal_species, species)]]
+if (length(missing_focal)) {
+  stop(
+    "Missing seeded SDM model/evaluation for focal species: ",
+    paste(missing_focal, collapse = ", "),
+    call. = FALSE
+  )
+}
+seeded_species <- species[seeded]
 
-  evaluation <- readRDS(model_path)
-  selected_table <- utils::read.csv(selected_path, check.names = FALSE, stringsAsFactors = FALSE)
+# Each materialized species is put on an occurrence-referenced support scale.
+# The exact-reproduction contract guarantees the two focal species used by the
+# manuscript Main analysis (ardens and diversus). Auxiliary montane species are
+# calibrated when their seeds are present, but their absence must not block
+# reconstruction of the locked focal exposure.
+occurrence_reference <- function(short) {
+  paths <- seed_paths(short)
+  evaluation <- readRDS(paths[["model"]])
+  selected_table <- utils::read.csv(paths[["selected"]], check.names = FALSE, stringsAsFactors = FALSE)
   selected <- as.integer(selected_table$selected_row[[1]])
   models <- ENMeval::eval.models(evaluation)
   if (!is.finite(selected) || selected < 1L || selected > length(models)) {
@@ -86,10 +99,15 @@ occurrence_reference <- function(short) {
   )
 }
 
-reference <- lapply(species, occurrence_reference)
-names(reference) <- species
-score_matrix <- do.call(cbind, lapply(reference, `[[`, "score"))
-colnames(score_matrix) <- paste0(species, "_occurrence_reference")
+reference <- lapply(seeded_species, occurrence_reference)
+names(reference) <- seeded_species
+score_matrix <- matrix(
+  NA_real_, nrow = nrow(cells), ncol = length(species),
+  dimnames = list(NULL, paste0(species, "_occurrence_reference"))
+)
+for (short in seeded_species) {
+  score_matrix[, paste0(short, "_occurrence_reference")] <- reference[[short]]$score
+}
 calibration <- do.call(rbind, lapply(reference, `[[`, "summary"))
 
 raw_matrix <- as.matrix(cells[, raw_columns, drop = FALSE])
@@ -103,8 +121,15 @@ effective_occmean <- rowMeans(score_matrix[, c(
   "ardens_occurrence_reference", "diversus_occurrence_reference"
 ), drop = FALSE])
 effective_rawmax <- pmax(raw_matrix[, "bee_ardens"], raw_matrix[, "bee_diversus"])
-all5_occmax <- apply(score_matrix, 1, max)
-all5_occmean <- rowMeans(score_matrix)
+
+all_five_seeded <- all(seeded)
+if (all_five_seeded) {
+  all5_occmax <- apply(score_matrix, 1, max)
+  all5_occmean <- rowMeans(score_matrix)
+} else {
+  all5_occmax <- rep(NA_real_, nrow(cells))
+  all5_occmean <- rep(NA_real_, nrow(cells))
+}
 
 cell_support <- data.frame(
   exact_site_id = cells$exact_site_id,
@@ -139,7 +164,18 @@ writeLines(c(
   "Primary manuscript exposure: max(A_ardens, A_diversus).",
   "A_k is an empirical-CDF support score relative to predictions at that species' occurrence cells.",
   "It is not occurrence probability, abundance, visitation, pollen transfer, or selection pressure.",
-  "All-five summaries are retained only for Supporting Information sensitivity/biogeography."
+  if (all_five_seeded) {
+    "All-five summaries are retained for Supporting Information sensitivity/biogeography."
+  } else {
+    paste0(
+      "Exact reproduction materialized focal seeds only; all-five summaries are NA. ",
+      "Auxiliary seeds present: ", paste(setdiff(seeded_species, focal_species), collapse = ", ")
+    )
+  }
 ), file.path(output_dir, "README.md"))
 
-cat("Wrote occurrence-referenced Bombus support for ", nrow(cell_support), " flower cells.\n", sep = "")
+cat(
+  "Wrote occurrence-referenced Bombus support for ", nrow(cell_support),
+  " flower cells using seeded species: ", paste(seeded_species, collapse = ", "), ".\n",
+  sep = ""
+)

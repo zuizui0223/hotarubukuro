@@ -130,7 +130,7 @@ jobs:
           python submission/jbi/validate_jbi_submission.py
           grep -q '1,922' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q '67 sharp transitions' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -Eq 'Sixteen (local departures|pigmented cells)' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'selected 16 pigmented cells' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q '0.0548' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -Eq 'finalized eight-axis|same eight measured abiotic axes|eight-axis' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
           grep -q '67' submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md

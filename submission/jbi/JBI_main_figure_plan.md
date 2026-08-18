@@ -13,17 +13,19 @@ Panels:
 - (c) response-blind white/pigmented boundary;
 - (d) conditional colour intensity among pigmented flowers.
 
-**Reveal:** flower colour is not one white-to-dark axis. Pigmentation state and conditional intensity are different biological responses, and the national image density makes both broad and local comparisons possible.
+**Reveal:** flower colour is not one white-to-dark axis. Pigmentation state and conditional intensity are different observational responses, and the national image density makes both broad and local comparisons possible.
 
-**Sampling-frame message:** Mountain-route photographs enrich plausible natural and semi-natural settings without proving wild provenance for each record. The same frame later becomes a limitation for representing the full anthropogenic gradient.
+**Statistical ceiling:** intensity exists only among observations that crossed the pigmentation boundary. The separation prevents white flowers from being treated as merely low-intensity flowers, but it does not prove independent causal pathways and can be affected by selection into the pigmented subset.
+
+**Sampling-frame message:** Mountain-route photographs enrich plausible natural and semi-natural settings without proving wild provenance for each record. The same frame later has bidirectional consequences for human inference: it can compress the anthropogenic gradient while access, disturbance and observation opportunity covary.
 
 **Handoff to Figure 2:** once two phenotypes are visible nationally, does environment organize them beyond continuous spatial similarity, and do the two responses behave alike?
 
 The complete YAMAP/iNaturalist/GBIF benchmark stays in Supporting Information. Figure 1 should communicate the alternative observation process and phenotype recovery, not a claim that YAMAP is globally superior or unbiased.
 
-## Figure 2 — Separate measured environment from continuous geography
+## Figure 2 — Turn environmental coefficients into competing physiological hypotheses
 
-**Question created by Figure 1:** Do pigmentation state and intensity follow the same environmental and spatial pattern, or does a dense map merely reproduce “nearby places look alike”?
+**Question created by Figure 1:** Do pigmentation state and conditional intensity follow the same environmental and spatial pattern, or does a dense map merely reproduce “nearby places look alike”?
 
 Panels:
 
@@ -32,60 +34,70 @@ Panels:
 - (c) cross-fitted conditional colour intensity;
 - (d) residual spatial ranges and geographically blocked prediction.
 
-**Reveal 1:** state and intensity differ. Pigmentation state is less likely toward warmer conditions; intensity among pigmented flowers has a different temperature-seasonality, moisture and terrain pattern.
+**Reveal 1 — state:** visible pigmentation is less likely toward warmer climate. This is compatible with temperature-responsive anthocyanin regulation or environment-aligned population differentiation, but the images cannot separate plasticity from adaptation.
 
-**Reveal 2:** coherent spatial structure remains after measured environment and operates at different ranges for the two responses.
+**Reveal 2 — intensity:** there is no universal temperature slope among pigmented flowers. The warm-climate decline strengthens with temperature seasonality; intensity is also lower toward wetter and more rugged geography. These results define thermal-balance, water-balance and terrain hypotheses rather than one “stress makes flowers darker” rule.
 
-**Supporting state-specific test:** at comparable geographical separation, pigmentation-state divergence exceeds the cross-fitted space-only expectation along environmental difference (excess +0.048562; one-sided posterior-predictive P=0.03393), whereas conditional intensity does not (P=0.87226). This is an FST–PST-inspired empirical continuity test, not a genetic FST/PST comparison and not evidence that selection exceeds drift.
+**Mechanistic balance:** darker petals may provide cold or stress benefits yet absorb more radiation and incur cooling or hydraulic costs. The negative terrain coefficient and null final RSDS effect prevent a generic high-stress or radiation-darkening interpretation. Topography is relief, not altitude or a single stress axis.
+
+**Reveal 3 — space:** coherent spatial structure remains after measured environment and operates at different ranges for the two responses. The broader state range is a sampling clue, not evidence that state is more genetic.
+
+**Supporting state-specific test:** at comparable geographical separation, pigmentation-state divergence exceeds the cross-fitted space-only expectation along environmental difference (excess +0.048562; one-sided posterior-predictive P=0.03393), whereas conditional intensity does not (P=0.87226). This is an FST–PST-inspired empirical continuity test, not a genetic comparison and not evidence that selection exceeds drift.
 
 If the accepted four-panel artwork cannot carry the supporting test without clutter, retain the numerical result in Main text and Appendix S3 rather than adding an opaque fifth panel. The Figure 2 caption and handoff should still state its biological meaning: the environmentally ordered white–pigmented switch cannot be reduced to fitted spatial continuity, while within-pigmented intensity does not show the same excess.
 
 **Handoff to Figure 3:** the Broad map still cannot isolate a pollinator mechanism. Because Bombus SDMs inherit environmental and mountain geography, the pollinator hypothesis must change comparison unit and move to replicated local colour boundaries.
 
-Do not label the spatial field as population history. VPD, water-balance and barrier-model checks stay in Appendix S3.
+Do not label the spatial field as population history. VPD, water-balance, conditional-response and barrier-model checks stay in Appendix S3.
 
-## Figure 3 — Test Bombus opportunity at replicated local state boundaries
+## Figure 3 — Reveal heterogeneity among replicated local Bombus boundaries
 
-**Question created by Figure 2:** Within tight local environmental neighbourhoods, does focal-bumblebee habitat opportunity increase from the white side to the pigmented side of independently fixed boundaries?
+**Question created by Figure 2:** Within tight local environmental neighbourhoods, does focal-bumblebee habitat opportunity change from the white side to the pigmented side of independently fixed boundaries, and is that change pervasive or boundary specific?
 
 Panels:
 
-- (a) 67 non-overlapping white-pigmented pairs within 5 km, showing that they are geographically repeated local contrasts rather than one continuous transect;
+- (a) 67 non-overlapping white-pigmented pairs within 5 km, showing geographically repeated local contrasts rather than one continuous transect;
 - (b) environmental distance of the fixed pairs versus ordinary local edges;
-- (c) pigmented-minus-white occurrence-referenced support for *Bombus ardens* and *B. diversus*;
+- (c) full distribution of pigmented-minus-white occurrence-referenced support for *Bombus ardens* and *B. diversus*, with mean, median and sign proportion all visible;
 - (d) scale, raw-SDM and phenotype-component sensitivities.
 
 **Why these species and this scale:** The large tubular flowers make bumblebees a species-specific, biologically tractable focal guild. The two broad-ranging focal species provide the directional local opportunity signal. The 5-km radius is the finest predeclared scale with enough replicated transitions; it is not asserted to be an exact foraging or selection distance.
 
-**Reveal:** focal-Bombus support is higher on the pigmented side on average at the finest replicated scale. Its concentration in a subset of boundaries, attenuation at 10 and 25 km, dependence on occurrence-referenced calibration and absence along the intensity axis localize the plausible contribution to short-range maintenance or loss of pigmentation state.
+**Reveal:** the positive mean does not represent a uniform shift. Median contrast is near zero/slightly negative, only 49.3% of pairs are positive, the signal attenuates at 10 and 25 km, raw support does not reproduce it and intensity is unaffected. A subset of sharp local boundaries therefore drives the mean.
 
-**Supporting guardrail:** the stronger-looking national overlap with the three montane/alpine Bombus species disappears after elevation matching in Appendix S5. These species are not excluded because they are uninteresting. They show why shared mountain geography can be mistaken for a pollinator mechanism and why the broad-ranging focal-species boundary test is the defensible Main comparison.
+**Ecological payoff:** heterogeneity becomes the next field question. Compare strongly positive boundaries against near-zero and negative boundaries to test visitor abundance and phenology, alternative pollinators, bee visual contrast, pollen transfer, breeding system, gene flow, ancestry and microenvironment. The result supports at most a local mosaic of pigmented-state maintenance or loss, not national darkening.
+
+**Supporting guardrail:** the stronger-looking national overlap with the three montane/alpine Bombus species disappears after elevation matching in Appendix S5. These species show why shared mountain geography can be mistaken for a pollinator mechanism.
 
 **Claim ceiling:** SDM support is habitat opportunity, not abundance, visitation, stigma contact, pollen transfer, fitness or realized selection. The Izu-island Bombus-absence and breeding-system evidence motivates the system but does not prove that bumblebee loss caused white flowers.
 
-**Handoff to Figure 4:** after Broad environment, continuous geography and a localized Bombus hypothesis, what should count as a genuinely exceptional colour configuration rather than another outcome of natural spatial variation?
+**Handoff to Figure 4:** after Broad environment, continuous geography and a heterogeneous local Bombus result, what should count as a genuinely exceptional local configuration rather than another outcome of natural spatial variation?
 
 Five-species turnover and the full highland/elevation audit remain in Appendix S5.
 
-## Figure 4 — Distinguish a local isolate from a local boundary, then calibrate it
+## Figure 4 — Select a local isolate, calibrate its frequency, then perform post-selection human inference
 
-**Question created by Figure 3:** Are pigmented cells isolated among environmentally similar white neighbours more frequent than the finalized natural geography predicts?
+**Question created by Figure 3:** Are pigmented cells isolated among environmentally similar white neighbours more frequent than the finalized natural geography predicts, and do the observed isolates occupy distinctive human context?
 
 This is not the same local pattern as Figure 3:
 
-- Figure 3 asks about the direction across a sharp white–pigmented transition;
-- Figure 4 asks whether an isolated pigmented configuration requires an additional process.
+- Figure 3 is **edge based** and tests a signed Bombus difference across a sharp white-pigmented transition;
+- Figure 4 is **node and neighbourhood based** and tests a pigmented focal cell isolated among environmentally similar observed white neighbours.
 
 Panels:
 
 - (a) relational isolate-event rule, explicitly contrasted with the boundary-pair rule;
-- (b) 16 observed sites;
+- (b) 16 sites selected by applying that rule to the observed map;
 - (c) event count and candidate fraction versus 10,000 cross-fitted natural predictive maps;
-- (d) human context tested only after site identities are fixed.
+- (d) human context tested after observed site identities are fixed, with the selection-and-contrast operation repeated on every predictive map.
 
-**Reveal:** natural predictive maps explain the observed frequency of the 16 configurations while turning them into reproducible field and provenance targets. Population exposure within 5 km is the leading post-selection human-context clue (global maxT FWER P=0.05479), not corrected evidence of anthropogenic origin.
+**First use of replay:** panel (c) calibrates the frequency of the event type. It does not identify 16 cells that natural processes cannot reproduce. The fitted natural geography generates comparable event counts and fractions.
 
-**Final sampling-frame callback:** The YAMAP mountain-route frame that helped enrich the natural geographical analysis can compress the urban–rural gradient in the human test, while access can jointly affect observation and exposure. Show this as an interpretive limitation, not as a reason to promote the near-threshold result.
+**Second use of replay:** panel (d) reselects event cells on every predictive map and recalculates the human contrasts. This supplies a post-selection null that propagates uncertainty in which cells the ecological rule would select.
+
+**Reveal:** the 16 observed configurations are reproducible field targets but are not excessive under the natural model. Population exposure within 5 km is the leading human-context clue, yet global maxT FWER P=0.05479 is familywise inconclusive. Human inference is therefore doubly conditional: neither an excess of isolates nor corrected evidence of human origin is obtained.
+
+**Final sampling-frame callback:** the YAMAP mountain-route frame can compress the urban–rural gradient, but trails, roads and accessible mountain margins can also concentrate observation, disturbance and propagule movement. Do not claim that the design can only weaken the human signal.
 
 **Ending:** the figures identify where physiology, ancestry and isolation-by-environment, realized pollination, and provenance should be tested directly. The paper ends with a map-to-mechanism programme, not a claim that one national model has already identified all causes.
 
@@ -93,7 +105,7 @@ Panels:
 
 Each Main figure must change the reader's interpretation and create the next question:
 
-`trait recovery -> spatial attribution -> local biotic boundary -> calibrated local isolate`
+`trait recovery -> physiological/spatial attribution -> heterogeneous local biotic boundary -> selected and naturally calibrated local isolate`
 
 Do not use a Main panel only to demonstrate workflow care. Put technical robustness in Supporting Information unless it changes the biological inference.
 

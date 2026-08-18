@@ -33,7 +33,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/integrate_continuous_isolation_manuscript.py
+          if grep -q '^### 1.4 From broad geography to local boundaries and calibrated departures$' \
+            submission/jbi/JBI_main_manuscript_anonymized.md; then
+            python scripts/integrate_continuous_isolation_manuscript.py
+          else
+            echo "continuous-isolation manuscript prose already integrated"
+          fi
           python scripts/register_continuous_isolation_paper_contract.py
           python -m json.tool config/paper_pipeline.lock.json >/dev/null
           git diff --check

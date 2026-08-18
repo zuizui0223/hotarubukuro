@@ -1,114 +1,122 @@
 # Reproduction guide
 
-This guide is for people who want to check the manuscript numbers or rerun an analysis.
+This guide checks the current JBI paper or rebuilds its accepted review package. For the biology first, use [`paper/README.md`](../paper/README.md).
 
-If you only want to understand the science, start at [`paper/README.md`](../paper/README.md).
+## Canonical commands
 
-## Two ways to reproduce the paper
+Fast repository/manuscript audit:
 
-### 1. Exact evidence audit
+```bash
+python run_pipeline.py audit
+```
 
-Use this when you want to check the numbers in the manuscript.
+One-shot paper reproduction:
 
-1. Find the result in [`paper/analysis-map.md`](../paper/analysis-map.md).
-2. Restore the listed checksum-locked artifact.
-3. Run the matching validator or paper workflow.
-4. Confirm that the manuscript value is recovered.
+```bash
+python run_pipeline.py reproduce
+```
 
-This is the preferred route for submission QC.
+Useful controls:
 
-### 2. Full scientific rerun
+```bash
+python run_pipeline.py reproduce --dry-run
+python run_pipeline.py reproduce --from-stage run_broad_space_null_excess
+python run_pipeline.py reproduce --only-stage validate_alignment
+python run_pipeline.py reproduce --no-resume
+```
 
-Use this when you want to rebuild an analysis from its declared inputs.
+The canonical GitHub Actions entry is `.github/workflows/paper-pipeline.yml` (**Paper pipeline**). Artifact provenance IDs, SHA-256 checksums, commands, seeds, expected outputs and manuscript locks are declared in [`config/paper_pipeline.lock.json`](../config/paper_pipeline.lock.json).
 
-External databases and rasters can change. A refreshed source is therefore treated as a **new analysis**, not as a silent replacement for the manuscript evidence.
+## What `audit` checks
 
-## Stage 1. Build the flower-colour dataset
+`audit` does not fit models. It checks that:
 
-Public analysis table:
+1. the current manuscript, paper overview and evidence map carry the same accepted numbers;
+2. the merged PR #50 spatial-null result remains a supporting Broad sensitivity with its non-causal claim ceiling;
+3. the merged PR #51 local-boundary Bombus result remains the primary biotic story and the highland overlap remains a guardrail;
+4. frozen-input and historical artifact identities remain traceable;
+5. the JBI source package passes format/anonymity validation;
+6. the repository exposes one active execution front door.
 
-- `Data_S1.csv`
+Outputs:
 
-Main construction code:
+- `results/paper_pipeline/jbi_repository_alignment.json`
+- `results/paper_pipeline/run_manifest.json`
 
-- `Code_S1.py`
-- `source_build/build_data_s1.py`
-- `source_build/extract_color.py`
+## What `reproduce` does
 
-Documentation:
+Exact reproduction starts from three checksum-locked inputs permanently versioned under `reproducibility/frozen_inputs/`:
 
-- `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md`
-- `submission/jbi/supporting/Appendix_S2_image_phenotyping.md`
+- accepted Broad flower-colour, graph and human-context evidence;
+- seeded focal Bombus SDMs;
+- final-eight-axis posterior predictive draws.
 
-Expected analysis population:
+The three archives are materialized by `scripts/materialize_frozen_input.py`, with archive SHA-256 identities fixed in `reproducibility/frozen_inputs/SHA256SUMS`. Historical GitHub Actions artifact IDs and checksums are retained only as provenance references; they are no longer required for execution.
+
+The pipeline then executes, in order:
+
+1. `run_broad_space_null_excess`: five-fold cross-fitted space-only SPDE sensitivity for state and conditional intensity;
+2. occurrence-referenced Bombus support reconstruction;
+3. 67 fixed local white-pigmented boundary tests and their final-eight-axis balance audit;
+4. 10,000-map natural-departure and human-context adjudication;
+5. the four current JBI figures;
+6. the editable six-file JBI review bundle and PDF render smoke tests;
+7. final manuscript/repository alignment and a machine-readable provenance manifest.
+
+This route is checksum-locked. It does not refresh live public sources or replace the accepted Broad model family.
+
+## Stage contracts
+
+### 1. Flower-colour analysis population
+
+Expected manuscript population:
 
 - 1,922 observations;
 - 1,305 1-km cells;
 - 966 white-like;
 - 956 pigmented.
 
-Original YAMAP photographs are third-party material and are not redistributed.
+Public derived table and construction code:
 
-## Stage 2. Fit broad environment and spatial models
+- `Data_S1.csv`
+- `Code_S1.py`
+- `source_build/build_data_s1.py`
+- `source_build/extract_color.py`
 
-Question: how do pigmentation state and colour intensity vary with measured environment, and how much spatial structure remains?
+Original YAMAP photographs are third-party content and are not redistributed.
 
-Workflows:
+### 2. Accepted Broad environment-spatial models
 
-- `.github/workflows/environment-interaction-inla-screen.yml`
-- `.github/workflows/broad-environment-spatial-audit.yml`
+The observation-level model remains the current JBI model:
 
-Main scripts:
+- pigmentation state: eight abiotic axes + East/West + stationary Matérn SPDE;
+- conditional intensity: the same structure + Temperature PC1 × temperature seasonality.
 
-- `scripts/run_environment_interaction_inla_screen.R`
-- `scripts/run_broad_environment_spatial_audit.R`
-- `analysis_sensitivity/run_broad_environment_spatial_audit_wrapper.R`
-
-Final model record:
+Primary records:
 
 - `reproducibility/broad_environment_spatial_final_model_2026-08-11.md`
 - `submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md`
 
-Expected structure:
+### 3. Cross-fitted Broad spatial-null sensitivity from PR #50
 
-- pigmentation state: eight abiotic axes + East/West + stationary SPDE;
-- conditional intensity: the same terms + Temperature PC1 × temperature seasonality.
+Command component:
 
-Appendix S3 contains the interaction screen, VIF checks, hydroclimate tests and alternative spatial models.
+- `scripts/fit_broad_space_null_phenotype_excess.R`
+- `scripts/run_broad_space_null_phenotype_excess_pipeline.R`
+- `.github/workflows/broad-spatial-inertia-environment-tracking.yml`
 
-## Stage 3. Build Bombus habitat-support surfaces
+The metadata-row mismatch identified during PR #50 integration is fixed in the source script. The wrapper requires normal completion, verifies every scientific output and validates the accepted result against numerical tolerances.
 
-Main source workflow:
+Expected result from 500 posterior-predictive realizations, seed 20260725, five geographical folds and five geographical-distance strata per fold:
 
-- `.github/workflows/rebuild-bombus-sdm.yml`
+| Response | Observed high-env − low-env divergence | Space-null median | Excess | One-sided P |
+|---|---:|---:|---:|---:|
+| Pigmentation state | 0.106802 | 0.058240 | +0.048562 | 0.03393 |
+| Conditional intensity | -0.047179 | -0.001287 | -0.045891 | 0.87226 |
 
-Occurrence-reference calibration:
+Interpretation: pigmentation-state divergence is aligned with environmental difference beyond the fitted continuous-spatial expectation. This is not FST, PST or QST and does not establish selection, local adaptation or a unique causal environment.
 
-- `scripts/build_bombus_occurrence_reference_support.R`
-- `.github/workflows/bombus-occurrence-reference-support.yml`
-
-Documentation:
-
-- `submission/jbi/supporting/Appendix_S4_bombus_sdm_occurrence_support.md`
-- `submission/jbi/JBI_sdm_model_building_checklist.md`
-
-Important: these surfaces are habitat-support indices. They are not bee abundance, visitation or pollen transfer.
-
-## Stage 4. Test local white-pigmented boundaries
-
-Main script and workflow:
-
-- `scripts/run_bombus_local_sharp_transition.R`
-- `.github/workflows/bombus-local-sharp-transition.yml`
-
-Environmental-locality check:
-
-- `analysis_sensitivity/audit_bombus_final8_environment_distance.R`
-- `.github/workflows/bombus-final8-environment-audit.yml`
-
-Full robustness:
-
-- `submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md`
+### 4. Local focal-Bombus boundaries from the current PR #51 narrative
 
 Expected primary result:
 
@@ -119,99 +127,49 @@ Expected primary result:
 - one-sided P=0.02716;
 - q=0.08148 across the 5/10/25-km primary family.
 
-The environmental-distance check is run **after** the pair set is fixed. It does not choose or weight pairs.
+The local 5-km comparison is the primary ecological test. It is the finest predeclared replicated scale, not an exact foraging-distance estimate. The national highland overlap is secondary: it disappears under near-equal-elevation comparison and demonstrates the danger of shared mountain geography. SDM support is habitat opportunity, not abundance, visitation, pollen transfer or realized selection.
 
-## Stage 5. Calibrate local departures
+### 5. Natural departures and human follow-up
 
-Main implementation:
-
-- `R/natural_predictive_model.R`
-- `R/candidate_null_tools.R`
-- `R/local_pigmented_isolates.R`
-- `analysis_sensitivity/run_human_context_current_broad_primary_fast.R`
-- `.github/workflows/human-context-highrep-final.yml`
-
-Event rule:
-
-- pigmented focal cell;
-- at least three neighbours within 10 km;
-- root-mean-square environmental distance <=1 across the final eight abiotic axes;
-- all eligible observed neighbours are white.
-
-The same detector is replayed on 10,000 predictive maps.
-
-Expected result:
+Expected natural calibration:
 
 - 16 observed candidates;
 - count P=0.27897;
 - candidate-fraction P=0.12609.
 
-Documentation:
-
-- `reproducibility/current_broad_human_primary_2026-08-12.md`
-- `submission/jbi/supporting/Appendix_S6_event_departures_human_context.md`
-
-## Stage 6. Test human context
-
-Human variables are read only after the 16 observed candidates are fixed.
-
-Main code:
-
-- `R/local_human_context.R`
-- `R/human_landscape_features.R`
-- `analysis_sensitivity/run_human_context_current_broad_primary_fast.R`
-
-Expected leading result:
+Expected leading human-context result:
 
 - population exposure within 5 km: +0.06744;
 - directional P=0.00800;
 - global maxT FWER P=0.05479.
 
-This is treated as a provenance/field-work signal, not proof of human origin.
+The 16 sites remain field/provenance targets, not demonstrated anthropogenic anomalies.
 
-## Stage 7. Build figures and the review package
+### 6. Figures and review package
 
-Figures:
+The pipeline rebuilds four figures, assembles six editable DOCX files, validates hashes/anonymity/package structure, renders all DOCX files through LibreOffice and checks first-page PDF output. Human visual approval and author-controlled portal fields remain outside automation.
 
-- `.github/workflows/jbi-main-figures.yml`
-- `scripts/render_jbi_main_figures.R`
+## Local prerequisites
 
-Review package:
+The orchestrator installs declared Python and R packages. The canonical workflow installs system libraries from:
 
-- `.github/workflows/jbi-submission-bundle.yml`
+- `dependencies/apt-packages.txt`
+- `dependencies/submission-apt-packages.txt`
 
-Validation:
-
-- `submission/jbi/validate_jbi_submission.py`
-- `scripts/validate_jbi_submission_bundle.py`
-
-## Final cross-file check
-
-Run:
-
-- `.github/workflows/final-paper-analysis.yml`
-
-This checks that the manuscript, Supporting Information and frozen evidence agree. It does not fit a new combined model.
-
-## Local environment
-
-R packages:
-
-```bash
-Rscript scripts/setup_r_environment.R \
-  --report-dir reproducibility \
-  --scopes analysis,reproducibility,acquisition,testing,figures,reporting
-```
-
-Python dependencies are in `pyproject.toml`. R and system dependencies are under `dependencies/`.
+No GitHub token is required to materialize the three exact-reproduction inputs: the locked archives are committed in the repository. Network access is therefore no longer part of the scientific input-restoration contract.
 
 ## What counts as success?
 
-A successful reproduction should recover the same:
+A successful run writes `results/paper_pipeline/run_manifest.json` and recovers the same:
 
-- analysis population;
-- model definitions;
-- local-boundary and local-departure rules;
-- manuscript-level numerical results.
+- analysis population and response definitions;
+- PR #50 spatial-null direction and numerical lock;
+- PR #51 local-boundary hierarchy and claim ceilings;
+- 16-site natural calibration and human follow-up;
+- current figures and JBI review package.
 
-Exact stochastic draws do not need to be bit-for-bit identical across platforms. The scientific result and the locked evidence should agree.
+Exact stochastic draws need not be bit-for-bit identical across platforms; the declared scientific result and numerical tolerances must agree.
+
+## Durability status
+
+The exact-reproduction binary inputs are permanently versioned in `reproducibility/frozen_inputs/` with SHA-256 locks. GitHub Actions artifacts are no longer required for execution. A future DOI-backed mirror can add independent preservation, but it is not a prerequisite for reproducing the frozen repository state.

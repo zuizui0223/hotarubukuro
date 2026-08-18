@@ -1,8 +1,6 @@
-# Analysis map: question -> result -> evidence
+# Analysis map: question → result → evidence
 
-This page answers one practical question: **where does each manuscript result come from?**
-
-For a scientific overview, start at [`paper/README.md`](README.md). For commands and reruns, use [`docs/reproduction-guide.md`](../docs/reproduction-guide.md).
+This page answers one practical question: **where does each current-paper result come from?** For the biological story, start at [`paper/README.md`](README.md). For execution, use [`docs/reproduction-guide.md`](../docs/reproduction-guide.md).
 
 ## 1. National flower-colour dataset
 
@@ -10,7 +8,7 @@ For a scientific overview, start at [`paper/README.md`](README.md). For commands
 
 **Answer:** Yes. The final environmental analysis contains 1,922 observations: 966 white-like and 956 pigmented.
 
-**What we built:** author screening -> flower/petal validation -> image-hash audit -> fixed RGB/CIELAB extraction -> white/pigmented state + pigmented-only intensity.
+**Construction:** author screening → flower/petal validation → image-hash audit → fixed RGB/CIELAB extraction → white/pigmented state + pigmented-only intensity.
 
 **Main evidence:**
 
@@ -21,17 +19,17 @@ For a scientific overview, start at [`paper/README.md`](README.md). For commands
 - `submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md`
 - `submission/jbi/supporting/Appendix_S2_image_phenotyping.md`
 
-**Interpretation limit:** this is a reproducible visible-colour phenotype. It is not calibrated spectroscopy, anthocyanin chemistry or unbiased occurrence sampling.
+**Interpretation limit:** this is a reproducible visible-colour phenotype, not calibrated spectroscopy, anthocyanin chemistry or unbiased occurrence sampling.
 
-## 2. Broad environment and remaining spatial structure
+## 2. Broad environment and continuous residual geography
 
-**Question:** Do pigmentation state and colour intensity follow the same geography?
+**Question:** Do pigmentation state and colour intensity follow the same broad geography?
 
 **Answer:** No.
 
 - Pigmentation is less likely toward warmer Temperature PC1.
 - Among pigmented flowers, intensity depends on Temperature PC1 × temperature seasonality and is lower toward wetter and more rugged conditions.
-- Strong spatial structure remains after measured environment.
+- Continuous spatial structure remains after measured environment.
 
 **Main evidence:**
 
@@ -44,15 +42,40 @@ For a scientific overview, start at [`paper/README.md`](README.md). For commands
 
 **Key spatial results:** residual range 132.76 km for pigmentation state and 65.72 km for conditional intensity.
 
-**Interpretation limit:** the environmental pattern is a candidate physiological/adaptive context, not proof of local adaptation. The spatial field is unresolved geography, not a measured genetic structure or dispersal distance.
+**Interpretation limit:** the environmental pattern is a candidate physiological/adaptive context, not proof of local adaptation. The spatial field is unresolved geography, not measured genetic structure or dispersal distance.
 
-## 3. Local focal-Bombus test
+### 2a. Cross-fitted space-only sensitivity merged in PR #50
+
+**Question:** At comparable geographical separation, does environmental difference align with phenotype divergence beyond an intercept + Matérn SPDE expectation?
+
+**Answer:** For pigmentation state, yes under the predefined one-sided posterior-predictive test; for conditional intensity, no.
+
+| Response | Observed contrast | Space-null median | Excess | One-sided P |
+|---|---:|---:|---:|---:|
+| Pigmentation state | 0.106802 | 0.058240 | +0.048562 | 0.03393 |
+| Conditional intensity | -0.047179 | -0.001287 | -0.045891 | 0.87226 |
+
+**Design:** five geographical folds; each test pair lies wholly within a held-out fold; five geographical-distance strata per fold; high versus low environmental-distance quartiles; 500 posterior-predictive realizations; seed 20260725.
+
+**Evidence and execution:**
+
+- `scripts/fit_broad_space_null_phenotype_excess.R`
+- `scripts/run_broad_space_null_phenotype_excess_pipeline.R`
+- `.github/workflows/broad-spatial-inertia-environment-tracking.yml`
+- `docs/broad_spatial_inertia_environment_tracking.md`
+- canonical stage: `run_broad_space_null_excess` in `config/paper_pipeline.lock.json`
+
+**Frozen input:** Broad artifact `9022276431`, SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
+
+**Interpretation limit:** this is an FST/PST-inspired but non-genetic spatial-null comparison. It does not establish selection, local adaptation, drift or a unique causal environmental mechanism. It supports the state/intensity distinction and remains a supporting Broad sensitivity rather than replacing the current JBI observation-level model.
+
+## 3. Local focal-Bombus test — primary biotic story after PR #51
 
 **Question:** At nearby white-pigmented boundaries, is focal-bumblebee habitat support higher on the pigmented side?
 
-**Answer:** Weakly on average, but not consistently across pairs or sensitivities.
+**Answer:** Weakly on average at the finest replicated scale, but not consistently across pairs or sensitivities.
 
-**Primary design:** 67 pure, non-overlapping transitions within 5 km. Pair selection is done before reading Bombus values or the final contrast direction.
+**Primary design:** 67 pure, non-overlapping transitions within 5 km. Pair identities are fixed before Bombus values or final contrast direction are read. Five kilometres is the finest predeclared replicated comparison scale, not an exact bumblebee foraging distance.
 
 **Main result:**
 
@@ -60,8 +83,10 @@ For a scientific overview, start at [`paper/README.md`](README.md). For commands
 - median -0.00277;
 - 49.3% positive pairs;
 - one-sided P=0.02716;
-- q=0.08148 across the 5/10/25-km primary family;
-- the signal fades at 10 and 25 km and is not reproduced by raw SDM support.
+- q=0.08148 across the 5/10/25-km family;
+- attenuation at 10 and 25 km;
+- no persuasive relationship for pigmented-only intensity;
+- raw SDM support does not reproduce the 5-km result.
 
 **Main evidence:**
 
@@ -72,9 +97,9 @@ For a scientific overview, start at [`paper/README.md`](README.md). For commands
 - `submission/jbi/supporting/Appendix_S4_bombus_sdm_occurrence_support.md`
 - `submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md`
 
-**Useful negative control:** the apparent high-elevation match with montane Bombus disappears when white and pigmented endpoints are compared at similar elevation.
+**Guardrail after the local result:** apparent high-elevation overlap with montane/alpine Bombus disappears when nearby white and pigmented endpoints are compared at similar elevation. The broad overlap is therefore compatible with shared mountain geography and is not the primary biotic mechanism test.
 
-**Interpretation limit:** SDM support is habitat opportunity, not visitation or selection. If the weak pattern is biological, it fits local maintenance of a pigmented state better than progressive darkening.
+**Interpretation limit:** SDM support is habitat opportunity, not abundance, visitation, pollen transfer or realized selection. If biological, the weak pattern fits local maintenance/loss of pigmentation state better than progressive darkening.
 
 ## 4. Local departures and human context
 
@@ -86,11 +111,11 @@ For a scientific overview, start at [`paper/README.md`](README.md). For commands
 
 - pigmented focal cell;
 - at least three neighbours within 10 km;
-- root-mean-square environmental distance <=1 across the final eight abiotic axes;
+- root-mean-square environmental distance ≤1 across the final eight abiotic axes;
 - every eligible observed neighbour is white;
-- no human variable is used to define the event.
+- no human variable defines the event.
 
-The same event detector is applied to 10,000 predictive maps.
+The same detector is applied to 10,000 predictive maps.
 
 **Main result:**
 
@@ -111,33 +136,20 @@ The same event detector is applied to 10,000 predictive maps.
 - `reproducibility/current_broad_human_primary_2026-08-12.md`
 - `submission/jbi/supporting/Appendix_S6_event_departures_human_context.md`
 
-**Interpretation limit:** the 16 sites are field/provenance targets. They are not demonstrated anthropogenic anomalies.
+**Interpretation limit:** the 16 sites are naturally calibrated field/provenance targets, not demonstrated anthropogenic anomalies.
 
 ## Why the order matters
 
-The analyses are deliberately one-way:
+1. Flower colour is defined before environment, Bombus or human data are read.
+2. Broad environment and space are established before the local Bombus test.
+3. The PR #50 space-only sensitivity asks whether state/intensity divergence exceeds fitted spatial continuity without relabelling the spatial field as genetics.
+4. Local Bombus pairs are fixed before Bombus values are compared.
+5. The PR #51 narrative leads with those local boundaries; the highland overlap enters only as a confounding guardrail.
+6. Local departures are fixed before human variables are read.
 
-1. flower colour is defined before environment, Bombus or human data are read;
-2. broad environment and space are fitted before the local Bombus test;
-3. local Bombus pairs are fixed before Bombus values are compared;
-4. local departures are defined before human variables are read.
+## Exact evidence identities
 
-This prevents later hypotheses from defining the observations that are then used to support them.
-
-## Next direct tests
-
-The macroecological results point to four concrete next steps:
-
-- thermal/moisture geography -> common-garden and reciprocal-transplant experiments;
-- residual spatial geography -> ancestry, isolation-by-distance and admixture tests;
-- local Bombus boundaries -> visitation, stigma contact, pollen deposition and seed set;
-- 16 local departures -> vouchers, planting history and genomic provenance.
-
-## Exact evidence IDs
-
-These IDs lock the manuscript-facing evidence. Use them for an exact audit; use the reproduction guide for a full rerun.
-
-- broad/current cells: run `31258851297`, artifact `9022276431`, SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`
+- Broad/current cells: run `31258851297`, artifact `9022276431`, SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`
 - Bombus source build: run `31249841493`, artifact `9020226937`, SHA-256 `d5d639e8e00d1ccc2f887c53fa8041465905b29f6bca1127f816e8c7a649d708`
 - occurrence-referenced support: run `31262211605`, artifact `9023137743`, SHA-256 `d04c561b09b652591b9b479f6e26a779bb562c7c1b5f9b14e61d5e7ca8e2794b`
 - local sharp-transition test: run `31263324505`, artifact `9023416810`, SHA-256 `3f7ac07ea90e2b732441a9f80a38ea49871014722d008769370524b947007e34`
@@ -145,8 +157,11 @@ These IDs lock the manuscript-facing evidence. Use them for an exact audit; use 
 - Bombus community/elevation guardrails: run `31285234317`, artifact `9029595037`, SHA-256 `067dd3408b2a7f046ba263732ffa4cefa2f54a7f1fb672478be46bca425f6bf0`
 - local-departure/human replay: run `31537102360`, artifact `9119306089`, SHA-256 `f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4`
 - predictive draws: artifact `9094339466`, SHA-256 `413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`
+- current PR #51 four-figure bundle: artifact `9291438085`, SHA-256 `51dde9026c4348205c494db3594414c0f099166f8878dc1c82edbb173f9e2848`
 - YAMAP benchmark: run/artifact `31289927019` / `9031041034`; provider-overlap audit `31290095532` / `9031085975`
 
 Integrated cross-file validation is run by `.github/workflows/final-paper-analysis.yml`.
 
 Canonical integrated lock: `reproducibility/final_integrated_pipeline_2026-08-12.md`.
+
+Canonical execution and all active locks are in `run_pipeline.py` and `config/paper_pipeline.lock.json`.

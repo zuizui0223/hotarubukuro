@@ -44,9 +44,10 @@ Contains:
 - VPD and water-balance tests;
 - alternative spatial models;
 - final coefficients and spatial ranges;
+- cross-fitted space-only phenotype-divergence sensitivity;
 - cross-fitted natural model used later.
 
-**Main point:** broad environmental associations are stable enough to motivate physiological hypotheses, but they do not prove adaptation. The spatial field remains unresolved geography.
+**Main point:** broad environmental associations are stable enough to motivate physiological hypotheses, and pigmentation-state divergence shows environmental alignment beyond a cross-fitted spatial expectation. Neither result proves adaptation; the spatial field remains unresolved geography.
 
 ## S4 — How were Bombus habitat-support maps built?
 

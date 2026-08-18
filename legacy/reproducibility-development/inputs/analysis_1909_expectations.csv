@@ -1,4 +1,0 @@
-quantity,expectation,source,note
-analysis_observations,1909,active_1909_snapshot,Rows in analysis_data_pigmentation_hurdle.csv
-white_observations,955,active_1909_snapshot,n_white in pigmentation_measurement_summary.csv
-pigmented_observations,954,active_1909_snapshot,n_pigmented in pigmentation_measurement_summary.csv

@@ -1,5 +1,6 @@
 # Local analysis state
 .tmp/
+.paper-pipeline/
 graphify-out/
 .Rhistory
 .RData
@@ -9,6 +10,8 @@ __pycache__/
 build/
 dist/
 local_outputs/
+source_bombus/
+final8-artifact/
 
 # Rendered reports and user-facing binaries
 *.html

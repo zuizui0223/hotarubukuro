@@ -1,14 +1,16 @@
-# Appendix S5. Local focal-pollinator robustness and Bombus biogeographic guardrails
+# Appendix S5. Local focal-pollinator heterogeneity and Bombus biogeographic guardrails
 
 ## Purpose and analysis hierarchy
 
 This Appendix separates three questions that cannot be combined into one pollinator effect:
 
-1. **Directional Main test:** are the pigmented sides of the sharpest nearby white-pigmented boundaries associated with greater predicted habitat opportunity for the documented broad focal pollinators *Bombus ardens* and *B. diversus*?
-2. **Exposure and design robustness:** does that directional result persist when spatial scale, transition threshold, species set or SDM support scale changes?
+1. **Directional local-boundary test:** do independently fixed nearby white-pigmented boundaries show greater predicted habitat opportunity for the documented broad focal pollinators *Bombus ardens* and *B. diversus* on their pigmented sides?
+2. **Heterogeneity and robustness:** is any average direction pervasive across boundaries, or is it concentrated in a subset and sensitive to scale, transition threshold, species set or SDM support scale?
 3. **Biogeographic guardrails:** do five-species community boundaries coincide with flower-colour boundaries, and does apparent montane/alpine support survive comparison at nearly equal elevations?
 
-Only the first question is a directionally signed test of the pigmentation-benefit relaxation hypothesis. Five-species Hellinger turnover is unsigned and is interpreted as community-boundary correspondence. The montane analysis is a negative guardrail against promoting shared high-elevation geography to an additional pollinator mechanism.
+Only the first question is directionally signed. Five-species Hellinger turnover is unsigned and is interpreted as community-boundary correspondence. The montane analysis is a negative guardrail against promoting shared high-elevation geography to an additional pollinator mechanism.
+
+The Main ecological result is not a uniform positive shift. It is **boundary-to-boundary heterogeneity**: the positive focal mean is produced by a subset of large contrasts, while the median, sign proportion, broader scales and alternative exposure scale do not show pervasive support. The analysis therefore identifies where a local pollinator hypothesis is most worth testing rather than establishing a general Bombus effect.
 
 ## Local graph and transition selection
 
@@ -24,7 +26,7 @@ For exposure A, the signed contrast was
 
 `dA = A_pigmented - A_white`.
 
-The primary statistic was mean dA across non-overlapping pairs. Median dA and the proportion of positive pairs were required diagnostics because a positive mean can be produced by a minority of large contrasts. The one-sided null used 100,000 independent sign flips with seed 20260808.
+The predefined mean dA tests whether large local shifts collectively favour the predicted direction. Median dA and the proportion of positive pairs are co-primary interpretation diagnostics because a positive mean can be produced by a minority of large contrasts. The one-sided null used 100,000 independent sign flips with seed 20260808.
 
 Environment was not used to select, orient or weight pairs. As a confounding diagnostic, the fixed pairs were evaluated in the same eight standardized abiotic axes used by the finalized Broad pigmentation-state analysis: Temperature PC1, precipitation PC1, temperature seasonality, precipitation seasonality, topography PC1, soil PC1, soil PC2 and RSDS. Environmental distance is root-mean-square distance across these axes.
 
@@ -49,7 +51,9 @@ The focal test used the occurrence-referenced exposure
 | One-sided sign-flip P | 0.02716 |
 | BH q across 5/10/25-km pure focal tests | 0.08148 |
 
-The mean was in the hypothesized direction, but the median was approximately zero/slightly negative and fewer than half of the pairs were positive. The result is therefore magnitude-driven by a subset of transitions rather than a pervasive pairwise shift. It is treated as weak local directional consistency, not evidence of pollinator-mediated selection.
+The mean was in the hypothesized direction, but the median was approximately zero/slightly negative and fewer than half of the pairs were positive. The nominal mean result is therefore magnitude-driven by a subset of transitions rather than a majority-of-boundaries shift. It is not described as consistent local support or evidence of pollinator-mediated selection.
+
+The distribution itself is the biological output. It is compatible with a geographical mosaic in which focal-bumblebee opportunity matters at some sharp state boundaries and is irrelevant, counteracted or confounded at others. Candidate explanations for that heterogeneity include realized species abundance and phenology, nesting context, alternative visitors, local floral resources, bee visual contrast, breeding system, gene flow, fine-scale microclimate and unresolved ancestry. None is measured by the SDM surfaces.
 
 The environmental diagnostic supports, but does not prove, the local-comparison rationale. The fixed 67 transitions are closer in the finalized eight-axis Broad state space than local graph edges overall. Because environmental variables did not determine which transitions entered the test, this diagnostic does not manufacture the directional *Bombus* contrast; nor does it demonstrate that all fine-scale environmental confounding has been eliminated.
 
@@ -67,6 +71,8 @@ The directional mean attenuated rapidly beyond the strict local window. Selected
 
 At 5 km, relaxing the colour threshold from a pure transition to >=0.75 produced a similar result (69 pairs, mean +0.03461, P=0.02781). The >=0.50 family was weaker (98 pairs, mean +0.01010, P=0.24727). At 10 and 25 km, threshold sensitivities were null. Any directional alignment is therefore concentrated in the nearest, sharpest observed state boundaries rather than a general association across local colour differences.
 
+This scale attenuation is consistent with a local-neighbourhood hypothesis but is not evidence for a particular foraging radius. Increasing radius also changes the number, identity and environmental separation of available pairs. The 5-km result should therefore be read as localization of the observed correspondence, not estimation of the spatial reach of pollinator selection.
+
 ## Exposure-scale and species-set sensitivity
 
 Raw cloglog support tests whether the result depends on species-specific occurrence-reference scaling. The raw maximum of *B. ardens* and *B. diversus* did not reproduce the focal nominal result.
@@ -82,7 +88,7 @@ Raw cloglog support tests whether the result depends on species-specific occurre
 
 The fixed local inferential family does not contain separate species-by-species hypothesis tests. Individual occurrence-referenced scores remain available in the support table for transparent inspection, but the biological estimands are the documented two-species guild, the all-five maximum and the montane/alpine guardrail. This avoids selecting a species after inspecting the direction of its local association.
 
-The raw-support failure, all-five P=0.0836, near-zero median, q=0.0815 across the three pure-transition scales and broader-scale null results are part of the Main claim ceiling.
+The raw-support failure, all-five P=0.0836, near-zero median, q=0.0815 across the three pure-transition scales and broader-scale null results are not peripheral caveats. Together they establish that the local finding depends on a particular occurrence-referenced focal opportunity measure and a subset of sharp, close boundaries.
 
 ## All-edge descriptive comparison
 
@@ -91,7 +97,7 @@ All local graph edges share endpoints and are not independent; they are therefor
 **Table S5.4. All pure-transition edges before non-overlap selection.**
 
 | Radius | Edges | Mean focal contrast | Median focal contrast | Proportion positive |
-|---:|---:|---:|---:|---:|
+|---:|---:|---:|---:|
 | 5 km | 150 | +0.00862 | -0.00977 | 0.447 |
 | 10 km | 345 | -0.00181 | -0.00139 | 0.499 |
 | 25 km | 693 | -0.00325 | +0.00139 | 0.501 |
@@ -116,7 +122,7 @@ The fixed matched-background design used non-overlapping pure transition edges; 
 | 10 km | 102 | +0.03268 | +0.00871 | 0.588 | 0.01423 | 0.02135 |
 | 25 km | 165 | +0.04107 | +0.01946 | 0.606 | 0.00010 | 0.00030 |
 
-For the 5-km specification, observed mean community turnover was 0.12720 compared with a matched-background mean of 0.11049. The P=0.06283 result is reported as such and is not relabelled as a significant confirmation. Directional consistency at 10 and 25 km indicates repeated landscape-scale correspondence, but those broader windows are not evidence for the highly local directional colour-maintenance mechanism tested in Main 2.
+For the 5-km specification, observed mean community turnover was 0.12720 compared with a matched-background mean of 0.11049. The P=0.06283 result is reported as such and is not relabelled as a significant confirmation. Directional consistency at 10 and 25 km indicates repeated landscape-scale correspondence, but those broader windows are not evidence for the highly local directional colour-maintenance mechanism tested in the boundary analysis.
 
 A within-species-rank Hellinger metric showed the same direction under the same matching design (mean excess +0.01645, +0.01907 and +0.03321 at 5, 10 and 25 km; P=0.03658, 0.00802 and 0.00001). Across the predefined combinations of 25/50/100-km background windows and 10/20/50 controls, mean excess remained positive for both community metrics at every scale. Statistical strength varied at 5 and 10 km, while the 25-km result was positive and nominally significant in every occurrence-referenced matching specification.
 
@@ -141,7 +147,7 @@ The visually striking national overlap between pigmented highland flowers and *B
 **Table S5.7. All pure transitions with absolute endpoint elevation difference <=50 m.**
 
 | Radius | Pairs | Mean montane contrast | One-sided P |
-|---:|---:|---:|
+|---:|---:|---:|---:|
 | 5 km | 23 | -0.00333 | 0.84321 |
 | 10 km | 29 | -0.00196 | 0.75510 |
 | 25 km | 36 | -0.00589 | 0.83179 |
@@ -150,16 +156,38 @@ The BH q across scales was 0.84321. With the <=100-m restriction, means remained
 
 The appropriate interpretation is shared high-elevation/spatial co-distribution, not substitution by montane bumblebees and not an additional pollinator mechanism.
 
+## Ecological interpretation and field design
+
+The evidence supports four bounded statements.
+
+1. **The focal mean has the predicted sign at the finest sharp-boundary scale.**
+2. **The sign is not pervasive.** A near-zero median and 49.3% positive pairs show that a subset of large contrasts drives the mean.
+3. **The pattern is fragile.** It attenuates with radius, does not reproduce on raw cloglog support and does not extend to conditional intensity.
+4. **Broad highland overlap is confounded.** Near-equal-elevation comparisons remove the montane/alpine pattern.
+
+If the subset-driven correspondence is biological, it fits local maintenance or loss of a visible pigmented state better than progressive darkening among pigmented flowers. Once a signal is visibly pigmented, additional darkness may add little to recognition or learning; alternatively, the state association may reflect another correlated local process. Bee colour space, UV reflectance and behaviour were not measured, so this remains a hypothesis.
+
+The 67 boundaries should therefore be retained as a stratified field programme rather than collapsed to one mean. A direct test should compare boundaries with large positive, near-zero and negative SDM contrasts and measure:
+
+- species-resolved abundance, phenology and visitation;
+- nest, floral-resource and alternative-pollinator context;
+- bee visual contrast, UV reflectance and colour choice;
+- stigma contact, pollen removal and deposition, seed set and selection gradients;
+- breeding system, gene flow and ancestry;
+- flower-level temperature, moisture and terrain microenvironment.
+
+Explaining why boundary classes differ would test the mosaic hypothesis more directly than collecting more national co-distribution data.
+
 ## Main-versus-Supporting interpretation
 
 The manuscript keeps the following inferential separation:
 
-- **Main 2:** weak, highly local, directionally signed correspondence between pigmentation state and predicted opportunity for *B. ardens* plus *B. diversus*;
+- **Main local result:** weak, subset-driven, directionally signed correspondence between pigmentation state and predicted opportunity for *B. ardens* plus *B. diversus*;
 - **environmental guardrail:** the fixed transition pairs are locally close in the finalized eight-axis abiotic state space, without eliminating residual fine-scale environmental confounding;
 - **Supporting biogeography:** sharp colour boundaries also tend to coincide with predicted five-species community boundaries under matched local comparisons;
 - **negative guardrail:** montane/alpine overlap vanishes when elevation is held approximately equal.
 
-The community result does not strengthen the focal mean into causal evidence because it is unsigned and generated from environment-derived surfaces. The montane result prevents a visually attractive map overlap from being narrated as a second positive mechanism. The final-eight-axis distance audit supports the locality of the fixed comparison set while leaving pair identity and the directional test unchanged.
+The community result does not strengthen the focal mean into causal evidence because it is unsigned and generated from environment-derived surfaces. The montane result prevents a visually attractive map overlap from being narrated as a second positive mechanism. None of these analyses measures realized pollinator activity or selection.
 
 ## Reproducibility resources
 
@@ -193,4 +221,4 @@ Final-eight-axis environmental-balance evidence:
 - artifact `9119773035`;
 - SHA-256 `51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f`.
 
-None of these analyses measures realized pollinator activity or selection. Direct species-resolved visitation, flower contact, pollen transfer and fitness measurements remain necessary to test the proposed mechanism.
+Direct species-resolved visitation, flower contact, pollen transfer and fitness measurements remain necessary to test the proposed mechanism.

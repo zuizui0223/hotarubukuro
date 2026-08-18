@@ -109,7 +109,44 @@ for check in lock["alignment"]["checks"]:
     deduplicated_checks.append(check)
 lock["alignment"]["checks"] = deduplicated_checks
 
+# An output-producing workflow cannot know its eventual accepted artifact ID.
+# Point the accepted continuous result only to files that actually record both
+# the immutable ID and ZIP digest.
+continuous_artifact = lock["artifacts"]["accepted_continuous_colour_isolation"]
+continuous_artifact["references"] = [
+    "reproducibility/continuous_colour_isolation_human_context_result_2026-08-18.md",
+    "reproducibility/continuous_colour_isolation_manuscript_integration_2026-08-18.md",
+]
+
 lock_path.write_text(
     json.dumps(lock, ensure_ascii=False, separators=(",", ":")) + "\n",
+    encoding="utf-8",
+)
+
+# The alignment validator requires every artifact reference to expose its ID
+# and digest. The concise analysis map therefore ends with a generated registry
+# rather than silently dropping the provenance table when its narrative is
+# rewritten.
+analysis_map_path = contract.ROOT / "paper/analysis-map.md"
+analysis_map = analysis_map_path.read_text(encoding="utf-8")
+analysis_map = re.sub(
+    r"\n## Checksum-locked artifact registry\n.*\Z",
+    "",
+    analysis_map,
+    flags=re.MULTILINE | re.DOTALL,
+).rstrip()
+registry_lines = [
+    "",
+    "## Checksum-locked artifact registry",
+    "",
+    "| Artifact key | GitHub Actions artifact ID | ZIP SHA-256 |",
+    "|---|---:|---|",
+]
+for name, artifact in lock["artifacts"].items():
+    registry_lines.append(
+        f"| `{name}` | {artifact['id']} | `{artifact['sha256']}` |"
+    )
+analysis_map_path.write_text(
+    analysis_map + "\n" + "\n".join(registry_lines) + "\n",
     encoding="utf-8",
 )

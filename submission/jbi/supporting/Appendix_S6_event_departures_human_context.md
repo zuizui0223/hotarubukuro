@@ -1,16 +1,35 @@
-# Appendix S6. Event-based local departures and post-selection human context
+# Appendix S6. Event-based local isolates and post-selection human context
 
 ## Scope and inference ceiling
 
-This Appendix asks two linked questions. First, how often does the finalized natural flower-colour geography generate locally discordant pigmented cells? Second, after those cells have been defined without human information, do they occupy distinctive human context?
+This Appendix asks three sequential questions.
+
+1. **Observed event definition:** which cells in the observed flower-colour map satisfy a fixed, human-blind local-isolate rule?
+2. **Natural-frequency calibration:** how often does the finalized natural flower-colour model generate the same type of local configuration?
+3. **Post-selection human context:** after the observed sites have been fixed without human information, which human-context features distinguish them from their local white comparators relative to the same predictive-map selection process?
 
 The analysis does **not** define anomalies by thresholding fitted residuals, nor does it select locations using population density, roads, built land or other human variables. The primary natural reference is the cross-fitted final-eight-axis pigmentation-state model, and local environmental matching uses the same eight measured abiotic axes.
 
-The analysis can identify repeatable ecological events and field/provenance targets. It cannot demonstrate planting, escape, horticultural introgression or human causation.
+The analysis can identify repeatable ecological events and field/provenance targets. It cannot demonstrate planting, escape, horticultural introgression or human causation. The observed 16 sites are also not “configurations that natural processes could not reproduce”; their frequency is explicitly shown to be compatible with the fitted natural geography.
 
-## S6.1 Local ecological event definition
+## S6.1 Why this is not the Figure 3 Bombus-boundary analysis
 
-The unit is the 1-km flower cell from the 1,305-cell environment-complete analysis. Candidate selection is fixed before human variables are examined.
+The two local analyses use different units and estimands.
+
+| Component | Local Bombus boundary analysis | Local-isolate/human analysis |
+|---|---|---|
+| Unit | non-overlapping edge between two 1-km cells | focal 1-km cell plus its local neighbourhood |
+| Colour configuration | one pure white endpoint and one pure pigmented endpoint | pigmented focal cell among environmentally similar observed white neighbours |
+| Radius | primary 5 km boundary search | 10 km neighbour search |
+| Main statistic | signed pigmented-minus-white Bombus support | event count/fraction, then focal-minus-neighbour human contrast |
+| Natural-map replay | not used | used for event-frequency and post-selection null distributions |
+| Biological question | does predicted focal-Bombus opportunity change across a sharp state boundary? | is local pigmentation isolation unusually frequent, and does it have distinctive human context? |
+
+A cell or region can contribute to one configuration without satisfying the other. Neither site set was selected to maximize the result of the other analysis.
+
+## S6.2 Observed local ecological event definition
+
+The unit is the 1-km flower cell from the 1,305-cell environment-complete analysis. The event rule is fixed before human variables are examined.
 
 **Table S6.1. Primary local-event specification.**
 
@@ -30,9 +49,13 @@ East/West is a structural geographical adjustment in the observation-level Broad
 
 The event can include a mixed focal cell. “White neighbours” refers to observed cell samples rather than genetic fixation of an underlying population. Predictive tail probabilities are retained as diagnostics but are not thresholds for event membership.
 
-## S6.2 Natural-map calibration
+Applying this rule to the **observed map** selects the 16 current field/provenance targets. The observed rule, not the posterior-predictive replay, determines their identities.
 
-The event detector is replayed on **10,000 checksum-locked predictive maps** from the final-eight-axis cross-fitted pigmentation-state model. Cell locations, flower counts and environmental graph are held fixed. This propagates uncertainty in the natural pigmentation map while preserving the observed sampling geometry.
+## S6.3 First use of 10,000 maps: natural-frequency calibration
+
+The identical event detector is replayed on **10,000 checksum-locked predictive maps** from the final-eight-axis cross-fitted pigmentation-state model. Cell locations, flower counts and environmental graph are held fixed. On each map, predicted pigmentation observations replace the observed colour states and the detector recounts the event type under the fitted natural geography.
+
+This replay asks whether the observed **number and fraction** of local-isolate events are unusual. It does not ask which observed sites are impossible under nature, and it does not require the same cell identities to recur in predictive maps.
 
 **Table S6.2. Observed event frequency relative to 10,000 natural predictive maps.**
 
@@ -45,11 +68,11 @@ The final environmental graph supports 706 cells with at least three eligible ne
 
 A stricter joint diagnostic requiring both local isolation and an extreme predictive tail is also non-excessive: one observed q<=0.10 joint candidate compared with a null mean of 0.9505 (P=0.6242), and zero q<=0.05 joint candidates compared with a null mean of 0.1589.
 
-The primary ecological conclusion is therefore that the **frequency** of the 16 observed local departures does not require an additional anthropogenic process.
+The primary ecological conclusion is therefore that the **frequency** of the 16 observed local isolates does not require an additional anthropogenic or other second process. Natural spatial variation is sufficient to generate this many apparently discordant configurations.
 
-## S6.3 Human-context hypothesis family
+## S6.4 Human-context hypothesis family
 
-Human variables are evaluated only after ecological event selection. They are not treated as interchangeable measurements of a single “urbanization” factor. The family contains eleven mechanism-based variables, all corrected jointly with global maxT.
+Human variables are evaluated only after the observed event rule and observed candidate identities are fixed. They are not treated as interchangeable measurements of a single “urbanization” factor. The family contains eleven mechanism-based variables, all corrected jointly with global maxT.
 
 **Table S6.3. Human-context feature family.**
 
@@ -71,11 +94,20 @@ No population radius is promoted from an unadjusted P value after inspecting the
 
 The ecological rationale is bounded. Ornamental horticulture can create propagule pressure and repeated opportunities for escape or establishment; market availability and residential propagule pressure have predicted establishment or invasion in ornamental plants (Dehnen-Schmutz et al., 2007; Davis et al., 2016). *Campanula punctata* also has intentionally bred coloured horticultural material: the purple dwarf cultivar ‘Jiknyeo’ was produced from *C. punctata* × var. *rubriflora* (Choi et al., 2012). These observations make settlement-associated horticultural movement biologically plausible, but they do not identify the provenance of any YAMAP flower.
 
-Roads provide another plausible pathway through transport, disturbance and secondary dispersal while simultaneously increasing observation access. Population density and road accessibility can structure opportunistic biological recording effort (Mair & Ruete, 2016). Settlement can also alter shade, irrigation, substrate and microclimate at scales unresolved by kilometre climate layers. A settlement association is therefore not automatically an ancestry signal.
+Roads and trails provide another plausible pathway through transport, disturbance and secondary dispersal while simultaneously increasing observation access. Clothing and footwear can transport seeds in protected areas, and hiking trails can facilitate plant spread in other systems (Mount & Pickering, 2009; Zani et al., 2025). These studies establish possible mechanisms, not transport or establishment of *C. punctata* at the present sites. Population density and road accessibility can also structure opportunistic biological recording effort (Mair & Ruete, 2016). Settlement may alter shade, irrigation, substrate and microclimate at scales unresolved by kilometre climate layers. A settlement association is therefore not automatically an ancestry signal.
 
-## S6.4 Human-context results
+## S6.5 Second use of 10,000 maps: post-selection human null
 
-For each predictive map, the same local-event detector is reapplied and the same focal-minus-white-neighbour human contrasts are recalculated. This propagates uncertainty in which cells would be selected under the natural geography rather than treating the observed candidate set as fixed under a standard regression null.
+The observed human contrasts are calculated for the 16 sites selected from the observed map and their eligible local white neighbours. A standard comparison against fixed sites would ignore that those sites were selected by a colour-configuration rule.
+
+The predictive replay therefore repeats the **entire selection-and-comparison operation** on every map:
+
+1. simulate the pigmentation map under the cross-fitted natural model;
+2. reapply the same local-isolate detector;
+3. identify the event cells generated on that map;
+4. calculate the same focal-minus-white-neighbour human contrasts for that map-selected event set.
+
+The resulting distributions incorporate uncertainty in which cells would be selected under the natural geography. Global maxT then controls the predefined eleven-feature family. This is the second, distinct role of the 10,000-map replay.
 
 **Table S6.4. Post-selection human-context contrasts.**
 
@@ -99,7 +131,7 @@ The evidence is therefore described as a **near-threshold short-scale settlement
 
 The spatial scale is informative but not diagnostic of mechanism. The population contrast is concentrated at 5–10 km and largely disappears at 25–50 km, which is compatible with a local exposure/opportunity process. The pattern cannot distinguish planted ancestry from fine-scale environmental modification or broader sampling-frame accessibility.
 
-## S6.5 Observation-process alternatives
+## S6.6 Observation-process alternatives and the bidirectional YAMAP frame
 
 The natural maps condition on the observed 1-km cells and flower counts, and the human comparison is local against environmentally similar white neighbours. These choices reduce but cannot eliminate route-access sampling bias.
 
@@ -114,17 +146,27 @@ Measured within-dataset effort does not distinguish candidates from their white 
 
 Thus the 5-km population pattern is not explained simply by the 16 candidate cells containing unusually many photographs or unusually many independent YAMAP source activities relative to their local white comparators. This does **not** remove the broader possibility that populated or accessible landscapes are more likely to enter the YAMAP sampling frame.
 
-## S6.6 Ecological interpretation and claim ceiling
+The mountain-route frame has no guaranteed one-way bias for the human contrast.
 
-Three conclusions have different evidential status.
+- **Possible attenuation:** conditioning candidates and comparators on traversed mountain routes can compress the represented urban-rural gradient, reducing power to detect a real settlement difference.
+- **Possible inflation or confounding:** trailheads, roads and accessible mountain margins can increase observation opportunity, disturbance and propagule movement together, making settlement exposure a proxy for entry into the sampling frame or managed microenvironment.
 
-1. **Natural-reference conclusion — supported.** Sixteen locally discordant pigmented cells occur at a frequency compatible with the finalized eight-axis natural geography. The event count does not itself require a second human process.
-2. **Human-context conclusion — suggestive.** Population exposure within 5 km is the leading post-selection feature (directional P=0.0080), but global maxT FWER P=0.0548 remains just above 0.05. Population at 10 km and DID proximity point in the same direction without corrected support.
-3. **Provenance conclusion — unresolved.** The settlement pattern is compatible with horticultural opportunity or propagule pressure, but fine-scale environmental plasticity and broad observation accessibility remain viable alternatives. The photographs provide no ancestry or planting-history evidence.
+Consequently, “the human signal is weak because hiking data removed human influence” is not a supported interpretation. The sampling process can weaken, strengthen or redirect the contrast, and the current data do not identify the net direction.
 
-Accordingly, the 16 candidates are **local-departure/provenance field targets**, not anthropogenic anomalies. Stronger tests require local planting/management histories, voucher-level morphology, repeated population colour sampling, standardized spectra and pigment chemistry, and population-genetic comparison among candidate populations, neighbouring white populations and relevant horticultural material.
+## S6.7 Ecological interpretation and claim ceiling
 
-## S6.7 Reproducibility resources
+Four conclusions have different evidential status.
+
+1. **Observed-selection conclusion — descriptive and reproducible.** The fixed human-blind neighbourhood rule selects 16 observed local-isolate sites.
+2. **Natural-reference conclusion — supported.** Sixteen events occur at a frequency compatible with the finalized eight-axis natural geography. The event count does not itself require a second human process.
+3. **Human-context conclusion — suggestive.** Population exposure within 5 km is the leading post-selection feature (directional P=0.0080), but global maxT FWER P=0.0548 remains just above 0.05. Population at 10 km and DID proximity point in the same direction without corrected support.
+4. **Provenance conclusion — unresolved.** The settlement pattern is compatible with horticultural opportunity or propagule pressure, but fine-scale environmental plasticity and broad observation accessibility remain viable alternatives. The photographs provide no ancestry or planting-history evidence.
+
+The human interpretation is therefore doubly conditional: the event type is not unusually frequent under nature, and its strongest human-context feature does not cross the familywise threshold. Accordingly, the 16 candidates are **local-isolate/provenance field targets**, not anthropogenic anomalies.
+
+Stronger tests require local planting and management histories, route and disturbance history, voucher-level morphology, repeated population colour sampling, standardized spectra and pigment chemistry, flower-level microenvironment, and population-genetic comparison among candidate populations, neighbouring white populations and relevant horticultural material.
+
+## S6.8 Reproducibility resources
 
 Primary implementation:
 
@@ -149,3 +191,7 @@ Davis, A. J. S. et al. (2016). Accounting for residential propagule pressure imp
 Dehnen-Schmutz, K., Touza, J., Perrings, C. & Williamson, M. (2007). A century of the ornamental plant trade and its impact on invasion success. *Diversity and Distributions* 13:527–534. DOI: 10.1111/j.1472-4642.2007.00359.x.
 
 Mair, L. & Ruete, A. (2016). Explaining spatial variation in the recording effort of citizen science data across multiple taxa. *PLoS ONE* 11:e0147796.
+
+Mount, A. & Pickering, C. M. (2009). Testing the capacity of clothing to act as a vector for non-native seed in protected areas. *Journal of Environmental Management* 91:168–179. DOI: 10.1016/j.jenvman.2009.08.002.
+
+Zani, D., Lischke, H., Åkerman, J. & Lehsten, V. (2025). Hiking trails facilitate the spread of a native high-Arctic species. *Ecology and Evolution* 15:e70809. DOI: 10.1002/ece3.70809.

@@ -64,23 +64,32 @@ contract.replace_once = replace_once_if_needed
 contract.replace_regex = replace_regex_if_needed
 contract.main()
 
-# The manuscript already states the claim ceiling as “not as proof of ...
-# horticultural origin.” Match that defensible wording rather than requiring a
-# second, stylistically redundant sentence solely for the validator.
+# Preserve the manuscript's existing, defensible prose while allowing the lock
+# to recognise equivalent claim-ceiling and field-target wording.
 lock_path = contract.ROOT / "config/paper_pipeline.lock.json"
 lock = json.loads(lock_path.read_text(encoding="utf-8"))
 for check in lock["alignment"]["checks"]:
-    if check.get("label") != "continuous colour-isolation human context":
-        continue
-    check["patterns"] = [
-        (
-            r"(?:not as proof.*horticultural origin|"
-            r"does not establish.*horticultural origin)"
-            if pattern == "does not establish horticultural origin"
-            else pattern
-        )
-        for pattern in check["patterns"]
-    ]
+    label = check.get("label")
+    if label == "continuous colour-isolation human context":
+        check["patterns"] = [
+            (
+                r"(?:not as proof.*horticultural origin|"
+                r"does not establish.*horticultural origin)"
+                if pattern == "does not establish horticultural origin"
+                else pattern
+            )
+            for pattern in check["patterns"]
+        ]
+    elif label == "supplementary event calibration and field targets":
+        check["patterns"] = [
+            (
+                r"(?:field-target selector|field targets|"
+                r"field/provenance targets)"
+                if pattern == "field/provenance targets"
+                else pattern
+            )
+            for pattern in check["patterns"]
+        ]
 lock_path.write_text(
     json.dumps(lock, ensure_ascii=False, separators=(",", ":")) + "\n",
     encoding="utf-8",

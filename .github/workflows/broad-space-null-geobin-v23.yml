@@ -1,0 +1,259 @@
+name: Broad space-null geobin sensitivity v23
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/broad-final8-axis-attribution
+    paths:
+      - .github/workflows/broad-space-null-geobin-v23.yml
+      - scripts/fit_broad_space_null_geobin_sensitivity_v23.R
+      - reproducibility/space_null_environment_alignment_spec_v23_2026-08-18.md
+      - reproducibility/space_null_environment_alignment_v23_1_implementation_amendment_2026-08-18.md
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/broad-space-null-geobin-v23.yml
+      - scripts/fit_broad_space_null_geobin_sensitivity_v23.R
+      - reproducibility/space_null_environment_alignment_spec_v23_2026-08-18.md
+      - reproducibility/space_null_environment_alignment_v23_1_implementation_amendment_2026-08-18.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: broad-space-null-geobin-v23-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GOTO_NUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  POSTERIOR_SAMPLES: "500"
+  ANALYSIS_SEED: "20260725"
+  MAX_PAIRS_PER_FOLD: "15000"
+  GEO_BINS_LIST: "5,10,20"
+
+jobs:
+  fit:
+    name: Legacy-four-PC and final-eight stratification profile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout analysis branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: broad-geobin-v23-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            broad-final8-axis-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            broad-excess-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R analysis environment
+        shell: bash
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility/broad_space_null_geobin_v23
+          --scopes analysis,reproducibility
+
+      - name: Restore checksum-locked Broad cells
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf reference-artifact /tmp/broad-reference.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFERENCE_ARTIFACT_ID}/zip" \
+            -o /tmp/broad-reference.zip
+          actual="$(sha256sum /tmp/broad-reference.zip | awk '{print $1}')"
+          test "$actual" = "$REFERENCE_ARTIFACT_SHA256"
+          mkdir -p reference-artifact
+          unzip -q /tmp/broad-reference.zip -d reference-artifact
+          cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s "$cells"
+          python3 - "$cells" <<'PY'
+          import csv, sys
+          with open(sys.argv[1], newline='', encoding='utf-8') as handle:
+              header = set(next(csv.reader(handle)))
+          required = {
+              'broad50km_pc1', 'broad50km_pc2',
+              'within50km_pc1', 'within50km_pc2',
+              'env_Temperature_PC1', 'env_precip_PC1',
+              'env_TemperatureSeasonality', 'env_PrecipSeasonality',
+              'env_topo_PC1', 'env_soil_PC1', 'env_soil_PC2', 'env_RSDS'
+          }
+          missing = sorted(required - header)
+          assert not missing, f'missing environmental columns: {missing}'
+          PY
+          echo "reference_zip_sha256=${actual}" > reference-artifact/reference_lock.txt
+
+      - name: Fit one cross-fitted spatial null and evaluate all stratifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/fit_broad_space_null_geobin_sensitivity_v23.R \
+            --cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+            --output=results/broad_space_null_geobin_sensitivity_v23 \
+            --samples=${POSTERIOR_SAMPLES} \
+            --seed=${ANALYSIS_SEED} \
+            --max-pairs-per-fold=${MAX_PAIRS_PER_FOLD} \
+            --geo-bins-list=${GEO_BINS_LIST}
+
+      - name: Validate output and historical Run A identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=results/broad_space_null_geobin_sensitivity_v23
+          for file in \
+            geobin_sensitivity_profile.csv \
+            geobin_sensitivity_null_draws.csv \
+            geobin_sensitivity_stratum_summary.csv \
+            exact_basis_confound_diagnostic_by_fold.csv \
+            exact_basis_confound_diagnostic_summary.csv \
+            fixed_heldout_pair_table.csv \
+            heldout_space_null_expected.csv \
+            per_draw_per_stratum_null_contrasts.rds \
+            heldout_space_null_site_draws.rds \
+            analysis_metadata.csv \
+            RESULT_SUMMARY.md; do
+            test -s "$out/$file"
+          done
+
+          python3 - "$out" <<'PY'
+          import csv, math, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          with (root / 'geobin_sensitivity_profile.csv').open(newline='', encoding='utf-8') as handle:
+              rows = list(csv.DictReader(handle))
+          assert len(rows) == 180, len(rows)
+          assert {r['response'] for r in rows} == {'pigmentation_state', 'conditional_intensity'}
+          assert {int(r['geographic_bins']) for r in rows} == {5, 10, 20}
+          assert {r['subset_rule'] for r in rows} == {
+              'all', 'drop_resolution_nearest', 'drop_published_nearest'
+          }
+          run_rows = [r for r in rows if r['run_label']]
+          assert len(run_rows) == 12, len(run_rows)
+          assert {r['run_label'] for r in run_rows} == set('ABCDEF')
+
+          def row(response, component, bins, subset):
+              hit = [
+                  r for r in rows
+                  if r['response'] == response
+                  and r['component'] == component
+                  and int(r['geographic_bins']) == bins
+                  and r['subset_rule'] == subset
+              ]
+              assert len(hit) == 1, (response, component, bins, subset, len(hit))
+              return hit[0]
+
+          state = row('pigmentation_state', 'legacy4_omnibus', 5, 'all')
+          intensity = row('conditional_intensity', 'legacy4_omnibus', 5, 'all')
+          expected = {
+              'state_observed': 0.106802,
+              'state_null': 0.058240,
+              'state_excess': 0.048562,
+              'state_p': 0.03393,
+              'intensity_observed': -0.047179,
+              'intensity_null': -0.001287,
+              'intensity_excess': -0.045891,
+              'intensity_p': 0.87226,
+          }
+          actual = {
+              'state_observed': float(state['observed_contrast']),
+              'state_null': float(state['space_null_median']),
+              'state_excess': float(state['phenotype_excess_over_space_null']),
+              'state_p': float(state['posterior_predictive_p_upper']),
+              'intensity_observed': float(intensity['observed_contrast']),
+              'intensity_null': float(intensity['space_null_median']),
+              'intensity_excess': float(intensity['phenotype_excess_over_space_null']),
+              'intensity_p': float(intensity['posterior_predictive_p_upper']),
+          }
+          for key, value in actual.items():
+              assert math.isfinite(value)
+              assert abs(value - expected[key]) <= 5e-4, (key, value, expected[key])
+
+          with (root / 'geobin_sensitivity_null_draws.csv').open(newline='', encoding='utf-8') as handle:
+              null_rows = list(csv.DictReader(handle))
+          counts = {}
+          for r in null_rows:
+              counts[r['profile_id']] = counts.get(r['profile_id'], 0) + 1
+          assert counts and set(counts.values()) == {500}, set(counts.values())
+
+          with (root / 'analysis_metadata.csv').open(newline='', encoding='utf-8') as handle:
+              meta = {r['field']: r['value'] for r in csv.DictReader(handle)}
+          assert meta['legacy_environment_terms'].split(';') == [
+              'broad50km_pc1', 'broad50km_pc2',
+              'within50km_pc1', 'within50km_pc2'
+          ]
+          assert len(meta['final8_environment_terms'].split(';')) == 8
+          print('validated profiles:', len(rows), 'null profile draws:', len(null_rows))
+          PY
+
+      - name: Record workflow provenance
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p results/broad_space_null_geobin_sensitivity_v23
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "reference_artifact_id=${REFERENCE_ARTIFACT_ID}"
+            echo "reference_artifact_sha256=${REFERENCE_ARTIFACT_SHA256}"
+            echo "posterior_samples=${POSTERIOR_SAMPLES}"
+            echo "seed=${ANALYSIS_SEED}"
+            echo "max_pairs_per_fold=${MAX_PAIRS_PER_FOLD}"
+            echo "geo_bins_list=${GEO_BINS_LIST}"
+          } > results/broad_space_null_geobin_sensitivity_v23/workflow_provenance.txt
+
+      - name: Upload v23 sensitivity results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: broad-space-null-geobin-v23-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/broad_space_null_geobin_sensitivity_v23
+            reproducibility/broad_space_null_geobin_v23
+            reference-artifact/reference_lock.txt
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

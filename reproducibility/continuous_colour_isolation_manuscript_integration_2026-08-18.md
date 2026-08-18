@@ -1,6 +1,6 @@
 # Continuous colour-isolation manuscript integration
 
-**Status:** manuscript prose, numerical lock, Figure 4 contract and claim-ceiling contract are synchronized on the dedicated draft branch; downstream validation triggered from this commit.
+**Status:** manuscript prose, numerical lock, Figure 4 contract and claim-ceiling contract are synchronized on the dedicated draft branch; downstream validation is running on the connector-authored verification commit that follows the generated contract.
 
 The JBI narrative assigns the analyses distinct roles:
 
@@ -24,9 +24,11 @@ Updated and synchronized sources include:
 Paper-contract synchronization:
 
 - workflow: `Integrate continuous isolation into JBI manuscript`;
-- latest successful run: `32121920537`;
-- generated contract commit: `be79ff6e62195070ff5621a0efcca13242e432ed`;
-- the claim-ceiling validator accepts the manuscript's existing statement that the result is “not proof of ... horticultural origin,” without requiring redundant wording.
+- serialized integration run: `32122740330`;
+- generated contract commit: `8f892a8e0ca23f713bae86e73ace7b58f8991500`;
+- generated alignment checks are idempotent and occur once each in the canonical lock;
+- the claim-ceiling validator accepts the manuscript's existing statement that the result is “not proof of ... horticultural origin,” without requiring redundant wording;
+- equivalent event-target wording (`field-target selector`, `field targets`, or `field/provenance targets`) is accepted without weakening the required role.
 
 Numerical source and claim lock:
 
@@ -35,4 +37,4 @@ Numerical source and claim lock:
 - artifact `9317087893`;
 - ZIP SHA-256 `6fd26d9a938b68d3f0c56512cd1620597c740d44ba91ab5a7ccbb9daa99d5386`.
 
-The PR remains draft until the current paper checks, Figure 4 build, canonical audit/reproduction and review-bundle workflows complete on this synchronized head.
+The PR remains draft until the current paper checks, Figure 4 build, canonical audit/reproduction and review-bundle workflows complete on the connector-authored verification head.

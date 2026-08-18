@@ -16,7 +16,10 @@ required <- c(
   file.path(output_dir, "figure_data", "panel_source_index.csv"),
   file.path(output_dir, "figure_data", "figure4_final_human_context_scenarios.csv"),
   file.path(output_dir, "figure_data", "figure4_current_broad_candidate_null.csv"),
-  file.path(output_dir, "figure_data", "figure3_final8_environment_balance.csv")
+  file.path(output_dir, "figure_data", "figure3_final8_environment_balance.csv"),
+  file.path(output_dir, "figure_data", "figure4_continuous_cell_metrics.csv"),
+  file.path(output_dir, "figure_data", "figure4_continuous_natural_summary.csv"),
+  file.path(output_dir, "figure_data", "figure4_continuous_population_profile.csv")
 )
 missing <- required[!file.exists(required)]
 if (length(missing)) stop("Missing figure-bundle outputs: ", paste(missing, collapse = ", "), call. = FALSE)
@@ -88,7 +91,18 @@ expected <- c(
   candidate_fraction_p = 0.126087391260874,
   population_5km_current_broad_global_maxT_p = 0.0547945205479452,
   bombus_final8_selected_env_distance = 0.244081837853636,
-  bombus_final8_all_edge_env_distance = 0.317519973222642
+  bombus_final8_all_edge_env_distance = 0.317519973222642,
+  continuous_pigmented_cells = 674,
+  continuous_white_cells = 631,
+  continuous_pigmented_median_isolation_km = 3.60555127546399,
+  continuous_raw_population_5km_pigmented_rho = 0.25197993694926,
+  continuous_raw_population_5km_natural_mean = 0.132979942281226,
+  continuous_raw_population_5km_upper_p = 0.0001999800019998,
+  continuous_relative_population_5km_pigmented_rho = 0.285497536507115,
+  continuous_relative_population_5km_natural_mean = 0.153615552893768,
+  continuous_relative_population_5km_upper_p = 0.0008999100089991,
+  continuous_raw_population_5km_direct_difference = 0.323523940415984,
+  continuous_relative_population_5km_direct_difference = 0.20699177378826
 )
 lock_values <- setNames(as.numeric(lock$value), as.character(lock$metric))
 missing_lock <- setdiff(names(expected), names(lock_values))
@@ -99,7 +113,17 @@ lock_tolerance <- c(
   focal_median_contrast=1e-5, focal_positive_fraction=1e-8, focal_signflip_p=1e-6,
   candidate_count=0, candidate_count_p=1e-10, candidate_fraction=1e-10, candidate_fraction_p=1e-10,
   population_5km_current_broad_global_maxT_p=1e-10,
-  bombus_final8_selected_env_distance=1e-10, bombus_final8_all_edge_env_distance=1e-10
+  bombus_final8_selected_env_distance=1e-10, bombus_final8_all_edge_env_distance=1e-10,
+  continuous_pigmented_cells=0, continuous_white_cells=0,
+  continuous_pigmented_median_isolation_km=1e-10,
+  continuous_raw_population_5km_pigmented_rho=1e-10,
+  continuous_raw_population_5km_natural_mean=1e-10,
+  continuous_raw_population_5km_upper_p=1e-12,
+  continuous_relative_population_5km_pigmented_rho=1e-10,
+  continuous_relative_population_5km_natural_mean=1e-10,
+  continuous_relative_population_5km_upper_p=1e-12,
+  continuous_raw_population_5km_direct_difference=1e-10,
+  continuous_relative_population_5km_direct_difference=1e-10
 )
 add_check(
   "current_submission_numerical_lock",
@@ -118,6 +142,34 @@ add_check(
     all(as.integer(human_final$observed_n_candidates) == 16L) &&
     abs(as.numeric(human_final$maxT_FWER_p[human_final$feature == "population_5km_rank"]) - 0.0547945205479452) < 1e-10,
   paste("rows=", nrow(human_final), "configs=", paste(unique(as.character(human_final$configuration)), collapse = ";"))
+)
+
+
+continuous_cells <- hb_read_csv(file.path(output_dir, "figure_data", "figure4_continuous_cell_metrics.csv"))
+continuous_natural <- hb_read_csv(file.path(output_dir, "figure_data", "figure4_continuous_natural_summary.csv"))
+continuous_primary <- continuous_natural[
+  continuous_natural$metric == "relative_same_to_any_nn" &
+    continuous_natural$feature == "population_5km_rank" &
+    continuous_natural$component == "pigmented_rho" &
+    continuous_natural$null_mode == "all_nondegenerate_maps",
+  , drop = FALSE
+]
+add_check(
+  "figure4_continuous_isolation_human_context",
+  nrow(continuous_cells) == 1305L &&
+    sum(as.character(continuous_cells$colour) == "pigmented") == 674L &&
+    nrow(continuous_primary) == 1L &&
+    abs(as.numeric(continuous_primary$observed_value) - 0.285497536507115) < 1e-10 &&
+    abs(as.numeric(continuous_primary$null_mean) - 0.153615552893768) < 1e-10 &&
+    abs(as.numeric(continuous_primary$empirical_p) - 0.0008999100089991) < 1e-12,
+  if (nrow(continuous_primary)) sprintf(
+    "cells=%d pigmented=%d rho=%.6f null=%.6f P=%.6f",
+    nrow(continuous_cells),
+    sum(as.character(continuous_cells$colour) == "pigmented"),
+    as.numeric(continuous_primary$observed_value),
+    as.numeric(continuous_primary$null_mean),
+    as.numeric(continuous_primary$empirical_p)
+  ) else "missing continuous primary row"
 )
 
 bombus_balance <- hb_read_csv(file.path(output_dir, "figure_data", "figure3_final8_environment_balance.csv"))

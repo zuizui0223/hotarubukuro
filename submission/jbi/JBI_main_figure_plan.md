@@ -55,20 +55,22 @@ Panels:
 
 Five-species turnover and the full highland/elevation audit remain in Appendix S5.
 
-## Figure 4 — Calibrate apparent exceptions against natural geography
+## Figure 4 — Reveal a human overlay on pigmented spatial geometry
 
-**Question created by Figure 3:** Are local pigmented departures more frequent than the finalized natural geography predicts?
+**Question created by Figure 3:** Once broad environment, coherent geography and a local Bombus hypothesis are separated, does human context alter where isolated pigmented occurrences sit?
 
 Panels:
 
-- (a) event rule;
-- (b) 16 observed sites;
-- (c) event count/fraction versus 10,000 natural maps;
-- (d) human context tested only after sites are fixed.
+- (a) all 1,305 flower cells, with 674 pigmented cells sized by nearest-pigmented distance and filled by 5-km population exposure;
+- (b) population exposure versus relative same-colour isolation for pigmented and white cells;
+- (c) observed raw and density-corrected 5-km correlations against 10,000 natural-map intervals;
+- (d) observed pigmented correlations and natural expectations across the population-scale ladder.
 
-**Reveal:** natural predictive maps explain the observed frequency of 16 configurations while turning them into reproducible field/provenance targets. Short-range population exposure is the leading human-context clue, not proof of origin.
+**Reveal:** the positive isolation-population relationship within pigmented occurrences is stronger than the fitted natural geography predicts and survives local flower-cell density correction. The raw white negative sign does not survive that correction, so the result is not sold as reciprocal colour displacement.
 
-**Ending:** the figures identify where physiology, population history, realized pollination and provenance should be tested directly, and converge on a spatially varying model of polymorphism maintenance.
+**Supporting calibration:** the former 16-event analysis moves to Appendix S6 as an alternative estimand and a reproducible selector of extreme field/provenance targets.
+
+**Ending:** the figures identify where physiology, population history, realized pollination and provenance should be tested directly, while preserving the claim ceiling that a human-context overlay is not evidence of horticultural origin.
 
 ## Figure rule
 

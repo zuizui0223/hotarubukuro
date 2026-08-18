@@ -88,3 +88,16 @@ reproducibility,submission,reproducibility/jbi_submission_bundle_spec_2026-08-10
 testing,Python,tests/python/test_run_pipeline.py,component
 testing,Python,tests/python/test_extract_color.py,component
 testing,R,tests/testthat.R,component
+analysis,Main3,R/continuous_colour_isolation.R,component
+analysis,Main3,analysis_sensitivity/run_continuous_colour_isolation_human_context.R,component
+analysis,Main3,analysis_sensitivity/continuous_colour_isolation/00_fast_overrides.R,component
+analysis,Main3,analysis_sensitivity/continuous_colour_isolation/01_observed_geometry.R,component
+analysis,Main3,analysis_sensitivity/continuous_colour_isolation/02_natural_map_guardrail.R,component
+analysis,Main3,analysis_sensitivity/continuous_colour_isolation/03_reporting.R,component
+analysis,figures,scripts/render_jbi_figure4_continuous_isolation.R,component
+workflow,Main3,.github/workflows/continuous-colour-isolation-human-context.yml,component
+reproducibility,Main3,reproducibility/continuous_colour_isolation_human_context_2026-08-18.md,provenance
+reproducibility,Main3,reproducibility/continuous_colour_isolation_human_context_result_2026-08-18.md,provenance
+reproducibility,integration,reproducibility/continuous_colour_isolation_manuscript_integration_2026-08-18.md,provenance
+testing,R,tests/testthat/test-continuous-colour-isolation.R,component
+infrastructure,contract,scripts/register_continuous_isolation_paper_contract.py,component

@@ -111,7 +111,7 @@ numbered_subsections = (
     "### 2.1 Study system and YAMAP sampling",
     "### 2.6 Reproducibility and inferential order",
     "### 3.1 A new image stream revealed a national quantitative polymorphism",
-    "### 3.5 Post-selection analysis identified a short-range human-context clue",
+    "### 3.5 Predictive replay retained extreme populations as field targets",
     "### 4.1 The national trait dataset changed the biological question",
     "### 4.6 A spatially varying balance can maintain flower-colour polymorphism",
 )
@@ -141,8 +141,12 @@ require_tokens(
         "1,922",
         "3.81 times",
         "67 sharp transitions",
+        "674 pigmented",
+        "rho=0.252",
+        "P=0.0002",
+        "rho=+0.285",
+        "P=0.0009",
         "Sixteen pigmented cells",
-        "0.0548",
         "calibrated field targets",
     ),
 )
@@ -172,7 +176,7 @@ for appendix in SUPPORTING:
     assert_anonymous(f"Supporting Information {appendix.name}", appendix_text)
 
 s6 = appendix_texts["Appendix_S6_event_departures_human_context.md"]
-require_tokens("Appendix S6", s6, ("**16**", "0.27897", "0.05479"))
+require_tokens("Appendix S6", s6, ("674 pigmented", "0.251980", "0.000200", "0.285498", "0.000900", "**16**", "0.27897", "0.05479"))
 if "The horticultural trade and ornamental plant invasions in Britain" in s6:
     fail("Appendix S6 contains the superseded alternative Dehnen-Schmutz 2007 citation")
 
@@ -182,7 +186,7 @@ figure_text = FIGURE_CAPTIONS.read_text(encoding="utf-8")
 figure_headings = re.findall(r"^## Figure ([1-4])\.", figure_text, flags=re.MULTILINE)
 if figure_headings != ["1", "2", "3", "4"]:
     fail(f"Figure captions must contain Figures 1-4 exactly once and in order: {figure_headings}")
-require_tokens("Main-figure captions", figure_text, ("1,922", "Sixty-seven", "**16**", "0.05479"))
+require_tokens("Main-figure captions", figure_text, ("1,922", "Sixty-seven", "674 pigmented", "rho=0.252", "P=0.0002", "rho=0.285", "P=0.0009", "16 event-defined"))
 if re.search(r"\([A-D]\)", figure_text):
     fail("JBI figure captions must use lowercase panel labels (a)-(d)")
 for number in range(1, 5):
@@ -221,7 +225,7 @@ for required_phrase in ("600-dpi PNG", "vector PDF", "Actions artifact"):
 if not TRANSLATED_ABSTRACT.is_file():
     fail("Missing translated abstract")
 translated = TRANSLATED_ABSTRACT.read_text(encoding="utf-8")
-require_tokens("Japanese translated abstract", translated, ("1,922", "67", "16地点", "0.0548"))
+require_tokens("Japanese translated abstract", translated, ("1,922", "67", "674", "0.252", "0.0002", "0.285", "0.0009", "16地点"))
 if "17地点" in translated:
     fail("Japanese translated abstract still contains superseded 17-site result")
 
@@ -234,7 +238,8 @@ require_tokens(
     (
         f"{body_n:,} words",
         f"{abstract_n} words",
-        "16 current-Broad departures",
+        "674 pigmented cells",
+        "16 event-defined field targets",
         "R 4.5.3",
         "INLA 25.10.19",
         "Taxon authority",

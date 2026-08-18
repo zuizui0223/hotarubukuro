@@ -1,0 +1,51 @@
+name: Integrate continuous isolation into JBI manuscript
+
+on:
+  push:
+    branches:
+      - agent/continuous-colour-isolation-human-context
+    paths:
+      - scripts/integrate_continuous_isolation_manuscript.py
+      - .github/workflows/integrate-continuous-isolation-manuscript.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: agent/continuous-colour-isolation-human-context
+
+      - name: Apply deterministic manuscript integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/integrate_continuous_isolation_manuscript.py
+          git diff --check
+          grep -q 'rho=0.252' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'relative isolation' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+          grep -q 'P=0.0009' submission/jbi/JBI_translated_abstract_ja.md
+
+      - name: Commit generated manuscript sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          paths=(
+            submission/jbi/JBI_main_manuscript_anonymized.md
+            submission/jbi/JBI_translated_abstract_ja.md
+            submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+          )
+          if git diff --quiet -- "${paths[@]}"; then
+            echo "manuscript integration already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${paths[@]}"
+          git commit -m "Integrate continuous isolation into JBI narrative"
+          git push origin HEAD:agent/continuous-colour-isolation-human-context

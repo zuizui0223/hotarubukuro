@@ -25,16 +25,16 @@ python run_pipeline.py reproduce --only-stage validate_alignment
 python run_pipeline.py reproduce --no-resume
 ```
 
-The canonical GitHub Actions entry is `.github/workflows/paper-pipeline.yml` (**Paper pipeline**). Artifact IDs, SHA-256 checksums, commands, seeds, expected outputs and manuscript locks are declared once in [`config/paper_pipeline.lock.json`](../config/paper_pipeline.lock.json).
+The canonical GitHub Actions entry is `.github/workflows/paper-pipeline.yml` (**Paper pipeline**). Artifact provenance IDs, SHA-256 checksums, commands, seeds, expected outputs and manuscript locks are declared in [`config/paper_pipeline.lock.json`](../config/paper_pipeline.lock.json).
 
 ## What `audit` checks
 
-`audit` does not download artifacts or fit models. It checks that:
+`audit` does not fit models. It checks that:
 
 1. the current manuscript, paper overview and evidence map carry the same accepted numbers;
 2. the merged PR #50 spatial-null result remains a supporting Broad sensitivity with its non-causal claim ceiling;
 3. the merged PR #51 local-boundary Bombus result remains the primary biotic story and the highland overlap remains a guardrail;
-4. artifact IDs and checksums agree across the lock, component workflows and evidence map;
+4. frozen-input and historical artifact identities remain traceable;
 5. the JBI source package passes format/anonymity validation;
 6. the repository exposes one active execution front door.
 
@@ -45,13 +45,15 @@ Outputs:
 
 ## What `reproduce` does
 
-Exact reproduction starts from three checksum-locked inputs:
+Exact reproduction starts from three checksum-locked inputs permanently versioned under `reproducibility/frozen_inputs/`:
 
 - accepted Broad flower-colour, graph and human-context evidence;
-- seeded five-species Bombus SDMs;
+- seeded focal Bombus SDMs;
 - final-eight-axis posterior predictive draws.
 
-It then executes, in order:
+The three archives are materialized by `scripts/materialize_frozen_input.py`, with archive SHA-256 identities fixed in `reproducibility/frozen_inputs/SHA256SUMS`. Historical GitHub Actions artifact IDs and checksums are retained only as provenance references; they are no longer required for execution.
+
+The pipeline then executes, in order:
 
 1. `run_broad_space_null_excess`: five-fold cross-fitted space-only SPDE sensitivity for state and conditional intensity;
 2. occurrence-referenced Bombus support reconstruction;
@@ -103,7 +105,7 @@ Command component:
 - `scripts/run_broad_space_null_phenotype_excess_pipeline.R`
 - `.github/workflows/broad-spatial-inertia-environment-tracking.yml`
 
-The metadata-row mismatch identified during PR #50 integration is fixed in the source script. The wrapper now requires normal completion, verifies every scientific output and then validates the accepted result against numerical tolerances.
+The metadata-row mismatch identified during PR #50 integration is fixed in the source script. The wrapper requires normal completion, verifies every scientific output and validates the accepted result against numerical tolerances.
 
 Expected result from 500 posterior-predictive realizations, seed 20260725, five geographical folds and five geographical-distance strata per fold:
 
@@ -154,7 +156,7 @@ The orchestrator installs declared Python and R packages. The canonical workflow
 - `dependencies/apt-packages.txt`
 - `dependencies/submission-apt-packages.txt`
 
-Local artifact restoration requires `GITHUB_TOKEN` or `GH_TOKEN` with Actions-artifact read access. The canonical workflow supplies its own token.
+No GitHub token is required to materialize the three exact-reproduction inputs: the locked archives are committed in the repository. Network access is therefore no longer part of the scientific input-restoration contract.
 
 ## What counts as success?
 
@@ -168,6 +170,6 @@ A successful run writes `results/paper_pipeline/run_manifest.json` and recovers 
 
 Exact stochastic draws need not be bit-for-bit identical across platforms; the declared scientific result and numerical tolerances must agree.
 
-## Remaining durability gate
+## Durability status
 
-The evidence is checksum-locked but currently referenced through retention-bound GitHub Actions artifacts. Before archival release, the locked inputs should be copied to a durable release asset or DOI-backed repository. The validator reports this without weakening the checksum rule.
+The exact-reproduction binary inputs are permanently versioned in `reproducibility/frozen_inputs/` with SHA-256 locks. GitHub Actions artifacts are no longer required for execution. A future DOI-backed mirror can add independent preservation, but it is not a prerequisite for reproducing the frozen repository state.

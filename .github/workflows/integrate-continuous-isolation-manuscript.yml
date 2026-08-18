@@ -40,6 +40,11 @@ jobs:
             echo "continuous-isolation manuscript prose already integrated"
           fi
           python scripts/register_continuous_isolation_paper_contract.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('paper/active-file-map.csv')
+          path.write_bytes(path.read_bytes().replace(b'\r\n', b'\n'))
+          PY
           python -m json.tool config/paper_pipeline.lock.json >/dev/null
           git diff --check
           grep -q 'rho=0.252' submission/jbi/JBI_main_manuscript_anonymized.md

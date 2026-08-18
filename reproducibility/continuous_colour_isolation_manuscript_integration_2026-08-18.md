@@ -1,6 +1,6 @@
 # Continuous colour-isolation manuscript integration
 
-**Status:** manuscript prose, numerical lock, Figure 4 contract, claim-ceiling contract and checksum-locked artifact registry are synchronized on the dedicated draft branch; downstream validation is running on the connector-authored verification commit that follows the generated contract.
+**Status:** manuscript prose, the 281-word structured Abstract, numerical lock, Figure 4 contract, claim-ceiling contract and checksum-locked artifact registry are synchronized on the dedicated draft branch; downstream validation is running on the connector-authored verification commit that follows the generated contract.
 
 The JBI narrative assigns the analyses distinct roles:
 
@@ -24,8 +24,9 @@ Updated and synchronized sources include:
 Paper-contract synchronization:
 
 - workflow: `Integrate continuous isolation into JBI manuscript`;
-- artifact-registry integration run: `32123085683`;
-- generated contract commit: `bc7906998a8993919373624c853e4bb4eeb654dd`;
+- Abstract integration run: `32123392414`;
+- generated contract commit: `55cb8b2c077baf4c595df103381fa878114303c6`;
+- the structured Abstract is 281 words, below the JBI 300-word ceiling, while retaining the post hoc status and both guarded pigmented estimates;
 - generated alignment checks are idempotent and occur once each in the canonical lock;
 - `paper/analysis-map.md` contains the ID and ZIP SHA-256 for every accepted artifact referenced by the alignment validator;
 - the accepted continuous-isolation artifact points only to result documents that record its immutable ID and digest;

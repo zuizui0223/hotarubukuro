@@ -1,0 +1,105 @@
+name: Archive frozen exact-reproduction inputs
+
+on:
+  push:
+    branches: [agent/unify-jbi-reproducible-pipeline]
+    paths:
+      - .github/workflows/archive-frozen-inputs.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/unify-jbi-reproducible-pipeline
+
+      - name: Build minimal permanent archives from locked Actions artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY}"
+          root="$PWD"
+          work="$(mktemp -d)"
+          mkdir -p reproducibility/frozen_inputs
+
+          download_artifact() {
+            local id="$1"
+            local out="$2"
+            curl --fail --silent --show-error --location \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${repo}/actions/artifacts/${id}/zip" \
+              -o "$out"
+          }
+
+          # Accepted Broad evidence: retain only the four files required by the canonical lock.
+          download_artifact 9022276431 "$work/broad-source.zip"
+          mkdir -p "$work/broad-all" "$work/broad-min"
+          unzip -q "$work/broad-source.zip" -d "$work/broad-all"
+          for rel in \
+            results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+            results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+            results/ecological_v21_local_human_neighbourhood/human_neighbourhood_cell_features.csv \
+            results/ecological_v22_did_human_context/did_cell_context.csv
+          do
+            mkdir -p "$work/broad-min/$(dirname "$rel")"
+            cp "$work/broad-all/$rel" "$work/broad-min/$rel"
+          done
+          (cd "$work/broad-min" && zip -X -q -r "$root/reproducibility/frozen_inputs/broad-minimal.zip" results)
+
+          # Seeded Bombus SDMs: retain the two focal model objects and their selected-model tables.
+          download_artifact 9020226937 "$work/bombus-source.zip"
+          mkdir -p "$work/bombus-all" "$work/bombus-min"
+          unzip -q "$work/bombus-source.zip" -d "$work/bombus-all"
+          for rel in \
+            results/bombus_sdm_rebuild_A/models/ardens_ENMeval.rds \
+            results/bombus_sdm_rebuild_A/models/diversus_ENMeval.rds \
+            results/bombus_sdm_rebuild_A/evaluation/ardens_selected_model.csv \
+            results/bombus_sdm_rebuild_A/evaluation/diversus_selected_model.csv
+          do
+            mkdir -p "$work/bombus-min/$(dirname "$rel")"
+            cp "$work/bombus-all/$rel" "$work/bombus-min/$rel"
+          done
+          (cd "$work/bombus-min" && zip -X -q -r "$root/reproducibility/frozen_inputs/bombus-sdm-minimal.zip" results)
+
+          # Final-eight posterior draws: retain the single RDS consumed by the exact route.
+          download_artifact 9094339466 "$work/final8-source.zip"
+          mkdir -p "$work/final8-all" "$work/final8-min"
+          unzip -q "$work/final8-source.zip" -d "$work/final8-all"
+          cp "$work/final8-all/final8_presence_draws10000.rds" "$work/final8-min/final8_presence_draws10000.rds"
+          (cd "$work/final8-min" && zip -X -q "$root/reproducibility/frozen_inputs/final8-draws-minimal.zip" final8_presence_draws10000.rds)
+
+          sha256sum \
+            reproducibility/frozen_inputs/broad-minimal.zip \
+            reproducibility/frozen_inputs/bombus-sdm-minimal.zip \
+            reproducibility/frozen_inputs/final8-draws-minimal.zip \
+            > reproducibility/frozen_inputs/SHA256SUMS
+
+          cat > reproducibility/frozen_inputs/README.md <<'EOF'
+          # Frozen exact-reproduction inputs
+
+          These compact archives permanently preserve the exact binary/table inputs consumed by the accepted JBI reproduction route. They were subset from checksum-locked GitHub Actions artifacts without changing scientific contents:
+
+          - Broad evidence: artifact `9022276431`
+          - seeded Bombus SDMs: artifact `9020226937`
+          - final-eight posterior draws: artifact `9094339466`
+
+          `SHA256SUMS` records the permanent archive identities. The original Actions artifacts remain provenance references only; they are no longer required for execution after the pipeline lock is switched to these repository archives.
+
+          Original third-party YAMAP photographs are not included or redistributed.
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reproducibility/frozen_inputs
+          git commit -m "Freeze exact-reproduction binary inputs in repository"
+          git push origin HEAD:agent/unify-jbi-reproducible-pipeline

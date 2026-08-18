@@ -1,9 +1,16 @@
 name: Integrate continuous isolation into JBI manuscript
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - agent/continuous-colour-isolation-human-context
+    paths:
+      - scripts/integrate_continuous_isolation_manuscript.py
+      - scripts/register_continuous_isolation_paper_contract.py
+      - .github/workflows/integrate-continuous-isolation-manuscript.yml
+  pull_request:
+    branches: [main]
     paths:
       - scripts/integrate_continuous_isolation_manuscript.py
       - scripts/register_continuous_isolation_paper_contract.py

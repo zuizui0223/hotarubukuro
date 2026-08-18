@@ -1,0 +1,264 @@
+name: Broad model-aligned environmental score
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/broad-model-aligned-space-null
+    paths:
+      - .github/workflows/broad-model-aligned-space-null.yml
+      - scripts/fit_broad_model_aligned_space_null.R
+      - reproducibility/broad_model_aligned_space_null_2026-08-19.md
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/broad-model-aligned-space-null.yml
+      - scripts/fit_broad_model_aligned_space_null.R
+      - reproducibility/broad_model_aligned_space_null_2026-08-19.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: broad-model-aligned-space-null-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GOTO_NUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  POSTERIOR_SAMPLES: "500"
+  ANALYSIS_SEED: "20260725"
+  MAX_PAIRS_PER_FOLD: "15000"
+  GEO_BINS: "5"
+
+jobs:
+  fit:
+    name: Final-model environmental score versus space-only expectation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout analysis branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: broad-model-score-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            broad-excess-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R analysis environment
+        shell: bash
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility/broad_model_aligned_space_null_environment
+          --scopes analysis,reproducibility
+
+      - name: Restore checksum-locked Broad evidence
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf reference-artifact /tmp/broad-reference.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFERENCE_ARTIFACT_ID}/zip" \
+            -o /tmp/broad-reference.zip
+          actual="$(sha256sum /tmp/broad-reference.zip | awk '{print $1}')"
+          test "$actual" = "$REFERENCE_ARTIFACT_SHA256"
+          mkdir -p reference-artifact
+          unzip -q /tmp/broad-reference.zip -d reference-artifact
+          observations=reference-artifact/results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv
+          cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s "$observations"
+          test -s "$cells"
+          python3 - "$observations" "$cells" <<'PY'
+          import csv, sys
+          observations, cells = sys.argv[1:]
+          with open(observations, newline='', encoding='utf-8') as handle:
+              obs_header = set(next(csv.reader(handle)))
+          with open(cells, newline='', encoding='utf-8') as handle:
+              cell_header = set(next(csv.reader(handle)))
+          environmental = {
+              'env_Temperature_PC1', 'env_precip_PC1',
+              'env_TemperatureSeasonality', 'env_PrecipSeasonality',
+              'env_topo_PC1', 'env_soil_PC1', 'env_soil_PC2', 'env_RSDS'
+          }
+          obs_required = environmental | {
+              'observation_id', 'x_km', 'y_km', 'region', 'spatial_fold',
+              'pigmented_mixture50', 'pigment_intensity_z'
+          }
+          cell_required = environmental | {
+              'exact_site_id', 'x_km', 'y_km', 'spatial_fold',
+              'n_pigmented', 'n_observations', 'conditional_intensity_median'
+          }
+          assert not (obs_required - obs_header), sorted(obs_required - obs_header)
+          assert not (cell_required - cell_header), sorted(cell_required - cell_header)
+          PY
+          echo "reference_zip_sha256=${actual}" > reference-artifact/reference_lock.txt
+
+      - name: Fit cross-fitted full models and space-only nulls
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/fit_broad_model_aligned_space_null.R \
+            --observations=reference-artifact/results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+            --cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+            --output=results/broad_model_aligned_space_null \
+            --samples=${POSTERIOR_SAMPLES} \
+            --seed=${ANALYSIS_SEED} \
+            --max-pairs-per-fold=${MAX_PAIRS_PER_FOLD} \
+            --geo-bins=${GEO_BINS}
+
+      - name: Validate output contract and full-model identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=results/broad_model_aligned_space_null
+          for file in \
+            primary_model_aligned_space_null_test.csv \
+            matched_distance_stratum_contrasts.csv \
+            heldout_pair_model_score_excess.csv \
+            heldout_model_environment_scores.csv \
+            heldout_space_null_predictions.csv \
+            full_data_fixed_effects.csv \
+            crossfit_fixed_effects.csv \
+            fit_log.csv \
+            space_null_global_contrast_draws.csv \
+            analysis_metadata.csv \
+            RESULT_SUMMARY.md; do
+            test -s "$out/$file"
+          done
+
+          python3 - "$out" <<'PY'
+          import csv, math, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+
+          def rows(name):
+              with (root / name).open(newline='', encoding='utf-8') as handle:
+                  return list(csv.DictReader(handle))
+
+          primary = rows('primary_model_aligned_space_null_test.csv')
+          assert len(primary) == 2, len(primary)
+          assert {r['response'] for r in primary} == {
+              'pigmentation_state', 'conditional_intensity'
+          }
+          for row in primary:
+              assert int(float(row['n_fold_geo_strata'])) == 25, row
+              for field in (
+                  'observed_contrast', 'space_null_median',
+                  'phenotype_excess_over_space_null',
+                  'posterior_predictive_p_upper'
+              ):
+                  assert math.isfinite(float(row[field])), (field, row)
+
+          scores = rows('heldout_model_environment_scores.csv')
+          counts = {}
+          for row in scores:
+              counts[row['response']] = counts.get(row['response'], 0) + 1
+          assert counts == {
+              'pigmentation_state': 1305,
+              'conditional_intensity': 674
+          }, counts
+
+          draws = rows('space_null_global_contrast_draws.csv')
+          draw_counts = {}
+          for row in draws:
+              draw_counts[row['response']] = draw_counts.get(row['response'], 0) + 1
+          assert draw_counts == {
+              'pigmentation_state': 500,
+              'conditional_intensity': 500
+          }, draw_counts
+
+          coefficients = rows('full_data_fixed_effects.csv')
+          lookup = {(r['response'], r['term']): r for r in coefficients}
+          expected = {
+              ('pigmentation_state', 'env_Temperature_PC1'): (-0.54185, 0.02),
+              ('conditional_intensity', 'env_precip_PC1'): (-0.17412, 0.02),
+              ('conditional_intensity', 'env_TemperatureSeasonality'): (0.20741, 0.02),
+              ('conditional_intensity', 'env_topo_PC1'): (-0.13373, 0.02),
+              ('conditional_intensity', 'int_thermal_variability'): (-0.20423, 0.02),
+          }
+          for key, (target, tolerance) in expected.items():
+              assert key in lookup, key
+              value = float(lookup[key]['mean'])
+              assert abs(value - target) <= tolerance, (key, value, target)
+
+          metadata = {r['field']: r['value'] for r in rows('analysis_metadata.csv')}
+          assert metadata['pigmentation_state_score_terms'] == 'env_Temperature_PC1'
+          assert metadata['conditional_intensity_score_terms'].split(';') == [
+              'env_Temperature_PC1', 'env_precip_PC1',
+              'env_TemperatureSeasonality', 'env_topo_PC1',
+              'int_thermal_variability'
+          ]
+          assert metadata['posterior_samples'] == '500'
+          print('validated model-aligned output:', counts, draw_counts)
+          PY
+
+      - name: Record workflow provenance
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p results/broad_model_aligned_space_null
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "reference_artifact_id=${REFERENCE_ARTIFACT_ID}"
+            echo "reference_artifact_sha256=${REFERENCE_ARTIFACT_SHA256}"
+            echo "posterior_samples=${POSTERIOR_SAMPLES}"
+            echo "seed=${ANALYSIS_SEED}"
+            echo "max_pairs_per_fold=${MAX_PAIRS_PER_FOLD}"
+            echo "geo_bins=${GEO_BINS}"
+          } > results/broad_model_aligned_space_null/workflow_provenance.txt
+
+      - name: Upload model-aligned results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: broad-model-aligned-space-null-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/broad_model_aligned_space_null
+            reproducibility/broad_model_aligned_space_null_environment
+            reference-artifact/reference_lock.txt
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

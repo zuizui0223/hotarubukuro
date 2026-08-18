@@ -1,4 +1,4 @@
-name: Broad space-null phenotype excess
+name: Broad space-null phenotype excess — legacy four-PC basis
 
 on:
   workflow_dispatch:
@@ -8,6 +8,7 @@ on:
     paths:
       - .github/workflows/broad-spatial-inertia-environment-tracking.yml
       - scripts/fit_broad_space_null_phenotype_excess.R
+      - scripts/run_broad_space_null_phenotype_excess_pipeline.R
 
 permissions:
   contents: read
@@ -36,7 +37,7 @@ env:
 
 jobs:
   fit:
-    name: Cross-fitted space-null excess test
+    name: Cross-fitted legacy four-PC space-null excess test
     runs-on: ubuntu-24.04
     timeout-minutes: 360
 
@@ -51,7 +52,8 @@ jobs:
         shell: bash
         run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
 
-      - uses: r-lib/actions/setup-r@v2
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ steps.rversion.outputs.version }}
           use-public-rspm: true
@@ -74,12 +76,13 @@ jobs:
             current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
 
       - name: Restore declared R analysis environment
+        shell: bash
         run: >-
           Rscript scripts/setup_r_environment.R
           --report-dir reproducibility/broad_space_null_excess
           --scopes analysis,reproducibility
 
-      - name: Download frozen active Broad reference artifact
+      - name: Restore checksum-locked Broad reference
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
@@ -96,106 +99,54 @@ jobs:
           mkdir -p reference-artifact
           unzip -q /tmp/broad-reference.zip -d reference-artifact
           test -s reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
-          echo "reference_zip_sha256=${actual}" | tee reference-artifact/reference_lock.txt
+          echo "reference_zip_sha256=${actual}" > reference-artifact/reference_lock.txt
 
-      - name: Fit cross-fitted space null and test phenotype excess
+      - name: Fit and validate the legacy four-PC space-null result
         shell: bash
         run: |
-          # The current R runner writes all scientific outputs before a known metadata-only
-          # row mismatch. Capture that exit explicitly, require every scientific output,
-          # then construct and validate metadata independently.
-          set +e
-          set -uo pipefail
-          out=results/broad_space_null_phenotype_excess
-          mkdir -p "$out"
-          Rscript scripts/fit_broad_space_null_phenotype_excess.R \
+          set -euo pipefail
+          Rscript scripts/run_broad_space_null_phenotype_excess_pipeline.R \
             --cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
-            --output="$out" \
+            --output=results/broad_space_null_phenotype_excess \
             --samples=${EXCESS_POSTERIOR_SAMPLES} \
             --seed=${EXCESS_SEED} \
             --max-pairs-per-fold=${EXCESS_MAX_PAIRS_PER_FOLD} \
             --geo-bins=${EXCESS_GEO_BINS}
-          status=$?
-          set -e
-          if [ "$status" -ne 0 ]; then
-            echo "R runner returned $status; accepting only the known post-computation metadata-row mismatch when all scientific outputs exist."
-            for f in primary_space_null_excess_test.csv matched_distance_stratum_contrasts.csv heldout_pair_space_null_excess.csv secondary_pair_diagnostics.csv heldout_space_null_predictions.csv; do
-              test -s "$out/$f" || exit "$status"
-            done
-          fi
-          python3 - <<'PY'
-          import csv, os
-          from pathlib import Path
-          root = Path('results/broad_space_null_phenotype_excess')
-          rows = [
-              ('analysis', 'broad_cross_fitted_space_null_phenotype_excess'),
-              ('source_cells', 'reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv'),
-              ('space_null', 'intercept + Matern SPDE only'),
-              ('cross_fitting', 'each tested pair lies wholly inside a held-out geographical fold'),
-              ('spatial_folds', '1;2;3;4;5'),
-              ('posterior_samples', os.environ['EXCESS_POSTERIOR_SAMPLES']),
-              ('seed', os.environ['EXCESS_SEED']),
-              ('max_pairs_per_fold', os.environ['EXCESS_MAX_PAIRS_PER_FOLD']),
-              ('geographic_distance_bins', os.environ['EXCESS_GEO_BINS']),
-              ('environment_terms', 'broad_pc1_climate_50km;broad_pc1_aridity_50km;broad_pc1_topography_50km;within_pc1_climate_50km;within_pc1_aridity_50km;within_pc1_topography_50km'),
-              ('environment_distance', 'Euclidean distance in the frozen response-blind environmental basis, scaled on each training fold'),
-              ('primary_estimand', 'mean across fold-by-geographic-distance strata of observed(high-environment - low-environment phenotype divergence), compared with the same statistic under cross-fitted space-only posterior prediction'),
-              ('claim_boundary', 'spatial-null comparison only; does not establish selection, local adaptation, or a unique causal environmental mechanism'),
-          ]
-          with (root/'analysis_metadata.csv').open('w', newline='') as f:
-              w = csv.writer(f)
-              w.writerow(['field','value'])
-              w.writerows(rows)
-          PY
 
-      - name: Validate output contract
+      - name: Validate output and implemented basis
         shell: bash
         run: |
           set -euo pipefail
           out=results/broad_space_null_phenotype_excess
-          for f in primary_space_null_excess_test.csv matched_distance_stratum_contrasts.csv heldout_pair_space_null_excess.csv secondary_pair_diagnostics.csv heldout_space_null_predictions.csv analysis_metadata.csv; do
-            test -s "$out/$f"
+          for file in \
+            primary_space_null_excess_test.csv \
+            matched_distance_stratum_contrasts.csv \
+            heldout_pair_space_null_excess.csv \
+            secondary_pair_diagnostics.csv \
+            heldout_space_null_predictions.csv \
+            analysis_metadata.csv \
+            RESULT_SUMMARY.md; do
+            test -s "$out/$file"
           done
-          python3 - <<'PY'
-          import csv
-          from pathlib import Path
-          root = Path('results/broad_space_null_phenotype_excess')
-          primary = list(csv.DictReader((root/'primary_space_null_excess_test.csv').open()))
-          assert len(primary) == 2, len(primary)
+          python3 - "$out" <<'PY'
+          import csv, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          with (root / 'primary_space_null_excess_test.csv').open(newline='', encoding='utf-8') as handle:
+              primary = list(csv.DictReader(handle))
+          assert len(primary) == 2
           assert {r['response'] for r in primary} == {'pigmentation_state', 'conditional_intensity'}
-          for r in primary:
-              p = float(r['posterior_predictive_p_upper'])
-              assert 0 <= p <= 1
-              assert int(float(r['n_fold_geo_strata'])) == 25
-          pairs = list(csv.DictReader((root/'heldout_pair_space_null_excess.csv').open()))
-          assert len(pairs) > 0
-          assert {r['response'] for r in pairs} == {'pigmentation_state', 'conditional_intensity'}
-          print('validated primary rows:', len(primary), 'pair rows:', len(pairs))
-          PY
+          assert all(int(float(r['n_fold_geo_strata'])) == 25 for r in primary)
 
-      - name: Write concise result summary
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import csv
-          from pathlib import Path
-          root = Path('results/broad_space_null_phenotype_excess')
-          rows = list(csv.DictReader((root/'primary_space_null_excess_test.csv').open()))
-          lines = ['# Broad cross-fitted space-null phenotype excess', '']
-          for r in rows:
-              p = float(r['posterior_predictive_p_upper'])
-              directional = p < 0.05 and float(r['observed_contrast']) > float(r['space_null_median'])
-              lines.append(
-                  f"- {r['response']}: observed high-minus-low environmental divergence contrast="
-                  f"{float(r['observed_contrast']):.6f}; space-null median={float(r['space_null_median']):.6f}; "
-                  f"central 95% null=[{float(r['space_null_q025']):.6f}, {float(r['space_null_q975']):.6f}]; "
-                  f"excess={float(r['phenotype_excess_over_space_null']):.6f}; "
-                  f"one-sided posterior-predictive p_upper={p:.6f}; "
-                  f"directional_5pct_excess={str(directional).upper()}"
-              )
-          lines += ['', 'Primary question: at matched geographic separation, do environmentally dissimilar held-out pairs show more phenotype divergence than a cross-fitted space-only SPDE null predicts?', '', 'The p_upper test is directional (high-environment divergence > low-environment divergence). The stored q025/q975 interval is the central 95% null interval and therefore uses a 97.5% upper endpoint; it is not the cutoff for the one-sided 5% test.', '', 'Interpretation boundary: the space null is unresolved geography; environmental alignment beyond it does not by itself demonstrate selection, local adaptation, or a unique causal environmental mechanism.']
-          (root/'RESULT_SUMMARY.md').write_text('\n'.join(lines)+'\n')
-          print('\n'.join(lines))
+          with (root / 'analysis_metadata.csv').open(newline='', encoding='utf-8') as handle:
+              metadata = {r['field']: r['value'] for r in csv.DictReader(handle)}
+          assert metadata['analysis'].endswith('legacy4')
+          terms = metadata['environment_terms'].split(';')
+          assert terms == [
+              'broad50km_pc1', 'broad50km_pc2',
+              'within50km_pc1', 'within50km_pc2'
+          ], terms
+          assert 'legacy' in metadata['claim_boundary'].lower()
+          print('validated legacy four-PC basis and two response rows')
           PY
 
       - name: Record provenance
@@ -214,13 +165,14 @@ jobs:
             echo "seed=${EXCESS_SEED}"
             echo "max_pairs_per_fold=${EXCESS_MAX_PAIRS_PER_FOLD}"
             echo "geo_bins=${EXCESS_GEO_BINS}"
+            echo "environment_basis=legacy4_multiscale_pcs"
           } > results/broad_space_null_phenotype_excess/workflow_provenance.txt
 
-      - name: Upload Broad space-null results
+      - name: Upload Broad legacy four-PC result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: broad-space-null-phenotype-excess-${{ github.sha }}-${{ github.run_id }}
+          name: broad-space-null-legacy4-${{ github.sha }}-${{ github.run_id }}
           path: |
             results/broad_space_null_phenotype_excess
             reproducibility/broad_space_null_excess

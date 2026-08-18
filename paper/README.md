@@ -6,11 +6,11 @@ This is the **single biological entry point** for the current JBI paper. For exa
 
 Why do white and pigmented flowers of the spotted bellflower (*Campanula punctata*) remain geographically structured across Japan, and why does colour intensity vary again within pigmented flowers?
 
-The paper argues that this question could not be answered by adding environment, space, pollinators and human variables to one national regression. The required phenotype was first missing at national quantitative resolution; once recovered, environment and continuous space shared geography; the pollinator hypothesis therefore had to move to replicated local boundaries; and apparent local exceptions had to be calibrated against the natural model before human context was read.
+The paper argues that this question cannot be answered by adding environment, space, pollinators and human variables to one national regression. The required phenotype was first missing at national quantitative resolution; once recovered, environmental mechanisms had to be separated from continuous geography; the pollinator hypothesis then had to move to replicated local boundaries; and a different local-isolate event had to be naturally calibrated before human context was read.
 
 The fixed causal sequence is:
 
-`trait recovery -> broad environment + continuous space -> local Bombus boundary -> calibrated local isolate -> provenance hypothesis`
+`trait recovery -> physiological hypotheses + continuous space -> heterogeneous local Bombus boundaries -> selected and naturally calibrated local isolates -> bounded provenance hypothesis`
 
 ## 1. A national quantitative trait dataset from an alternative image stream
 
@@ -22,22 +22,27 @@ Occurrence coordinates alone do not measure flower colour, and the matched publi
 - taxon, focal flower, petal region, coordinates and duplicate images checked before deterministic colour extraction;
 - pigmentation state separated from visible intensity among already pigmented flowers.
 
-The mountain-route sampling frame has two roles. It enriches natural and semi-natural settings in which self-sustaining populations are plausible, but it does not prove wild provenance for each record. The same frame later narrows the represented urban–rural gradient and can affect both observation opportunity and human exposure.
+The mountain-route frame has no single bias direction. It enriches natural and semi-natural settings in which self-sustaining populations are plausible, but does not prove wild provenance. In the human analysis it can compress the urban–rural gradient, while routes, roads and trailheads can also concentrate observation, disturbance and opportunities for human-mediated movement.
 
 **Scientific gain:** national intraspecific trait geography becomes measurable as a two-part quantitative phenotype rather than inferred only from a small set of categorical populations.
 
+**Conditional-response ceiling:** intensity is modelled only after a flower enters the pigmented subset. This avoids treating white flowers as merely low-intensity flowers, but state and intensity cannot be assumed to be causally independent; shared unmeasured causes could create selection or collider-like distortion in the conditional model.
+
 Details: Appendices S1–S2.
 
-## 2. Broad environment and continuous geography do not affect both colour components alike
+## 2. Broad environment and continuous geography generate competing ecological hypotheses
 
-Separate INLA-SPDE models show that pigmentation state and pigmented-only intensity are not one white-to-dark axis.
+Separate INLA-SPDE models show that pigmentation state and conditional intensity are not one white-to-dark axis.
 
 - pigmentation is less likely in warmer climates;
-- intensity depends on Temperature PC1 × temperature seasonality and is lower toward wetter and more rugged geography;
-- residual spatial ranges differ between state and intensity;
-- coherent spatial structure is treated as an estimable geographical layer, not hidden in independent residuals or labelled as genetics in advance.
+- among pigmented flowers, the warm-climate decline in intensity strengthens with temperature seasonality;
+- intensity is lower toward wetter and more rugged geography;
+- soil, precipitation seasonality and RSDS do not show independently resolved final effects;
+- residual spatial ranges differ between state and intensity, but are not genetics or dispersal distances.
 
-**Scientific gain:** the Broad stage yields both a candidate abiotic landscape and coherent unresolved geography for future microclimate, ancestry, isolation-by-distance and admixture tests.
+These directions should not be collapsed into “stress makes flowers darker.” The cool-climate state pattern is compatible with temperature-responsive anthocyanin regulation or environment-aligned population differentiation. The drier-side intensity pattern motivates a water-balance hypothesis, but dark petals may also incur radiative and hydraulic cooling costs. The negative ruggedness coefficient argues against a universal terrain-stress darkening rule, and the null final RSDS effect does not establish a national radiation mechanism.
+
+**Scientific gain:** the Broad stage yields testable thermal, moisture and terrain alternatives plus coherent unresolved geography for common-garden, flower-temperature, water-relation, microclimate, ancestry, isolation-by-distance and admixture tests.
 
 Details: Appendix S3.
 
@@ -50,50 +55,76 @@ Merged PR #50 asks a different question from coefficient estimation: at comparab
 | Pigmentation state | **0.106802** | 0.058240 | **+0.048562** | **0.03393** |
 | Conditional intensity | -0.047179 | -0.001287 | -0.045891 | 0.87226 |
 
-**Scientific gain:** the white–pigmented state transition carries environmental alignment that geographical proximity alone does not fully reproduce, whereas variation within the pigmented state does not show the same excess. This is the key result-direction lock: the space-exceeding signal belongs to state, not intensity.
+**Scientific gain:** the white–pigmented state transition carries environmental alignment that geographical proximity alone does not fully reproduce, whereas variation within the observed pigmented subset does not show the same excess. The space-exceeding signal belongs to state, not intensity.
 
-**Claim ceiling:** the spatial null contains unresolved geography. This is an FST–PST-inspired empirical continuity comparison, not FST/PST/QST, and it does not establish selection, local adaptation or a unique causal environmental mechanism. It remains a supporting Broad sensitivity rather than replacing the observation-level JBI model.
-
-The result is reported directly in Main Methods 2.3, Results 3.2 and Discussion 4.2, with the complete design and Table S3.5 in Appendix S3.
+**Claim ceiling:** the spatial null contains unresolved geography. This is an FST–PST-inspired empirical continuity comparison, not FST/PST/QST, and it does not establish selection, local adaptation or a unique causal environmental mechanism.
 
 Details: [`../docs/broad_spatial_inertia_environment_tracking.md`](../docs/broad_spatial_inertia_environment_tracking.md).
 
-## 3. Replicated local boundaries reveal where Bombus opportunity may matter
+## 3. Replicated local boundaries reveal heterogeneity, not a uniform Bombus shift
 
-The broad map cannot isolate Bombus because flower colour, climate and environmentally built Bombus SDMs share geography. Merged PR #51 therefore makes the local 5-km boundary comparison primary. Pollinator-mediated selection is realized through local visitation, pollen transfer and reproductive success; 5 km is the finest predeclared scale with sufficient replicated transitions, not an exact bumblebee foraging distance.
+The broad map cannot isolate Bombus because flower colour, climate and environmentally built Bombus SDMs share geography. The 5-km boundary comparison therefore changes the comparison unit rather than adding another national coefficient. Five kilometres is the finest predeclared scale with sufficient replicated transitions, not an exact bumblebee foraging distance.
 
-Sixty-seven non-overlapping white-pigmented boundaries were fixed before Bombus values were read. These are geographically repeated local contrasts, not one continuous transect. Mean occurrence-referenced support for the broad-ranging focal species *B. ardens* and *B. diversus* was **+0.03590** higher on the pigmented side at 5 km. The median was -0.00277, 49.3% of pairs were positive and q=0.08148 across the 5/10/25-km family. The mean attenuated at 10 and 25 km and no persuasive relationship appeared for pigmented-only intensity.
+Sixty-seven non-overlapping white-pigmented boundaries were fixed before Bombus values were read. These are geographically repeated local contrasts, not one continuous transect.
+
+- mean occurrence-referenced focal contrast: **+0.03590**;
+- median: **-0.00277**;
+- positive pairs: **49.3%**;
+- q across 5/10/25 km: **0.08148**;
+- mean attenuates at 10 and 25 km;
+- raw SDM support does not reproduce the result;
+- no persuasive relationship appears for conditional intensity.
+
+The positive mean is therefore driven by a subset of large boundaries rather than a pervasive pairwise shift. **Boundary heterogeneity is the result.** The 67 sites should be stratified into strongly positive, near-zero and negative classes for direct tests of visitor abundance and phenology, alternative pollinators, bee visual contrast, stigma contact, pollen transfer, breeding system, gene flow, ancestry and microenvironment.
 
 The large tubular flowers and the Izu-island pollinator and breeding-system literature make bumblebees a species-specific, biologically tractable hypothesis. That natural history motivates the test but does not prove that bumblebee absence caused white flowers.
 
-Only after the local result is established does the highland guardrail enter. The three montane/alpine species show attractive national overlap with pigmented high-elevation flowers, but the contrast disappears when nearby white and pigmented endpoints are compared at similar elevation. They therefore demonstrate how mountain environment can masquerade as a pollinator mechanism rather than entering the primary broad-ranging focal index.
+The three montane/alpine species perform a different job. Their attractive national overlap with pigmented high-elevation flowers disappears when nearby endpoints are compared at similar elevation, showing how shared mountain geography can masquerade as a pollinator mechanism.
 
-**Scientific gain:** the scale change identifies a small, state-specific and heterogeneous local Bombus pattern, explains why a national overlay is insufficient, and supplies 67 sites for direct visitation and selection tests.
-
-**Claim ceiling:** the SDMs represent habitat opportunity rather than abundance, visitation, pollen transfer or realized selection.
+**Claim ceiling:** the SDMs represent habitat opportunity rather than abundance, visitation, pollen transfer or realized selection. At most, the pattern motivates a local mosaic of pigmented-state maintenance or loss in a subset of neighbourhoods, not national darkening.
 
 Details: Appendices S4–S5.
 
-## 4. Sixteen calibrated local isolates are a different question from the 67 boundaries
+## 4. Sixteen local isolates are a different estimand from the 67 boundaries
 
 The paper contains two local designs that must not be collapsed.
 
-- the 67 boundaries ask whether Bombus opportunity changes in the predicted direction across a nearby white–pigmented transition;
-- the departure analysis asks whether a pigmented cell isolated among environmentally similar white neighbours requires an additional process.
+| | Bombus boundaries | Local isolates |
+|---|---|---|
+| Unit | non-overlapping edge | focal cell plus neighbourhood |
+| Colour pattern | pure white–pigmented transition | pigmented focal cell among environmentally similar observed white neighbours |
+| Question | signed Bombus change across the edge | event frequency, then human context |
+| 10,000-map replay | not used | used twice |
 
-The isolate event was defined before human variables were read, and the identical detector was replayed on 10,000 natural predictive maps.
+Applying the fixed, human-blind isolate rule to the **observed map** selects the 16 sites. The replay does not select sites that natural processes cannot reproduce.
 
-- 16 observed targets;
+### First use of the 10,000 maps: event-frequency calibration
+
+The detector is reapplied to each cross-fitted natural predictive map. This asks whether the count or fraction of the event type is unusual.
+
+- observed targets: 16;
+- null mean count: 13.59;
 - candidate-count P=0.27897;
 - candidate-fraction P=0.12609.
 
-**Scientific gain:** the sites are reproducibly selected and naturally calibrated rather than assumed to be anthropogenic anomalies or arbitrary residual extremes. Their observed frequency remains compatible with natural spatial variation.
+The event frequency is compatible with natural spatial variation. The sites are reproducibly selected field targets, not “natural-process-resistant” anomalies.
 
-## 5. Human context ends as a focused provenance hypothesis
+### Second use of the 10,000 maps: post-selection human null
 
-After candidate identities were fixed, population exposure within 5 km emerged as the leading feature (+0.06744; directional P=0.00800; global maxT FWER P=0.05479), while observation-effort alternatives were null.
+On every predictive map, the detector selects a new map-specific event set and the same human contrasts are recalculated. This propagates uncertainty in which cells the ecological rule would select, rather than comparing the fixed 16 sites with a standard regression null.
 
-The mountain-focused sampling frame may compress the full urban–rural gradient and reduce power for a broad human effect. Conversely, trailheads, roads and accessible mountain margins can increase both photographic opportunity and human exposure. The weak near-threshold result therefore cannot be promoted by claiming that YAMAP has removed human influence.
+**Scientific gain:** a biologically legible configuration is separated from evidence that an additional process is required, and later human inference accounts for the site-selection rule.
+
+## 5. Human context ends as a doubly conditional provenance hypothesis
+
+After the observed 16 sites were fixed, population exposure within 5 km emerged as the leading feature (+0.06744; directional P=0.00800; global maxT FWER P=0.05479), while observation-effort alternatives were null.
+
+The inference is doubly conditional:
+
+1. the isolate event is not more frequent than the natural model predicts;
+2. the strongest human feature remains just outside global familywise support.
+
+The mountain-route frame can attenuate a real human contrast by narrowing settlement variation, but it can also inflate or confound it because accessible trails and roads covary with observation, disturbance and movement. It is not valid to argue that the weak result must be conservative because the data came from mountains.
 
 **Scientific gain:** the analysis identifies a short-range provenance hypothesis and its likely comparison scale without assigning horticultural origin.
 
@@ -105,19 +136,20 @@ Details: Appendix S6.
 
 The results converge on one working model of polymorphism maintenance:
 
-1. climate changes the physiological expression, benefit and heat cost of anthocyanin pigmentation;
+1. climate changes the regulation, physiological benefit and thermal or hydraulic cost of anthocyanin pigmentation;
 2. unresolved historical and population processes preserve or redistribute colour variants;
-3. local bumblebee opportunity may modify the reproductive value of maintaining a visible pigmented state;
-4. human movement may occasionally add a local source.
+3. local bumblebee opportunity may modify the reproductive value of maintaining a visible pigmented state in some neighbourhoods;
+4. human movement or managed microenvironment may occasionally add a local layer.
 
-White and pigmented flowers can persist together because these benefits and costs vary across space and act on different components of colour. The strength of the paper is not one spectacular P value. Strong, heterogeneous and null results perform different inferential jobs in a fixed sequence.
+White and pigmented flowers can persist together because these benefits and costs vary across space and act on different components of colour. The strength of the paper is not one spectacular P value. Positive, heterogeneous and null results perform different inferential jobs in a fixed sequence.
 
 ## Direct next tests
 
-- thermal/moisture geography → common-garden and reciprocal-transplant experiments, pigment chemistry, physiology and fitness;
+- thermal/moisture geography → common-garden and reciprocal-transplant experiments, pigment chemistry, absorptance, flower temperature, transpiration, water relations and fitness;
+- conditional state–intensity dependence → experimental pigment induction and joint modelling with standardized spectra and chemistry;
 - spatial-null excess and residual geography → denser microclimate plus ancestry, isolation-by-distance, isolation-by-environment and admixture tests;
-- 67 local Bombus boundaries → species-resolved visitation, visual contrast, stigma contact, pollen deposition, seed set and selection gradients;
-- 16 local isolates → repeated field records, vouchers, planting history and genomic provenance.
+- 67 local Bombus boundaries → stratified species-resolved visitation, visual contrast, stigma contact, pollen deposition, seed set and selection gradients;
+- 16 local isolates → repeated field records, vouchers, route/management/planting history, local microenvironment and genomic provenance.
 
 ## What to read next
 

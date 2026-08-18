@@ -11,7 +11,19 @@ fail loudly.
 
 from __future__ import annotations
 
-import scripts.register_continuous_isolation_paper_contract as contract
+import importlib.util
+from pathlib import Path
+
+module_path = Path(__file__).with_name(
+    "register_continuous_isolation_paper_contract.py"
+)
+spec = importlib.util.spec_from_file_location(
+    "continuous_isolation_paper_contract", module_path
+)
+if spec is None or spec.loader is None:
+    raise RuntimeError(f"Cannot load paper-contract synchroniser: {module_path}")
+contract = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(contract)
 
 _original_replace_once = contract.replace_once
 

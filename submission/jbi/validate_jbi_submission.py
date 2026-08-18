@@ -141,9 +141,9 @@ require_tokens(
         "1,922",
         "3.81 times",
         "67 sharp transitions",
-        "Sixteen pigmented cells",
+        "selected 16 pigmented cells",
         "0.0548",
-        "calibrated field targets",
+        "reproducibly selected field targets",
     ),
 )
 
@@ -153,7 +153,7 @@ for citation, reference in (
     ("Roberts et al., 2017", "Roberts, D. R., et al. (2017)."),
     ("Valavi et al., 2019", "Valavi, R., Elith, J., Lahoz-Monfort, J. J., & Guillera-Arroita, G. (2019)."),
     ("R Core Team, 2026", "R Core Team. (2026)."),
-    ("Rue et al., 2009", "Rue, H., Martino, S., & Chopin, N. (2009)."),
+    ("Rue et al., 2009", "Rue, H., Martino, S., & Chopin, H. (2009)."),
 ):
     if citation not in main_body:
         fail(f"Current Main citation missing: {citation}")

@@ -13,9 +13,11 @@ Three modelling layers remain conceptually distinct but are explicitly aligned w
 
 - The **observation-level INLA-SPDE models** estimate broad environmental associations, response-specific interactions and residual spatial covariance.
 - The **cross-fitted space-only divergence sensitivity** asks whether environmental difference orders held-out phenotype divergence beyond an intercept + Matérn SPDE continuity expectation at comparable geographical separation. It uses a separate frozen six-score broad/within environmental representation and does not reinterpret the spatial field as genetic drift.
-- The **1-km-cell cross-fitted pigmentation-state reference** generates natural predictive maps for Main 3. Its environmental basis is the same finalized eight measured abiotic axes used by the Broad state analysis, and the resulting event detector yields 16 observed local-departure candidates.
+- The **1-km-cell cross-fitted pigmentation-state reference** generates natural predictive maps for the later local-isolate analysis. Its environmental basis is the same finalized eight measured abiotic axes used by the Broad state analysis.
 
 The image response is a reproducible display-referred CIELAB phenotype. Neither pigmentation state nor conditional a* intensity is interpreted as a direct assay of anthocyanin concentration, anthocyanin identity, vacuolar pH, spectral reflectance, ultraviolet contrast, petal temperature or Bombus colour contrast.
+
+The two response parts also have a statistical dependence. Conditional intensity exists only for flowers that crossed the observed pigmentation boundary. If measured or unmeasured causes influence both entry into that subset and intensity within it, conditioning on pigmentation can change the composition of the analysed flowers and induce selection or collider-like distortion. Separating the responses avoids treating white flowers as merely low-intensity pigmented flowers, but the two fitted models are conditional descriptions rather than proof of independent regulatory pathways.
 
 ## Analysis population and record flow
 
@@ -38,7 +40,7 @@ The observation-level responses were:
 
 White-like observations do not receive a conditional-intensity value.
 
-## Finalized abiotic predictor space
+## Finalized abiotic predictor space and ecological expectations
 
 Environmental compression preceded the flower-colour models and was response-blind. Component signs are arbitrary but frozen. All terms were standardized over the corresponding analysis population.
 
@@ -57,7 +59,16 @@ Environmental compression preceded the flower-colour models and was response-bli
 
 A structural East/West factor was retained at the observation level, with longitude >=136.5° E assigned to `East`. It is a geographical adjustment rather than an ecological mechanism or inferred genetic boundary. Elevation was not added as a further fixed effect because it jointly proxies thermal, hydrological, radiative and regional gradients that the model attempts to distinguish.
 
-The ecological interpretation of the predictor set was fixed before model extension. Temperature represented the primary directional hypothesis; precipitation/moisture represented climatic water supply; BIO4 and BIO15 represented long-term variability; RSDS represented shortwave/light context rather than UV-B; Topography PC1 represented terrain relief rather than elevation itself; and the soil PCs represented broad resource/texture context. These national layers are not flower-level measurements of developmental weather, water status, illumination or root-zone chemistry.
+The ecological interpretation of the predictor set was fixed before model extension, but no universal “more stress means darker flowers” rule was assumed.
+
+- **Temperature** supplied the strongest directional expectation. Moderate low temperature can regulate anthocyanin-pathway expression, whereas high radiative absorption can become costly in warm flowers.
+- **Moisture** can represent both a possible stress-protection benefit of anthocyanins and the hydraulic context required to cool darker, more absorptive flowers. A negative precipitation coefficient is therefore a water-balance hypothesis, not automatically evidence of drought adaptation.
+- **Temperature and precipitation seasonality** represent long-term variability rather than the weather experienced during development of an individual flower.
+- **RSDS** represents broad shortwave exposure, not UV-B or absorbed petal radiation.
+- **Topography PC1** represents relief and can combine aspect, shading, drainage, cold-air pooling, exposure and population isolation; it is not a monotonic stress or altitude axis.
+- **Soil PCs** represent broad resource and texture context rather than measured root-zone conditions of the photographed plant.
+
+These national layers are not flower-level measurements of developmental weather, water status, illumination, transpiration or root-zone chemistry.
 
 ## Observation-level INLA-SPDE specification
 
@@ -98,7 +109,7 @@ Both screens retained the same response-specific likelihood, fixed main effects,
 
 No interaction satisfied the complete promotion rule. The strongest mechanism-prioritized candidate was climatic dryness × RSDS: posterior mean 0.317 (95% CrI 0.115–0.519) and held-out log loss improved in four of five folds, but the spatial-block bootstrap interval for predictive gain crossed zero. The all-28 audit likewise did not justify replacing the additive state model.
 
-The final pigmentation-state model is therefore **additive**. Dryness × radiation is retained only as a suggestive co-stress sensitivity; RSDS is not UV-B and long-term climatic dryness is not flower-level water stress.
+The final pigmentation-state model is therefore **additive**. Dryness × radiation is retained only as a suggestive co-stress sensitivity; RSDS is not UV-B, long-term climatic dryness is not flower-level water stress, and the sensitivity does not establish a national radiation mechanism.
 
 ### Conditional visible intensity
 
@@ -114,7 +125,7 @@ CHELSA VPD and site water balance (SWB) were the highest-priority same-resolutio
 
 For pigmentation state, VPD did not improve held-out prediction and raised maximum VIF to approximately 25.9. SWB, VPD+SWB and hydroclimate replacement variants likewise failed to improve geographical transfer.
 
-For conditional intensity, adding VPD improved in-sample WAIC in an additive model but did not improve held-out prediction and raised maximum VIF to approximately 25.8. SWB worsened both WAIC and transfer; VPD+SWB retained severe collinearity; hydroclimate replacement also worsened transfer. VPD is biologically plausible but does not provide stable independent information within the present Japanese sampling geography, so no extra atmospheric-demand mechanism was promoted.
+For conditional intensity, adding VPD improved in-sample WAIC in an additive model but did not improve held-out prediction and raised maximum VIF to approximately 25.8. SWB worsened both WAIC and transfer; VPD+SWB retained severe collinearity; hydroclimate replacement also worsened transfer. Atmospheric demand remains biologically plausible, especially for radiative cooling costs, but it does not provide stable independent information within the present Japanese sampling geography, so no extra VPD mechanism was promoted.
 
 ## Final fixed effects
 
@@ -133,7 +144,7 @@ For conditional intensity, adding VPD improved in-sample WAIC in an additive mod
 | Soil PC2 | 0.120 | -0.103 to 0.345 |
 | RSDS | 0.004 | -0.209 to 0.218 |
 
-A one-SD shift toward warmer Temperature PC1 corresponds to an odds ratio of approximately `exp(-0.542)=0.58`. The precipitation coefficient points toward greater pigmentation at the drier end but remains uncertain after continuous space is included.
+A one-SD shift toward warmer Temperature PC1 corresponds to an odds ratio of approximately `exp(-0.542)=0.58`. The precipitation coefficient points toward greater pigmentation at the drier end but remains uncertain after continuous space is included. The clearest state result is therefore thermal, not a resolved multivariate stress syndrome.
 
 **Table S3.3. Final conditional-intensity fixed effects.** Posterior mean and 95% CrI in standardized visible-intensity units; main effects are conditional on interacting variables being at their standardized reference values.
 
@@ -151,7 +162,13 @@ A one-SD shift toward warmer Temperature PC1 corresponds to an odds ratio of app
 | RSDS | 0.026 | -0.048 to 0.099 |
 | Temperature PC1 × temperature seasonality | **-0.204** | **-0.302 to -0.107** |
 
-There is therefore no single constant national temperature slope for already-pigmented flowers. The warm-climate decline strengthens with increasing temperature seasonality. Conditional intensity is also lower toward wetter/moister climatic geography and toward steeper, greater-relief terrain after other measured terms and continuous space are included.
+There is no single constant national temperature slope for already-pigmented flowers. At standardized temperature seasonality values of -1, 0 and +1, the fitted temperature slope is approximately +0.120, -0.084 and -0.288, respectively. These are interaction-derived slopes, not three independently tested coefficients. The warm-climate decline is therefore concentrated in more seasonal climatic geography.
+
+Conditional intensity is also lower toward wetter/moister climate and steeper, greater-relief terrain after other measured terms and continuous space are included. The moisture direction is compatible with stress-related anthocyanin benefit in some systems, but it must be tested against the thermal and hydraulic costs of darker petals. The terrain direction contradicts a simple “more rugged or stressful means darker” prediction and may combine aspect, shade, drainage, microclimate and history. Soil axes, precipitation seasonality and RSDS do not show independently resolved final effects.
+
+### Conditional-response limitation
+
+Because intensity is modelled only among the 956 pigmented observations, its coefficients describe how the observed pigmented subset changes across geography. They do not estimate what intensity a white flower would have had if pigmentation were induced. If an unmeasured regulator influences both pigmentation probability and amount, conditioning on the first response can create or mask associations in the second. The state–intensity split is retained because pathway activation and post-activation expression are biologically distinct hypotheses, but causal independence cannot be inferred from separate models alone. Joint experimental induction, pigment chemistry and spectra are required to resolve this dependence.
 
 ## Spatial-model audit and residual geography
 
@@ -168,7 +185,7 @@ For conditional intensity, using the retained thermal interaction, removing East
 | Pigmentation state | additive environmental model | 132.76 | 88.78–195.68 | 2.105 | 1.629–2.696 |
 | Conditional visible intensity | environment + Temperature PC1 × temperature seasonality | 65.72 | 31.05–132.63 | 0.357 | 0.236–0.501 |
 
-The ranges are descriptive residual spatial scales, not seed or pollen dispersal distances. Historical allozyme work documenting mainland–Izu differentiation, regional mating-system differences and progressive island colonization makes unresolved biogeographic structure biologically plausible, but the present spatial field may also contain unmeasured environment and sampling geography and is not assigned to a single mechanism.
+The ranges are descriptive residual spatial scales, not seed or pollen dispersal distances. The broader state range is compatible with more regionally persistent organization of the on/off state and more local modulation after pigmentation is expressed, but it does not show that state is more genetic. Historical allozyme work documenting mainland–Izu differentiation, regional mating-system differences and progressive island colonization makes unresolved biogeographic structure biologically plausible; the present field may also contain unmeasured environment and sampling geography and is not assigned to a single mechanism.
 
 ## Cross-fitted space-only phenotype-divergence sensitivity
 
@@ -189,7 +206,7 @@ Pigmentation-state divergence therefore increased with environmental difference 
 
 This is an FST/PST-inspired analogy only. The space-only field is unresolved geographical continuity and can combine unmeasured environment, population history, dispersal, sampling geometry and other spatial processes. The excess establishes environmental alignment beyond that fitted expectation; it is not FST, PST or QST and does not demonstrate drift, selection, local adaptation or a unique causal environmental mechanism.
 
-## Current 1-km natural reference passed to Main 3
+## Current 1-km natural reference passed to the local-isolate analysis
 
 The downstream predictive layer is distinct from the observation-level coefficient model but is deliberately aligned with the finalized pigmentation-state environment.
 
@@ -201,16 +218,17 @@ The primary 1-km model uses:
 - a cross-fitted SPDE natural reference; and
 - **10,000 checksum-locked predictive maps** under the frozen analysis geometry.
 
-Main 3 defines environmental similarity using root-mean-square Euclidean distance across those same eight standardized axes, with radius 10 km, RMS caliper <=1 and at least three eligible neighbours. East/West is not an abiotic matching dimension; it remains a structural geographical adjustment. Human variables do not enter the natural model, matching graph, candidate selection or ranking.
+The isolate analysis defines environmental similarity using root-mean-square Euclidean distance across those same eight standardized axes, with radius 10 km, RMS caliper <=1 and at least three eligible neighbours. East/West is not an abiotic matching dimension; it remains a structural geographical adjustment. Human variables do not enter the natural model, matching graph, event rule or observed event selection.
 
-Under this definition, the observed data contain **16** local pigmented departures. Replaying the identical event detector over 10,000 natural maps gives a null mean candidate count of 13.5908 (95% interval 7–21; Monte Carlo P=0.27897) and a candidate-fraction upper-tail P=0.12609. Full event and post-selection human results are reported in Appendix S6.
+Applying the fixed rule to the observed map selects **16** locally isolated pigmented cells. Replaying the identical detector over 10,000 natural maps does not select sites that natural processes cannot reproduce; it calibrates how often that event type occurs under the fitted natural geography. The null mean candidate count is 13.5908 (95% interval 7–21; Monte Carlo P=0.27897) and the candidate-fraction upper-tail P is 0.12609. In the later human analysis, the detector is also reapplied on every predictive map so that the null distribution includes uncertainty in which cells would be selected. Full event and post-selection results are reported in Appendix S6.
 
 ## Ecological interpretation and claim ceiling
 
 The final Broad result is response specific.
 
-- **Pigmentation state:** the clearest measured environmental signal is a broad cool-climate association; no interaction passed the complete promotion rule.
-- **Conditional intensity:** the temperature association is context dependent, becoming more negative with increasing thermal seasonality; wetter/moister climate and greater terrain relief are associated with weaker visible intensity after spatial adjustment.
+- **Pigmentation state:** the clearest measured environmental signal is a broad cool-climate association; no interaction passed the complete promotion rule. Plastic regulation and population differentiation remain competing mechanisms.
+- **Conditional intensity:** the temperature association is context dependent, becoming more negative with increasing thermal seasonality; wetter/moister climate and greater terrain relief are associated with weaker visible intensity after spatial adjustment. These associations are conditional on entering the pigmented subset.
+- **Mechanistic balance:** the moisture result supports a water-balance hypothesis, not a one-way stress-adaptation claim; the negative terrain coefficient and null RSDS term reject a universal stress or radiation-darkening account.
 - **Residual geography:** substantial continuous regional structure remains and may combine unmeasured environment, population history, dispersal and sampling geography.
 - **Spatial-null sensitivity:** pigmentation-state divergence, but not conditional intensity, shows environmental alignment beyond cross-fitted spatial continuity; this is not genetic differentiation or evidence of selection.
 
@@ -218,7 +236,7 @@ The model does not show that long-term climate directly caused the colour of an 
 
 ## Remaining biological gaps
 
-The current Broad model does not resolve petal anthocyanin chemistry, flower-level UV/light, dated developmental weather, root-zone soil chemistry, lineage/genomic structure or species-specific dispersal kernels. Spectroscopy and pigment assays, weather-window analyses, field microenvironment measurements and population-genetic sampling are required for those mechanisms.
+The current Broad model does not resolve petal anthocyanin chemistry, flower-level UV/light, dated developmental weather, absorptance and transpiration, root-zone soil chemistry, lineage/genomic structure or species-specific dispersal kernels. Spectroscopy and pigment assays, weather-window analyses, flower-temperature and water-relation measurements, common-garden experiments and population-genetic sampling are required for those mechanisms.
 
 ## Reproducibility resources
 

@@ -1,6 +1,6 @@
 # Continuous colour-isolation manuscript integration
 
-**Status:** manuscript prose, numerical lock, Figure 4 contract and claim-ceiling contract are synchronized on the dedicated draft branch; downstream validation is running on the connector-authored verification commit that follows the generated contract.
+**Status:** manuscript prose, numerical lock, Figure 4 contract, claim-ceiling contract and checksum-locked artifact registry are synchronized on the dedicated draft branch; downstream validation is running on the connector-authored verification commit that follows the generated contract.
 
 The JBI narrative assigns the analyses distinct roles:
 
@@ -24,9 +24,11 @@ Updated and synchronized sources include:
 Paper-contract synchronization:
 
 - workflow: `Integrate continuous isolation into JBI manuscript`;
-- serialized integration run: `32122740330`;
-- generated contract commit: `8f892a8e0ca23f713bae86e73ace7b58f8991500`;
+- artifact-registry integration run: `32123085683`;
+- generated contract commit: `bc7906998a8993919373624c853e4bb4eeb654dd`;
 - generated alignment checks are idempotent and occur once each in the canonical lock;
+- `paper/analysis-map.md` contains the ID and ZIP SHA-256 for every accepted artifact referenced by the alignment validator;
+- the accepted continuous-isolation artifact points only to result documents that record its immutable ID and digest;
 - the claim-ceiling validator accepts the manuscript's existing statement that the result is “not proof of ... horticultural origin,” without requiring redundant wording;
 - equivalent event-target wording (`field-target selector`, `field targets`, or `field/provenance targets`) is accepted without weakening the required role.
 

@@ -8,12 +8,14 @@ on:
     paths:
       - scripts/integrate_continuous_isolation_manuscript.py
       - scripts/register_continuous_isolation_paper_contract.py
+      - scripts/run_continuous_isolation_paper_contract.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
   pull_request:
     branches: [main]
     paths:
       - scripts/integrate_continuous_isolation_manuscript.py
       - scripts/register_continuous_isolation_paper_contract.py
+      - scripts/run_continuous_isolation_paper_contract.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
 
 permissions:
@@ -39,7 +41,7 @@ jobs:
           else
             echo "continuous-isolation manuscript prose already integrated"
           fi
-          python scripts/register_continuous_isolation_paper_contract.py
+          python scripts/run_continuous_isolation_paper_contract.py
           python3 - <<'PY'
           from pathlib import Path
           path = Path('paper/active-file-map.csv')

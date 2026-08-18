@@ -1,0 +1,225 @@
+name: Predeclared placement-null human-context reanalysis
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/placement-null-human-context.yml
+      - analysis_sensitivity/run_placement_null_human_context.R
+      - R/placement_null_human_context.R
+      - R/candidate_null_tools.R
+      - R/local_pigmented_isolates.R
+      - R/local_human_context.R
+      - R/spatial_context.R
+      - tests/testthat/test-placement-null-human-context.R
+      - reproducibility/local_departure_placement_null_*.md
+      - dependencies/**
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: placement-null-human-context-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  FINAL8_ARTIFACT_ID: "9094339466"
+  FINAL8_ARTIFACT_SHA256: "413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1"
+  HUMAN_REPLAY_ARTIFACT_ID: "9119306089"
+  HUMAN_REPLAY_ARTIFACT_SHA256: "f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4"
+  WORLDPOP_URL: "https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/2020/JPN/jpn_ppp_2020_1km_Aggregated.tif"
+  WORLDPOP_MD5: "59eb41f5984239526e036e62c1f0a9cc"
+  PREREGISTRATION_COMMIT: "5247cfd1c60a7600fc6a10e2238ff5689c2bf67b"
+
+jobs:
+  placement-null:
+    name: Replay event placement across 10000 natural maps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify public preregistration precedes implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "${PREREGISTRATION_COMMIT}^{commit}"
+          git merge-base --is-ancestor "$PREREGISTRATION_COMMIT" "$GITHUB_SHA"
+          test -s reproducibility/local_departure_placement_null_spec_2026-08-18.md
+          test -s reproducibility/local_departure_placement_null_input_amendment_2026-08-18.md
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility
+          --scopes analysis,reproducibility,testing,reporting,figures
+
+      - name: Run focused unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript -e 'testthat::test_file("tests/testthat/test-placement-null-human-context.R", reporter = "summary")'
+
+      - name: Restore three checksum-locked evidence artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          restore() {
+            local id="$1" expected="$2" zip="$3" out="$4"
+            rm -rf "$out" "$zip"
+            mkdir -p "$out"
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" \
+              -o "$zip"
+            [[ "$(sha256sum "$zip" | awk '{print $1}')" == "$expected" ]]
+            unzip -q "$zip" -d "$out"
+          }
+          restore "$REFERENCE_ARTIFACT_ID" "$REFERENCE_ARTIFACT_SHA256" \
+            /tmp/reference.zip reference-artifact
+          restore "$FINAL8_ARTIFACT_ID" "$FINAL8_ARTIFACT_SHA256" \
+            /tmp/final8.zip final8-artifact
+          restore "$HUMAN_REPLAY_ARTIFACT_ID" "$HUMAN_REPLAY_ARTIFACT_SHA256" \
+            /tmp/human-replay.zip human-replay-artifact
+
+          test -s reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s reference-artifact/results/ecological_v21_local_human_neighbourhood/human_neighbourhood_cell_features.csv
+          test -s final8-artifact/final8_presence_draws10000.rds
+          test -s human-replay-artifact/current_broad_primary_candidate_membership.csv
+          test -s human-replay-artifact/current_broad_primary_candidate_null.csv
+          test -s human-replay-artifact/current_broad_primary_human_maxT.csv
+          test -s human-replay-artifact/current_broad_primary_graph_support.csv
+
+      - name: Restore the predeclared WorldPop raster
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf worldpop
+          mkdir -p worldpop
+          curl --fail --location --retry 5 --retry-all-errors \
+            --user-agent "hotarubukuro-placement-null-reproduction" \
+            "$WORLDPOP_URL" \
+            -o worldpop/population_count_Japan_crop.tif
+          actual="$(md5sum worldpop/population_count_Japan_crop.tif | awk '{print $1}')"
+          echo "WorldPop MD5: $actual"
+          [[ "$actual" == "$WORLDPOP_MD5" ]]
+
+      - name: Execute the predeclared placement-null analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript analysis_sensitivity/run_placement_null_human_context.R \
+            --reference-root reference-artifact \
+            --final8-root final8-artifact \
+            --human-replay-root human-replay-artifact \
+            --worldpop-raster worldpop/population_count_Japan_crop.tif \
+            --output results/placement_null_human_context \
+            --draws 10000 \
+            --seed 20260725
+
+      - name: Validate frozen contracts without outcome thresholds
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=results/placement_null_human_context
+          for file in \
+            placement_null_validation.json \
+            placement_null_summary.csv \
+            placement_null_draws.csv \
+            placement_null_scale_profile.csv \
+            placement_null_neighbour_replay_summary.csv \
+            placement_null_detector_opportunity.csv \
+            placement_null_worldpop_reconstruction_audit.csv \
+            placement_null_population_exposure.csv \
+            placement_null_forward_candidates.csv \
+            placement_null_reverse_candidates.csv \
+            placement_null_retained_v20_calibration.csv \
+            placement_null_scale_profile.png \
+            placement_null_scale_profile.pdf \
+            RESULT_SUMMARY.md; do
+            test -s "$root/$file"
+          done
+
+          python3 - <<'PY'
+          import csv, json
+          from pathlib import Path
+
+          root = Path('results/placement_null_human_context')
+          validation = json.loads((root / 'placement_null_validation.json').read_text())
+          assert validation['status'] == 'PASS', validation
+          assert validation['spec_version'] == 'v22.0_placement_null_human_context', validation
+          assert validation['preregistration_commit'] == '5247cfd1c60a7600fc6a10e2238ff5689c2bf67b', validation
+          assert validation['n_cells'] == 1305, validation
+          assert validation['n_maps'] == 10000, validation
+          assert validation['forward']['observed_candidates'] == 16, validation
+          assert validation['inputs']['worldpop_md5'] == '59eb41f5984239526e036e62c1f0a9cc', validation
+          assert validation['reconstruction']['maximum_rank_difference'] <= 1e-12, validation
+
+          assert abs(validation['retained_results']['v20_candidate_count_p'] - 0.278972102789721) < 1e-12
+          assert abs(validation['retained_results']['v20_candidate_fraction_p'] - 0.126087391260874) < 1e-12
+          assert abs(validation['retained_results']['v21_population_5km_contrast'] - 0.0674424107142858) < 1e-12
+          assert abs(validation['retained_results']['v21_population_5km_directional_p'] - 0.007999200079992) < 1e-12
+
+          with (root / 'placement_null_summary.csv').open(encoding='utf-8') as handle:
+              rows = list(csv.DictReader(handle))
+          assert len(rows) == 8, len(rows)
+          assert {float(r['radius_km']) for r in rows} == {2.0, 5.0, 10.0, 25.0}
+          assert {r['direction'] for r in rows} == {
+              'pigmented_among_white', 'white_among_pigmented'
+          }
+          # Deliberately no assertion about the new effect direction or P values.
+          PY
+
+      - name: Lock output-file checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=results/placement_null_human_context
+          find "$root" -maxdepth 1 -type f \
+            ! -name placement_null_output_sha256.txt \
+            -printf '%f\0' | sort -z | while IFS= read -r -d '' file; do
+              sha256sum "$root/$file"
+            done > "$root/placement_null_output_sha256.txt"
+          test -s "$root/placement_null_output_sha256.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: placement-null-human-context-${{ github.sha }}-${{ github.run_id }}
+          path: results/placement_null_human_context
+          if-no-files-found: error
+          retention-days: 90

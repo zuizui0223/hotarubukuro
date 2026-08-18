@@ -1,0 +1,206 @@
+name: Broad final-eight-axis space-null attribution
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/broad-final8-axis-attribution
+    paths:
+      - .github/workflows/broad-final8-axis-space-null.yml
+      - scripts/fit_broad_final8_axis_space_null_attribution.R
+      - docs/broad_final8_axis_attribution.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: broad-final8-axis-space-null-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GOTO_NUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  POSTERIOR_SAMPLES: "500"
+  ANALYSIS_SEED: "20260725"
+  MAX_PAIRS_PER_FOLD: "15000"
+  GEO_BINS: "5"
+
+jobs:
+  fit:
+    name: Final-eight-axis omnibus and axis-specific tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout analysis branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: broad-final8-axis-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            broad-excess-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R analysis environment
+        shell: bash
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility/broad_final8_axis_space_null
+          --scopes analysis,reproducibility
+
+      - name: Restore checksum-locked Broad cells
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf reference-artifact /tmp/broad-reference.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFERENCE_ARTIFACT_ID}/zip" \
+            -o /tmp/broad-reference.zip
+          actual="$(sha256sum /tmp/broad-reference.zip | awk '{print $1}')"
+          test "$actual" = "$REFERENCE_ARTIFACT_SHA256"
+          mkdir -p reference-artifact
+          unzip -q /tmp/broad-reference.zip -d reference-artifact
+          cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s "$cells"
+          python3 - "$cells" <<'PY'
+          import csv, sys
+          with open(sys.argv[1], newline='', encoding='utf-8') as handle:
+              header = next(csv.reader(handle))
+          required = {
+              'env_Temperature_PC1', 'env_precip_PC1',
+              'env_TemperatureSeasonality', 'env_PrecipSeasonality',
+              'env_topo_PC1', 'env_soil_PC1', 'env_soil_PC2', 'env_RSDS'
+          }
+          missing = sorted(required - set(header))
+          assert not missing, f'missing final-eight axes: {missing}'
+          PY
+          echo "reference_zip_sha256=${actual}" > reference-artifact/reference_lock.txt
+
+      - name: Fit cross-fitted spatial null and attribute final-eight-axis divergence
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/fit_broad_final8_axis_space_null_attribution.R \
+            --cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+            --output=results/broad_final8_axis_space_null_attribution \
+            --samples=${POSTERIOR_SAMPLES} \
+            --seed=${ANALYSIS_SEED} \
+            --max-pairs-per-fold=${MAX_PAIRS_PER_FOLD} \
+            --geo-bins=${GEO_BINS}
+
+      - name: Validate numerical output contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=results/broad_final8_axis_space_null_attribution
+          for file in \
+            final8_omnibus_space_null_excess_test.csv \
+            final8_axis_space_null_excess_test.csv \
+            final8_omnibus_stratum_contrasts.csv \
+            final8_axis_stratum_contrasts.csv \
+            heldout_pair_final8_space_null_excess.csv \
+            heldout_final8_space_null_predictions.csv \
+            analysis_metadata.csv \
+            RESULT_SUMMARY.md; do
+            test -s "$out/$file"
+          done
+          python3 - "$out" <<'PY'
+          import csv, math, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          with (root / 'final8_omnibus_space_null_excess_test.csv').open(newline='', encoding='utf-8') as handle:
+              omnibus = list(csv.DictReader(handle))
+          assert len(omnibus) == 2, len(omnibus)
+          assert {r['response'] for r in omnibus} == {'pigmentation_state', 'conditional_intensity'}
+          for row in omnibus:
+              assert int(float(row['n_fold_geo_strata'])) == 25
+              p = float(row['posterior_predictive_p_upper'])
+              assert 0 <= p <= 1 and math.isfinite(p)
+
+          with (root / 'final8_axis_space_null_excess_test.csv').open(newline='', encoding='utf-8') as handle:
+              axes = list(csv.DictReader(handle))
+          assert len(axes) == 16, len(axes)
+          by_response = {}
+          for row in axes:
+              by_response.setdefault(row['response'], set()).add(row['environmental_axis'])
+              assert int(float(row['n_fold_geo_strata'])) == 25
+              for field in ('posterior_predictive_p_upper', 'BH_q', 'maxT_FWER_p'):
+                  value = float(row[field])
+                  assert 0 <= value <= 1 and math.isfinite(value), (field, value)
+          assert set(by_response) == {'pigmentation_state', 'conditional_intensity'}
+          assert all(len(terms) == 8 for terms in by_response.values())
+
+          with (root / 'analysis_metadata.csv').open(newline='', encoding='utf-8') as handle:
+              metadata = {r['field']: r['value'] for r in csv.DictReader(handle)}
+          assert metadata['environment_basis'].startswith('the same final eight')
+          assert len(metadata['environment_terms'].split(';')) == 8
+          print('validated omnibus rows:', len(omnibus), 'axis rows:', len(axes))
+          PY
+
+      - name: Record workflow provenance
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p results/broad_final8_axis_space_null_attribution
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "reference_artifact_id=${REFERENCE_ARTIFACT_ID}"
+            echo "reference_artifact_sha256=${REFERENCE_ARTIFACT_SHA256}"
+            echo "posterior_samples=${POSTERIOR_SAMPLES}"
+            echo "seed=${ANALYSIS_SEED}"
+            echo "max_pairs_per_fold=${MAX_PAIRS_PER_FOLD}"
+            echo "geo_bins=${GEO_BINS}"
+          } > results/broad_final8_axis_space_null_attribution/workflow_provenance.txt
+
+      - name: Upload final-eight-axis attribution
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: broad-final8-axis-space-null-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/broad_final8_axis_space_null_attribution
+            reproducibility/broad_final8_axis_space_null
+            reference-artifact/reference_lock.txt
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

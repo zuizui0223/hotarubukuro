@@ -8,6 +8,7 @@ on:
       - .github/workflows/continuous-colour-isolation-human-context.yml
       - R/continuous_colour_isolation.R
       - analysis_sensitivity/run_continuous_colour_isolation_human_context.R
+      - analysis_sensitivity/continuous_colour_isolation/**
       - tests/testthat/test-continuous-colour-isolation.R
       - reproducibility/continuous_colour_isolation_human_context_2026-08-18.md
       - dependencies/**

@@ -65,9 +65,16 @@ contract.replace_regex = replace_regex_if_needed
 contract.main()
 
 # Preserve the manuscript's existing, defensible prose while allowing the lock
-# to recognise equivalent claim-ceiling and field-target wording.
+# to recognise equivalent claim-ceiling and field-target wording. Then collapse
+# the three generated checks to one row each so repeated integration is truly
+# idempotent.
 lock_path = contract.ROOT / "config/paper_pipeline.lock.json"
 lock = json.loads(lock_path.read_text(encoding="utf-8"))
+generated_labels = {
+    "continuous colour-isolation human context",
+    "supplementary event calibration and field targets",
+    "paper overview mirrors continuous and event roles",
+}
 for check in lock["alignment"]["checks"]:
     label = check.get("label")
     if label == "continuous colour-isolation human context":
@@ -90,6 +97,18 @@ for check in lock["alignment"]["checks"]:
             )
             for pattern in check["patterns"]
         ]
+
+deduplicated_checks = []
+seen_generated_labels: set[str] = set()
+for check in lock["alignment"]["checks"]:
+    label = check.get("label")
+    if label in generated_labels:
+        if label in seen_generated_labels:
+            continue
+        seen_generated_labels.add(label)
+    deduplicated_checks.append(check)
+lock["alignment"]["checks"] = deduplicated_checks
+
 lock_path.write_text(
     json.dumps(lock, ensure_ascii=False, separators=(",", ":")) + "\n",
     encoding="utf-8",

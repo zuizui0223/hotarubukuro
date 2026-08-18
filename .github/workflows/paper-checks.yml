@@ -13,6 +13,7 @@ on:
       - scripts/**
       - analysis_sensitivity/**
       - source_build/**
+      - hotarubukuro_analysis/**
       - validation/**
       - tests/**
       - pyproject.toml
@@ -57,6 +58,7 @@ jobs:
           missing = [path for path in paths if not Path(path).is_file()]
           assert not missing, 'mapped current files are missing: ' + ', '.join(missing)
           assert not [path for path in paths if path.startswith('legacy/')], 'current paper map points into legacy'
+          assert not Path('legacy').exists(), 'legacy tree must stay outside the active branch after the 2026-08-18 freeze'
           assert not Path('FINAL_PIPELINE_SUPP_MANUSCRIPT_AUDIT_2026-08-12.md').exists(), (
               'superseded root-level dated audit must stay removed'
           )
@@ -104,7 +106,7 @@ jobs:
           python validation/validate_jbi_repository_alignment.py
           python submission/jbi/validate_jbi_submission.py
 
-      - name: Confirm the single front door and legacy separation
+      - name: Confirm the single front door and frozen-history separation
         shell: bash
         run: |
           set -euo pipefail
@@ -115,7 +117,12 @@ jobs:
           test -s config/paper_pipeline.lock.json
           test -s reproducibility/final_integrated_pipeline_2026-08-12.md
           test -s reproducibility/current_broad_human_primary_2026-08-12.md
-          test -s legacy/reproducibility-development/superseded-current-input-anomaly-pipeline-2026-08-12/README.md
+          test -s reproducibility/FROZEN_RELEASE_2026-08-18.md
+          test -s reproducibility/frozen_release_2026-08-18.json
+          test -s docs/repository-layout.md
+          test ! -e legacy
+          grep -q 'ddb1c262b8332c94f4b94e572ab930a648e59553' reproducibility/FROZEN_RELEASE_2026-08-18.md
+          grep -q 'archive/jbi-final-2026-08-18-pre-cleanup' reproducibility/FROZEN_RELEASE_2026-08-18.md
 
       - name: Install and run Python tests
         shell: bash
@@ -124,6 +131,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[test]'
           python -m pytest
+          hotarubukuro-paper audit --dry-run
+          hotarubukuro-color --help >/dev/null
 
   current-r-unit-tests:
     runs-on: ubuntu-24.04

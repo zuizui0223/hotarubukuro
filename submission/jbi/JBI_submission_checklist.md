@@ -7,20 +7,20 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 - Target: **Research Article**, not Methods and Tools or Data paper.
 - Main numbered headers: **1. Introduction, 2. Materials and Methods, 3. Results, 4. Discussion**, followed by unnumbered Acknowledgements, References and declarations.
 - The manuscript presents new biogeographic research on one novel question: how an intraspecific flower-colour polymorphism is structured by ecological processes operating at different spatial scales.
-- The conceptual advance is **scale-matched attribution**: new trait data establish the national pattern; INLA-SPDE separates measured environment from coherent residual geography; the environment-derived Bombus hypothesis is tested first at local colour boundaries; and apparent departures are calibrated against natural maps before human context is read.
-- The paper is achievement-forward without inflating causality. Positive, heterogeneous and null results each provide a distinct scientific output: response-specific geography, localized biotic inference, calibrated field targets and a leading provenance hypothesis.
+- The conceptual advance is **scale-matched attribution**: new trait data establish the national pattern; INLA-SPDE separates measured environment from coherent residual geography; the Bombus hypothesis is tested as heterogeneity among local colour boundaries; and a distinct local-isolate event is selected, naturally calibrated and only then examined for human context.
+- The paper is achievement-forward without inflating causality. Positive, heterogeneous and null results each provide a distinct scientific output: response-specific physiological hypotheses, unresolved spatial geography, a subset-driven local biotic correspondence, naturally calibrated field targets and a bounded provenance hypothesis.
 - Methods are described for repeatability and linked to versioned code, fixed seeds, software manifests, checksum-locked artifacts and independent validators.
 
 ## Length and front matter
 
 - Main-text target: <=6,000 words.
-  - Current Introduction-through-Discussion count = **4,940 words** by repository validator.
+  - Current Introduction-through-Discussion count = **5,696 words** by repository validator.
 - Title: <=115 characters including spaces; no abbreviations or Latin binomial.
   - Current title = 108 characters.
 - Running title: <40 characters.
   - Current running title = 26 characters.
 - Structured abstract: <=300 words under **Aim, Location, Taxon, Methods, Results, Main conclusions**.
-  - Current abstract = **299 words** by repository validator.
+  - Current abstract = **277 words** by repository validator.
 - Keywords: 6–10, alphabetical.
   - Current count = 8.
 - The first abstract mention uses common name followed by the scientific name: spotted bellflower (*Campanula punctata*).
@@ -49,6 +49,8 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 - Every map panel must include a bar scale; current national map panels use WGS84 longitude/latitude and a **100-km bar scale**.
 - Supply separate vector PDF files and 600-dpi PNG review copies from the checksum-locked figure artifact.
 - Keep the full YAMAP/iNaturalist/GBIF benchmark, full model tables and sensitivity grids in Supporting Information while reporting the 3.81-fold benchmark result in Main.
+- Figure 3 must show the distributional heterogeneity behind the positive mean: median, sign proportion and scale/exposure sensitivities cannot be visually hidden.
+- Figure 4 must distinguish the observed-map selection of 16 local isolates from the two uses of 10,000-map replay.
 - Tables must remain editable and self-contained.
 
 ## Supporting Information
@@ -65,7 +67,9 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 - Supply the current SDM/model-building checklist (`JBI_sdm_model_building_checklist.md` / generated DOCX).
 - Appendix S4 reports the five species, shared domain, occurrence filtering, target-group background, shared predictor screen, tuning grid, model selection, validation and repeated-build comparison.
 - Preserve the occurrence-referenced transformation and its inference ceiling: support is not abundance, visitation, pollen transfer or selection pressure.
-- Main presents the positive scientific output of the scale change in the correct order: 67 local boundaries provide the primary focal-Bombus test; its short-range, state-specific pattern is interpreted first; the equal-elevation highland analysis then shows why broad overlap is an environmentally confounded guardrail rather than the main test.
+- Main reports all mandatory distributional diagnostics for the 67 local boundaries: mean +0.03590, median -0.00277, 49.3% positive pairs, q=0.08148 across 5/10/25 km, attenuation at broader radii and failure of raw support to reproduce the nominal result.
+- The biological result is boundary heterogeneity, not a pervasive pigmented-side advantage. The 67 sites are passed forward as strongly positive, near-zero and negative field strata.
+- The equal-elevation highland analysis then shows why broad overlap is an environmentally confounded guardrail rather than a second positive mechanism.
 - The 5-km radius is described as the finest predeclared scale with enough replicated transitions and a population-neighbourhood comparison, not as an exact bumblebee foraging distance.
 - Confirm at final upload whether the editorial office expects any additional ODMAP-formatted worksheet beyond the current checklist.
 
@@ -103,18 +107,21 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 ## Pre-submission scientific checks
 
 - **Data killing part:** the Main reports that the matched YAMAP stream contained 3.81 times as many focal-species records as iNaturalist and explains how author screening, image hashing and deterministic phenotyping created a new national quantitative trait dataset.
-- **Phenotype killing part:** state and intensity are presented as different biological layers, not merely two response transformations.
-- **Broad killing part:** environment is shown to explain response-specific geography, while SPDE delivers coherent residual ranges that guide microclimate and genomic sampling rather than being dismissed as unexplained noise. A cross-fitted space-only sensitivity further shows environment-aligned divergence beyond spatial continuity for pigmentation state but not conditional intensity, without relabelling that excess as genetic differentiation or adaptation.
-- **Bombus killing part:** the 5-km local comparison is the main ecological result. It identifies a short-range, state-boundary signal and 67 sites for direct pollination tests; its attenuation and heterogeneity refine the scale and phenotype component of the hypothesis. Only afterward does the highland/elevation guardrail demonstrate why a national overlay would confound pollinators with mountain environment.
-- **Departure killing part:** predictive replay converts 16 apparent exceptions into reproducibly calibrated field/provenance targets rather than erasing them as a null result.
-- **Human killing part:** short-range population exposure is identified as the leading human-context hypothesis and its likely spatial scale, without claiming provenance.
-- **Synthesis:** the Discussion converges on a spatially changing physiological/reproductive cost-benefit model, modified by history and occasional human movement.
-- The final paragraph states that the study uses strong, heterogeneous and null results for different inferential jobs rather than displaying only convenient results.
+- **Sampling-frame part:** YAMAP's mountain-route frame is treated bidirectionally. It may enrich plausible natural settings and compress a settlement gradient, but accessible routes can also concentrate observation, disturbance and human-mediated movement. The manuscript must not claim a one-way conservative human bias.
+- **Phenotype killing part:** state and conditional intensity are presented as different observational layers, while explicitly acknowledging that restriction to pigmented flowers can create selection or collider-like distortion and does not prove independent regulatory pathways.
+- **Broad killing part:** environment is interpreted through competing anthocyanin benefits and costs rather than significance alone. The cool-climate state association, temperature × seasonality interaction, drier-side intensity, negative ruggedness and null final RSDS effect are all given distinct ecological meanings and claim ceilings. A cross-fitted space-only sensitivity shows environment-aligned divergence beyond spatial continuity for pigmentation state but not conditional intensity, without relabelling that excess as genetic differentiation or adaptation.
+- **Bombus killing part:** boundary heterogeneity is the Main result. A minority of strong contrasts raises the mean; most boundaries do not show the predicted direction. The result motivates stratified direct pollination and fitness tests rather than a national Bombus mechanism.
+- **Highland guardrail:** equal-elevation comparisons remove the stronger-looking montane/alpine overlap, preventing shared mountain geography from being narrated as pollinator selection.
+- **Local-design separation:** the 67 Bombus transitions are edge-based signed comparisons. The **16 current-Broad departures** are node-and-neighbourhood local isolates selected by a separate human-blind observed-map rule.
+- **Replay part:** the first 10,000-map use calibrates event count and fraction; the second reselects event cells and recomputes human contrasts on each map to create the post-selection null. Replay does not select “natural-process-resistant” sites.
+- **Human killing part:** event frequency is compatible with the natural model (P=0.27897/0.12609), and the leading 5-km population feature remains familywise inconclusive (global maxT FWER P=0.05479). The inference is doubly conditional and does not claim provenance.
+- **Izu role:** the Izu Bombus-absence/breeding-system literature motivates why bumblebees are focal in this species; it is not evidence that bumblebee absence caused white flowers.
+- **Synthesis:** the Discussion converges on spatially changing regulation, physiological benefit, thermal/hydraulic cost, local reproductive value, unresolved geography and possible contemporary movement.
+- The final paragraph states that positive, heterogeneous and null results perform different inferential jobs rather than displaying only convenient results.
 - Five-species community turnover remains Supporting Information.
-- Main Bombus result reports its positive local mean first, then its median, sign proportion, scale attenuation and raw-support result.
 - No claim that SDM support equals realized visitation or selection.
 - No claim that YAMAP removes observer bias or that every mountain photograph is wild.
-- No claim that the **16 current-Broad departures** are anthropogenic or more frequent than the finalized natural model expects.
+- No claim that the 16 isolates are anthropogenic, resistant to natural processes or more frequent than the finalized natural model expects.
 
 ## Remaining portal-controlled blockers
 

@@ -37,13 +37,15 @@ if (length(missing_scientific)) {
   )
 }
 
+# This is the implemented basis used by fit_broad_space_null_phenotype_excess.R
+# through v16_environment_terms(50). It is deliberately recorded as a legacy
+# four-PC multiscale sensitivity and must not be relabelled as the final eight
+# measured abiotic axes.
 environment_terms <- c(
-  "broad_pc1_climate_50km",
-  "broad_pc1_aridity_50km",
-  "broad_pc1_topography_50km",
-  "within_pc1_climate_50km",
-  "within_pc1_aridity_50km",
-  "within_pc1_topography_50km"
+  "broad50km_pc1",
+  "broad50km_pc2",
+  "within50km_pc1",
+  "within50km_pc2"
 )
 metadata <- data.frame(
   field = c(
@@ -52,7 +54,7 @@ metadata <- data.frame(
     "environment_terms", "environment_distance", "primary_estimand", "claim_boundary"
   ),
   value = c(
-    "broad_cross_fitted_space_null_phenotype_excess",
+    "broad_cross_fitted_space_null_phenotype_excess_legacy4",
     cells_path,
     "intercept + Matern SPDE only",
     "each tested pair lies wholly inside a held-out geographical fold",
@@ -62,9 +64,9 @@ metadata <- data.frame(
     as.character(max_pairs_per_fold),
     as.character(n_geo_bins),
     paste(environment_terms, collapse = ";"),
-    "Euclidean distance in the frozen response-blind environmental basis, scaled on each training fold",
+    "Euclidean distance across four legacy broad/within 50-km PCs, scaled on each training fold",
     "mean across fold-by-geographic-distance strata of observed(high-environment - low-environment phenotype divergence), compared with the same statistic under cross-fitted space-only posterior prediction",
-    "F_ST/P_ST-inspired non-genetic null test; not F_ST, P_ST, Q_ST, drift, selection, or local adaptation"
+    "basis-specific legacy four-PC omnibus; does not identify a final-eight-axis driver and is not F_ST, P_ST, Q_ST, drift, selection, or local adaptation"
   ),
   stringsAsFactors = FALSE
 )
@@ -143,11 +145,11 @@ if (any(as.integer(primary$n_fold_geo_strata) != 25L)) {
 }
 
 summary_lines <- c(
-  "# Broad cross-fitted space-null phenotype excess",
+  "# Broad cross-fitted space-null phenotype excess — legacy four-PC basis",
   "",
   sprintf(
     paste0(
-      "- Pigmentation state: observed high-minus-low environmental divergence ",
+      "- Pigmentation state: observed high-minus-low legacy-PC divergence ",
       "%.6f; space-null median %.6f; excess %.6f; one-sided posterior-predictive p %.5f."
     ),
     state$observed_contrast,
@@ -168,12 +170,17 @@ summary_lines <- c(
   "",
   paste0(
     "Interpretation: pigmentation-state divergence exceeds the cross-fitted spatial ",
-    "expectation along environmental difference, whereas conditional intensity does not."
+    "expectation along the implemented legacy four-PC multiscale distance; conditional ",
+    "intensity does not."
   ),
   paste0(
-    "Claim boundary: this is environmental alignment beyond a fitted spatial expectation; ",
-    "it does not establish selection, local adaptation, or a unique causal environmental mechanism."
+    "Basis boundary: this result does not identify Temperature PC1 or any other final-eight ",
+    "axis. Final-eight-axis omnibus and axis-specific attribution are separate outputs."
+  ),
+  paste0(
+    "Causal boundary: environmental alignment beyond a fitted spatial expectation does not ",
+    "establish selection, local adaptation, or a unique causal environmental mechanism."
   )
 )
 writeLines(summary_lines, file.path(output_dir, "RESULT_SUMMARY.md"))
-message("Validated and locked the Broad spatial-null phenotype-excess result.")
+message("Validated and locked the legacy four-PC Broad spatial-null result.")

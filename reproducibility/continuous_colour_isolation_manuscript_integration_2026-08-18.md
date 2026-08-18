@@ -24,8 +24,8 @@ Updated and synchronized sources include:
 Paper-contract synchronization:
 
 - workflow: `Integrate continuous isolation into JBI manuscript`;
-- Abstract integration run: `32123392414`;
-- generated contract commit: `55cb8b2c077baf4c595df103381fa878114303c6`;
+- final Abstract integration run: `32123545413`;
+- generated contract commit: `b85617974b25427ac6a2d2c87d8c01f36b4f96c7`;
 - the structured Abstract is 281 words, below the JBI 300-word ceiling, while retaining the post hoc status and both guarded pigmented estimates;
 - generated alignment checks are idempotent and occur once each in the canonical lock;
 - `paper/analysis-map.md` contains the ID and ZIP SHA-256 for every accepted artifact referenced by the alignment validator;

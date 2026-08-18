@@ -1,6 +1,6 @@
 # Continuous colour-isolation manuscript integration
 
-**Status:** manuscript prose and paper contract integrated on the dedicated draft branch; full downstream validation triggered from this commit.
+**Status:** manuscript prose, numerical lock, Figure 4 contract and claim-ceiling contract are synchronized on the dedicated draft branch; downstream validation triggered from this commit.
 
 The JBI narrative assigns the analyses distinct roles:
 
@@ -24,8 +24,9 @@ Updated and synchronized sources include:
 Paper-contract synchronization:
 
 - workflow: `Integrate continuous isolation into JBI manuscript`;
-- successful run: `32121663283`;
-- generated contract commit: `2801b5c49e24a4da4e43c59dd0de04b03d609b28`.
+- latest successful run: `32121920537`;
+- generated contract commit: `be79ff6e62195070ff5621a0efcca13242e432ed`;
+- the claim-ceiling validator accepts the manuscript's existing statement that the result is “not proof of ... horticultural origin,” without requiring redundant wording.
 
 Numerical source and claim lock:
 
@@ -34,4 +35,4 @@ Numerical source and claim lock:
 - artifact `9317087893`;
 - ZIP SHA-256 `6fd26d9a938b68d3f0c56512cd1620597c740d44ba91ab5a7ccbb9daa99d5386`.
 
-The PR remains draft until the current paper checks, Figure 4 build, canonical audit/reproduction and review-bundle workflows complete on the synchronized contract.
+The PR remains draft until the current paper checks, Figure 4 build, canonical audit/reproduction and review-bundle workflows complete on this synchronized head.

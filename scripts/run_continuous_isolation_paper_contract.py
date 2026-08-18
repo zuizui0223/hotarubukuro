@@ -150,3 +150,50 @@ analysis_map_path.write_text(
     analysis_map + "\n" + "\n".join(registry_lines) + "\n",
     encoding="utf-8",
 )
+
+# Keep the structured JBI abstract below the 300-word ceiling without dropping
+# the post hoc status, the two guarded human-context estimates or the distinct
+# roles of the continuous and event analyses.
+abstract_text = """## Abstract
+
+**Aim:** Geographical trait variation can reflect environment, population history, biotic interactions and human activity at different scales. We tested how these processes assemble flower-colour geography while separating pigment presence from pigmented-flower intensity.
+
+**Location:** Japan.
+
+**Taxon:** spotted bellflower (*Campanula punctata*).
+
+**Methods:** We converted 1,922 author-screened YAMAP photographs into pigmentation state and pigmented-only intensity. INLA-SPDE models separated environmental associations from residual geography, and 67 independently fixed white-pigmented boundaries supplied the local bumblebee comparison. For human context, we measured distance to the nearest occurrence of the same colour in all 1,305 cells, scaled it by local flower-cell spacing and replayed the geometry on 10,000 natural predictive maps. This continuous analysis was post hoc; a threshold event detector was retained only for calibration and field targeting.
+
+**Results:** Pigmentation state, but not pigmented-only intensity, exceeded a cross-fitted spatial expectation along environmental difference. Focal-bumblebee support was higher on pigmented sides of local boundaries, whereas stronger-looking highland overlap disappeared after elevation matching. Among 674 pigmented cells, isolation correlated with 5-km population exposure (rho=0.252) more strongly than natural maps expected (mean 0.133; P=0.0002). The relationship remained after local flower-cell spacing was removed (rho=0.285; natural mean 0.154; P=0.0009). The raw white relationship did not retain its opposite sign after density correction. Sixteen event-defined populations were not excessive under natural maps.
+
+**Main conclusions:** Flower-colour geography contains distinct environmental, spatial, local biotic and contemporary human-context layers. Human context was expressed most clearly as an excess positive isolation-population relationship within pigmented occurrences, not as reciprocal colour displacement or proof of horticultural origin. Integrative trait biogeography gains resolution by connecting, rather than collapsing, processes operating at different scales and comparison units.
+
+"""
+main_path = contract.ROOT / "submission/jbi/JBI_main_manuscript_anonymized.md"
+main_text = main_path.read_text(encoding="utf-8")
+main_text, abstract_replacements = re.subn(
+    r"## Abstract\n.*?(?=\*\*Keywords:\*\*)",
+    abstract_text,
+    main_text,
+    count=1,
+    flags=re.MULTILINE | re.DOTALL,
+)
+if abstract_replacements != 1:
+    raise RuntimeError(
+        f"Expected one structured abstract block; found {abstract_replacements}"
+    )
+main_path.write_text(main_text, encoding="utf-8")
+
+abstract_word_count = len(re.findall(r"\b[\wÀ-ž*'’-]+\b", abstract_text))
+if abstract_word_count > 300:
+    raise RuntimeError(
+        f"Integrated abstract exceeds JBI ceiling: {abstract_word_count} words"
+    )
+checklist_path = contract.ROOT / "submission/jbi/JBI_submission_checklist.md"
+checklist = checklist_path.read_text(encoding="utf-8")
+checklist = re.sub(
+    r"Current abstract = \*\*\d+ words\*\* by repository validator\.",
+    f"Current abstract = **{abstract_word_count} words** by repository validator.",
+    checklist,
+)
+checklist_path.write_text(checklist, encoding="utf-8")

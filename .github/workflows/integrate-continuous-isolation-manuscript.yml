@@ -45,6 +45,7 @@ jobs:
           path = Path('paper/active-file-map.csv')
           path.write_bytes(path.read_bytes().replace(b'\r\n', b'\n'))
           PY
+          git restore -- .github/workflows/jbi-main-figures.yml
           python -m json.tool config/paper_pipeline.lock.json >/dev/null
           git diff --check
           grep -q 'rho=0.252' submission/jbi/JBI_main_manuscript_anonymized.md
@@ -82,4 +83,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "${paths[@]}"
           git commit -m "Integrate continuous isolation into paper contract"
+          git fetch origin agent/continuous-colour-isolation-human-context
+          git rebase origin/agent/continuous-colour-isolation-human-context
           git push origin HEAD:agent/continuous-colour-isolation-human-context

@@ -10,16 +10,13 @@ on:
       - scripts/register_continuous_isolation_paper_contract.py
       - scripts/run_continuous_isolation_paper_contract.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
-  pull_request:
-    branches: [main]
-    paths:
-      - scripts/integrate_continuous_isolation_manuscript.py
-      - scripts/register_continuous_isolation_paper_contract.py
-      - scripts/run_continuous_isolation_paper_contract.py
-      - .github/workflows/integrate-continuous-isolation-manuscript.yml
 
 permissions:
   contents: write
+
+concurrency:
+  group: continuous-isolation-paper-integration
+  cancel-in-progress: true
 
 jobs:
   integrate:
@@ -60,6 +57,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          branch=agent/continuous-colour-isolation-human-context
           paths=(
             config/paper_pipeline.lock.json
             paper/README.md
@@ -85,6 +83,15 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "${paths[@]}"
           git commit -m "Integrate continuous isolation into paper contract"
-          git fetch origin agent/continuous-colour-isolation-human-context
-          git rebase origin/agent/continuous-colour-isolation-human-context
-          git push origin HEAD:agent/continuous-colour-isolation-human-context
+
+          for attempt in 1 2 3 4 5; do
+            echo "push attempt ${attempt}/5"
+            git fetch origin "$branch"
+            git rebase "origin/$branch"
+            if git push origin "HEAD:$branch"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "failed to publish generated paper contract after five rebased attempts" >&2
+          exit 1

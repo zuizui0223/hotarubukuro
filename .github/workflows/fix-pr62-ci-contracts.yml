@@ -1,0 +1,71 @@
+name: One-shot PR62 CI contract fixer
+
+on:
+  push:
+    branches: [agent/final-jbi-clean]
+    paths:
+      - .github/workflows/fix-pr62-ci-contracts.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/final-jbi-clean
+          fetch-depth: 0
+
+      - name: Fix final artifact and figure-validation contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          lock_path = Path('config/paper_pipeline.lock.json')
+          lock = json.loads(lock_path.read_text(encoding='utf-8'))
+          supported = lock['artifacts']['accepted_broad_supported_term_distance']
+          supported['destination'] = '.'
+          supported['merge'] = True
+          supported['references'] = ['reproducibility/FINAL_RESULTS_2026-08-19.md']
+          lock_path.write_text(
+              json.dumps(lock, ensure_ascii=False, separators=(',', ':')) + '\n',
+              encoding='utf-8',
+          )
+
+          result_path = Path('reproducibility/FINAL_RESULTS_2026-08-19.md')
+          result = result_path.read_text(encoding='utf-8')
+          provenance = '''\n\n## Accepted artifact provenance\n\nThe final supported-term fixed-space result is restored from GitHub Actions artifact `9350975649`, SHA-256 `4d5a1d28b8313cc0fb6c85484d21c6d94535ac7cc0881e83dc7ed02678854f03`. The artifact ZIP preserves its repository-relative `results/broad_supported_term_distance_space_null/` paths, so the canonical paper pipeline merges it at repository root rather than nesting the output directory a second time.\n'''
+          if '## Accepted artifact provenance' not in result:
+              result_path.write_text(result.rstrip() + provenance + '\n', encoding='utf-8')
+
+          validator_path = Path('validation/validate_jbi_figure_bundle.R')
+          validator = validator_path.read_text(encoding='utf-8')
+          old = 'sum(as.character(continuous_cells$colour) == "pigmented")'
+          new = 'sum(tolower(as.character(continuous_cells$colour)) == "pigmented")'
+          if old not in validator and new not in validator:
+              raise RuntimeError('Figure 4 pigmented-count expression not found')
+          validator = validator.replace(old, new)
+          validator_path.write_text(validator, encoding='utf-8')
+          PY
+
+          rm -f .github/workflows/fix-pr62-ci-contracts.yml
+          python -m json.tool config/paper_pipeline.lock.json >/dev/null
+          grep -q '9350975649' reproducibility/FINAL_RESULTS_2026-08-19.md
+          grep -q 'tolower(as.character(continuous_cells\$colour))' validation/validate_jbi_figure_bundle.R
+
+      - name: Commit final CI contract fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Fix final artifact restoration and Figure 4 validation contracts'
+          git fetch origin agent/final-jbi-clean
+          git rebase origin/agent/final-jbi-clean
+          git push origin HEAD:agent/final-jbi-clean

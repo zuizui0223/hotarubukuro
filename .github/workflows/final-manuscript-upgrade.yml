@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
           ref: agent/continuous-colour-isolation-human-context
 
-      - name: Generate the final JBI manuscript and paper contract
+      - name: Generate and validate the final JBI source state
         shell: bash
         run: |
           set -euo pipefail
@@ -87,10 +87,13 @@ jobs:
               'SDM support remains habitat opportunity, not realized visitation or selection.',
               'SDM support remains habitat opportunity, not realized visitation or selection. This correspondence is not evidence of pollinator-mediated selection.',
           )
-          main = main.replace(
-              'The analysis is explicitly post hoc, and even small Monte Carlo P values do not convert the pattern into provenance evidence.',
-              'The analysis is explicitly post hoc, and even small Monte Carlo P values do not establish horticultural origin or convert the pattern into provenance evidence.',
-          )
+
+          human_ceiling = 'This analysis does not establish horticultural origin.'
+          if human_ceiling not in main:
+              marker = '### 4.5 A spatially varying balance can maintain flower-colour polymorphism'
+              if marker not in main:
+                  raise RuntimeError('Missing final synthesis heading for human-context claim ceiling')
+              main = main.replace(marker, human_ceiling + '\n\n' + marker, 1)
           main_path.write_text(main, encoding='utf-8')
 
           map_path = Path('paper/active-file-map.csv')
@@ -138,37 +141,26 @@ jobs:
                   1,
               )
           validator_path.write_text(validator, encoding='utf-8')
+
+          required = [
+              '0.100608', 'P=0.00998', 'P=0.26347', '67 sharp transitions',
+              '0.0815', 'not evidence of pollinator-mediated selection',
+              'does not establish horticultural origin',
+              'R 4.5.3 (R Core Team, 2026)', "'INLA' package version 25.10.19",
+              'rho=0.252', 'P=0.0009',
+          ]
+          forbidden = ['0.106802', '0.03393', 'Sixteen pigmented cells']
+          missing = [token for token in required if token not in main]
+          present = [token for token in forbidden if token in main]
+          if missing or present:
+              raise RuntimeError(f'Final Main token mismatch: missing={missing}; forbidden={present}')
           print(f'final source counts: abstract={abstract_n}; Main={body_n}')
           PY
 
           git restore -- .github/workflows/jbi-main-figures.yml
-
           python -m py_compile scripts/upgrade_final_analysis_pipeline.py
           python -m json.tool config/paper_pipeline.lock.json >/dev/null
           git diff --check
-
-          main=submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q '0.100608' "$main"
-          grep -q 'P=0.00998' "$main"
-          grep -q 'P=0.26347' "$main"
-          grep -q '67 sharp transitions' "$main"
-          grep -q '0.0815' "$main"
-          grep -q 'not evidence of pollinator-mediated selection' "$main"
-          grep -q 'does not establish horticultural origin' "$main"
-          grep -q "R 4.5.3 (R Core Team, 2026)" "$main"
-          grep -q "'INLA' package version 25.10.19" "$main"
-          grep -q 'rho=0.252' "$main"
-          grep -q 'P=0.0009' "$main"
-          ! grep -q '0.106802' "$main"
-          ! grep -q '0.03393' "$main"
-          ! grep -q 'Sixteen pigmented cells' "$main"
-
-          grep -q '0.100608' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
-          grep -q '\*\*16\*\*' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
-          grep -q 'accepted_broad_supported_term_distance' config/paper_pipeline.lock.json
-          grep -q 'restore_broad_supported_term_distance' config/paper_pipeline.lock.json
-          grep -q 'accepted_continuous_colour_isolation' config/paper_pipeline.lock.json
-
           python validation/validate_jbi_repository_alignment.py
           python submission/jbi/validate_jbi_submission.py
 

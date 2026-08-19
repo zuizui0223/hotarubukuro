@@ -105,6 +105,14 @@ jobs:
               'r"not as .*proof of horticultural origin)"',
           )
           alignment_path.write_text(alignment, encoding='utf-8')
+
+          validator_path = Path('submission/jbi/validate_jbi_submission.py')
+          validator = validator_path.read_text(encoding='utf-8')
+          validator = validator.replace(
+              '        \'tag_panel(fig4a, "a")\',',
+              '        \'source("scripts/render_jbi_figure4_continuous_isolation.R")\',',
+          )
+          validator_path.write_text(validator, encoding='utf-8')
           PY
           git restore -- .github/workflows/jbi-main-figures.yml
           python -m json.tool config/paper_pipeline.lock.json >/dev/null

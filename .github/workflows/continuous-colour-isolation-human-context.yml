@@ -1,0 +1,191 @@
+name: Continuous colour-isolation human context
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/continuous-colour-isolation-human-context.yml
+      - R/continuous_colour_isolation.R
+      - analysis_sensitivity/run_continuous_colour_isolation_human_context.R
+      - analysis_sensitivity/continuous_colour_isolation/**
+      - tests/testthat/test-continuous-colour-isolation.R
+      - reproducibility/continuous_colour_isolation_human_context_2026-08-18.md
+      - dependencies/**
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: continuous-colour-isolation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  FINAL8_ARTIFACT_ID: "9094339466"
+  FINAL8_ARTIFACT_SHA256: "413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1"
+
+jobs:
+  continuous-isolation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: continuous-isolation-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            r-lib-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir /tmp/continuous-isolation-environment
+          --scopes reproducibility,testing
+
+      - name: Run focused unit tests
+        run: >-
+          Rscript -e
+          'testthat::test_file("tests/testthat/test-continuous-colour-isolation.R", reporter = "summary", stop_on_failure = TRUE)'
+
+      - name: Restore checksum-locked evidence artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          restore() {
+            local id="$1" expected="$2" zip="$3" out="$4"
+            rm -rf "$out" "$zip"
+            mkdir -p "$out"
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" \
+              -o "$zip"
+            actual="$(sha256sum "$zip" | awk '{print $1}')"
+            test "$actual" = "$expected"
+            unzip -q "$zip" -d "$out"
+          }
+          restore "$REFERENCE_ARTIFACT_ID" "$REFERENCE_ARTIFACT_SHA256" \
+            /tmp/reference.zip reference-artifact
+          restore "$FINAL8_ARTIFACT_ID" "$FINAL8_ARTIFACT_SHA256" \
+            /tmp/final8.zip final8-artifact
+          test -s reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s reference-artifact/results/ecological_v21_local_human_neighbourhood/human_neighbourhood_cell_features.csv
+          test -s reference-artifact/results/ecological_v22_did_human_context/did_cell_context.csv
+          test -s final8-artifact/final8_presence_draws10000.rds
+
+      - name: Execute continuous isolation analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript analysis_sensitivity/run_continuous_colour_isolation_human_context.R \
+            --reference-root reference-artifact \
+            --final8-root final8-artifact \
+            --output results/continuous_colour_isolation_human_context \
+            --draws 10000 \
+            --permutations 2000 \
+            --chunk-size 250 \
+            --seed 20260725
+
+      - name: Validate output contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=results/continuous_colour_isolation_human_context
+          for file in \
+            continuous_isolation_validation.json \
+            continuous_isolation_cell_metrics.csv \
+            continuous_isolation_correlations.csv \
+            continuous_isolation_colour_contrasts.csv \
+            continuous_isolation_fold_label_summary.csv \
+            continuous_isolation_fold_label_null.csv \
+            continuous_isolation_top10_summary.csv \
+            continuous_isolation_leave_one_fold_out.csv \
+            continuous_isolation_fold_specific.csv \
+            continuous_isolation_count_conditioning.csv \
+            continuous_isolation_natural_null_summary.csv \
+            continuous_isolation_natural_null_draws.csv \
+            continuous_isolation_population_maxT.csv \
+            continuous_isolation_population_profile.csv \
+            continuous_isolation_population_profile.png \
+            continuous_isolation_population_profile.pdf \
+            RESULT_SUMMARY.md; do
+            test -s "$root/$file"
+          done
+          python3 - <<'PY'
+          import csv, json
+          from pathlib import Path
+
+          root = Path('results/continuous_colour_isolation_human_context')
+          validation = json.loads((root / 'continuous_isolation_validation.json').read_text())
+          assert validation['status'] == 'PASS', validation
+          assert validation['spec_version'] == 'v23.0_continuous_colour_isolation_human_context'
+          assert validation['n_cells'] == 1305
+          assert validation['n_pigmented_cells'] == 674
+          assert validation['n_white_cells'] == 631
+          assert validation['n_natural_maps'] == 10000
+          assert validation['permutations'] == 2000
+          assert validation['status_note'].startswith('post hoc exploratory')
+          with (root / 'continuous_isolation_cell_metrics.csv').open(encoding='utf-8') as handle:
+              rows = list(csv.DictReader(handle))
+          assert len(rows) == 1305
+          assert {row['colour'] for row in rows} == {'pigmented', 'white'}
+          primary = validation['observed']['raw_population_5km']
+          assert all(primary[key] is not None for key in (
+              'pigmented_rho', 'white_rho', 'rho_difference'
+          ))
+          guardrail = validation['natural_guardrail']
+          assert all(guardrail[key] is not None for key in (
+              'raw_population_5km_upper_p',
+              'relative_population_5km_upper_p',
+              'raw_population_scale_maxT_p',
+              'relative_population_scale_maxT_p',
+          ))
+          PY
+
+      - name: Lock output checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=results/continuous_colour_isolation_human_context
+          find "$root" -maxdepth 1 -type f \
+            ! -name continuous_isolation_output_sha256.txt \
+            -printf '%f\0' | sort -z | while IFS= read -r -d '' file; do
+              sha256sum "$root/$file"
+            done > "$root/continuous_isolation_output_sha256.txt"
+          test -s "$root/continuous_isolation_output_sha256.txt"
+
+      - name: Publish result summary
+        if: always()
+        shell: bash
+        run: |
+          if test -s results/continuous_colour_isolation_human_context/RESULT_SUMMARY.md; then
+            cat results/continuous_colour_isolation_human_context/RESULT_SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: continuous-colour-isolation-${{ github.sha }}-${{ github.run_id }}
+          path: results/continuous_colour_isolation_human_context
+          if-no-files-found: error
+          retention-days: 90

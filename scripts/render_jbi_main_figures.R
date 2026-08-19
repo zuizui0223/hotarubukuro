@@ -205,74 +205,7 @@ fig3d <- ggplot2::ggplot(
 figure_3 <- (tag_panel(fig3a, "a") | tag_panel(fig3b, "b")) /
   (tag_panel(fig3c, "c") | tag_panel(fig3d, "d"))
 
-# Figure 4a must reflect the current final-eight-axis event definition. Rebuild
-# the conceptual panel explicitly so stale development labels cannot leak into
-# the final manuscript figure.
-angles <- seq(0, 2 * pi, length.out = 9)[-9]
-neighbour_nodes_current <- data.frame(
-  x = 1.25 * cos(angles), y = 1.25 * sin(angles)
-)
-circle_current <- data.frame(
-  x = 1.55 * cos(seq(0, 2 * pi, length.out = 240)),
-  y = 1.55 * sin(seq(0, 2 * pi, length.out = 240))
-)
-fig4a <- ggplot2::ggplot() +
-  ggplot2::geom_path(
-    data = circle_current, ggplot2::aes(x = x, y = y),
-    linetype = "dashed", colour = mid_grey
-  ) +
-  ggplot2::geom_point(
-    data = neighbour_nodes_current, ggplot2::aes(x = x, y = y),
-    shape = 21, fill = white_like, colour = paper, stroke = 0.35, size = 4.0
-  ) +
-  ggplot2::geom_point(
-    ggplot2::aes(x = 0, y = 0), shape = 21,
-    fill = pigmented, colour = ink, stroke = 0.55, size = 5.2
-  ) +
-  ggplot2::annotate(
-    "text", x = 0, y = -0.35,
-    label = "Pigmented focal cell", size = 2.55, colour = ink
-  ) +
-  ggplot2::annotate(
-    "text", x = 0, y = 1.85,
-    label = "Within 10 km and eight-axis environmental RMS distance ≤ 1",
-    size = 2.35, colour = mid_grey
-  ) +
-  ggplot2::annotate(
-    "text", x = 0, y = -1.90,
-    label = "Event is defined before population, land use, roads or DID are read",
-    size = 2.35, colour = mid_grey
-  ) +
-  ggplot2::coord_equal(
-    xlim = c(-2.15, 2.15), ylim = c(-2.10, 2.10), clip = "off"
-  ) +
-  ggplot2::labs(title = "Local colour departure event") +
-  ggplot2::theme_void(base_family = "sans") +
-  ggplot2::theme(
-    plot.title = ggplot2::element_text(face = "bold", colour = ink, size = 8.8),
-    plot.margin = ggplot2::margin(8, 8, 8, 8)
-  )
-
-# Figure 4b-d already come from the final-Broad/current-human adapter. Preserve
-# the current human feature family while giving right-edge annotations enough
-# plotting room to remain visible at journal width.
-fig4c <- fig4c +
-  ggplot2::labs(title = "Departures under repeated natural maps") +
-  ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0.05, 0.28))) +
-  ggplot2::theme(plot.margin = ggplot2::margin(7, 16, 7, 7))
-fig4d <- fig4d +
-  ggplot2::labs(
-    title = "Possible contemporary human overlay",
-    subtitle = "10,000-map family; no global maxT P < .05"
-  ) +
-  ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0.05, 0.34))) +
-  ggplot2::coord_cartesian(clip = "off") +
-  ggplot2::theme(
-    plot.title = ggplot2::element_text(size = 8.2),
-    plot.margin = ggplot2::margin(7, 24, 7, 7)
-  )
-figure_4 <- (tag_panel(fig4a, "a") | tag_panel(fig4b, "b")) /
-  (tag_panel(fig4c, "c") | tag_panel(fig4d, "d"))
+source("scripts/render_jbi_figure4_continuous_isolation.R")
 
 # Overwrite the adapter previews with the final journal-width files and refresh
 # their SHA-256 manifest. Numerical and source locks written by the adapter
@@ -301,7 +234,7 @@ figure_rows <- list(
   ),
   save_figure(
     figure_4,
-    "Figure_4_calibrated_local_departures",
+    "Figure_4_continuous_colour_isolation_human_context",
     4,
     7.4,
     7.35
@@ -313,7 +246,7 @@ figure_manifest$narrative_job <- rep(
     "reveal pigmentation state and intensity as distinct colour layers",
     "locate broad environmental and unresolved geographic structure",
     "localize focal-Bombus correspondence to short-range state boundaries",
-    "calibrate natural departures before contemporary provenance follow-up"
+    "test pigmented isolation against natural geography and sampling density"
   ),
   each = 2
 )

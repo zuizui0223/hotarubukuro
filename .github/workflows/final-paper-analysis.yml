@@ -8,30 +8,40 @@ on:
       - .github/workflows/final-paper-analysis.yml
       - paper/**
       - submission/jbi/**
-      - reproducibility/final_integrated_pipeline_2026-08-12.md
-      - reproducibility/current_broad_human_primary_2026-08-12.md
+      - config/paper_pipeline.lock.json
+      - validation/**
+      - reproducibility/FINAL_RESULTS_2026-08-19.md
   pull_request:
     branches: [main]
     paths:
       - .github/workflows/final-paper-analysis.yml
       - paper/**
       - submission/jbi/**
-      - reproducibility/final_integrated_pipeline_2026-08-12.md
-      - reproducibility/current_broad_human_primary_2026-08-12.md
+      - config/paper_pipeline.lock.json
+      - validation/**
+      - reproducibility/FINAL_RESULTS_2026-08-19.md
 
 permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: final-integrated-paper-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   BROAD_ARTIFACT_ID: "9022276431"
   BROAD_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  SUPPORTED_DISTANCE_ARTIFACT_ID: "9350975649"
+  SUPPORTED_DISTANCE_ARTIFACT_SHA256: "4d5a1d28b8313cc0fb6c85484d21c6d94535ac7cc0881e83dc7ed02678854f03"
   LOCAL_BOMBUS_ARTIFACT_ID: "9023416810"
   LOCAL_BOMBUS_ARTIFACT_SHA256: "3f7ac07ea90e2b732441a9f80a38ea49871014722d008769370524b947007e34"
   BOMB_FINAL8_AUDIT_ARTIFACT_ID: "9119773035"
   BOMB_FINAL8_AUDIT_SHA256: "51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f"
-  HUMAN_CURRENT_BROAD_ARTIFACT_ID: "9119306089"
-  HUMAN_CURRENT_BROAD_ARTIFACT_SHA256: "f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4"
+  EVENT_HUMAN_ARTIFACT_ID: "9119306089"
+  EVENT_HUMAN_ARTIFACT_SHA256: "f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4"
+  CONTINUOUS_ISOLATION_ARTIFACT_ID: "9317087893"
+  CONTINUOUS_ISOLATION_ARTIFACT_SHA256: "6fd26d9a938b68d3f0c56512cd1620597c740d44ba91ab5a7ccbb9daa99d5386"
 
 jobs:
   validate-integrated-current:
@@ -40,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Restore checksum-locked current evidence
+      - name: Restore checksum-locked accepted evidence
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
@@ -55,132 +65,137 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" \
               -o "$zip"
-            [[ "$(sha256sum "$zip" | awk '{print $1}')" == "$expected" ]]
+            test "$(sha256sum "$zip" | awk '{print $1}')" = "$expected"
             unzip -q "$zip" -d "$out"
           }
           restore "$BROAD_ARTIFACT_ID" "$BROAD_ARTIFACT_SHA256" /tmp/broad.zip evidence/broad
+          restore "$SUPPORTED_DISTANCE_ARTIFACT_ID" "$SUPPORTED_DISTANCE_ARTIFACT_SHA256" /tmp/supported.zip evidence/supported
           restore "$LOCAL_BOMBUS_ARTIFACT_ID" "$LOCAL_BOMBUS_ARTIFACT_SHA256" /tmp/bombus.zip evidence/bombus
           restore "$BOMB_FINAL8_AUDIT_ARTIFACT_ID" "$BOMB_FINAL8_AUDIT_SHA256" /tmp/bomb-final8.zip evidence/bombus-final8
-          restore "$HUMAN_CURRENT_BROAD_ARTIFACT_ID" "$HUMAN_CURRENT_BROAD_ARTIFACT_SHA256" /tmp/human.zip evidence/human
+          restore "$EVENT_HUMAN_ARTIFACT_ID" "$EVENT_HUMAN_ARTIFACT_SHA256" /tmp/event.zip evidence/event
+          restore "$CONTINUOUS_ISOLATION_ARTIFACT_ID" "$CONTINUOUS_ISOLATION_ARTIFACT_SHA256" /tmp/continuous.zip evidence/continuous
 
-      - name: Validate current numerical hierarchy
+      - name: Validate final numerical hierarchy
         shell: bash
         run: |
           set -euo pipefail
           cells=$(find evidence/broad -type f -name multiscale_hotspot_cells_1km.csv | head -n 1)
+          supported=$(find evidence/supported -type f -name primary_supported_term_distance_test.csv | head -n 1)
           sharp=$(find evidence/bombus -type f -name sharp_transition_summary.csv | head -n 1)
           env_audit=$(find evidence/bombus-final8 -type f -name bombus_pair_environment_distance_audit.csv | head -n 1)
-          decision=$(find evidence/human -type f -name current_broad_primary_decision.csv | head -n 1)
-          null=$(find evidence/human -type f -name current_broad_primary_candidate_null.csv | head -n 1)
-          maxt=$(find evidence/human -type f -name current_broad_primary_human_maxT.csv | head -n 1)
-          for p in "$cells" "$sharp" "$env_audit" "$decision" "$null" "$maxt"; do
+          decision=$(find evidence/event -type f -name current_broad_primary_decision.csv | head -n 1)
+          event_null=$(find evidence/event -type f -name current_broad_primary_candidate_null.csv | head -n 1)
+          event_maxt=$(find evidence/event -type f -name current_broad_primary_human_maxT.csv | head -n 1)
+          continuous_validation=$(find evidence/continuous -type f -name continuous_isolation_validation.json | head -n 1)
+          continuous_null=$(find evidence/continuous -type f -name continuous_isolation_natural_null_summary.csv | head -n 1)
+          for p in "$cells" "$supported" "$sharp" "$env_audit" "$decision" "$event_null" "$event_maxt" "$continuous_validation" "$continuous_null"; do
             test -n "$p" && test -s "$p"
           done
 
-          python3 - "$cells" "$sharp" "$env_audit" "$decision" "$null" "$maxt" <<'PY'
-          import csv, sys
-          cells, sharp, env_audit, decision, null, maxt = sys.argv[1:]
+          python3 - "$cells" "$supported" "$sharp" "$env_audit" "$decision" "$event_null" "$event_maxt" "$continuous_validation" "$continuous_null" <<'PY'
+          import csv, json, sys
+          cells, supported, sharp, env_audit, decision, event_null, event_maxt, continuous_validation, continuous_null = sys.argv[1:]
 
           def rows(path):
-              with open(path, encoding="utf-8") as handle:
+              with open(path, encoding='utf-8') as handle:
                   return list(csv.DictReader(handle))
 
           assert len(rows(cells)) == 1305
 
-          focal = [r for r in rows(sharp) if str(r.get("focal_strict_local_test", "")).lower() in ("true", "t", "1")]
+          broad = {r['response']: r for r in rows(supported)}
+          expected = {
+              'pigmentation_state': (0.1006083013, 0.0484749808, 0.0521333205, 0.0099800399),
+              'conditional_intensity': (0.0474158738, 0.0208968600, 0.0265190138, 0.2634730539),
+          }
+          assert set(broad) == set(expected)
+          for response, target in expected.items():
+              r = broad[response]
+              actual = tuple(float(r[k]) for k in (
+                  'observed_contrast', 'space_null_median',
+                  'phenotype_excess_over_space_null', 'posterior_predictive_p_upper'
+              ))
+              assert int(float(r['n_fold_geo_strata'])) == 25
+              assert all(abs(a-b) <= 5e-7 for a, b in zip(actual, target)), (response, actual)
+
+          focal = [r for r in rows(sharp) if str(r.get('focal_strict_local_test', '')).lower() in ('true','t','1')]
           assert len(focal) == 1
           r = focal[0]
-          assert int(float(r["radius_km"])) == 5
-          assert int(float(r["n_nonoverlapping_pairs"])) == 67
-          assert abs(float(r["mean_signed_bombus_difference"]) - 0.03590) < 5e-5
-          assert abs(float(r["median_signed_bombus_difference"]) - (-0.00277)) < 5e-5
-          assert abs(float(r["proportion_positive"]) - 0.493) < 5e-3
-          assert abs(float(r["signflip_one_sided_p"]) - 0.02716) < 5e-5
+          assert int(float(r['radius_km'])) == 5
+          assert int(float(r['n_nonoverlapping_pairs'])) == 67
+          assert abs(float(r['mean_signed_bombus_difference']) - 0.03590) < 5e-5
+          assert abs(float(r['median_signed_bombus_difference']) + 0.00277) < 5e-5
+          assert abs(float(r['proportion_positive']) - 0.493) < 5e-3
+          assert abs(float(r['signflip_one_sided_p']) - 0.02716) < 5e-5
 
-          audit = [r for r in rows(env_audit) if abs(float(r["radius_km"]) - 5) < 1e-9 and abs(float(r["transition_threshold"]) - 1) < 1e-9]
+          audit = [r for r in rows(env_audit) if abs(float(r['radius_km'])-5) < 1e-9 and abs(float(r['transition_threshold'])-1) < 1e-9]
           assert len(audit) == 1
-          assert int(float(audit[0]["n_nonoverlapping_pairs"])) == 67
-          assert float(audit[0]["median_selected_final8"]) < float(audit[0]["median_all_local_edges_final8"])
+          assert float(audit[0]['median_selected_final8']) < float(audit[0]['median_all_local_edges_final8'])
 
-          decision_rows = rows(decision)
-          assert len(decision_rows) == 1
-          d = decision_rows[0]
-          assert int(float(d["candidate_count"])) == 16
-          assert d["best_population_scale"] == "population_5km_rank"
-          assert abs(float(d["best_population_contrast"]) - 0.06744) < 5e-5
-          assert abs(float(d["best_population_global_FWER"]) - 0.05479) < 5e-5
+          with open(continuous_validation, encoding='utf-8') as handle:
+              validation = json.load(handle)
+          assert validation['status'] == 'PASS'
+          assert validation['n_cells'] == 1305
+          assert validation['n_pigmented_cells'] == 674
+          assert validation['n_white_cells'] == 631
+          assert validation['n_natural_maps'] == 10000
+          observed = validation['observed']
+          assert abs(observed['raw_population_5km']['pigmented_rho'] - 0.2519799369493) < 1e-10
+          assert abs(observed['relative_population_5km']['pigmented_rho'] - 0.2854975365071) < 1e-10
 
-          n = {r["metric"]: r for r in rows(null)}
-          assert abs(float(n["candidate_count"]["observed_value"]) - 16) < 1e-9
-          assert abs(float(n["candidate_count"]["null_mean"]) - 13.5908) < 5e-4
-          assert abs(float(n["candidate_count"]["empirical_p"]) - 0.27897) < 5e-5
-          assert abs(float(n["candidate_fraction"]["empirical_p"]) - 0.12609) < 5e-5
+          cn = rows(continuous_null)
+          lookup = {(r['metric'], r['feature'], r['component'], r['null_mode']): r for r in cn}
+          for metric, observed_value, null_mean, p in (
+              ('raw_same_colour_nn', 0.2519799369493, 0.132979942281226, 0.0001999800019998),
+              ('relative_same_to_any_nn', 0.285497536507115, 0.153615552893768, 0.0008999100089991),
+          ):
+              r = lookup[(metric, 'population_5km_rank', 'pigmented_rho', 'all_nondegenerate_maps')]
+              assert abs(float(r['observed_value']) - observed_value) < 1e-10
+              assert abs(float(r['null_mean']) - null_mean) < 1e-10
+              assert abs(float(r['empirical_p']) - p) < 1e-12
 
-          h = {r["feature"]: r for r in rows(maxt)}
-          p5 = h["population_5km_rank"]
-          assert abs(float(p5["observed_focal_minus_white_neighbour"]) - 0.06744) < 5e-5
-          assert abs(float(p5["directional_or_two_sided_p"]) - 0.00800) < 5e-5
-          assert abs(float(p5["maxT_FWER_p"]) - 0.05479) < 5e-5
+          d = rows(decision)
+          assert len(d) == 1 and int(float(d[0]['candidate_count'])) == 16
+          assert abs(float(d[0]['best_population_global_FWER']) - 0.05479) < 5e-5
+          n = {r['metric']: r for r in rows(event_null)}
+          assert abs(float(n['candidate_count']['empirical_p']) - 0.27897) < 5e-5
+          assert abs(float(n['candidate_fraction']['empirical_p']) - 0.12609) < 5e-5
+          h = {r['feature']: r for r in rows(event_maxt)}
+          assert abs(float(h['population_5km_rank']['observed_focal_minus_white_neighbour']) - 0.06744) < 5e-5
           PY
 
-      - name: Validate manuscript and Supporting Information alignment
+      - name: Validate canonical manuscript and repository contracts
         shell: bash
         run: |
           set -euo pipefail
           python submission/jbi/validate_jbi_submission.py
-          grep -q '1,922' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q '67 sharp transitions' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -Eq 'Sixteen (local departures|pigmented cells)' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q '0.0548' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -Eq 'finalized eight-axis|same eight measured abiotic axes|eight-axis' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
-          grep -q '67' submission/jbi/supporting/Appendix_S5_local_pollinator_robustness.md
-          grep -q '16' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
-          grep -q 'final_integrated_pipeline_2026-08-12' paper/analysis-map.md
+          python validation/validate_jbi_repository_alignment.py
+          test -s reproducibility/FINAL_RESULTS_2026-08-19.md
+          grep -q 'P=0.00998' reproducibility/FINAL_RESULTS_2026-08-19.md
+          grep -q 'P=0.26347' reproducibility/FINAL_RESULTS_2026-08-19.md
+          grep -q 'rho=0.251980' reproducibility/FINAL_RESULTS_2026-08-19.md
+          grep -q 'P=0.000900' reproducibility/FINAL_RESULTS_2026-08-19.md
 
-      - name: Reject superseded current-interface claims
-        shell: bash
-        run: |
-          set -euo pipefail
-          for path in \
-            reproducibility/final_paper_pipeline_2026-08-09.md \
-            reproducibility/current_broad_anomaly_reference_2026-08-09.md \
-            reproducibility/human_context_final_audit_results_2026-08-11.md \
-            analysis_sensitivity/run_human_context_highrep_final.R \
-            analysis_sensitivity/run_human_context_current_broad_primary.R \
-            .github/workflows/reanalysis-current-inputs.yml \
-            scripts/run_downstream_current_inputs.sh \
-            inputs/canonical_snapshot.json; do
-            test ! -e "$path"
-          done
-
-          # Historical four-PC/17-candidate sensitivity prose is legitimate
-          # provenance. Search only manuscript-facing prose (not this workflow)
-          # and reject explicit statements that promote 17 candidates as current.
-          ! grep -R -n --exclude-dir=legacy --exclude-dir=.git \
-            -E '17 fixed local-departure|Observed candidates: 17|current primary has 17 candidates|current-Broad primary has 17 candidates|primary set contains 17 candidates' \
-            paper submission/jbi reproducibility
-
-      - name: Write current stage manifest
+      - name: Write final validation manifest
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p results/final_integrated_pipeline
-          cp reproducibility/final_integrated_pipeline_2026-08-12.md results/final_integrated_pipeline/
+          cp reproducibility/FINAL_RESULTS_2026-08-19.md results/final_integrated_pipeline/
           cp paper/active-file-map.csv results/final_integrated_pipeline/
           cat > results/final_integrated_pipeline/workflow_provenance.txt <<EOF
           workflow=final-paper-analysis
           run=${GITHUB_RUN_ID}
           commit=${GITHUB_SHA}
           broad_artifact=${BROAD_ARTIFACT_ID}
+          supported_distance_artifact=${SUPPORTED_DISTANCE_ARTIFACT_ID}
           local_bombus_artifact=${LOCAL_BOMBUS_ARTIFACT_ID}
-          bombus_final8_audit_artifact=${BOMB_FINAL8_AUDIT_ARTIFACT_ID}
-          human_current_broad_artifact=${HUMAN_CURRENT_BROAD_ARTIFACT_ID}
+          continuous_isolation_artifact=${CONTINUOUS_ISOLATION_ARTIFACT_ID}
+          event_human_artifact=${EVENT_HUMAN_ARTIFACT_ID}
           EOF
 
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: final-integrated-paper-${{ github.sha }}-${{ github.run_id }}
           path: results/final_integrated_pipeline
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 90

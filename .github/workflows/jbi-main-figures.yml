@@ -9,10 +9,12 @@ on:
       - scripts/build_jbi_figure_bundle_final_broad.R
       - scripts/render_jbi_main_figures.R
       - scripts/render_jbi_main_figures_final_broad.R
+      - scripts/render_jbi_figure4_continuous_isolation.R
       - validation/validate_jbi_figure_bundle.R
       - validation/validate_jbi_figure_bundle_final_broad.R
       - reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv
       - reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv
+      - reproducibility/continuous_colour_isolation_human_context_result_2026-08-18.md
       - submission/jbi/JBI_main_figure_captions.md
       - submission/jbi/figures/**
       - paper/active-file-map.csv
@@ -26,10 +28,12 @@ on:
       - scripts/build_jbi_figure_bundle_final_broad.R
       - scripts/render_jbi_main_figures.R
       - scripts/render_jbi_main_figures_final_broad.R
+      - scripts/render_jbi_figure4_continuous_isolation.R
       - validation/validate_jbi_figure_bundle.R
       - validation/validate_jbi_figure_bundle_final_broad.R
       - reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv
       - reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv
+      - reproducibility/continuous_colour_isolation_human_context_result_2026-08-18.md
       - submission/jbi/JBI_main_figure_captions.md
       - submission/jbi/figures/**
       - paper/active-file-map.csv
@@ -49,6 +53,8 @@ env:
   BOMB_FINAL8_AUDIT_SHA256: "51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f"
   HUMAN_CURRENT_BROAD_ARTIFACT_ID: "9119306089"
   HUMAN_CURRENT_BROAD_ARTIFACT_SHA256: "f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4"
+  CONTINUOUS_ISOLATION_ARTIFACT_ID: "9317087893"
+  CONTINUOUS_ISOLATION_ARTIFACT_SHA256: "6fd26d9a938b68d3f0c56512cd1620597c740d44ba91ab5a7ccbb9daa99d5386"
   HOTARUBUKURO_R_SEED: "20260725"
   OMP_NUM_THREADS: "1"
   OPENBLAS_NUM_THREADS: "1"
@@ -133,27 +139,42 @@ jobs:
           test -s results/ecological_v18_bombus_local_sharp_transition/sharp_transition_summary.csv
           test -s results/ecological_v18_bombus_local_sharp_transition/sharp_transition_nonoverlapping_pairs.csv
 
-      - name: Restore final8 Bombus balance audit and current-Broad human evidence
+      - name: Restore final8 Bombus, event-human and continuous-isolation evidence
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p results/bombus_final8_environment_audit results/human_context_current_broad
+          mkdir -p \
+            results/bombus_final8_environment_audit \
+            results/human_context_current_broad \
+            results/continuous_colour_isolation_human_context
+
           curl --fail --location --retry 5 --retry-all-errors \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BOMB_FINAL8_AUDIT_ARTIFACT_ID}/zip" -o /tmp/bomb-final8.zip
           [[ "$(sha256sum /tmp/bomb-final8.zip | awk '{print $1}')" == "$BOMB_FINAL8_AUDIT_SHA256" ]]
           unzip -q -o /tmp/bomb-final8.zip -d results/bombus_final8_environment_audit
+
           curl --fail --location --retry 5 --retry-all-errors \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${HUMAN_CURRENT_BROAD_ARTIFACT_ID}/zip" -o /tmp/human-current.zip
           [[ "$(sha256sum /tmp/human-current.zip | awk '{print $1}')" == "$HUMAN_CURRENT_BROAD_ARTIFACT_SHA256" ]]
           unzip -q -o /tmp/human-current.zip -d results/human_context_current_broad
+
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CONTINUOUS_ISOLATION_ARTIFACT_ID}/zip" -o /tmp/continuous-isolation.zip
+          [[ "$(sha256sum /tmp/continuous-isolation.zip | awk '{print $1}')" == "$CONTINUOUS_ISOLATION_ARTIFACT_SHA256" ]]
+          unzip -q -o /tmp/continuous-isolation.zip -d results/continuous_colour_isolation_human_context
+
           test -s results/bombus_final8_environment_audit/bombus_pair_environment_distance_audit.csv
           test -s results/human_context_current_broad/current_broad_primary_candidate_membership.csv
           test -s results/human_context_current_broad/current_broad_primary_candidate_null.csv
           test -s results/human_context_current_broad/current_broad_primary_human_maxT.csv
+          test -s results/continuous_colour_isolation_human_context/continuous_isolation_cell_metrics.csv
+          test -s results/continuous_colour_isolation_human_context/continuous_isolation_natural_null_summary.csv
+          test -s results/continuous_colour_isolation_human_context/continuous_isolation_validation.json
 
       - name: Build the four current JBI figures
         shell: bash
@@ -186,6 +207,8 @@ jobs:
           bombus_final8_audit_sha256=${BOMB_FINAL8_AUDIT_SHA256}
           current_broad_human_artifact_id=${HUMAN_CURRENT_BROAD_ARTIFACT_ID}
           current_broad_human_artifact_sha256=${HUMAN_CURRENT_BROAD_ARTIFACT_SHA256}
+          continuous_isolation_artifact_id=${CONTINUOUS_ISOLATION_ARTIFACT_ID}
+          continuous_isolation_artifact_sha256=${CONTINUOUS_ISOLATION_ARTIFACT_SHA256}
           EOF
 
       - name: Upload JBI main-figure bundle
@@ -200,6 +223,7 @@ jobs:
             submission/jbi/figures/README.md
             reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv
             reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv
+            reproducibility/continuous_colour_isolation_human_context_result_2026-08-18.md
             reproducibility/jbi-figure-environment
           if-no-files-found: error
           compression-level: 6

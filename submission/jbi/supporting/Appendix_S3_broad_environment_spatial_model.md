@@ -12,8 +12,8 @@ The Broad stage contains measured environment and continuous space only. Bombus 
 Three modelling layers remain conceptually distinct but are explicitly aligned where the paper requires them to connect.
 
 - The **observation-level INLA-SPDE models** estimate broad environmental associations, response-specific interactions and residual spatial covariance.
-- The **cross-fitted space-only divergence sensitivity** asks whether environmental difference orders held-out phenotype divergence beyond an intercept + Matérn SPDE continuity expectation at comparable geographical separation. It uses a separate frozen six-score broad/within environmental representation and does not reinterpret the spatial field as genetic drift.
-- The **1-km-cell cross-fitted pigmentation-state reference** generates natural predictive maps for Main 3. Its environmental basis is the same finalized eight measured abiotic axes used by the Broad state analysis, and the resulting event detector yields 16 observed local-departure candidates.
+- The **fixed-null supported-term distance check** reuses already fixed held-out pairs and 500 cached intercept + Matérn SPDE predictive maps. It asks whether distance along the environmental terms supported by each final model orders phenotype divergence beyond spatial continuity without refitting the environment or spatial model.
+- The **1-km-cell cross-fitted pigmentation-state reference** generates 10,000 natural maps used by the continuous-isolation and supplementary event analyses. Its environmental basis is the same finalized eight measured abiotic axes used by the Broad state analysis.
 
 The image response is a reproducible display-referred CIELAB phenotype. Neither pigmentation state nor conditional a* intensity is interpreted as a direct assay of anthocyanin concentration, anthocyanin identity, vacuolar pH, spectral reflectance, ultraviolet contrast, petal temperature or Bombus colour contrast.
 
@@ -170,51 +170,47 @@ For conditional intensity, using the retained thermal interaction, removing East
 
 The ranges are descriptive residual spatial scales, not seed or pollen dispersal distances. Historical allozyme work documenting mainland–Izu differentiation, regional mating-system differences and progressive island colonization makes unresolved biogeographic structure biologically plausible, but the present spatial field may also contain unmeasured environment and sampling geography and is not assigned to a single mechanism.
 
-## Cross-fitted space-only phenotype-divergence sensitivity
+## Supported environmental-term distance versus fixed spatial continuity
 
-This supporting analysis asks a different question from coefficient estimation: at comparable geographical separation, are environmentally dissimilar held-out locations more phenotypically different than a model based on spatial continuity alone predicts?
+This supporting analysis connects the final observation-level coefficients to a stronger pairwise question: at comparable geographical separation, are locations that differ more along the environmental terms supported by the final response-specific model also more phenotypically different than the already fitted space-only expectation predicts?
 
-The analysis reused the frozen 1-km cell table and five geographical folds. Its separate response-blind environmental representation contained six multiscale scores: broad and within-neighbourhood PC1s for climate, aridity and topography. This basis is retained as an orthogonal multiscale sensitivity and does not replace the final eight-axis observation-level coefficient model.
+No environment or spatial model was refitted. The analysis reused the frozen 1-km cell table, the fixed response-specific held-out pair identities, five geographical-distance strata in each of five folds, and exactly 500 cached posterior-predictive maps from the cross-fitted `intercept + Matérn SPDE` null.
 
-For each response and held-out fold, an `intercept + Matérn SPDE` model was fitted to the other four folds. Five hundred posterior-predictive phenotype realizations were generated for locations in the omitted fold. Held-out location pairs were divided into five equal-count geographical-distance strata; within every stratum, phenotype divergence among the upper environmental-distance quartile was contrasted with divergence among the lower quartile. The primary statistic was the mean high-minus-low contrast across the resulting 25 fold-by-distance strata. Environmental scaling was estimated from each training partition only, and every tested pair lay wholly inside a fold omitted from its spatial-null fit.
+Environmental distance was response specific and scaled on the relevant training folds:
 
-**Table S3.5. Phenotype divergence beyond the cross-fitted space-only expectation.** The null interval is the central 95% interval from 500 posterior-predictive realizations; P is the predefined directional upper-tail probability.
+- **pigmentation state:** absolute difference in Temperature PC1, the only final measured environmental term whose 95% CrI excluded zero;
+- **conditional intensity:** Euclidean distance across precipitation PC1, temperature seasonality, topography PC1 and the standardized Temperature PC1 × temperature-seasonality product.
 
-| Response | Observed high-env − low-env divergence | Space-null median | Central 95% null | Excess over null median | One-sided P |
-|---|---:|---:|---:|---:|---:|
-| Pigmentation state | **0.106802** | 0.058240 | 0.018098 to 0.108066 | **+0.048562** | **0.03393** |
-| Conditional visible intensity | -0.047179 | -0.001287 | -0.075026 to 0.087732 | -0.045891 | 0.87226 |
+No posterior coefficient was used as a distance weight. The test is unsigned; ecological direction comes from Table S3.2–S3.3. Within every fold-by-geographical-distance stratum, phenotype divergence among the upper environmental-distance quartile was contrasted with the lower quartile and compared with the identical statistic from each cached space-only map.
 
-Pigmentation-state divergence therefore increased with environmental difference beyond the fitted continuous-spatial expectation, whereas conditional intensity did not. The observed state statistic lies below the 97.5th percentile of the central interval but above the 95th percentile used by the predefined one-sided 5% test.
+**Table S3.5. Supported-term phenotype divergence beyond fixed spatial continuity.** P is the predefined one-sided upper-tail posterior-predictive probability.
 
-This is an FST/PST-inspired analogy only. The space-only field is unresolved geographical continuity and can combine unmeasured environment, population history, dispersal, sampling geometry and other spatial processes. The excess establishes environmental alignment beyond that fitted expectation; it is not FST, PST or QST and does not demonstrate drift, selection, local adaptation or a unique causal environmental mechanism.
+| Response | Supported environmental distance | Observed high − low divergence | Space-only median | Excess | One-sided P |
+|---|---|---:|---:|---:|---:|
+| Pigmentation state | Temperature PC1 | **0.100608** | **0.048475** | **+0.052133** | **0.00998** |
+| Conditional visible intensity | precipitation + temperature seasonality + topography + Temperature × seasonality | 0.047416 | 0.020897 | +0.026519 | 0.26347 |
 
-## Current 1-km natural reference passed to Main 3
+State excess was positive in all five geographical folds and 19 of 25 fold-by-distance strata. Intensity excess was positive in 13 of 25 strata and only two of five fold means. The supported-term result is therefore response specific: the directional cool-climate state association is corroborated by held-out state divergence beyond fixed spatial continuity, whereas the combined supported conditional-intensity gradients do not produce that stronger signature.
 
-The downstream predictive layer is distinct from the observation-level coefficient model but is deliberately aligned with the finalized pigmentation-state environment.
+This remains model-informed corroboration rather than independent variable discovery. The spatial null represents unresolved geography. A positive excess does not distinguish plasticity, selection, population differentiation or omitted environmental processes and does not demonstrate local adaptation.
 
-The primary 1-km model uses:
+## Natural predictive maps passed to the human-context analyses
 
-- binomial pigmentation counts for the 1,305 environment-complete cells;
-- the same eight measured abiotic axes listed in Table S3.1;
-- five response-blind approximately 100-km geographical folds;
-- a cross-fitted SPDE natural reference; and
-- **10,000 checksum-locked predictive maps** under the frozen analysis geometry.
+The downstream natural reference is distinct from the observation-level coefficient model but aligned with its finalized pigmentation-state environment. It uses binomial pigmentation counts for all 1,305 environment-complete cells, the same eight measured abiotic axes, five approximately 100-km geographical folds, a cross-fitted SPDE and 10,000 checksum-locked predictive maps under the observed cell geometry and trial counts.
 
-Main 3 defines environmental similarity using root-mean-square Euclidean distance across those same eight standardized axes, with radius 10 km, RMS caliper <=1 and at least three eligible neighbours. East/West is not an abiotic matching dimension; it remains a structural geographical adjustment. Human variables do not enter the natural model, matching graph, candidate selection or ranking.
-
-Under this definition, the observed data contain **16** local pigmented departures. Replaying the identical event detector over 10,000 natural maps gives a null mean candidate count of 13.5908 (95% interval 7–21; Monte Carlo P=0.27897) and a candidate-fraction upper-tail P=0.12609. Full event and post-selection human results are reported in Appendix S6.
+The Main human-context analysis recomputes same-colour nearest-neighbour geometry on every map and compares pigmented isolation-population relationships with their natural expectation. Appendix S6 also retains a stricter event detector—a pigmented cell among at least three environmentally similar white neighbours within 10 km—as supplementary calibration and a reproducible field-target selector. Sixteen observed event cells are compatible with the natural-map count and fraction distributions and are not interpreted as nature-resistant or anthropogenic anomalies.
 
 ## Ecological interpretation and claim ceiling
 
 The final Broad result is response specific.
 
-- **Pigmentation state:** the clearest measured environmental signal is a broad cool-climate association; no interaction passed the complete promotion rule.
-- **Conditional intensity:** the temperature association is context dependent, becoming more negative with increasing thermal seasonality; wetter/moister climate and greater terrain relief are associated with weaker visible intensity after spatial adjustment.
-- **Residual geography:** substantial continuous regional structure remains and may combine unmeasured environment, population history, dispersal and sampling geography.
-- **Spatial-null sensitivity:** pigmentation-state divergence, but not conditional intensity, shows environmental alignment beyond cross-fitted spatial continuity; this is not genetic differentiation or evidence of selection.
+- **Pigmentation state:** Temperature PC1 is the clearest measured environmental association, with greater pigmentation toward the cooler end. Distance along that same supported term orders held-out state divergence beyond fixed spatial continuity.
+- **Conditional intensity:** moisture, temperature seasonality, terrain and the thermal interaction describe directional conditional geography, but their joint distance does not exceed the fixed space-only expectation.
+- **Residual geography:** substantial continuous structure remains at different ranges and may combine unmeasured environment, population history, dispersal and sampling geometry.
 
-The model does not show that long-term climate directly caused the colour of an individual photographed flower, does not infer genetic adaptation from spatial association, and does not turn an environment-derived Bombus SDM into an independent national causal predictor. Those limits motivate the separate local Bombus design in Appendix S5 and the natural-map/post-selection human design in Appendix S6.
+The combined state evidence is consistent with environmental regulation and environment-aligned differentiation, but it does not distinguish plasticity from inherited differentiation, estimate fitness or demonstrate adaptation. Conditional intensity is observed only after pigmentation is present and can be affected by selection into that subset. The SPDE field and distance test do not identify a genetic mechanism, and neither result demonstrates selection or local adaptation.
+
+The Broad model also does not turn an environment-derived Bombus SDM into an independent national causal predictor. Those limits motivate the separate local boundary design in Appendix S5 and the natural-map human-context design in Appendix S6.
 
 ## Remaining biological gaps
 
@@ -222,20 +218,24 @@ The current Broad model does not resolve petal anthocyanin chemistry, flower-lev
 
 ## Reproducibility resources
 
-Current Broad evidence is locked in:
+Current observation-level Broad evidence is locked in:
 
 - `reproducibility/broad_environment_spatial_final_model_2026-08-11.md`;
 - `reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv`;
 - `reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv`;
 - `reproducibility/environment_interaction_inla_screen_spec_2026-08-11.md`;
-- `reproducibility/broad_environment_spatial_audit_spec_2026-08-11.md`;
-- `reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv`;
-- `docs/broad_spatial_inertia_environment_tracking.md`;
-- `scripts/fit_broad_space_null_phenotype_excess.R`;
-- `scripts/run_broad_space_null_phenotype_excess_pipeline.R`.
+- `reproducibility/broad_environment_spatial_audit_spec_2026-08-11.md`.
 
-The integrated downstream handoff is locked in:
+The final supported-term distance check is locked in:
 
-- `reproducibility/final_integrated_pipeline_2026-08-12.md`;
-- `reproducibility/current_broad_human_primary_2026-08-12.md`;
-- Appendix S6.
+- `scripts/fit_broad_supported_term_distance_space_null.R`;
+- `.github/workflows/broad-supported-term-distance-space-null.yml`;
+- `reproducibility/broad_supported_term_distance_space_null_2026-08-19.md`;
+- workflow `32211506278`;
+- artifact `9350975649`, SHA-256 `4d5a1d28b8313cc0fb6c85484d21c6d94535ac7cc0881e83dc7ed02678854f03`.
+
+The integrated downstream handoff is documented in:
+
+- `reproducibility/final_analysis_pipeline_integration_2026-08-19.md`;
+- `reproducibility/continuous_colour_isolation_human_context_result_2026-08-18.md`;
+- Appendices S5–S6.

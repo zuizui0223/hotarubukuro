@@ -28,7 +28,9 @@ PATTERN_ALIASES = {
         r"does not identify human origin|"
         r"human context leaves a provenance clue, not an origin answer|"
         r"does not assign horticultural origin|"
-        r"does not establish an additional anthropogenic process)"
+        r"does not establish an additional anthropogenic process|"
+        r"does not establish horticultural origin|"
+        r"not as .*proof of horticultural origin)"
     ),
     r"0\.279": r"(?:0\.27897|0\.279)",
 }
@@ -78,6 +80,7 @@ def validate_active_map(root: Path) -> dict[str, Any]:
         "submission/jbi/JBI_main_manuscript_anonymized.md",
         "submission/jbi/validate_jbi_submission.py",
         "validation/validate_jbi_repository_alignment.py",
+        "reproducibility/FINAL_RESULTS_2026-08-19.md",
         "pyproject.toml",
     }
     require(
@@ -157,9 +160,9 @@ def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
     manuscript = (root / "submission/jbi/JBI_main_manuscript_anonymized.md").read_text(
         encoding="utf-8"
     )
-    broad_sensitivity = (root / "docs/broad_spatial_inertia_environment_tracking.md").read_text(
-        encoding="utf-8"
-    )
+    broad_support = (
+        root / "submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md"
+    ).read_text(encoding="utf-8")
     claim_ceiling_patterns = {
         "Bombus availability is not direct pollination evidence": (
             r"(?:not evidence of pollinator-mediated selection|"
@@ -168,15 +171,18 @@ def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
             r"habitat opportunity rather than realized selection|"
             r"represent predicted habitat support, not abundance, visitation or pollen transfer)"
         ),
-        "local departures are not proof of human origin": (
+        "human-context overlay is not proof of human origin": (
             r"(?:not enough to claim human origin|"
             r"does not identify human origin|"
             r"human context leaves a provenance clue, not an origin answer|"
             r"does not assign horticultural origin|"
-            r"does not establish an additional anthropogenic process)"
+            r"does not establish an additional anthropogenic process|"
+            r"does not establish horticultural origin|"
+            r"not as .*proof of horticultural origin)"
         ),
         "high-elevation overlap is not an independent mechanism": (
-            r"(?:disappeared after controlling elevation|"
+            r"(?:a visually stronger national pattern can disappear when shared elevation is controlled|"
+            r"disappeared after controlling elevation|"
             r"disappeared after elevation was matched|"
             r"relationship vanished when local endpoints were constrained to similar elevation|"
             r"contrast vanished when nearby white and pigmented endpoints were constrained to similar elevation|"
@@ -190,12 +196,12 @@ def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
         )
     require(
         re.search(
-            r"does not by itself.*(?:selection|local adaptation)",
-            broad_sensitivity,
+            r"(?:does not distinguish.*selection|does not demonstrate local adaptation|does not.*selection.*local adaptation)",
+            broad_support,
             flags=re.IGNORECASE,
         )
         is not None,
-        "Broad spatial-null sensitivity lost its non-causal claim ceiling",
+        "Supported environmental-distance analysis lost its non-causal claim ceiling",
     )
 
     active_map = validate_active_map(root)
@@ -207,12 +213,11 @@ def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
         "artifact_checks": artifact_checks,
         "active_file_map": active_map,
         "claim_ceilings": sorted(claim_ceiling_patterns)
-        + ["Broad spatial-null excess is not proof of selection or adaptation"],
+        + ["Supported environmental-distance excess is not proof of selection or adaptation"],
         "provenance_boundary": lock["provenance_boundary"],
         "durability_warning": (
-            "The evidence is checksum locked but currently referenced through retention-bound "
-            "GitHub Actions artifacts. A release or external archival deposit is still required "
-            "for long-term reproducibility."
+            "Accepted evidence is checksum locked. Historical GitHub Actions artifact IDs are "
+            "retained as provenance; long-term archival mirroring remains desirable."
         ),
     }
 

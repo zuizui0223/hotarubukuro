@@ -103,3 +103,4 @@ The manuscript must preserve the distinction between directional associations, m
 
 The final supported-term fixed-space result is restored from GitHub Actions artifact `9350975649`, SHA-256 `4d5a1d28b8313cc0fb6c85484d21c6d94535ac7cc0881e83dc7ed02678854f03`. The artifact ZIP preserves its repository-relative `results/broad_supported_term_distance_space_null/` paths, so the canonical paper pipeline merges it at repository root rather than nesting the output directory a second time.
 
+The PR #62 CI fixes change only artifact restoration and validation contracts; they do not change any accepted scientific estimate, comparison, or interpretation above.

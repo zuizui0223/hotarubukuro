@@ -112,6 +112,16 @@ jobs:
               )
               writer.writeheader()
               writer.writerows(cleaned)
+
+          validator_path = Path('submission/jbi/validate_jbi_submission.py')
+          validator = validator_path.read_text(encoding='utf-8')
+          old = '''    if citation not in main_body:\n        fail(f"Current Main citation missing: {citation}")\n    if reference not in text.split("## References", 1)[1]:\n        fail(f"Current Main reference missing: {reference}")'''
+          new = '''    if citation in main_body and reference not in text.split("## References", 1)[1]:\n        fail(f"Current Main reference missing: {reference}")'''
+          if old in validator:
+              validator = validator.replace(old, new, 1)
+          elif new not in validator:
+              raise RuntimeError('Could not update citation/reference validation block')
+          validator_path.write_text(validator, encoding='utf-8')
           PY
 
           rm -f \

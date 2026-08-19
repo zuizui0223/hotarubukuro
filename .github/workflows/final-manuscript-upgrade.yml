@@ -110,6 +110,22 @@ jobs:
               encoding='utf-8',
           )
 
+          analysis_map_path = Path('paper/analysis-map.md')
+          analysis_map = analysis_map_path.read_text(encoding='utf-8')
+          marker = '## Accepted artifact locks'
+          if marker in analysis_map:
+              analysis_map = analysis_map.split(marker, 1)[0].rstrip() + '\n\n'
+          analysis_map += '''## Accepted artifact locks
+
+- Broad baseline: artifact `9022276431`; SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
+- Supported environmental-term distance: artifact `9350975649`; SHA-256 `4d5a1d28b8313cc0fb6c85484d21c6d94535ac7cc0881e83dc7ed02678854f03`.
+- Local Bombus boundary result: artifact `9023416810`; SHA-256 `3f7ac07ea90e2b732441a9f80a38ea49871014722d008769370524b947007e34`.
+- Bombus final-eight environmental audit: artifact `9119773035`; SHA-256 `51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f`.
+- Supplementary event/human-context result: artifact `9119306089`; SHA-256 `f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4`.
+- Continuous colour isolation: artifact `9317087893`; SHA-256 `6fd26d9a938b68d3f0c56512cd1620597c740d44ba91ab5a7ccbb9daa99d5386`.
+'''
+          analysis_map_path.write_text(analysis_map, encoding='utf-8')
+
           def words(text: str) -> list[str]:
               return re.findall(r"\b[\wÀ-ž*'’-]+\b", text)
 

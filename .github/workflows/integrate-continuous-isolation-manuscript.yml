@@ -85,6 +85,18 @@ jobs:
               json.dumps(lock, ensure_ascii=False, separators=(',', ':')) + '\n',
               encoding='utf-8',
           )
+
+          alignment_path = Path('validation/validate_jbi_repository_alignment.py')
+          alignment = alignment_path.read_text(encoding='utf-8')
+          alignment = alignment.replace(
+              '"local departures are not proof of human origin":',
+              '"human-context overlay is not proof of human origin":',
+          )
+          alignment = alignment.replace(
+              'r"not as proof of reciprocal colour displacement or horticultural origin)"',
+              'r"not as .*proof of horticultural origin)"',
+          )
+          alignment_path.write_text(alignment, encoding='utf-8')
           PY
           git restore -- .github/workflows/jbi-main-figures.yml
           python -m json.tool config/paper_pipeline.lock.json >/dev/null

@@ -124,6 +124,18 @@ if body_n > 6000:
 
 assert_anonymous("anonymized manuscript", text)
 
+for relative in (
+    "submission/jbi/JBI_main_manuscript_anonymized.md",
+    "submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md",
+    "submission/jbi/JBI_background_architecture.md",
+    "submission/jbi/JBI_main_figure_plan.md",
+    "paper/README.md",
+    "paper/analysis-map.md",
+):
+    active_text = (REPO_ROOT / relative).read_text(encoding="utf-8")
+    if re.search(r"(?<![A-Za-z0-9])(?:F[_–—-]?ST|P[_–—-]?ST|Q[_–—-]?ST)(?![A-Za-z0-9])", active_text, flags=re.IGNORECASE):
+        fail(f"Active paper still contains a genetic-differentiation analogy: {relative}")
+
 require_tokens(
     "JBI species and software style",
     main_body,
@@ -182,6 +194,21 @@ for appendix in SUPPORTING:
     if not appendix_lines or not appendix_lines[0].startswith("# Appendix S"):
         fail(f"Supporting Information file lacks an Appendix S title: {appendix.name}")
     assert_anonymous(f"Supporting Information {appendix.name}", appendix_text)
+
+
+s1 = appendix_texts["Appendix_S1_yamap_public_benchmark.md"]
+require_tokens(
+    "Appendix S1 pooled taxonomic scope",
+    s1,
+    (
+        "ホタルブクロ",
+        "ヤマホタルブクロ",
+        "diagnostic morphological distinction is concentrated in the calyx",
+        "unpublished genetic data",
+        "no clear genetic differentiation",
+        "not a formal taxonomic revision",
+    ),
+)
 
 s6 = appendix_texts["Appendix_S6_event_departures_human_context.md"]
 require_tokens("Appendix S6", s6, ("674 pigmented", "0.251980", "0.000200", "0.285498", "0.000900", "**16**", "0.27897", "0.05479"))

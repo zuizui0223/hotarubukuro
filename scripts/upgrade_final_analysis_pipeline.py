@@ -373,7 +373,7 @@ The final Broad result is response specific.
 - **Conditional intensity:** moisture, temperature seasonality, terrain and the thermal interaction describe directional conditional geography, but their joint distance does not exceed the fixed space-only expectation.
 - **Residual geography:** substantial continuous structure remains at different ranges and may combine unmeasured environment, population history, dispersal and sampling geometry.
 
-The combined state evidence is consistent with environmental regulation and environment-aligned differentiation, but it does not distinguish plasticity from inherited differentiation, estimate fitness or demonstrate adaptation. Conditional intensity is observed only after pigmentation is present and can be affected by selection into that subset. Neither the SPDE field nor the distance test is FST, PST or QST, and no result supports `selection > drift` language.
+The combined state evidence is consistent with environmental regulation and environment-aligned differentiation, but it does not distinguish plasticity from inherited differentiation, estimate fitness or demonstrate adaptation. Conditional intensity is observed only after pigmentation is present and can be affected by selection into that subset. The SPDE field and distance test do not identify a genetic mechanism, and neither result demonstrates selection or local adaptation.
 
 The Broad model also does not turn an environment-derived Bombus SDM into an independent national causal predictor. Those limits motivate the separate local boundary design in Appendix S5 and the natural-map human-context design in Appendix S6.""",
     )

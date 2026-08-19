@@ -187,7 +187,7 @@ For each response and held-out fold, an `intercept + Matérn SPDE` model was fit
 
 Pigmentation-state divergence therefore increased with environmental difference beyond the fitted continuous-spatial expectation, whereas conditional intensity did not. The observed state statistic lies below the 97.5th percentile of the central interval but above the 95th percentile used by the predefined one-sided 5% test.
 
-This is an FST/PST-inspired analogy only. The space-only field is unresolved geographical continuity and can combine unmeasured environment, population history, dispersal, sampling geometry and other spatial processes. The excess establishes environmental alignment beyond that fitted expectation; it is not FST, PST or QST and does not demonstrate drift, selection, local adaptation or a unique causal environmental mechanism.
+This is an spatial-continuity analogy only. The space-only field is unresolved geographical continuity and can combine unmeasured environment, population history, dispersal, sampling geometry and other spatial processes.The comparison asks whether environmental separation orders phenotype divergence beyond fitted spatial continuity; it does not identify the underlying mechanism or demonstrate selection or local adaptation.
 
 ## Current 1-km natural reference passed to Main 3
 

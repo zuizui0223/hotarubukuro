@@ -9,6 +9,12 @@ on:
       - .github/workflows/final-manuscript-freeze.yml
       - scripts/upgrade_final_analysis_pipeline.py
       - scripts/demote_event_analysis_to_supplement.py
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/final-manuscript-freeze.yml
+      - scripts/upgrade_final_analysis_pipeline.py
+      - scripts/demote_event_analysis_to_supplement.py
 
 permissions:
   contents: write

@@ -1,0 +1,157 @@
+name: Freeze final JBI source state
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/continuous-colour-isolation-human-context
+    paths:
+      - .github/workflows/final-manuscript-freeze.yml
+      - scripts/upgrade_final_analysis_pipeline.py
+      - scripts/demote_event_analysis_to_supplement.py
+
+permissions:
+  contents: write
+
+jobs:
+  freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: agent/continuous-colour-isolation-human-context
+
+      - name: Build and validate final sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/demote_event_analysis_to_supplement.py
+
+          python3 - <<'PY'
+          from pathlib import Path
+          main_path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
+          main = main_path.read_text(encoding='utf-8')
+          for final, source in (
+              ('### 3.3 Local boundaries revealed heterogeneous Bombus correspondence',
+               '### 3.3 Local boundaries revealed a short-range Bombus signal'),
+              ('### 4.2 Temperature organizes the state transition more strongly than conditional intensity',
+               '### 4.2 Broad modelling resolved environmental structure and exposed a second spatial layer'),
+              ('### 4.3 Boundary heterogeneity is the pollinator result',
+               '### 4.3 Local boundaries reveal where pollinator opportunity may matter'),
+          ):
+              main = main.replace(final, source)
+          main_path.write_text(main, encoding='utf-8')
+
+          s3_path = Path('submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md')
+          s3 = s3_path.read_text(encoding='utf-8')
+          s3 = s3.replace('## Supported environmental-term distance versus fixed spatial continuity',
+                          '## Cross-fitted space-only phenotype-divergence sensitivity')
+          s3 = s3.replace('## Natural predictive maps passed to the human-context analyses',
+                          '## Current 1-km natural reference passed to Main 3')
+          s3_path.write_text(s3, encoding='utf-8')
+          PY
+
+          python scripts/upgrade_final_analysis_pipeline.py
+
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          main_path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
+          main = main_path.read_text(encoding='utf-8')
+          main = main.replace(
+              'Analyses used R 4.5.3 and INLA 25.10.19 (Rue et al., 2009).',
+              "Analyses were run in R 4.5.3 (R Core Team, 2026); latent Gaussian and SPDE models used the 'INLA' package version 25.10.19 (Rue et al., 2009).",
+          )
+          main = main.replace(
+              'The 5-km design produced 67 sharp pure white-pigmented transitions',
+              'The 5-km design produced 67 sharp transitions between pure white and pigmented cells',
+          )
+          main = main.replace('the 5/10/25-km family gave q=0.08148', 'the 5/10/25-km family gave q=0.0815')
+          main = main.replace(
+              'SDM support remains habitat opportunity, not realized visitation or selection.',
+              'SDM support remains habitat opportunity, not realized visitation or selection. This correspondence is not evidence of pollinator-mediated selection.',
+          )
+          ceiling = 'This analysis does not establish horticultural origin.'
+          if ceiling not in main:
+              marker = '### 4.5 A spatially varying balance can maintain flower-colour polymorphism'
+              if marker not in main:
+                  raise RuntimeError('missing synthesis heading')
+              main = main.replace(marker, ceiling + '\n\n' + marker, 1)
+          main_path.write_text(main, encoding='utf-8')
+
+          map_path = Path('paper/active-file-map.csv')
+          map_path.write_bytes(map_path.read_bytes().replace(b'\r\n', b'\n'))
+
+          lock_path = Path('config/paper_pipeline.lock.json')
+          lock = json.loads(lock_path.read_text(encoding='utf-8'))
+          lock['alignment']['checks'] = [
+              check for check in lock['alignment']['checks']
+              if 'cross-fitted Broad sensitivity' not in check.get('label', '')
+          ]
+          lock_path.write_text(json.dumps(lock, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+
+          analysis_map_path = Path('paper/analysis-map.md')
+          analysis_map = analysis_map_path.read_text(encoding='utf-8')
+          marker = '## Accepted artifact locks'
+          if marker in analysis_map:
+              analysis_map = analysis_map.split(marker, 1)[0].rstrip() + '\n\n'
+          analysis_map += '''## Accepted artifact locks
+
+- Broad baseline: artifact `9022276431`; SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
+- Supported environmental-term distance: artifact `9350975649`; SHA-256 `4d5a1d28b8313cc0fb6c85484d21c6d94535ac7cc0881e83dc7ed02678854f03`.
+- Local Bombus boundary result: artifact `9023416810`; SHA-256 `3f7ac07ea90e2b732441a9f80a38ea49871014722d008769370524b947007e34`.
+- Bombus final-eight environmental audit: artifact `9119773035`; SHA-256 `51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f`.
+- Supplementary event/human-context result: artifact `9119306089`; SHA-256 `f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4`.
+- Continuous colour isolation: artifact `9317087893`; SHA-256 `6fd26d9a938b68d3f0c56512cd1620597c740d44ba91ab5a7ccbb9daa99d5386`.
+'''
+          analysis_map_path.write_text(analysis_map, encoding='utf-8')
+
+          def words(text: str) -> list[str]:
+              return re.findall(r"\b[\wÀ-ž*'’-]+\b", text)
+          abstract = main.split('## Abstract', 1)[1].split('**Keywords:**', 1)[0]
+          body = main.split('## 1. Introduction', 1)[1].split('## Acknowledgements', 1)[0]
+          abstract_n, body_n = len(words(abstract)), len(words(body))
+
+          checklist_path = Path('submission/jbi/JBI_submission_checklist.md')
+          checklist = checklist_path.read_text(encoding='utf-8')
+          checklist = re.sub(r'Current Introduction-through-Discussion count = \*\*[\d,]+ words\*\* by repository validator\.',
+                             f'Current Introduction-through-Discussion count = **{body_n:,} words** by repository validator.', checklist)
+          checklist = re.sub(r'Current abstract = \*\*\d+ words\*\* by repository validator\.',
+                             f'Current abstract = **{abstract_n} words** by repository validator.', checklist)
+          checklist_path.write_text(checklist, encoding='utf-8')
+
+          validator_path = Path('submission/jbi/validate_jbi_submission.py')
+          validator = validator_path.read_text(encoding='utf-8')
+          if '"0.100608"' not in validator:
+              validator = validator.replace('        "3.81 times",\n',
+                  '        "3.81 times",\n        "0.100608",\n        "0.00998",\n        "0.26347",\n', 1)
+          validator_path.write_text(validator, encoding='utf-8')
+          print(f'final source counts: abstract={abstract_n}; Main={body_n}')
+          PY
+
+          git restore -- .github/workflows/jbi-main-figures.yml
+          python -m py_compile scripts/upgrade_final_analysis_pipeline.py
+          python -m json.tool config/paper_pipeline.lock.json >/dev/null
+          git diff --check
+          python validation/validate_jbi_repository_alignment.py
+          python submission/jbi/validate_jbi_submission.py
+
+      - name: Commit final source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'final source state already frozen'
+            exit 0
+          fi
+          git commit -m 'Freeze JBI manuscript on the final analysis pipeline'
+          git fetch origin agent/continuous-colour-isolation-human-context
+          git rebase origin/agent/continuous-colour-isolation-human-context
+          git push origin HEAD:agent/continuous-colour-isolation-human-context

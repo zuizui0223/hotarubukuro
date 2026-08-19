@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Remove genetic-analogy wording from the active paper and lock taxon pooling.
+"""Use direct spatial-continuity language and lock pooled taxon scope.
 
 The active analysis asks whether supported environmental separation orders
-phenotype divergence beyond fitted spatial continuity. It is described directly,
-without an FST/PST analogy. Appendix S1 treats hotarubukuro and
-Yamahotarubukuro as one C. punctata sensu-lato analytical unit.
+phenotype divergence beyond fitted spatial continuity. Appendix S1 treats
+hotarubukuro and yamahotarubukuro as one C. punctata sensu-lato analytical
+unit without presenting that choice as a formal taxonomic revision.
 """
 
 from __future__ import annotations
@@ -28,9 +28,17 @@ S1 = ROOT / "submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md"
 UPGRADE = ROOT / "scripts/upgrade_final_analysis_pipeline.py"
 VALIDATOR = ROOT / "submission/jbi/validate_jbi_submission.py"
 
-GENETIC_ANALOGY = re.compile(
-    r"(?<![A-Za-z0-9])(?:F[_–—-]?ST|P[_–—-]?ST|Q[_–—-]?ST)(?![A-Za-z0-9])",
+TOKEN_PATTERN = r"(?<![A-Za-z0-9])(?:F[_–—-]?ST|P[_–—-]?ST|Q[_–—-]?ST)(?![A-Za-z0-9])"
+GENETIC_ANALOGY = re.compile(TOKEN_PATTERN, flags=re.IGNORECASE)
+GENETIC_SENTENCE = re.compile(
+    rf"[^.!?\n]*{TOKEN_PATTERN}[^.!?\n]*[.!?]",
     flags=re.IGNORECASE,
+)
+
+NEUTRAL_SENTENCE = (
+    "The comparison asks whether environmental separation orders phenotype "
+    "divergence beyond fitted spatial continuity; it does not identify the "
+    "underlying mechanism or demonstrate selection or local adaptation."
 )
 
 
@@ -40,7 +48,7 @@ def write_if_changed(path: Path, text: str) -> None:
         path.write_text(text, encoding="utf-8")
 
 
-def neutralize(text: str) -> str:
+def neutralize(text: str, *, remove_all_tokens: bool) -> str:
     replacements = {
         "This FST/PST-inspired comparison is explicitly non-genetic: the spatial field is an empirical continuity expectation rather than drift, and any excess is environmental alignment rather than proof of selection or local adaptation":
             "This comparison asks only whether environmental separation orders phenotype divergence beyond fitted spatial continuity; it does not identify the underlying mechanism or demonstrate selection or local adaptation",
@@ -56,30 +64,48 @@ def neutralize(text: str) -> str:
     for old, new in replacements.items():
         text = text.replace(old, new)
 
-    # Older Main versions contain the full analogy sentence as one paragraph.
     text = re.sub(
         r"This\s+(?:FST/PST|FST–PST|FST-PST)-inspired comparison.*?\(Appendix S3\)\.",
-        (
-            "This comparison asks whether environmental separation orders "
-            "phenotype divergence beyond fitted spatial continuity; it does not "
-            "identify the underlying mechanism or demonstrate selection or local "
-            "adaptation (Appendix S3)."
-        ),
+        NEUTRAL_SENTENCE[:-1] + " (Appendix S3).",
         text,
         flags=re.DOTALL,
     )
-    return text
+
+    if not remove_all_tokens:
+        return text
+
+    # Any residual variant in an active paper file is removed at sentence level.
+    text = GENETIC_SENTENCE.sub(NEUTRAL_SENTENCE, text)
+
+    # Handle headings, bullets, table cells or fragments without terminal punctuation.
+    normalized: list[str] = []
+    for line in text.splitlines(keepends=True):
+        if not GENETIC_ANALOGY.search(line):
+            normalized.append(line)
+            continue
+        ending = "\n" if line.endswith("\n") else ""
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            normalized.append("## Spatial-continuity comparison" + ending)
+        elif stripped.startswith("-"):
+            normalized.append("- " + NEUTRAL_SENTENCE + ending)
+        else:
+            normalized.append(NEUTRAL_SENTENCE + ending)
+    return "".join(normalized)
 
 
 def update_active_files() -> None:
     for path in ACTIVE_FILES:
         if path.is_file():
-            write_if_changed(path, neutralize(path.read_text(encoding="utf-8")))
+            write_if_changed(
+                path,
+                neutralize(path.read_text(encoding="utf-8"), remove_all_tokens=True),
+            )
 
 
 def update_generator() -> None:
     text = UPGRADE.read_text(encoding="utf-8")
-    text = neutralize(text)
+    text = neutralize(text, remove_all_tokens=False)
     write_if_changed(UPGRADE, text)
 
 

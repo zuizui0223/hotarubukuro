@@ -67,6 +67,14 @@ jobs:
           text = re.sub(r'\n{3,}', '\n\n', text)
           translated.write_text(text, encoding='utf-8')
 
+          main_path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
+          main = main_path.read_text(encoding='utf-8')
+          main = main.replace(
+              'Five leave-one-geographical-fold-out estimates assessed regional stability.',
+              'Five leave-one-geographical-fold-out estimates assessed regional stability (Roberts et al., 2017; Valavi et al., 2019).',
+          )
+          main_path.write_text(main, encoding='utf-8')
+
           lock_path = Path('config/paper_pipeline.lock.json')
           lock = json.loads(lock_path.read_text(encoding='utf-8'))
           for check in lock['alignment']['checks']:

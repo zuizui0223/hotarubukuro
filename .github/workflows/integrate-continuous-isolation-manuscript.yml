@@ -1,4 +1,4 @@
-name: Integrate final analyses into JBI manuscript
+name: Finalize PR57 repository state
 
 on:
   workflow_dispatch:
@@ -6,272 +6,138 @@ on:
     branches:
       - agent/continuous-colour-isolation-human-context
     paths:
-      - scripts/integrate_continuous_isolation_manuscript.py
-      - scripts/demote_event_analysis_to_supplement.py
-      - scripts/upgrade_final_analysis_pipeline.py
-      - .github/workflows/integrate-continuous-isolation-manuscript.yml
-  pull_request:
-    branches: [main]
-    paths:
-      - scripts/integrate_continuous_isolation_manuscript.py
-      - scripts/demote_event_analysis_to_supplement.py
-      - scripts/upgrade_final_analysis_pipeline.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
 
 permissions:
   contents: write
 
-concurrency:
-  group: final-analysis-paper-integration
-  cancel-in-progress: true
-
 jobs:
-  integrate:
+  finalize:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: agent/continuous-colour-isolation-human-context
 
-      - name: Apply continuous-isolation and final-analysis integration
+      - name: Remove superseded active contracts and transition machinery
         shell: bash
         run: |
           set -euo pipefail
 
-          if grep -q '^### 1.4 From broad geography to local boundaries and calibrated departures$' \
-            submission/jbi/JBI_main_manuscript_anonymized.md; then
-            python scripts/integrate_continuous_isolation_manuscript.py
-          else
-            echo "continuous-isolation manuscript prose already integrated"
-          fi
-
-          # The accepted continuous contract is already committed and validated.
-          # The old transition generator expects a superseded validator shape, so
-          # final integration starts from the committed contract instead of
-          # reconstructing it from legacy manuscript text.
-          python scripts/demote_event_analysis_to_supplement.py
-
           python3 - <<'PY'
+          import csv
           import json
-          import re
           from pathlib import Path
-
-          map_path = Path('paper/active-file-map.csv')
-          map_path.write_bytes(map_path.read_bytes().replace(b'\r\n', b'\n'))
-
-          translated = Path('submission/jbi/JBI_translated_abstract_ja.md')
-          text = translated.read_text(encoding='utf-8')
-          text = text.replace('有色セルでは、', '674個の有色セルでは、')
-          for heading in (
-              '**調査地域：**', '**対象分類群：**', '**方法：**',
-              '**結果：**', '**主な結論：**',
-          ):
-              text = text.replace('\n' + heading, '\n\n' + heading)
-          translated.write_text(re.sub(r'\n{3,}', '\n\n', text), encoding='utf-8')
-
-          main_path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
-          main = main_path.read_text(encoding='utf-8')
-          main = main.replace(
-              'Five leave-one-geographical-fold-out estimates assessed regional stability.',
-              'Five leave-one-geographical-fold-out estimates assessed regional stability (Roberts et al., 2017; Valavi et al., 2019).',
-          )
-          # Normalise final headings back to deterministic upgrade inputs so that
-          # repeated workflow execution is idempotent.
-          main = main.replace(
-              '### 3.3 Local boundaries revealed heterogeneous Bombus correspondence',
-              '### 3.3 Local boundaries revealed a short-range Bombus signal',
-          )
-          main = main.replace(
-              '### 4.2 Temperature organizes the state transition more strongly than conditional intensity',
-              '### 4.2 Broad modelling resolved environmental structure and exposed a second spatial layer',
-          )
-          main = main.replace(
-              '### 4.3 Boundary heterogeneity is the pollinator result',
-              '### 4.3 Local boundaries reveal where pollinator opportunity may matter',
-          )
-          main_path.write_text(main, encoding='utf-8')
-
-          s3_path = Path('submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md')
-          s3 = s3_path.read_text(encoding='utf-8')
-          s3 = s3.replace(
-              '## Supported environmental-term distance versus fixed spatial continuity',
-              '## Cross-fitted space-only phenotype-divergence sensitivity',
-          )
-          s3 = s3.replace(
-              '## Natural predictive maps passed to the human-context analyses',
-              '## Current 1-km natural reference passed to Main 3',
-          )
-          s3_path.write_text(s3, encoding='utf-8')
 
           lock_path = Path('config/paper_pipeline.lock.json')
           lock = json.loads(lock_path.read_text(encoding='utf-8'))
+
+          obsolete_required = {
+              'docs/broad_spatial_inertia_environment_tracking.md',
+              'scripts/fit_broad_space_null_phenotype_excess.R',
+              'scripts/run_broad_space_null_phenotype_excess_pipeline.R',
+              '.github/workflows/broad-spatial-inertia-environment-tracking.yml',
+              'scripts/upgrade_final_analysis_pipeline.py',
+              'scripts/register_continuous_isolation_paper_contract.py',
+              'scripts/run_continuous_isolation_paper_contract.py',
+              'scripts/integrate_continuous_isolation_manuscript.py',
+              'scripts/demote_event_analysis_to_supplement.py',
+              'scripts/normalize_active_paper_language_and_taxon.py',
+          }
+          lock['alignment']['required_files'] = [
+              path for path in lock['alignment']['required_files']
+              if path not in obsolete_required
+          ]
+          lock['stages'].pop('run_broad_space_null_excess', None)
+
+          checks = []
           for check in lock['alignment']['checks']:
-              if check.get('label') != 'continuous colour-isolation human context':
+              label = check.get('label', '')
+              if 'cross-fitted Broad sensitivity' in label:
                   continue
-              check['patterns'] = [
-                  (
-                      r'(?:not as .*proof.*horticultural origin|'
-                      r'does not establish.*horticultural origin)'
-                      if 'horticultural origin' in pattern
-                      else pattern
-                  )
-                  for pattern in check['patterns']
-              ]
+              if label == 'single execution front door':
+                  check['patterns'] = [
+                      'python run_pipeline\\.py audit',
+                      'python run_pipeline\\.py reproduce',
+                      'checksum-locked',
+                      'restore_broad_supported_term_distance',
+                  ]
+              checks.append(check)
+          lock['alignment']['checks'] = checks
           lock_path.write_text(
               json.dumps(lock, ensure_ascii=False, separators=(',', ':')) + '\n',
               encoding='utf-8',
           )
 
-          alignment_path = Path('validation/validate_jbi_repository_alignment.py')
-          alignment = alignment_path.read_text(encoding='utf-8')
-          alignment = alignment.replace(
-              '"local departures are not proof of human origin":',
-              '"human-context overlay is not proof of human origin":',
-          )
-          alignment = alignment.replace(
-              'r"not as proof of reciprocal colour displacement or horticultural origin)"',
-              'r"not as .*proof of horticultural origin)"',
-          )
-          alignment_path.write_text(alignment, encoding='utf-8')
+          map_path = Path('paper/active-file-map.csv')
+          with map_path.open(newline='', encoding='utf-8') as handle:
+              rows = list(csv.DictReader(handle))
 
-          validator_path = Path('submission/jbi/validate_jbi_submission.py')
-          validator = validator_path.read_text(encoding='utf-8')
-          validator = validator.replace(
-              '        \'tag_panel(fig4a, "a")\',',
-              '        \'source("scripts/render_jbi_figure4_continuous_isolation.R")\',',
-          )
-          validator_path.write_text(validator, encoding='utf-8')
-          PY
+          remove_paths = obsolete_required | {
+              'R/broad_spatial_inertia_environment_tracking.R',
+              'scripts/fit_broad_spatial_inertia_environment_tracking.R',
+              'scripts/run_broad_spatial_inertia_environment_tracking.R',
+              'reproducibility/final_integrated_pipeline_2026-08-12.md',
+          }
+          supplementary_event = {
+              'analysis_sensitivity/run_human_context_current_broad_primary_fast.R',
+              'R/candidate_null_tools.R',
+              'R/local_pigmented_isolates.R',
+              'R/local_human_context.R',
+              'R/human_landscape_features.R',
+              'R/natural_predictive_model.R',
+              '.github/workflows/human-context-highrep-final.yml',
+              'reproducibility/current_broad_human_primary_2026-08-12.md',
+          }
 
-          python scripts/upgrade_final_analysis_pipeline.py
+          cleaned = []
+          for row in rows:
+              if row['path'] in remove_paths:
+                  continue
+              if row['path'] in supplementary_event:
+                  row['section'] = 'Supplementary_event'
+              cleaned.append(row)
 
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-
-          def words(text: str) -> list[str]:
-              return re.findall(r"\b[\wÀ-ž*'’-]+\b", text)
-
-          main_path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
-          main = main_path.read_text(encoding='utf-8')
-          main = main.replace(
-              'Analyses used R 4.5.3 and INLA 25.10.19 (Rue et al., 2009).',
-              "Analyses were run in R 4.5.3 (R Core Team, 2026); latent Gaussian and SPDE models used the 'INLA' package version 25.10.19 (Rue et al., 2009).",
-          )
-          main = main.replace(
-              'The 5-km design produced 67 sharp pure white-pigmented transitions',
-              'The 5-km design produced 67 sharp transitions between pure white and pigmented cells',
-          )
-          main_path.write_text(main, encoding='utf-8')
-
-          abstract = main.split('## Abstract', 1)[1].split('**Keywords:**', 1)[0]
-          body = main.split('## 1. Introduction', 1)[1].split('## Acknowledgements', 1)[0]
-          abstract_n = len(words(abstract))
-          body_n = len(words(body))
-
-          checklist_path = Path('submission/jbi/JBI_submission_checklist.md')
-          checklist = checklist_path.read_text(encoding='utf-8')
-          checklist = re.sub(
-              r'Current Introduction-through-Discussion count = \*\*[\d,]+ words\*\* by repository validator\.',
-              f'Current Introduction-through-Discussion count = **{body_n:,} words** by repository validator.',
-              checklist,
-          )
-          checklist = re.sub(
-              r'Current abstract = \*\*\d+ words\*\* by repository validator\.',
-              f'Current abstract = **{abstract_n} words** by repository validator.',
-              checklist,
-          )
-          checklist_path.write_text(checklist, encoding='utf-8')
-
-          validator_path = Path('submission/jbi/validate_jbi_submission.py')
-          validator = validator_path.read_text(encoding='utf-8')
-          if '"0.100608"' not in validator:
-              validator = validator.replace(
-                  '        "3.81 times",\n',
-                  '        "3.81 times",\n        "0.100608",\n        "0.00998",\n        "0.26347",\n',
-                  1,
+          with map_path.open('w', newline='', encoding='utf-8') as handle:
+              writer = csv.DictWriter(
+                  handle,
+                  fieldnames=['role', 'section', 'path', 'status'],
+                  lineterminator='\n',
               )
-          validator_path.write_text(validator, encoding='utf-8')
-          print(f'synchronised final counts: abstract={abstract_n}, Main={body_n}')
+              writer.writeheader()
+              writer.writerows(cleaned)
           PY
 
-          # The contract generator can inspect this workflow but must not rewrite
-          # a workflow file from inside its own run.
-          git restore -- .github/workflows/jbi-main-figures.yml
+          rm -f \
+            .gitattributes \
+            .github/workflows/final-manuscript-freeze.yml \
+            .github/workflows/final-manuscript-upgrade.yml \
+            .github/workflows/integrate-continuous-isolation-manuscript.yml \
+            .github/workflows/normalize-active-paper-language.yml \
+            .github/workflows/sync-final-manuscript-and-figures.yml \
+            scripts/demote_event_analysis_to_supplement.py \
+            scripts/integrate_continuous_isolation_manuscript.py \
+            scripts/normalize_active_paper_language_and_taxon.py \
+            scripts/register_continuous_isolation_paper_contract.py \
+            scripts/run_continuous_isolation_paper_contract.py \
+            scripts/upgrade_final_analysis_pipeline.py
 
-          python -m py_compile scripts/upgrade_final_analysis_pipeline.py
+          find . -type d -name __pycache__ -prune -exec rm -rf {} +
           python -m json.tool config/paper_pipeline.lock.json >/dev/null
           git diff --check
-
-          grep -q '0.100608' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q 'P=0.00998' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q 'P=0.26347' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q '67 sharp transitions' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q "R 4.5.3 (R Core Team, 2026)" submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q "'INLA' package version 25.10.19" submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q 'rho=0.252' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q 'P=0.0009' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q '0.100608' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
-          grep -q 'accepted_broad_supported_term_distance' config/paper_pipeline.lock.json
-          grep -q 'restore_broad_supported_term_distance' config/paper_pipeline.lock.json
-          grep -q 'continuous_pigmented_cells' validation/validate_jbi_figure_bundle.R
-          grep -q '\*\*16\*\*' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
-
-          ! grep -q '0.106802' submission/jbi/JBI_main_manuscript_anonymized.md
-          ! grep -q '0.03393' submission/jbi/JBI_main_manuscript_anonymized.md
-          ! grep -q '^### 3.5 Predictive replay retained extreme populations as field targets$' submission/jbi/JBI_main_manuscript_anonymized.md
-          ! grep -q '^### 4.5 Event calibration defines targets without turning them into causes$' submission/jbi/JBI_main_manuscript_anonymized.md
-          ! grep -q '16 event-defined' submission/jbi/JBI_main_figure_captions.md
-
-          python validation/validate_jbi_repository_alignment.py
           python submission/jbi/validate_jbi_submission.py
+          python validation/validate_jbi_repository_alignment.py
 
-      - name: Commit generated final manuscript and paper contract
+      - name: Commit cleaned final state
         shell: bash
         run: |
           set -euo pipefail
-          branch=agent/continuous-colour-isolation-human-context
-          paths=(
-            config/paper_pipeline.lock.json
-            paper/README.md
-            paper/analysis-map.md
-            paper/active-file-map.csv
-            validation/validate_jbi_repository_alignment.py
-            validation/validate_jbi_figure_bundle.R
-            submission/jbi/JBI_main_manuscript_anonymized.md
-            submission/jbi/JBI_translated_abstract_ja.md
-            submission/jbi/JBI_main_figure_captions.md
-            submission/jbi/JBI_main_figure_plan.md
-            submission/jbi/JBI_background_architecture.md
-            submission/jbi/JBI_cover_letter.md
-            submission/jbi/JBI_submission_checklist.md
-            submission/jbi/validate_jbi_submission.py
-            submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
-            submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
-            reproducibility/continuous_colour_isolation_manuscript_integration_2026-08-18.md
-            reproducibility/final_analysis_pipeline_integration_2026-08-19.md
-            scripts/render_jbi_main_figures.R
-          )
-          if git diff --quiet -- "${paths[@]}"; then
-            echo "final analysis manuscript integration already current"
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "${paths[@]}"
-          git commit -m "Align JBI manuscript with final analysis pipeline"
-
-          for attempt in 1 2 3 4 5; do
-            echo "push attempt ${attempt}/5"
-            git fetch origin "$branch"
-            git rebase "origin/$branch"
-            if git push origin "HEAD:$branch"; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "failed to publish final paper contract after five rebased attempts" >&2
-          exit 1
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Finalize analysis-aligned JBI paper and remove transition machinery'
+          git fetch origin agent/continuous-colour-isolation-human-context
+          git rebase origin/agent/continuous-colour-isolation-human-context
+          git push origin HEAD:agent/continuous-colour-isolation-human-context

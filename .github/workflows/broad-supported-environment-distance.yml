@@ -1,0 +1,206 @@
+name: Broad supported environmental distance
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/broad-supported-environment-distance-clean
+    paths:
+      - .github/workflows/broad-supported-environment-distance.yml
+      - scripts/fit_broad_supported_environment_distance.R
+      - reproducibility/broad_supported_environment_distance_2026-08-19.md
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/broad-supported-environment-distance.yml
+      - scripts/fit_broad_supported_environment_distance.R
+      - reproducibility/broad_supported_environment_distance_2026-08-19.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: broad-supported-environment-distance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GOTO_NUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  INLA_NUM_THREADS: "1"
+  OMP_DYNAMIC: "FALSE"
+  REFERENCE_ARTIFACT_ID: "9022276431"
+  REFERENCE_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  POSTERIOR_SAMPLES: "500"
+  ANALYSIS_SEED: "20260725"
+  MAX_PAIRS_PER_FOLD: "15000"
+  GEO_BINS: "5"
+
+jobs:
+  fit:
+    name: Supported environmental distance versus space-only expectation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs \
+            sudo apt-get install --yes --no-install-recommends
+
+      - name: Restore R package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: broad-supported-distance-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-${{ hashFiles('dependencies/r-packages.csv', 'dependencies/cran-snapshot.txt', 'dependencies/inla.csv') }}
+          restore-keys: |
+            broad-excess-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+            current-paper-r-${{ runner.os }}-${{ steps.rversion.outputs.version }}-
+
+      - name: Restore declared R analysis environment
+        run: >-
+          Rscript scripts/setup_r_environment.R
+          --report-dir reproducibility/broad_supported_environment_distance_environment
+          --scopes analysis,reproducibility
+
+      - name: Restore checksum-locked Broad evidence
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf reference-artifact /tmp/broad-reference.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REFERENCE_ARTIFACT_ID}/zip" \
+            -o /tmp/broad-reference.zip
+          actual="$(sha256sum /tmp/broad-reference.zip | awk '{print $1}')"
+          test "$actual" = "$REFERENCE_ARTIFACT_SHA256"
+          mkdir -p reference-artifact
+          unzip -q /tmp/broad-reference.zip -d reference-artifact
+          observations=reference-artifact/results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv
+          cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          test -s "$observations"
+          test -s "$cells"
+          echo "reference_zip_sha256=${actual}" > reference-artifact/reference_lock.txt
+
+      - name: Run the two supported-distance tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/fit_broad_supported_environment_distance.R \
+            --observations=reference-artifact/results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+            --cells=reference-artifact/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+            --output=results/broad_supported_environment_distance \
+            --samples=${POSTERIOR_SAMPLES} \
+            --seed=${ANALYSIS_SEED} \
+            --max-pairs-per-fold=${MAX_PAIRS_PER_FOLD} \
+            --geo-bins=${GEO_BINS}
+
+      - name: Validate output contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=results/broad_supported_environment_distance
+          for file in \
+            primary_supported_environment_distance_test.csv \
+            matched_distance_stratum_contrasts.csv \
+            heldout_pair_supported_environment_distance.csv \
+            heldout_space_null_predictions.csv \
+            space_null_global_contrast_draws.csv \
+            supported_environment_terms.csv \
+            analysis_metadata.csv \
+            RESULT_SUMMARY.md; do
+            test -s "$out/$file"
+          done
+
+          python3 - "$out" <<'PY'
+          import csv, math, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          def rows(name):
+              with (root / name).open(newline='', encoding='utf-8') as handle:
+                  return list(csv.DictReader(handle))
+          primary = rows('primary_supported_environment_distance_test.csv')
+          assert len(primary) == 2
+          assert {r['response'] for r in primary} == {'pigmentation_state', 'conditional_intensity'}
+          for row in primary:
+              assert int(float(row['n_fold_geo_strata'])) == 25
+              for field in ('observed_contrast', 'space_null_median', 'phenotype_excess_over_space_null', 'posterior_predictive_p_upper'):
+                  assert math.isfinite(float(row[field]))
+          expected_terms = {
+              'pigmentation_state': ['env_Temperature_PC1'],
+              'conditional_intensity': ['env_precip_PC1', 'env_TemperatureSeasonality', 'env_topo_PC1', 'int_thermal_variability'],
+          }
+          actual_terms = {}
+          for row in rows('supported_environment_terms.csv'):
+              actual_terms.setdefault(row['response'], []).append(row['environmental_term'])
+              assert float(row['distance_weight']) == 1.0
+          assert actual_terms == expected_terms, actual_terms
+          counts = {}
+          for row in rows('heldout_space_null_predictions.csv'):
+              counts[row['response']] = counts.get(row['response'], 0) + 1
+          assert counts == {'pigmentation_state': 1305, 'conditional_intensity': 674}, counts
+          draw_counts = {}
+          for row in rows('space_null_global_contrast_draws.csv'):
+              draw_counts[row['response']] = draw_counts.get(row['response'], 0) + 1
+          assert draw_counts == {'pigmentation_state': 500, 'conditional_intensity': 500}, draw_counts
+          metadata = {r['field']: r['value'] for r in rows('analysis_metadata.csv')}
+          assert metadata['final_model_refit'].startswith('no;')
+          assert metadata['environment_distance'].startswith('unweighted Euclidean')
+          print('validated supported-distance output:', counts, draw_counts)
+          PY
+
+      - name: Record workflow provenance
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p results/broad_supported_environment_distance
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "reference_artifact_id=${REFERENCE_ARTIFACT_ID}"
+            echo "reference_artifact_sha256=${REFERENCE_ARTIFACT_SHA256}"
+            echo "posterior_samples=${POSTERIOR_SAMPLES}"
+            echo "seed=${ANALYSIS_SEED}"
+            echo "max_pairs_per_fold=${MAX_PAIRS_PER_FOLD}"
+            echo "geo_bins=${GEO_BINS}"
+          } > results/broad_supported_environment_distance/workflow_provenance.txt
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: broad-supported-environment-distance-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/broad_supported_environment_distance
+            reproducibility/broad_supported_environment_distance_environment
+            reference-artifact/reference_lock.txt
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

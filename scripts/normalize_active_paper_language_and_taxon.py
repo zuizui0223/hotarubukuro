@@ -54,6 +54,10 @@ def neutralize(text: str, *, remove_all_tokens: bool) -> str:
             "This comparison asks only whether environmental separation orders phenotype divergence beyond fitted spatial continuity; it does not identify the underlying mechanism or demonstrate selection or local adaptation",
         "Neither the SPDE field nor the distance test is FST, PST or QST, and no result supports `selection > drift` language.":
             "The SPDE field and distance test do not identify a genetic mechanism, and neither result demonstrates selection or local adaptation.",
+        "The spatial null represents unresolved geography, not neutral genetic divergence or drift. A positive excess":
+            "The spatial null represents unresolved geography. A positive excess",
+        "do not estimate fitness.The comparison":
+            "do not estimate fitness. The comparison",
         "FST/PST-inspired": "spatial-continuity",
         "FST–PST-inspired": "spatial-continuity",
         "FST-PST-inspired": "spatial-continuity",
@@ -74,10 +78,8 @@ def neutralize(text: str, *, remove_all_tokens: bool) -> str:
     if not remove_all_tokens:
         return text
 
-    # Any residual variant in an active paper file is removed at sentence level.
     text = GENETIC_SENTENCE.sub(NEUTRAL_SENTENCE, text)
 
-    # Handle headings, bullets, table cells or fragments without terminal punctuation.
     normalized: list[str] = []
     for line in text.splitlines(keepends=True):
         if not GENETIC_ANALOGY.search(line):

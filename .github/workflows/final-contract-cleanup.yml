@@ -1,0 +1,133 @@
+name: One-shot final repository contract cleanup
+
+on:
+  push:
+    branches:
+      - agent/final-jbi-clean
+    paths:
+      - .github/workflows/final-contract-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/final-jbi-clean
+          fetch-depth: 0
+
+      - name: Collapse repository onto final paper contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          # 1) Final pipeline lock: remove superseded PR50/transition contracts.
+          lock_path = Path('config/paper_pipeline.lock.json')
+          lock = json.loads(lock_path.read_text(encoding='utf-8'))
+
+          obsolete_required = {
+              'docs/broad_spatial_inertia_environment_tracking.md',
+              'scripts/fit_broad_space_null_phenotype_excess.R',
+              'scripts/run_broad_space_null_phenotype_excess_pipeline.R',
+              '.github/workflows/broad-spatial-inertia-environment-tracking.yml',
+              'scripts/upgrade_final_analysis_pipeline.py',
+              'scripts/register_continuous_isolation_paper_contract.py',
+              'scripts/run_continuous_isolation_paper_contract.py',
+              'scripts/integrate_continuous_isolation_manuscript.py',
+              'scripts/demote_event_analysis_to_supplement.py',
+              'scripts/normalize_active_paper_language_and_taxon.py',
+          }
+          required = [p for p in lock['alignment']['required_files'] if p not in obsolete_required]
+          final_lock = 'reproducibility/FINAL_RESULTS_2026-08-19.md'
+          if final_lock not in required:
+              required.append(final_lock)
+          lock['alignment']['required_files'] = required
+          lock['stages'].pop('run_broad_space_null_excess', None)
+
+          checks = []
+          for check in lock['alignment']['checks']:
+              label = check.get('label', '')
+              if 'cross-fitted Broad sensitivity' in label:
+                  continue
+              if label == 'single execution front door':
+                  check['patterns'] = [
+                      r'python run_pipeline\.py audit',
+                      r'python run_pipeline\.py reproduce',
+                      'checksum-locked',
+                      'restore_broad_supported_term_distance',
+                  ]
+              checks.append(check)
+          lock['alignment']['checks'] = checks
+          lock_path.write_text(json.dumps(lock, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+
+          # 2) Active-file map: keep only current implementations as active.
+          map_path = Path('paper/active-file-map.csv')
+          with map_path.open(newline='', encoding='utf-8') as handle:
+              rows = list(csv.DictReader(handle))
+          remove_paths = obsolete_required | {
+              'R/broad_spatial_inertia_environment_tracking.R',
+              'scripts/fit_broad_spatial_inertia_environment_tracking.R',
+              'scripts/run_broad_spatial_inertia_environment_tracking.R',
+              'reproducibility/final_integrated_pipeline_2026-08-12.md',
+          }
+          supplementary_event = {
+              'analysis_sensitivity/run_human_context_current_broad_primary_fast.R',
+              'R/candidate_null_tools.R',
+              'R/local_pigmented_isolates.R',
+              'R/local_human_context.R',
+              'R/human_landscape_features.R',
+              'R/natural_predictive_model.R',
+              '.github/workflows/human-context-highrep-final.yml',
+              'reproducibility/current_broad_human_primary_2026-08-12.md',
+          }
+          cleaned = []
+          seen = set()
+          for row in rows:
+              if row['path'] in remove_paths:
+                  continue
+              if row['path'] in supplementary_event:
+                  row['section'] = 'Supplementary_event'
+                  row['status'] = 'supporting'
+              cleaned.append(row)
+              seen.add(row['path'])
+          if final_lock not in seen:
+              cleaned.append({
+                  'role': 'reproducibility',
+                  'section': 'final_result_lock',
+                  'path': final_lock,
+                  'status': 'primary',
+              })
+          with map_path.open('w', newline='', encoding='utf-8') as handle:
+              writer = csv.DictWriter(handle, fieldnames=['role','section','path','status'], lineterminator='\n')
+              writer.writeheader()
+              writer.writerows(cleaned)
+
+          # 3) Canonical evidence map with all artifact identities required by alignment checks.
+          Path('paper/analysis-map.md').write_text('''# Current analysis map\n\nThe JBI paper is frozen to the scientific hierarchy in `reproducibility/FINAL_RESULTS_2026-08-19.md`.\n\n| Layer | Question | Comparison unit | Final evidence |\n|---|---|---|---|\n| Trait construction | Can hiking photographs recover quantitative intraspecific colour geography? | 1,922 observations | pigmentation state + pigmented-only intensity |\n| Broad full model | Which named environmental gradients remain after continuous space? | observations | state Temperature PC1; conditional precipitation, seasonality, terrain and interaction; response-specific residual ranges |\n| Supported-term fixed null | Do final-model-supported environmental distances organize extra held-out divergence? | fixed pairs in 25 fold-distance strata | state excess +0.052133, P=0.00998; intensity P=0.26347 |\n| Local Bombus | Does focal support change across fixed local colour boundaries? | 67 pairs | heterogeneous mean +0.03590; median -0.00277; 49.3% positive; q=0.08148 |\n| Continuous human context | Does same-colour isolation track population exposure beyond natural geography and sampling density? | all 1,305 cells | pigmented raw P=0.000200; relative P=0.000900 |\n| Event calibration | Are restrictive local configurations excessive? | 16 cells | count/fraction null; Supporting Information only |\n\n## Canonical execution\n\n- `python run_pipeline.py audit` — fast manuscript/repository contract validation.\n- `python run_pipeline.py reproduce` — checksum-locked accepted-evidence reproduction and submission rebuild.\n- Shared reusable R functions live under `R/`; analysis entry scripts live under `analysis_sensitivity/`; submission builders/renderers live under `scripts/`.\n\n## Accepted artifact locks\n\n- Broad baseline: artifact `9022276431`; SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.\n- Seeded Bombus SDMs: artifact `9020226937`; SHA-256 `d5d639e8e00d1ccc2f887c53fa8041465905b29f6bca1127f816e8c7a649d708`.\n- Final-eight predictive draws: artifact `9094339466`; SHA-256 `413042ea03f1beff71410583df52cb036b9076b0476c99f6e2c885ab0bf42fa1`.\n- Local Bombus boundary result: artifact `9023416810`; SHA-256 `3f7ac07ea90e2b732441a9f80a38ea49871014722d008769370524b947007e34`.\n- Bombus final-eight environment audit: artifact `9119773035`; SHA-256 `51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f`.\n- Supplementary event/human result: artifact `9119306089`; SHA-256 `f5f7f3633d43a62fbef1f5142a77a21e766a5d85ab4f17dc43b062dadf4803c4`.\n- Accepted figure bundle provenance: artifact `9291438085`; SHA-256 `51dde9026c4348205c494db3594414c0f099166f8878dc1c82edbb173f9e2848`.\n- Continuous colour isolation: artifact `9317087893`; SHA-256 `6fd26d9a938b68d3f0c56512cd1620597c740d44ba91ab5a7ccbb9daa99d5386`.\n- Supported environmental-term distance: artifact `9350975649`; SHA-256 `4d5a1d28b8313cc0fb6c85484d21c6d94535ac7cc0881e83dc7ed02678854f03`.\n\nThe supported-term and continuous-isolation analyses are model-informed corroborations. They do not convert spatial association into adaptation or provenance.\n''', encoding='utf-8')
+
+          # 4) Reproduction guide: one front door, no superseded PR50 primary route.
+          Path('docs/reproduction-guide.md').write_text('''# Reproduction guide\n\nThe repository has one active execution front door. The accepted scientific result is frozen in `reproducibility/FINAL_RESULTS_2026-08-19.md`; later packaging changes must not silently alter it.\n\n## Canonical commands\n\nFast audit:\n\n```bash\npython run_pipeline.py audit\n```\n\nOne-shot accepted-evidence reproduction and JBI package rebuild:\n\n```bash\npython run_pipeline.py reproduce\n```\n\nUseful controls:\n\n```bash\npython run_pipeline.py reproduce --dry-run\npython run_pipeline.py reproduce --from-stage restore_broad_supported_term_distance\npython run_pipeline.py reproduce --only-stage validate_alignment\npython run_pipeline.py reproduce --no-resume\n```\n\nThe canonical GitHub Actions entry is `.github/workflows/paper-pipeline.yml`. Artifact identities, SHA-256 checksums, commands, seeds, expected outputs and manuscript locks are declared in `config/paper_pipeline.lock.json`.\n\n## Final scientific sequence\n\n1. Restore the accepted Broad flower-colour evidence and final supported-term distance result.\n2. Restore seeded Bombus SDMs and final-eight predictive draws.\n3. Rebuild occurrence-referenced Bombus support and the 67 fixed local boundary analysis.\n4. Restore/revalidate continuous same-colour isolation; retain the 16-event family only as Supporting Information calibration.\n5. Rebuild the four JBI figures and editable review package.\n6. Validate manuscript/repository alignment and write the run manifest.\n\nThe supported-term fixed-space result is the current Broad corroboration: pigmentation state uses Temperature PC1 (observed 0.100608; space-only median 0.048475; excess +0.052133; P=0.00998), whereas the supported conditional-intensity distance does not exceed space-only expectation (P=0.26347).\n\nThe Main human-context result is continuous same-colour isolation across all 1,305 cells. Among 674 pigmented cells, raw isolation has rho=0.251980 versus natural mean 0.132980 (P=0.000200), and density-corrected relative isolation has rho=0.285498 versus natural mean 0.153616 (P=0.000900).\n\n## Code organization\n\n- `run_pipeline.py`: orchestration and stage contracts.\n- `R/`: reusable analysis functions; `R/continuous_colour_isolation.R` is the shared library for the final human-context analysis.\n- `analysis_sensitivity/`: scientific execution entry scripts/modules.\n- `scripts/`: source/build, figure and submission utilities.\n- `submission/jbi/`: manuscript, Supporting Information and submission validators.\n- `reproducibility/`: accepted result locks and provenance records.\n\nOriginal YAMAP photographs are third-party content and are not redistributed. Exact reproduction begins from checksum-locked accepted evidence rather than refreshing live sources or replacing the accepted Broad model family.\n''', encoding='utf-8')
+          PY
+
+          rm -f .github/workflows/final-contract-cleanup.yml
+          python -m json.tool config/paper_pipeline.lock.json >/dev/null
+          git diff --check
+
+      - name: Commit final contract and self-delete workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Collapse repository onto final JBI analysis contract'
+          git fetch origin agent/final-jbi-clean
+          git rebase origin/agent/final-jbi-clean
+          git push origin HEAD:agent/final-jbi-clean

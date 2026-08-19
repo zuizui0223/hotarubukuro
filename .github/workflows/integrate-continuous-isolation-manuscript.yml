@@ -9,6 +9,7 @@ on:
       - scripts/integrate_continuous_isolation_manuscript.py
       - scripts/register_continuous_isolation_paper_contract.py
       - scripts/run_continuous_isolation_paper_contract.py
+      - scripts/demote_event_analysis_to_supplement.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
   pull_request:
     branches: [main]
@@ -16,6 +17,7 @@ on:
       - scripts/integrate_continuous_isolation_manuscript.py
       - scripts/register_continuous_isolation_paper_contract.py
       - scripts/run_continuous_isolation_paper_contract.py
+      - scripts/demote_event_analysis_to_supplement.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
 
 permissions:
@@ -46,19 +48,38 @@ jobs:
             echo "continuous-isolation manuscript prose already integrated"
           fi
           python scripts/run_continuous_isolation_paper_contract.py
+          python scripts/demote_event_analysis_to_supplement.py
           python3 - <<'PY'
+          import re
           from pathlib import Path
-          path = Path('paper/active-file-map.csv')
-          path.write_bytes(path.read_bytes().replace(b'\r\n', b'\n'))
+
+          map_path = Path('paper/active-file-map.csv')
+          map_path.write_bytes(map_path.read_bytes().replace(b'\r\n', b'\n'))
+
+          translated = Path('submission/jbi/JBI_translated_abstract_ja.md')
+          text = translated.read_text(encoding='utf-8')
+          for heading in (
+              '**調査地域：**', '**対象分類群：**', '**方法：**',
+              '**結果：**', '**主な結論：**',
+          ):
+              text = text.replace('\n' + heading, '\n\n' + heading)
+          text = re.sub(r'\n{3,}', '\n\n', text)
+          translated.write_text(text, encoding='utf-8')
           PY
           git restore -- .github/workflows/jbi-main-figures.yml
           python -m json.tool config/paper_pipeline.lock.json >/dev/null
           git diff --check
           grep -q 'rho=0.252' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q 'relative isolation' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
           grep -q 'P=0.0009' submission/jbi/JBI_translated_abstract_ja.md
           grep -q 'continuous_pigmented_cells' validation/validate_jbi_figure_bundle.R
           grep -q 'accepted_continuous_colour_isolation' config/paper_pipeline.lock.json
+          ! grep -q 'Sixteen event-defined populations' submission/jbi/JBI_main_manuscript_anonymized.md
+          ! grep -q '^### 3.5 Predictive replay retained extreme populations as field targets$' submission/jbi/JBI_main_manuscript_anonymized.md
+          ! grep -q '^### 4.5 Event calibration defines targets without turning them into causes$' submission/jbi/JBI_main_manuscript_anonymized.md
+          ! grep -q '16 event-defined' submission/jbi/JBI_main_figure_captions.md
+          grep -q '\*\*16\*\*' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+          python validation/validate_jbi_repository_alignment.py
+          python submission/jbi/validate_jbi_submission.py
 
       - name: Commit generated non-workflow paper sources and contracts
         shell: bash
@@ -80,6 +101,7 @@ jobs:
             submission/jbi/JBI_submission_checklist.md
             submission/jbi/validate_jbi_submission.py
             submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+            reproducibility/continuous_colour_isolation_manuscript_integration_2026-08-18.md
             scripts/render_jbi_main_figures.R
           )
           if git diff --quiet -- "${paths[@]}"; then
@@ -89,7 +111,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "${paths[@]}"
-          git commit -m "Integrate continuous isolation into paper contract"
+          git commit -m "Keep event analysis in Supporting Information only"
 
           for attempt in 1 2 3 4 5; do
             echo "push attempt ${attempt}/5"

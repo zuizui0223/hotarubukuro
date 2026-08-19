@@ -122,6 +122,34 @@ jobs:
           PY
           echo "reference_zip_sha256=${actual}" > reference-artifact/reference_lock.txt
 
+      - name: Align response-specific diagnostic columns
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/fit_broad_supported_term_distance_space_null.R')
+          text = path.read_text(encoding='utf-8')
+          old = 'pair_table <- do.call(rbind, pair_rows)\n'
+          new = '''bind_rows_fill <- function(rows) {
+            columns <- unique(unlist(lapply(rows, names), use.names = FALSE))
+            aligned <- lapply(rows, function(row) {
+              missing <- setdiff(columns, names(row))
+              for (column in missing) row[[column]] <- NA_real_
+              row[columns]
+            })
+            do.call(rbind, aligned)
+          }
+
+          pair_table <- bind_rows_fill(pair_rows)
+          '''
+          if old in text:
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          elif 'pair_table <- bind_rows_fill(pair_rows)' not in text:
+              raise SystemExit('pair-table binding target not found')
+          PY
+
       - name: Fit space-only nulls and evaluate supported-term distance
         shell: bash
         run: |

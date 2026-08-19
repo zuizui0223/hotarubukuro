@@ -1,0 +1,252 @@
+name: Synchronize final manuscript and figures
+
+on:
+  push:
+    branches:
+      - agent/continuous-colour-isolation-human-context
+    paths:
+      - .github/workflows/sync-final-manuscript-and-figures.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/continuous-colour-isolation-human-context
+          fetch-depth: 0
+
+      - name: Import Bombus species-selection audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin agent/s4-six-to-five-bombus-audit
+          git show FETCH_HEAD:submission/jbi/supporting/Appendix_S4_bombus_sdm_occurrence_support.md > submission/jbi/supporting/Appendix_S4_bombus_sdm_occurrence_support.md
+          git show FETCH_HEAD:submission/jbi/JBI_sdm_model_building_checklist.md > submission/jbi/JBI_sdm_model_building_checklist.md
+
+      - name: Synchronize Broad text, taxonomic scope and figure architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # --- Main manuscript ---
+          path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
+          text = path.read_text(encoding='utf-8')
+          old = "**Results:** Pigmentation state, but not pigmented-only intensity, exceeded a cross-fitted spatial expectation along environmental difference."
+          new = "**Results:** Distance along the environmental terms supported by the final models exceeded a cross-fitted space-only expectation for pigmentation state (Temperature PC1; one-sided P=0.00998) but not for pigmented-only intensity (P=0.26347)."
+          if old not in text:
+              raise SystemExit('Main Abstract Broad result sentence not found')
+          text = text.replace(old, new, 1)
+
+          old = """As a supporting sensitivity, we asked a complementary question at the 1-km-cell scale: whether phenotype divergence between environmentally dissimilar held-out locations exceeded an intercept + Matérn SPDE expectation at comparable geographical separation. Environmental distance used a separate frozen, response-blind six-score representation of broad and within-neighbourhood climate, aridity and topography. For each of five held-out geographical folds, pairs were divided into five geographical-distance strata, upper and lower environmental-distance quartiles were contrasted, and the observed mean high-minus-low divergence was compared with 500 space-only posterior-predictive realizations (seed 20260725). This FST/PST-inspired comparison is explicitly non-genetic: the spatial field is an empirical continuity expectation rather than drift, and any excess is environmental alignment rather than proof of selection or local adaptation (Appendix S3)."""
+          new = """As a supporting comparison, we kept the final environment + SPDE models fixed and used them only to identify the environmental terms whose 95% credible intervals excluded zero. Pigmentation-state environmental distance was the absolute training-fold-standardized difference in Temperature PC1. Conditional-intensity environmental distance was the unweighted Euclidean distance across training-fold-standardized precipitation PC1, temperature seasonality, topography PC1 and the Temperature PC1 × temperature-seasonality interaction term. No final-model coefficient was used as a distance weight and the final models were not refitted. For each of five held-out geographical folds, pairs were divided into five geographical-distance strata, upper and lower supported-environment-distance quartiles were contrasted, and the observed mean high-minus-low phenotype divergence was compared with the identical statistic from 500 already fitted cross-fitted intercept + Matérn SPDE posterior-predictive maps (seed 20260725; Appendix S3)."""
+          if old not in text:
+              raise SystemExit('Main Methods Broad supporting paragraph not found')
+          text = text.replace(old, new, 1)
+
+          section32 = """### 3.2 Broad geography separated pigmentation state from conditional intensity
+
+After measured environment and continuous space were fitted jointly, pigmentation state retained a cool-climate association: Temperature PC1 was negative (posterior mean -0.542, 95% CrI -1.033 to -0.049), corresponding to lower odds of the pigmented state toward warmer conditions. The residual spatial range was 132.76 km (95% CrI 88.78–195.68). In the supporting distance comparison, held-out pairs that differed more strongly in Temperature PC1 showed a larger state-divergence contrast than the fixed space-only expectation (observed high-minus-low contrast 0.100608; space-only median 0.048475; excess +0.052133; one-sided P=0.00998).
+
+Conditional intensity followed a different broad response surface. Precipitation PC1 was negative (-0.174, 95% CrI -0.323 to -0.024), temperature seasonality positive (+0.207, 0.044 to 0.369), Topography PC1 negative (-0.134, -0.224 to -0.043), and Temperature PC1 × temperature seasonality negative (-0.204, -0.302 to -0.107). Its residual spatial range was 65.72 km (31.05–132.63). However, the unweighted distance across those supported terms did not produce phenotype divergence beyond the fixed space-only expectation (observed contrast 0.047416; space-only median 0.020897; excess +0.026519; one-sided P=0.26347).
+
+Thus the white-pigmented switch and the strength of colour among already pigmented flowers were not interchangeable geographical responses. The directional coefficient estimates remain the primary ecological evidence; the distance comparison is a model-informed corroboration of whether those supported environmental separations also order held-out phenotype divergence beyond fitted spatial continuity.
+
+"""
+          text, n = re.subn(r"### 3\.2 .*?\n\n.*?(?=### 3\.3 )", section32, text, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit(f'Could not replace Results 3.2: {n}')
+
+          section42 = """### 4.2 Broad geography defines physiological hypotheses, not one stress rule
+
+The broad analysis separates a relatively simple pigmentation-state result from a more conditional intensity response. Pigmentation state was more frequent toward the cool end of Temperature PC1 after the other measured environmental axes and continuous space were included. The supporting distance comparison points in the same direction at the pairwise level: locations separated more strongly along Temperature PC1 were more different in pigmentation state than the fitted space-only geography predicted. This is compatible with temperature-sensitive regulation of anthocyanin pathways, but the present photographs cannot distinguish developmental plasticity from population differentiation and do not establish selection.
+
+Among flowers that were already pigmented, intensity instead tracked moisture, temperature seasonality, terrain and a Temperature PC1 × seasonality interaction. The absence of a corresponding excess in the combined supported-term distance is informative rather than contradictory: directional partial associations can form a smooth or interacting response surface without producing the stronger signature that environmentally distant locations are also more divergent than spatial continuity predicts. In particular, the retained interaction means that there is no single national temperature slope for conditional intensity.
+
+The remaining Matérn fields therefore stay biologically unresolved. They can contain unmeasured environment, population history, dispersal and sampling geometry, and neither their ranges nor the supporting space-only comparison are interpreted as genetic divergence. The broad result narrows the next biological questions: temperature is the clearest measured axis associated with whether visible pigmentation is present, whereas variation in intensity after pigmentation is present is embedded in a more multivariate climatic and terrain context.
+
+"""
+          text, n = re.subn(r"### 4\.2 .*?\n\n.*?(?=### 4\.3 )", section42, text, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit(f'Could not replace Discussion 4.2: {n}')
+
+          if re.search(r'FST|PST|F_ST|P_ST', text, flags=re.I):
+              raise SystemExit('FST/PST wording remains in active Main manuscript')
+          path.write_text(text, encoding='utf-8')
+
+          # --- Appendix S2 taxonomic scope ---
+          path = Path('submission/jbi/supporting/Appendix_S2_image_phenotyping.md')
+          text = path.read_text(encoding='utf-8')
+          marker = "This separation prevents small red-green variation among white photographs from being treated as a continuous pigment-amount scale.\n"
+          insert = """
+
+## Taxonomic scope: *C. punctata* and var. *hondoensis*
+
+The image analysis did not attempt to separate the nominal *Campanula punctata* from *C. punctata* var. *hondoensis* (Yamahotarubukuro). In Japanese floristic identification, the distinction is based primarily on calyx morphology, especially the recurved appendages between the calyx lobes that characterize the typical form and are absent in var. *hondoensis*; flower colour itself is not diagnostic. Those calyx characters are not consistently visible in opportunistic flower photographs, whereas the corolla used for colour phenotyping is visible by design. We therefore treated both morphotypes as one *C. punctata* sensu lato analysis unit rather than assigning image records to variety from incomplete calyx views.
+
+This pooling is also consistent with our unpublished genetic dataset, in which individuals assigned morphologically to the two forms did not show clear genetic differentiation. Those genetic data are not analysed or presented as evidence in this paper; they are stated only as supporting rationale for not imposing a taxonomic split on the image-based colour dataset. The present inference therefore concerns flower-colour geography across the combined *C. punctata* sensu lato sampling frame.
+"""
+          if '## Taxonomic scope: *C. punctata* and var. *hondoensis*' not in text:
+              if marker not in text:
+                  raise SystemExit('S2 insertion marker not found')
+              text = text.replace(marker, marker + insert, 1)
+          path.write_text(text, encoding='utf-8')
+
+          # --- Appendix S3: make supporting comparison match final analysis ---
+          path = Path('submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              '- The **cross-fitted space-only divergence sensitivity** asks whether environmental difference orders held-out phenotype divergence beyond an intercept + Matérn SPDE continuity expectation at comparable geographical separation. It uses a separate frozen six-score broad/within environmental representation and does not reinterpret the spatial field as genetic drift.',
+              '- The **supported-environmental-distance comparison** asks whether separation along the environmental terms supported by each final response-specific model orders held-out phenotype divergence beyond an intercept + Matérn SPDE continuity expectation at comparable geographical separation. The final models are not refitted and their coefficients do not weight the distance.'
+          )
+          supported = """## Supported environmental-term distance versus spatial continuity
+
+This supporting analysis asks a different question from coefficient estimation: at comparable geographical separation, do locations that differ more along the environmental terms supported by the final model also differ more in phenotype than fitted spatial continuity predicts?
+
+The accepted observation-level models were not rebuilt. They were used only to define response-specific environmental terms. For pigmentation state, Temperature PC1 was the only measured environmental term whose 95% credible interval excluded zero, so environmental distance was the absolute difference in training-fold-standardized Temperature PC1. For conditional intensity, environmental distance was the unweighted Euclidean distance across training-fold-standardized precipitation PC1, temperature seasonality, Topography PC1 and the Temperature PC1 × temperature-seasonality interaction term. No posterior coefficient was used as a distance weight.
+
+The analysis reused the frozen 1-km cell table, the already fixed held-out pair identities, the five geographical-distance strata and the exact 500 posterior-predictive maps from cross-fitted intercept + stationary Matérn SPDE models. Within every fold-by-distance stratum, phenotype divergence among the upper environmental-distance quartile was contrasted with divergence among the lower quartile. The primary statistic was the mean high-minus-low contrast across 25 strata and was compared with the identical statistic in each space-only predictive map.
+
+**Table S3.5. Phenotype divergence ordered by final-model-supported environmental distance.**
+
+| Response | Supported environmental distance | Observed high − low divergence | Space-only median | Excess over space-only median | One-sided P |
+|---|---|---:|---:|---:|---:|
+| Pigmentation state | Temperature PC1 | **0.100608** | **0.048475** | **+0.052133** | **0.00998** |
+| Conditional visible intensity | precipitation PC1 + temperature seasonality + Topography PC1 + Temperature PC1 × temperature seasonality | 0.047416 | 0.020897 | +0.026519 | 0.26347 |
+
+For pigmentation state, the excess was positive in all five geographical folds and in 19 of 25 fold-by-distance strata. Thus Temperature PC1 supplies both the directional full-model association (cooler conditions corresponding to greater pigmentation-state probability) and the environmental axis along which held-out state divergence exceeds the fitted space-only expectation. Conditional intensity retained directional full-model associations with moisture, seasonality, terrain and the thermal interaction, but their combined unweighted distance did not produce the stronger pairwise-divergence signature beyond spatial continuity.
+
+This comparison is model-informed corroboration, not independent variable discovery. The space-only field is unresolved geographical continuity and can combine unmeasured environment, population history, dispersal and sampling geometry. A positive excess does not demonstrate selection, local adaptation, genetic differentiation, plasticity or a unique causal environmental mechanism.
+
+"""
+          text, n = re.subn(r"## Cross-fitted space-only phenotype-divergence sensitivity\n.*?(?=\n## )", supported.rstrip(), text, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit(f'Could not replace S3 space-only section: {n}')
+          if re.search(r'FST|PST|F_ST|P_ST', text, flags=re.I):
+              raise SystemExit('FST/PST wording remains in Appendix S3')
+          path.write_text(text, encoding='utf-8')
+
+          # --- Figure captions ---
+          path = Path('submission/jbi/JBI_main_figure_captions.md')
+          text = path.read_text(encoding='utf-8')
+          fig2 = """## Figure 2. Pigmentation state and colour intensity follow different broad geography
+
+Broad-scale environmental and spatial patterns of *Campanula punctata* across Japan. (a) Environmental coefficients from the final INLA-SPDE models. Pigmentation state uses an additive model. Colour intensity among pigmented flowers includes Temperature PC1 × temperature seasonality; intervals are 95% credible intervals. (b) Cross-fitted probability of pigmentation from the final eight-axis natural model. (c) Cross-fitted colour intensity among cells with pigmented observations. Map panels (b) and (c) use WGS84 longitude/latitude and include a 100-km bar scale. (d) Supporting comparison between observed phenotype divergence and the fixed space-only expectation using only environmental terms supported by the final response-specific models. Pigmentation state used Temperature PC1 (observed contrast 0.100608; space-only median 0.048475; excess +0.052133; one-sided P=0.00998). Conditional intensity used an unweighted four-term distance across precipitation PC1, temperature seasonality, Topography PC1 and Temperature PC1 × temperature seasonality (0.047416 versus 0.020897; excess +0.026519; P=0.26347). The final models were not refitted and their coefficients did not weight distance. The spatial field represents unresolved geography, not a genetic or dispersal-distance estimate.
+
+"""
+          text, n = re.subn(r"## Figure 2\. .*?\n\n.*?(?=## Figure 3\.)", fig2, text, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit(f'Could not replace Figure 2 caption: {n}')
+          path.write_text(text, encoding='utf-8')
+
+          # --- Figure plan ---
+          path = Path('submission/jbi/JBI_main_figure_plan.md')
+          text = path.read_text(encoding='utf-8')
+          fig2plan = """## Figure 2 — Split the broad geography
+
+**Question created by Figure 1:** Do pigmentation state and intensity follow the same environmental and spatial pattern, and do the environmental axes supported by the final models order phenotype divergence beyond spatial continuity?
+
+Panels:
+
+- (a) final environmental coefficients;
+- (b) cross-fitted pigmentation probability;
+- (c) cross-fitted colour intensity;
+- (d) supported environmental-term distance versus the fixed space-only expectation.
+
+**Reveal:** state and intensity differ. Temperature is the clearest measured axis for the white-pigmented switch and its pairwise divergence exceeds the fitted space-only expectation, whereas the supported multivariate intensity distance does not. Coherent residual spatial structure remains after measured environment.
+
+**Handoff to Figure 3:** the Broad map has not isolated a biotic mechanism. Because Bombus SDMs share environmental geography, the pollinator hypothesis must be tested at local colour boundaries.
+
+Do not label the spatial field as population history. VPD, water-balance, interaction and spatial-model checks stay in Appendix S3.
+
+"""
+          text, n = re.subn(r"## Figure 2 — .*?(?=## Figure 3 —)", fig2plan, text, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit(f'Could not replace Figure 2 plan: {n}')
+          path.write_text(text, encoding='utf-8')
+
+          # --- Figure 2 panel d renderer ---
+          path = Path('scripts/render_jbi_main_figures.R')
+          text = path.read_text(encoding='utf-8')
+          replacement = r'''broad_distance <- data.frame(
+  response = factor(
+    c("Pigmentation state", "Conditional intensity"),
+    levels = c("Conditional intensity", "Pigmentation state")
+  ),
+  observed = c(0.1006083013, 0.0474158738),
+  space_null = c(0.0484749808, 0.0208968600),
+  excess = c(0.0521333205, 0.0265190138),
+  p = c(0.0099800399, 0.2634730539),
+  stringsAsFactors = FALSE
+)
+broad_distance$label <- sprintf("excess %+.3f; P = %.3f", broad_distance$excess, broad_distance$p)
+fig2d <- ggplot2::ggplot(broad_distance, ggplot2::aes(y = response)) +
+  ggplot2::geom_segment(
+    ggplot2::aes(x = space_null, xend = observed, yend = response),
+    linewidth = 0.85, colour = "#9AA5AE"
+  ) +
+  ggplot2::geom_point(
+    ggplot2::aes(x = space_null), shape = 21,
+    fill = paper, colour = ink, size = 2.5, stroke = 0.45
+  ) +
+  ggplot2::geom_point(
+    ggplot2::aes(x = observed), shape = 21,
+    fill = pigmented, colour = ink, size = 2.7, stroke = 0.40
+  ) +
+  ggplot2::geom_text(
+    ggplot2::aes(x = pmax(observed, space_null) + 0.007, label = label),
+    hjust = 0, size = 2.05, colour = mid_grey
+  ) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 0.145),
+    expand = ggplot2::expansion(mult = c(0.02, 0.02))
+  ) +
+  ggplot2::labs(
+    title = "Supported environmental distance vs space-only expectation",
+    subtitle = "Filled: observed; open: space-only median",
+    x = "High-minus-low phenotype divergence",
+    y = NULL
+  ) +
+  theme_publication(base_size = 7.2) +
+  ggplot2::theme(plot.title = ggplot2::element_text(size = 7.8))
+'''
+          pattern = r"performance_plot <- performance_plot \+.*?fig2d <- range_plot / performance_plot \+\n  patchwork::plot_layout\(heights = c\(1, 1\.2\)\)\n"
+          text, n = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit(f'Could not replace Figure 2d renderer: {n}')
+          path.write_text(text, encoding='utf-8')
+
+          # Active submission text must not contain the retired analogy.
+          for p in [
+              Path('submission/jbi/JBI_main_manuscript_anonymized.md'),
+              Path('submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md')
+          ]:
+              t = p.read_text(encoding='utf-8')
+              if re.search(r'FST|PST|F_ST|P_ST', t, flags=re.I):
+                  raise SystemExit(f'Retired FST/PST analogy remains in {p}')
+          PY
+
+      - name: Remove synchronizer and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/sync-final-manuscript-and-figures.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            submission/jbi/JBI_main_manuscript_anonymized.md \
+            submission/jbi/JBI_main_figure_captions.md \
+            submission/jbi/JBI_main_figure_plan.md \
+            submission/jbi/JBI_sdm_model_building_checklist.md \
+            submission/jbi/supporting/Appendix_S2_image_phenotyping.md \
+            submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md \
+            submission/jbi/supporting/Appendix_S4_bombus_sdm_occurrence_support.md \
+            scripts/render_jbi_main_figures.R
+          git commit -m "Synchronize final Broad text, taxonomic scope, SDM provenance, and figures"
+          git push origin HEAD:agent/continuous-colour-isolation-human-context

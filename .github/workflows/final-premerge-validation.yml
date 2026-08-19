@@ -1,0 +1,43 @@
+name: One-shot final pre-merge validation
+
+on:
+  push:
+    branches:
+      - agent/final-jbi-clean
+    paths:
+      - .github/workflows/final-premerge-validation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/final-jbi-clean
+          fetch-depth: 0
+
+      - name: Validate final source and repository contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m json.tool config/paper_pipeline.lock.json >/dev/null
+          git diff --check
+          python submission/jbi/validate_jbi_submission.py
+          python validation/validate_jbi_repository_alignment.py
+          python run_pipeline.py audit
+
+      - name: Self-delete validator after success
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/final-premerge-validation.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Remove one-shot final pre-merge validator'
+          git fetch origin agent/final-jbi-clean
+          git rebase origin/agent/final-jbi-clean
+          git push origin HEAD:agent/final-jbi-clean

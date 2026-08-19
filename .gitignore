@@ -13,6 +13,21 @@ local_outputs/
 source_bombus/
 final8-artifact/
 
+# Private / unpublished material: never commit to the public repository
+submission/
+paper/
+manuscript/
+private/
+drafts/
+Data_S1.csv
+Code_S1.py
+reproducibility/frozen_inputs/
+reproducibility/FINAL_RESULTS*.md
+reproducibility/FROZEN_RELEASE*.md
+reproducibility/frozen_release*.json
+reproducibility/*submission*
+reproducibility/*manuscript*
+
 # Rendered reports and user-facing binaries
 *.html
 *_files/
@@ -22,15 +37,15 @@ final8-artifact/
 # Active run products. The repository tracks only README placeholders.
 results/*
 !results/README.md
-manuscript/figures/*
 
 # Large intermediate formats
 *.tif
 *.tiff
 *.rds
 *.log
+*.zip
 
-# Superseded local drafts retained outside the active pipeline
+# Superseded local drafts retained outside the public repository
 ANALYSIS_REVIEW*.md
 COMMUNITY_THRESHOLD_DESIGN_V13.md
 MANUSCRIPT_STORY_V10.md

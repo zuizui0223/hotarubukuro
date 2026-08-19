@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hotarubukuro-analysis"
-version = "2.6.0"
-description = "Reproducible floral-colour source-build, paper-pipeline and submission utilities"
+version = "2.7.0"
+description = "Analysis utilities for quantitative floral-colour and spatial-ecology workflows"
 requires-python = ">=3.9"
 dependencies = [
   "numpy>=1.24,<3",
@@ -14,15 +14,10 @@ dependencies = [
 
 [project.optional-dependencies]
 excel = ["openpyxl>=3.1,<4"]
-submission = ["python-docx>=1.1,<2"]
 test = ["pytest>=8,<10"]
 
 [project.scripts]
 hotarubukuro-color = "hotarubukuro_analysis.cli:color_main"
-hotarubukuro-paper = "hotarubukuro_analysis.cli:paper_main"
-
-[tool.setuptools]
-py-modules = ["Code_S1", "run_pipeline"]
 
 [tool.setuptools.packages.find]
 where = ["."]

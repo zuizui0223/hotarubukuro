@@ -1,0 +1,161 @@
+name: Final manuscript upgrade
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/continuous-colour-isolation-human-context
+    paths:
+      - .github/workflows/final-manuscript-upgrade.yml
+      - scripts/upgrade_final_analysis_pipeline.py
+      - scripts/demote_event_analysis_to_supplement.py
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: agent/continuous-colour-isolation-human-context
+
+      - name: Generate the final JBI manuscript and paper contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/demote_event_analysis_to_supplement.py
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          main_path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
+          main = main_path.read_text(encoding='utf-8')
+          for final, source in (
+              ('### 3.3 Local boundaries revealed heterogeneous Bombus correspondence',
+               '### 3.3 Local boundaries revealed a short-range Bombus signal'),
+              ('### 4.2 Temperature organizes the state transition more strongly than conditional intensity',
+               '### 4.2 Broad modelling resolved environmental structure and exposed a second spatial layer'),
+              ('### 4.3 Boundary heterogeneity is the pollinator result',
+               '### 4.3 Local boundaries reveal where pollinator opportunity may matter'),
+          ):
+              main = main.replace(final, source)
+          main_path.write_text(main, encoding='utf-8')
+
+          s3_path = Path('submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md')
+          s3 = s3_path.read_text(encoding='utf-8')
+          s3 = s3.replace(
+              '## Supported environmental-term distance versus fixed spatial continuity',
+              '## Cross-fitted space-only phenotype-divergence sensitivity',
+          )
+          s3 = s3.replace(
+              '## Natural predictive maps passed to the human-context analyses',
+              '## Current 1-km natural reference passed to Main 3',
+          )
+          s3_path.write_text(s3, encoding='utf-8')
+          PY
+
+          python scripts/upgrade_final_analysis_pipeline.py
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          main_path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
+          main = main_path.read_text(encoding='utf-8')
+          main = main.replace(
+              'Analyses used R 4.5.3 and INLA 25.10.19 (Rue et al., 2009).',
+              "Analyses were run in R 4.5.3 (R Core Team, 2026); latent Gaussian and SPDE models used the 'INLA' package version 25.10.19 (Rue et al., 2009).",
+          )
+          main = main.replace(
+              'The 5-km design produced 67 sharp pure white-pigmented transitions',
+              'The 5-km design produced 67 sharp transitions between pure white and pigmented cells',
+          )
+          main_path.write_text(main, encoding='utf-8')
+
+          # Python's csv module defaults to CRLF. Normalise generated registry
+          # files before Git's whitespace and content checks.
+          map_path = Path('paper/active-file-map.csv')
+          map_path.write_bytes(map_path.read_bytes().replace(b'\r\n', b'\n'))
+
+          def words(text: str) -> list[str]:
+              return re.findall(r"\b[\wÀ-ž*'’-]+\b", text)
+
+          abstract = main.split('## Abstract', 1)[1].split('**Keywords:**', 1)[0]
+          body = main.split('## 1. Introduction', 1)[1].split('## Acknowledgements', 1)[0]
+          abstract_n = len(words(abstract))
+          body_n = len(words(body))
+
+          checklist_path = Path('submission/jbi/JBI_submission_checklist.md')
+          checklist = checklist_path.read_text(encoding='utf-8')
+          checklist = re.sub(
+              r'Current Introduction-through-Discussion count = \*\*[\d,]+ words\*\* by repository validator\.',
+              f'Current Introduction-through-Discussion count = **{body_n:,} words** by repository validator.',
+              checklist,
+          )
+          checklist = re.sub(
+              r'Current abstract = \*\*\d+ words\*\* by repository validator\.',
+              f'Current abstract = **{abstract_n} words** by repository validator.',
+              checklist,
+          )
+          checklist_path.write_text(checklist, encoding='utf-8')
+
+          validator_path = Path('submission/jbi/validate_jbi_submission.py')
+          validator = validator_path.read_text(encoding='utf-8')
+          if '"0.100608"' not in validator:
+              validator = validator.replace(
+                  '        "3.81 times",\n',
+                  '        "3.81 times",\n        "0.100608",\n        "0.00998",\n        "0.26347",\n',
+                  1,
+              )
+          validator_path.write_text(validator, encoding='utf-8')
+          print(f'final source counts: abstract={abstract_n}; Main={body_n}')
+          PY
+
+          git restore -- .github/workflows/jbi-main-figures.yml
+
+          python -m py_compile scripts/upgrade_final_analysis_pipeline.py
+          python -m json.tool config/paper_pipeline.lock.json >/dev/null
+          git diff --check
+
+          main=submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q '0.100608' "$main"
+          grep -q 'P=0.00998' "$main"
+          grep -q 'P=0.26347' "$main"
+          grep -q '67 sharp transitions' "$main"
+          grep -q "R 4.5.3 (R Core Team, 2026)" "$main"
+          grep -q "'INLA' package version 25.10.19" "$main"
+          grep -q 'rho=0.252' "$main"
+          grep -q 'P=0.0009' "$main"
+          ! grep -q '0.106802' "$main"
+          ! grep -q '0.03393' "$main"
+          ! grep -q 'Sixteen pigmented cells' "$main"
+
+          grep -q '0.100608' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
+          grep -q '\*\*16\*\*' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+          grep -q 'accepted_broad_supported_term_distance' config/paper_pipeline.lock.json
+          grep -q 'restore_broad_supported_term_distance' config/paper_pipeline.lock.json
+          grep -q 'accepted_continuous_colour_isolation' config/paper_pipeline.lock.json
+
+          python validation/validate_jbi_repository_alignment.py
+          python submission/jbi/validate_jbi_submission.py
+
+      - name: Commit the generated final state
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'final manuscript already current'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Upgrade JBI manuscript to the final analysis pipeline'
+          git fetch origin agent/continuous-colour-isolation-human-context
+          git rebase origin/agent/continuous-colour-isolation-human-context
+          git push origin HEAD:agent/continuous-colour-isolation-human-context

@@ -7,8 +7,6 @@ on:
       - agent/continuous-colour-isolation-human-context
     paths:
       - scripts/integrate_continuous_isolation_manuscript.py
-      - scripts/register_continuous_isolation_paper_contract.py
-      - scripts/run_continuous_isolation_paper_contract.py
       - scripts/demote_event_analysis_to_supplement.py
       - scripts/upgrade_final_analysis_pipeline.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
@@ -16,8 +14,6 @@ on:
     branches: [main]
     paths:
       - scripts/integrate_continuous_isolation_manuscript.py
-      - scripts/register_continuous_isolation_paper_contract.py
-      - scripts/run_continuous_isolation_paper_contract.py
       - scripts/demote_event_analysis_to_supplement.py
       - scripts/upgrade_final_analysis_pipeline.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
@@ -51,7 +47,10 @@ jobs:
             echo "continuous-isolation manuscript prose already integrated"
           fi
 
-          python scripts/run_continuous_isolation_paper_contract.py
+          # The accepted continuous contract is already committed and validated.
+          # The old transition generator expects a superseded validator shape, so
+          # final integration starts from the committed contract instead of
+          # reconstructing it from legacy manuscript text.
           python scripts/demote_event_analysis_to_supplement.py
 
           python3 - <<'PY'
@@ -78,8 +77,8 @@ jobs:
               'Five leave-one-geographical-fold-out estimates assessed regional stability.',
               'Five leave-one-geographical-fold-out estimates assessed regional stability (Roberts et al., 2017; Valavi et al., 2019).',
           )
-          # Normalise final headings back to the deterministic upgrade script's
-          # input headings. This makes repeated workflow execution idempotent.
+          # Normalise final headings back to deterministic upgrade inputs so that
+          # repeated workflow execution is idempotent.
           main = main.replace(
               '### 3.3 Local boundaries revealed heterogeneous Bombus correspondence',
               '### 3.3 Local boundaries revealed a short-range Bombus signal',
@@ -155,7 +154,18 @@ jobs:
           def words(text: str) -> list[str]:
               return re.findall(r"\b[\wÀ-ž*'’-]+\b", text)
 
-          main = Path('submission/jbi/JBI_main_manuscript_anonymized.md').read_text(encoding='utf-8')
+          main_path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
+          main = main_path.read_text(encoding='utf-8')
+          main = main.replace(
+              'Analyses used R 4.5.3 and INLA 25.10.19 (Rue et al., 2009).',
+              "Analyses were run in R 4.5.3 (R Core Team, 2026); latent Gaussian and SPDE models used the 'INLA' package version 25.10.19 (Rue et al., 2009).",
+          )
+          main = main.replace(
+              'The 5-km design produced 67 sharp pure white-pigmented transitions',
+              'The 5-km design produced 67 sharp transitions between pure white and pigmented cells',
+          )
+          main_path.write_text(main, encoding='utf-8')
+
           abstract = main.split('## Abstract', 1)[1].split('**Keywords:**', 1)[0]
           body = main.split('## 1. Introduction', 1)[1].split('## Acknowledgements', 1)[0]
           abstract_n = len(words(abstract))
@@ -174,6 +184,16 @@ jobs:
               checklist,
           )
           checklist_path.write_text(checklist, encoding='utf-8')
+
+          validator_path = Path('submission/jbi/validate_jbi_submission.py')
+          validator = validator_path.read_text(encoding='utf-8')
+          if '"0.100608"' not in validator:
+              validator = validator.replace(
+                  '        "3.81 times",\n',
+                  '        "3.81 times",\n        "0.100608",\n        "0.00998",\n        "0.26347",\n',
+                  1,
+              )
+          validator_path.write_text(validator, encoding='utf-8')
           print(f'synchronised final counts: abstract={abstract_n}, Main={body_n}')
           PY
 
@@ -188,6 +208,9 @@ jobs:
           grep -q '0.100608' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q 'P=0.00998' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q 'P=0.26347' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q '67 sharp transitions' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q "R 4.5.3 (R Core Team, 2026)" submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q "'INLA' package version 25.10.19" submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q 'rho=0.252' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q 'P=0.0009' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q '0.100608' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md

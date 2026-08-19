@@ -51,7 +51,7 @@ Panels:
 
 **Supporting guardrail:** the stronger-looking national overlap with montane/alpine Bombus disappears after elevation matching in Appendix S5. This is not the Main dish; it demonstrates why broad maps would confound a pollinator explanation with shared mountain environment and validates the local comparison.
 
-**Handoff to Figure 4:** after Broad environment, coherent residual geography and a localized Bombus hypothesis, what should count as a genuinely exceptional colour configuration?
+**Handoff to Figure 4:** after Broad environment, coherent residual geography and a localized Bombus hypothesis, does human context alter the geometry of the pigmented state beyond natural geography and local sampling density?
 
 Five-species turnover and the full highland/elevation audit remain in Appendix S5.
 
@@ -68,9 +68,9 @@ Panels:
 
 **Reveal:** the positive isolation-population relationship within pigmented occurrences is stronger than the fitted natural geography predicts and survives local flower-cell density correction. The raw white negative sign does not survive that correction, so the result is not sold as reciprocal colour displacement.
 
-**Supporting calibration:** the former 16-event analysis moves to Appendix S6 as an alternative estimand and a reproducible selector of extreme field/provenance targets.
+The threshold-event family is documented only in Appendix S6 and is outside the Main figure architecture.
 
-**Ending:** the figures identify where physiology, population history, realized pollination and provenance should be tested directly, while preserving the claim ceiling that a human-context overlay is not evidence of horticultural origin.
+**Ending:** the figures identify where physiology, population history, realized pollination and human-context mechanisms should be tested directly, while preserving the claim ceiling that a human-context overlay is not evidence of horticultural origin.
 
 ## Figure rule
 

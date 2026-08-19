@@ -111,9 +111,9 @@ numbered_subsections = (
     "### 2.1 Study system and YAMAP sampling",
     "### 2.6 Reproducibility and inferential order",
     "### 3.1 A new image stream revealed a national quantitative polymorphism",
-    "### 3.5 Predictive replay retained extreme populations as field targets",
+    "### 3.4 Continuous isolation revealed a pigmented human-context overlay",
     "### 4.1 The national trait dataset changed the biological question",
-    "### 4.6 A spatially varying balance can maintain flower-colour polymorphism",
+    "### 4.5 A spatially varying balance can maintain flower-colour polymorphism",
 )
 require_tokens("Numbered Main structure", text, numbered_subsections)
 
@@ -146,10 +146,18 @@ require_tokens(
         "P=0.0002",
         "rho=+0.285",
         "P=0.0009",
-        "Sixteen pigmented cells",
-        "calibrated field targets",
     ),
 )
+
+for forbidden_main_token in (
+    "Sixteen pigmented cells",
+    "16 event-defined",
+    "calibrated field targets",
+    "### 3.5 Predictive replay retained extreme populations as field targets",
+    "### 4.5 Event calibration defines targets without turning them into causes",
+):
+    if forbidden_main_token in text:
+        fail(f"Threshold-event family leaked into Main manuscript: {forbidden_main_token}")
 
 for citation, reference in (
     ("Soberón, 2007", "Soberón, J. (2007)."),
@@ -186,7 +194,9 @@ figure_text = FIGURE_CAPTIONS.read_text(encoding="utf-8")
 figure_headings = re.findall(r"^## Figure ([1-4])\.", figure_text, flags=re.MULTILINE)
 if figure_headings != ["1", "2", "3", "4"]:
     fail(f"Figure captions must contain Figures 1-4 exactly once and in order: {figure_headings}")
-require_tokens("Main-figure captions", figure_text, ("1,922", "Sixty-seven", "674 pigmented", "rho=0.252", "P=0.0002", "rho=0.285", "P=0.0009", "16 event-defined"))
+require_tokens("Main-figure captions", figure_text, ("1,922", "Sixty-seven", "674 pigmented", "rho=0.252", "P=0.0002", "rho=0.285", "P=0.0009"))
+if "16 event-defined" in figure_text or "field/provenance targets" in figure_text:
+    fail("Threshold-event family leaked into Main-figure captions")
 if re.search(r"\([A-D]\)", figure_text):
     fail("JBI figure captions must use lowercase panel labels (a)-(d)")
 for number in range(1, 5):
@@ -209,7 +219,7 @@ require_tokens(
         'tag_panel(fig1a, "a")',
         'tag_panel(fig2a, "a")',
         'tag_panel(fig3a, "a")',
-        'tag_panel(fig4a, "a")',
+        'source("scripts/render_jbi_figure4_continuous_isolation.R")',
     ),
 )
 if re.search(r'tag_panel\([^\n]+,\s*"[A-D]"\)', render_text):
@@ -225,7 +235,9 @@ for required_phrase in ("600-dpi PNG", "vector PDF", "Actions artifact"):
 if not TRANSLATED_ABSTRACT.is_file():
     fail("Missing translated abstract")
 translated = TRANSLATED_ABSTRACT.read_text(encoding="utf-8")
-require_tokens("Japanese translated abstract", translated, ("1,922", "67", "674", "0.252", "0.0002", "0.285", "0.0009", "16地点"))
+require_tokens("Japanese translated abstract", translated, ("1,922", "67", "674", "0.252", "0.0002", "0.285", "0.0009"))
+if "16地点" in translated:
+    fail("Threshold-event family leaked into Japanese translated abstract")
 if "17地点" in translated:
     fail("Japanese translated abstract still contains superseded 17-site result")
 
@@ -239,7 +251,6 @@ require_tokens(
         f"{body_n:,} words",
         f"{abstract_n} words",
         "674 pigmented cells",
-        "16 event-defined field targets",
         "R 4.5.3",
         "INLA 25.10.19",
         "Taxon authority",

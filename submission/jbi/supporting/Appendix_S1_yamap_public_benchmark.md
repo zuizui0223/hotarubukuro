@@ -2,6 +2,12 @@
 
 Scope fixed before public-source retrieval: *Campanula punctata* sensu lato, Japan, 2023-01-01 through 2025-12-31. Public comparators required an image and a georeference. Counts are descriptive of this focal taxon/time window only.
 
+## Taxonomic scope: hotarubukuro and yamahotarubukuro
+
+The image records were not divided into the Japanese forms commonly called ホタルブクロ (hotarubukuro) and ヤマホタルブクロ (yamahotarubukuro). Their diagnostic morphological distinction is concentrated in the calyx rather than in the corolla-colour trait analysed here, and many photographs do not show the calyx characters consistently enough for reliable retrospective assignment. Preliminary unpublished genetic data from the study system detected no clear genetic differentiation between the two forms. We therefore treated both as one analytical unit, *C. punctata* sensu lato, to avoid adding calyx-view-dependent classification error to the flower-colour analysis.
+
+This pooling is an analytical decision, not a formal taxonomic revision. The unpublished genetic observation was not analysed as a result in the present study, and voucher-based genomic work could later reassess whether the two forms differ in frequency, ancestry or flower-colour geography.
+
 ## Data volume and temporal coverage
 
 | Source | 2023 | 2024 | 2025 | Matched observation/study-row count | Image-object count | Quality subset / overlap |

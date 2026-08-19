@@ -7,20 +7,20 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 - Target: **Research Article**, not Methods and Tools or Data paper.
 - Main numbered headers: **1. Introduction, 2. Materials and Methods, 3. Results, 4. Discussion**, followed by unnumbered Acknowledgements, References and declarations.
 - The manuscript presents new biogeographic research on one novel question: how an intraspecific flower-colour polymorphism is structured by ecological processes operating at different spatial scales.
-- The conceptual advance is **scale-matched attribution**: new trait data establish the national pattern; INLA-SPDE separates measured environment from coherent residual geography; the environment-derived Bombus hypothesis is tested first at local colour boundaries; and apparent departures are calibrated against natural maps before human context is read.
-- The paper is achievement-forward without inflating causality. Positive, heterogeneous and null results each provide a distinct scientific output: response-specific geography, localized biotic inference, calibrated field targets and a leading provenance hypothesis.
+- The conceptual advance is **scale-matched attribution**: new trait data establish the national pattern; INLA-SPDE separates measured environment from coherent residual geography; the environment-derived Bombus hypothesis is tested first at local colour boundaries; and continuous same-colour isolation is tested against local sampling density and 10,000 natural maps.
+- The paper is achievement-forward without inflating causality. Positive, heterogeneous and null results provide distinct outputs: response-specific geography, localized biotic inference and a guarded pigmented human-context overlay. The threshold-event family is restricted to Appendix S6.
 - Methods are described for repeatability and linked to versioned code, fixed seeds, software manifests, checksum-locked artifacts and independent validators.
 
 ## Length and front matter
 
 - Main-text target: <=6,000 words.
-  - Current Introduction-through-Discussion count = **4,452 words** by repository validator.
+  - Current Introduction-through-Discussion count = **4,613 words** by repository validator.
 - Title: <=115 characters including spaces; no abbreviations or Latin binomial.
   - Current title = 108 characters.
 - Running title: <40 characters.
   - Current running title = 26 characters.
 - Structured abstract: <=300 words under **Aim, Location, Taxon, Methods, Results, Main conclusions**.
-  - Current abstract = **299 words** by repository validator.
+  - Current abstract = **282 words** by repository validator.
 - Keywords: 6–10, alphabetical.
   - Current count = 8.
 - The first abstract mention uses common name followed by the scientific name: spotted bellflower (*Campanula punctata*).
@@ -59,6 +59,7 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 - Do not submit historical/debugging analyses merely because they remain versioned in the repository.
 - Confirm every appendix, supplementary table and supplementary figure is cited from the Main or its relevant appendix text.
 - Sources cited only in Supporting Information must remain in the supplementary reference sections rather than the Main list.
+- Appendix S6 contains the threshold-event calibration and 16-site list only; Main inference does not depend on them.
 
 ## Species-distribution-model reporting
 
@@ -104,17 +105,17 @@ Checked against the current Wiley `Journal of Biogeography` Author Guidelines on
 
 - **Data killing part:** the Main reports that the matched YAMAP stream contained 3.81 times as many focal-species records as iNaturalist and explains how author screening, image hashing and deterministic phenotyping created a new national quantitative trait dataset.
 - **Phenotype killing part:** state and intensity are presented as different biological layers, not merely two response transformations.
-- **Broad killing part:** environment is shown to explain response-specific geography, while SPDE delivers coherent residual ranges that guide microclimate and genomic sampling rather than being dismissed as unexplained noise. A cross-fitted space-only sensitivity further shows environment-aligned divergence beyond spatial continuity for pigmentation state but not conditional intensity, without relabelling that excess as genetic differentiation or adaptation.
+- **Broad killing part:** environment is shown to explain response-specific geography, while SPDE delivers coherent residual ranges that guide microclimate and genomic sampling rather than being dismissed as unexplained noise. A no-refit supported-term comparison further shows Temperature-aligned divergence beyond fixed spatial continuity for pigmentation state, while the combined supported conditional-intensity distance remains within the spatial expectation, without relabelling that excess as genetic differentiation or adaptation.
 - **Bombus killing part:** the 5-km local comparison is the main ecological result. It identifies a short-range, state-boundary signal and 67 sites for direct pollination tests; its attenuation and heterogeneity refine the scale and phenotype component of the hypothesis. Only afterward does the highland/elevation guardrail demonstrate why a national overlay would confound pollinators with mountain environment.
-- **Departure killing part:** predictive replay converts 16 apparent exceptions into reproducibly calibrated field/provenance targets rather than erasing them as a null result.
-- **Human killing part:** short-range population exposure is identified as the leading human-context hypothesis and its likely spatial scale, without claiming provenance.
-- **Synthesis:** the Discussion converges on a spatially changing physiological/reproductive cost-benefit model, modified by history and occasional human movement.
+- **Human-geometry killing part:** across 674 pigmented cells, the 5-km isolation-population relationship exceeds 10,000-map natural expectation in raw and density-corrected form; the raw white sign reversal is explicitly rejected after density correction.
+- **Synthesis:** the Discussion converges on a spatially changing physiological/reproductive cost-benefit model, modified by history and contemporary human context.
 - The final paragraph states that the study uses strong, heterogeneous and null results for different inferential jobs rather than displaying only convenient results.
 - Five-species community turnover remains Supporting Information.
 - Main Bombus result reports its positive local mean first, then its median, sign proportion, scale attenuation and raw-support result.
 - No claim that SDM support equals realized visitation or selection.
 - No claim that YAMAP removes observer bias or that every mountain photograph is wild.
-- No claim that the **16 current-Broad departures** are anthropogenic or more frequent than the finalized natural model expects.
+- No claim that the **674 pigmented cells** establish horticultural origin.
+- Appendix S6 alone retains the threshold-event calibration and 16-site list; neither appears in the Main text or Figure 4.
 
 ## Remaining portal-controlled blockers
 

@@ -1,0 +1,147 @@
+name: Finalize PR57 repository state
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/continuous-colour-isolation-human-context
+    paths:
+      - .github/workflows/integrate-continuous-isolation-manuscript.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/integrate-continuous-isolation-manuscript.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: agent/continuous-colour-isolation-human-context
+
+      - name: Remove superseded active contracts and transition machinery
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          lock_path = Path('config/paper_pipeline.lock.json')
+          lock = json.loads(lock_path.read_text(encoding='utf-8'))
+
+          obsolete_required = {
+              'docs/broad_spatial_inertia_environment_tracking.md',
+              'scripts/fit_broad_space_null_phenotype_excess.R',
+              'scripts/run_broad_space_null_phenotype_excess_pipeline.R',
+              '.github/workflows/broad-spatial-inertia-environment-tracking.yml',
+              'scripts/upgrade_final_analysis_pipeline.py',
+              'scripts/register_continuous_isolation_paper_contract.py',
+              'scripts/run_continuous_isolation_paper_contract.py',
+              'scripts/integrate_continuous_isolation_manuscript.py',
+              'scripts/demote_event_analysis_to_supplement.py',
+              'scripts/normalize_active_paper_language_and_taxon.py',
+          }
+          lock['alignment']['required_files'] = [
+              path for path in lock['alignment']['required_files']
+              if path not in obsolete_required
+          ]
+          lock['stages'].pop('run_broad_space_null_excess', None)
+
+          checks = []
+          for check in lock['alignment']['checks']:
+              label = check.get('label', '')
+              if 'cross-fitted Broad sensitivity' in label:
+                  continue
+              if label == 'single execution front door':
+                  check['patterns'] = [
+                      'python run_pipeline\\.py audit',
+                      'python run_pipeline\\.py reproduce',
+                      'checksum-locked',
+                      'restore_broad_supported_term_distance',
+                  ]
+              checks.append(check)
+          lock['alignment']['checks'] = checks
+          lock_path.write_text(
+              json.dumps(lock, ensure_ascii=False, separators=(',', ':')) + '\n',
+              encoding='utf-8',
+          )
+
+          map_path = Path('paper/active-file-map.csv')
+          with map_path.open(newline='', encoding='utf-8') as handle:
+              rows = list(csv.DictReader(handle))
+
+          remove_paths = obsolete_required | {
+              'R/broad_spatial_inertia_environment_tracking.R',
+              'scripts/fit_broad_spatial_inertia_environment_tracking.R',
+              'scripts/run_broad_spatial_inertia_environment_tracking.R',
+              'reproducibility/final_integrated_pipeline_2026-08-12.md',
+          }
+          supplementary_event = {
+              'analysis_sensitivity/run_human_context_current_broad_primary_fast.R',
+              'R/candidate_null_tools.R',
+              'R/local_pigmented_isolates.R',
+              'R/local_human_context.R',
+              'R/human_landscape_features.R',
+              'R/natural_predictive_model.R',
+              '.github/workflows/human-context-highrep-final.yml',
+              'reproducibility/current_broad_human_primary_2026-08-12.md',
+          }
+
+          cleaned = []
+          for row in rows:
+              if row['path'] in remove_paths:
+                  continue
+              if row['path'] in supplementary_event:
+                  row['section'] = 'Supplementary_event'
+              cleaned.append(row)
+
+          with map_path.open('w', newline='', encoding='utf-8') as handle:
+              writer = csv.DictWriter(
+                  handle,
+                  fieldnames=['role', 'section', 'path', 'status'],
+                  lineterminator='\n',
+              )
+              writer.writeheader()
+              writer.writerows(cleaned)
+          PY
+
+          rm -f \
+            .gitattributes \
+            .github/workflows/final-manuscript-freeze.yml \
+            .github/workflows/final-manuscript-upgrade.yml \
+            .github/workflows/integrate-continuous-isolation-manuscript.yml \
+            .github/workflows/normalize-active-paper-language.yml \
+            .github/workflows/sync-final-manuscript-and-figures.yml \
+            scripts/demote_event_analysis_to_supplement.py \
+            scripts/integrate_continuous_isolation_manuscript.py \
+            scripts/normalize_active_paper_language_and_taxon.py \
+            scripts/register_continuous_isolation_paper_contract.py \
+            scripts/run_continuous_isolation_paper_contract.py \
+            scripts/upgrade_final_analysis_pipeline.py
+
+          find . -type d -name __pycache__ -prune -exec rm -rf {} +
+          python -m json.tool config/paper_pipeline.lock.json >/dev/null
+          git diff --check
+          python submission/jbi/validate_jbi_submission.py
+          python validation/validate_jbi_repository_alignment.py
+
+      - name: Commit cleaned final state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Finalize analysis-aligned JBI paper and remove transition machinery'
+          git fetch origin agent/continuous-colour-isolation-human-context
+          git rebase origin/agent/continuous-colour-isolation-human-context
+          git push origin HEAD:agent/continuous-colour-isolation-human-context

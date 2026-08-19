@@ -1,101 +1,55 @@
-# Introduction plan — one mystery, three revealed bottlenecks
+# Introduction plan — one mystery, four dependent reveals
 
-This file is an editorial guide. It keeps the Introduction focused on the biological mystery rather than presenting four analyses as parallel aims.
+This is the editorial lock for the Introduction, Discussion and four Main figures. The paper is one investigation, not four parallel analyses.
 
-## The single mystery
+## Single biological question
 
-> Why do white and pigmented flowers remain geographically structured within one species, and why does colour intensity vary again within pigmented flowers?
+> How is within-species flower-colour geography assembled from physiological, spatial, biotic and contemporary human-context processes that operate at different scales?
 
-The reader should enter the paper wanting one answer. Each attempted answer should expose a deeper layer that makes the next analysis necessary.
+## Act 1 — Recover the phenotype that available databases did not provide
 
-## The three bottlenecks
+The gap is not that quantitative flower-colour studies do not exist. It is that no ready-made focal-species database supplied enough recent, georeferenced images to resolve both the white-pigmented switch and continuous variation among pigmented flowers across Japan.
 
-### 1. Measurement bottleneck
+YAMAP is an alternative observation process, not a globally unbiased replacement for biodiversity platforms. Its mountain-route frame enriches plausible natural settings while also conditioning access and human exposure. Author screening and deterministic phenotyping convert that image stream into two responses.
 
-The polymorphism cannot be explained nationally until it can be measured nationally.
+## Act 2 — Separate named environmental gradients from coherent geography
 
-The reveal is not simply that YAMAP supplies many records. It is that a seemingly continuous white-to-dark phenotype separates into:
+A dense trait map makes attribution harder because environment, history, sampling and environment-derived SDMs share space. The final environment + SPDE models provide directional coefficients and residual spatial ranges.
 
-- whether visible pigmentation is present;
-- how intense colour is after pigmentation is present.
+The supporting comparison uses the same model-supported environmental terms and fixed space-only maps. It does not rebuild the model or search across alternative axes. Pigmentation state passes both stages through Temperature PC1; conditional intensity retains directional coefficients but not divergence beyond space.
 
-Solving measurement changes the biological question.
+## Act 3 — Change comparison unit for the pollinator hypothesis
 
-### 2. Attribution bottleneck
+The tubular floral system and Izu natural history justify bumblebees as a focused hypothesis, but Izu does not prove colour selection. National overlap is insufficient because Bombus SDMs share climate and mountain geography.
 
-A national trait map makes the causal problem harder, not easier.
+The primary unit is therefore 67 independently fixed local white-pigmented boundaries. The result is heterogeneity: a positive mean is driven by a subset of boundaries, while the median, sign proportion, family q, raw-support and scale sensitivities prevent a pervasive-shift claim. Montane species provide an elevation-confounding guardrail.
 
-Climate, terrain, residual population/history processes and Bombus SDMs share geography. A single national coefficient can therefore make shared space look like mechanism.
+## Act 4 — Test a continuous human overlay on the natural geometry
 
-The Broad model establishes the environmental and continuous spatial template. Its answer then creates the need to change scale for the pollinator hypothesis.
+The Main human-context estimand is threshold free: nearest same-colour distance for every flower cell, corrected by local flower-cell spacing and replayed on 10,000 natural maps. The robust result is an additional positive isolation-population relationship within pigmented occurrences, not a reciprocal white-pigmented displacement and not provenance.
 
-### 3. Exception bottleneck
+The earlier 16-event family remains in Appendix S6. It calibrates extreme local configurations and preserves reproducible field targets, but event frequency is compatible with natural maps and does not define the Main human claim.
 
-The Broad natural template makes local exceptions visible, but appearance is not evidence.
+## Locked causal chain
 
-A large residual or striking point may still arise from structured natural variation. The local event must be defined biologically and replayed on natural predictive maps before human context is inspected.
+`incidental images -> two-part quantitative phenotype -> named environment + continuous space -> supported-term divergence beyond fixed space -> heterogeneous local Bombus boundaries -> continuous pigmented human-context overlay -> direct field, physiological and genomic tests`
 
-## Numbered Introduction structure
+## Forbidden promotions
 
-### 1.1 The geographical mystery of flower-colour polymorphism
+- YAMAP records are all wild or human-bias free.
+- The SPDE field is genetics, drift or dispersal distance.
+- Supported-term divergence demonstrates selection or local adaptation.
+- Bombus SDM support is visitation, pollen transfer or selection.
+- The Izu contrast proves that bumblebee absence caused white flowers.
+- The continuous isolation pattern proves planting, escape or horticultural origin.
+- The 16 event cells are anthropogenic anomalies.
 
-Start with persistence of white and pigmented flowers, not with YAMAP or INLA.
+## Reader movement
 
-Establish that flower colour can affect both physiology and reproduction, so its cost-benefit balance may change across space.
-
-### 1.2 The first hidden layer: state is not intensity
-
-Explain the two-part phenotype biologically before mentioning mixture models.
-
-The reader should anticipate that a factor can affect pigment ON/OFF without controlling progressive darkening.
-
-### 1.3 Solving measurement reveals the attribution problem
-
-Introduce YAMAP as the discovery device.
-
-Then turn the apparent solution into the next problem: a dense national map reveals shared geography among candidate processes.
-
-### 1.4 From broad geography to local boundaries and local exceptions
-
-Explain why Bombus is tested at nearby boundaries and why human context comes only after natural calibration.
-
-The transition should feel inevitable:
-
-`national map -> spatial confounding -> local boundary -> calibrated local exception`
-
-### 1.5 Predictions
-
-Use three dependent predictions, not four independent projects.
-
-1. state and intensity should show different broad geography;
-2. focal Bombus support should increase locally from white to pigmented if pollinators help maintain visible pigmentation;
-3. departure events should exceed natural-map expectations if an additional process is required.
-
-Human context is a follow-up to prediction 3.
-
-## Required emotional/intellectual movement
-
-The Introduction should produce this sequence in the reader:
-
-1. “Why does the polymorphism persist?”
-2. “We could not even see it quantitatively at national scale.”
-3. “Now that we can see it, the phenotype itself splits in two.”
-4. “Now that the map exists, broad overlap is confounded.”
-5. “So the study must zoom in.”
-6. “Even local exceptions must first survive a natural null.”
-
-The attraction is discovery, not methodological self-defence.
-
-## Plain-English rule
-
-Use concrete verbs and make each paragraph complete one causal step.
-
-Prefer:
-
-> Making the national pattern visible did not solve the causal problem; it exposed it.
-
-over:
-
-> The resulting enhanced phenotype resolution necessitated an additional scale-aware attribution framework.
-
-Methods may be sophisticated. The prose should make the necessity feel obvious.
+1. The phenotype could not be measured nationally at the required resolution.
+2. Once measured, state and intensity separate.
+3. Once mapped, shared geography becomes the causal problem.
+4. Temperature organizes the state switch beyond fixed spatial continuity; intensity does not show the same signature.
+5. The pollinator question must move to repeated local boundaries.
+6. Boundary heterogeneity replaces a national Bombus story.
+7. Human context appears in all-cell pigmented geometry, while provenance remains unresolved.

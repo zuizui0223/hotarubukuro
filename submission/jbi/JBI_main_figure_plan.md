@@ -30,7 +30,7 @@ Panels:
 - (c) cross-fitted colour intensity;
 - (d) residual spatial ranges and blocked prediction.
 
-**Reveal:** state and intensity differ, and coherent spatial structure remains after measured environment.
+**Reveal:** state and intensity differ, coherent spatial structure remains, and only Temperature-supported state distance produces held-out divergence beyond fixed spatial continuity. The supported intensity terms do not.
 
 **Handoff to Figure 3:** the Broad map has not isolated a biotic mechanism. Because Bombus SDMs share environmental geography, the pollinator hypothesis must be tested at local colour boundaries.
 
@@ -47,28 +47,30 @@ Panels:
 - (c) pigmented-minus-white focal-Bombus contrast;
 - (d) scale and raw-SDM sensitivities.
 
-**Reveal:** focal-Bombus support is higher on the pigmented side on average at the finest replicated scale. Its concentration in a subset of boundaries, attenuation at 10 and 25 km and absence along the intensity axis localize the plausible contribution to short-range maintenance of pigmentation state.
+**Reveal:** a positive mean is driven by a subset of boundaries. The near-zero median, 49.3% positive pairs, family q, broader-scale attenuation, raw-support failure and intensity null make boundary heterogeneity—not a pervasive shift—the biological result.
 
 **Supporting guardrail:** the stronger-looking national overlap with montane/alpine Bombus disappears after elevation matching in Appendix S5. This is not the Main dish; it demonstrates why broad maps would confound a pollinator explanation with shared mountain environment and validates the local comparison.
 
-**Handoff to Figure 4:** after Broad environment, coherent residual geography and a localized Bombus hypothesis, what should count as a genuinely exceptional colour configuration?
+**Handoff to Figure 4:** after Broad environment, coherent residual geography and a localized Bombus hypothesis, does human context alter the geometry of the pigmented state beyond natural geography and local sampling density?
 
 Five-species turnover and the full highland/elevation audit remain in Appendix S5.
 
-## Figure 4 — Calibrate apparent exceptions against natural geography
+## Figure 4 — Reveal a human overlay on pigmented spatial geometry
 
-**Question created by Figure 3:** Are local pigmented departures more frequent than the finalized natural geography predicts?
+**Question created by Figure 3:** Once broad environment, coherent geography and a local Bombus hypothesis are separated, does human context alter where isolated pigmented occurrences sit?
 
 Panels:
 
-- (a) event rule;
-- (b) 16 observed sites;
-- (c) event count/fraction versus 10,000 natural maps;
-- (d) human context tested only after sites are fixed.
+- (a) all 1,305 flower cells, with 674 pigmented cells sized by nearest-pigmented distance and filled by 5-km population exposure;
+- (b) population exposure versus relative same-colour isolation for pigmented and white cells;
+- (c) observed raw and density-corrected 5-km correlations against 10,000 natural-map intervals;
+- (d) observed pigmented correlations and natural expectations across the population-scale ladder.
 
-**Reveal:** natural predictive maps explain the observed frequency of 16 configurations while turning them into reproducible field/provenance targets. Short-range population exposure is the leading human-context clue, not proof of origin.
+**Reveal:** the positive isolation-population relationship within pigmented occurrences is stronger than the fitted natural geography predicts and survives local flower-cell density correction. The raw white negative sign does not survive that correction, so the result is not sold as reciprocal colour displacement.
 
-**Ending:** the figures identify where physiology, population history, realized pollination and provenance should be tested directly, and converge on a spatially varying model of polymorphism maintenance.
+The threshold-event family is documented only in Appendix S6 and is outside the Main figure architecture.
+
+**Ending:** the figures identify where physiology, population history, realized pollination and human-context mechanisms should be tested directly, while preserving the claim ceiling that a human-context overlay is not evidence of horticultural origin.
 
 ## Figure rule
 

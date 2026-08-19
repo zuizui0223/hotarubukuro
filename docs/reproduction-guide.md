@@ -20,7 +20,7 @@ Useful controls:
 
 ```bash
 python run_pipeline.py reproduce --dry-run
-python run_pipeline.py reproduce --from-stage run_broad_space_null_excess
+python run_pipeline.py reproduce --from-stage restore_broad_supported_term_distance
 python run_pipeline.py reproduce --only-stage validate_alignment
 python run_pipeline.py reproduce --no-resume
 ```
@@ -32,11 +32,13 @@ The canonical GitHub Actions entry is `.github/workflows/paper-pipeline.yml` (**
 `audit` does not fit models. It checks that:
 
 1. the current manuscript, paper overview and evidence map carry the same accepted numbers;
-2. the merged PR #50 spatial-null result remains a supporting Broad sensitivity with its non-causal claim ceiling;
-3. the merged PR #51 local-boundary Bombus result remains the primary biotic story and the highland overlap remains a guardrail;
-4. frozen-input and historical artifact identities remain traceable;
-5. the JBI source package passes format/anonymity validation;
-6. the repository exposes one active execution front door.
+2. the final Broad coefficient models and supported-environmental-distance comparison retain their response-specific conclusions and non-causal claim ceilings;
+3. the local-boundary Bombus result is reported as heterogeneous rather than pervasive, with the highland overlap retained as a confounding guardrail;
+4. continuous all-cell isolation is the Main human-context analysis and the 16-event family remains in Appendix S6;
+5. the pooled *Campanula punctata* sensu lato taxonomic scope is stated in Supporting Information;
+6. frozen-input and accepted-artifact identities remain traceable;
+7. the JBI source package passes format and anonymity validation;
+8. the repository exposes one active execution front door.
 
 Outputs:
 
@@ -45,25 +47,27 @@ Outputs:
 
 ## What `reproduce` does
 
-Exact reproduction starts from three checksum-locked inputs permanently versioned under `reproducibility/frozen_inputs/`:
+Exact reproduction starts from checksum-locked inputs and accepted outputs:
 
-- accepted Broad flower-colour, graph and human-context evidence;
+- the observation-level Broad flower-colour, graph and human-context baseline;
+- the accepted supported-environmental-distance comparison against fixed space-only maps;
 - seeded focal Bombus SDMs;
-- final-eight-axis posterior predictive draws.
+- final-eight-axis posterior predictive draws;
+- the validated continuous colour-isolation result.
 
-The three archives are materialized by `scripts/materialize_frozen_input.py`, with archive SHA-256 identities fixed in `reproducibility/frozen_inputs/SHA256SUMS`. Historical GitHub Actions artifact IDs and checksums are retained only as provenance references; they are no longer required for execution.
+The pipeline then executes or restores, in order:
 
-The pipeline then executes, in order:
+1. the accepted Broad observation-level evidence;
+2. the supported-term environmental-distance comparison, without refitting the final environment or spatial models;
+3. occurrence-referenced Bombus support reconstruction;
+4. 67 fixed local white-pigmented boundary tests and their environmental-balance audit;
+5. the supplementary 16-event calibration and its human-context sensitivity;
+6. the validated continuous all-cell isolation analysis used in the Main paper;
+7. the four current JBI figures;
+8. the editable six-file JBI review bundle and PDF render smoke tests;
+9. final manuscript/repository alignment and a machine-readable provenance manifest.
 
-1. `run_broad_space_null_excess`: five-fold cross-fitted space-only SPDE sensitivity for state and conditional intensity;
-2. occurrence-referenced Bombus support reconstruction;
-3. 67 fixed local white-pigmented boundary tests and their final-eight-axis balance audit;
-4. 10,000-map natural-departure and human-context adjudication;
-5. the four current JBI figures;
-6. the editable six-file JBI review bundle and PDF render smoke tests;
-7. final manuscript/repository alignment and a machine-readable provenance manifest.
-
-This route is checksum-locked. It does not refresh live public sources or replace the accepted Broad model family.
+This route is checksum locked. It does not refresh live public sources or replace the accepted Broad model family.
 
 ## Stage contracts
 
@@ -73,8 +77,8 @@ Expected manuscript population:
 
 - 1,922 observations;
 - 1,305 1-km cells;
-- 966 white-like;
-- 956 pigmented.
+- 966 white-like observations;
+- 956 pigmented observations.
 
 Public derived table and construction code:
 
@@ -85,9 +89,11 @@ Public derived table and construction code:
 
 Original YAMAP photographs are third-party content and are not redistributed.
 
+The analysis pools the forms commonly called ホタルブクロ and ヤマホタルブクロ as *C. punctata* sensu lato. Appendix S1 explains that their image-diagnostic distinction is concentrated in calyx morphology, which is not consistently visible, and that preliminary unpublished data found no clear genetic differentiation. This is an analytical scope decision, not a formal taxonomic revision.
+
 ### 2. Accepted Broad environment-spatial models
 
-The observation-level model remains the current JBI model:
+The observation-level models remain the primary Broad analysis:
 
 - pigmentation state: eight abiotic axes + East/West + stationary Matérn SPDE;
 - conditional intensity: the same structure + Temperature PC1 × temperature seasonality.
@@ -97,26 +103,31 @@ Primary records:
 - `reproducibility/broad_environment_spatial_final_model_2026-08-11.md`
 - `submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md`
 
-### 3. Cross-fitted Broad spatial-null sensitivity from PR #50
+Expected directional results:
 
-Command component:
+- pigmentation state: Temperature PC1 = -0.542, 95% CrI -1.033 to -0.049;
+- conditional intensity: precipitation PC1 = -0.174, temperature seasonality = +0.207, Topography PC1 = -0.134 and Temperature PC1 × seasonality = -0.204;
+- residual ranges: 132.8 km for state and 65.7 km for conditional intensity.
 
-- `scripts/fit_broad_space_null_phenotype_excess.R`
-- `scripts/run_broad_space_null_phenotype_excess_pipeline.R`
-- `.github/workflows/broad-spatial-inertia-environment-tracking.yml`
+### 3. Supported environmental-term distance versus fixed spatial continuity
 
-The metadata-row mismatch identified during PR #50 integration is fixed in the source script. The wrapper requires normal completion, verifies every scientific output and validates the accepted result against numerical tolerances.
+The final models are not rebuilt for this comparison. The analysis reuses already fixed held-out pairs, five geographical-distance strata and 500 cached space-only posterior-predictive maps.
 
-Expected result from 500 posterior-predictive realizations, seed 20260725, five geographical folds and five geographical-distance strata per fold:
+Environmental distance is response specific:
 
-| Response | Observed high-env − low-env divergence | Space-null median | Excess | One-sided P |
+- pigmentation state: Temperature PC1;
+- conditional intensity: an unweighted Euclidean distance across precipitation PC1, temperature seasonality, Topography PC1 and Temperature PC1 × temperature seasonality.
+
+Expected result:
+
+| Response | Observed high-minus-low divergence | Space-only median | Excess | One-sided P |
 |---|---:|---:|---:|---:|
-| Pigmentation state | 0.106802 | 0.058240 | +0.048562 | 0.03393 |
-| Conditional intensity | -0.047179 | -0.001287 | -0.045891 | 0.87226 |
+| Pigmentation state | **0.100608** | **0.048475** | **+0.052133** | **0.00998** |
+| Conditional intensity | 0.047416 | 0.020897 | +0.026519 | 0.26347 |
 
-Interpretation: pigmentation-state divergence is aligned with environmental difference beyond the fitted continuous-spatial expectation. This is not FST, PST or QST and does not establish selection, local adaptation or a unique causal environment.
+The comparison asks whether supported environmental separation orders held-out phenotype divergence beyond fitted spatial continuity. It does not identify the underlying mechanism or demonstrate selection or local adaptation.
 
-### 4. Local focal-Bombus boundaries from the current PR #51 narrative
+### 4. Local focal-Bombus boundaries
 
 Expected primary result:
 
@@ -125,29 +136,38 @@ Expected primary result:
 - median -0.00277;
 - 49.3% positive pairs;
 - one-sided P=0.02716;
-- q=0.08148 across the 5/10/25-km primary family.
+- q=0.0815 across the 5/10/25-km family.
 
-The local 5-km comparison is the primary ecological test. It is the finest predeclared replicated scale, not an exact foraging-distance estimate. The national highland overlap is secondary: it disappears under near-equal-elevation comparison and demonstrates the danger of shared mountain geography. SDM support is habitat opportunity, not abundance, visitation, pollen transfer or realized selection.
+The positive mean is driven by a subset of boundaries. The distribution, scale attenuation, raw-support failure and equal-elevation guardrail must be reported together. SDM support is habitat opportunity, not abundance, visitation, pollen transfer or pollinator-mediated selection.
 
-### 5. Natural departures and human follow-up
+### 5. Continuous human-context geometry
 
-Expected natural calibration:
+The Main analysis uses all 1,305 cells: 674 pigmented and 631 white.
 
-- 16 observed candidates;
+Expected focal result at 5 km:
+
+| Pigmented isolation measure | Observed rho | Natural mean | Upper-tail P |
+|---|---:|---:|---:|
+| raw same-colour nearest distance | **0.251980** | **0.132980** | **0.000200** |
+| relative to local all-flower spacing | **0.285498** | **0.153616** | **0.000900** |
+
+The robust conclusion is an excess positive isolation-population relationship within pigmented occurrences. The apparent negative white relationship does not survive density correction. The analysis is explicitly post hoc and does not establish horticultural origin or causation by people.
+
+### 6. Supplementary event calibration
+
+Appendix S6 retains the earlier restrictive event family:
+
+- 16 observed event cells;
 - count P=0.27897;
-- candidate-fraction P=0.12609.
-
-Expected leading human-context result:
-
-- population exposure within 5 km: +0.06744;
-- directional P=0.00800;
+- candidate-fraction P=0.12609;
+- leading 5-km population contrast +0.06744;
 - global maxT FWER P=0.05479.
 
-The 16 sites remain field/provenance targets, not demonstrated anthropogenic anomalies.
+These cells are supplementary extreme field targets. They are not excessive under natural maps and are not the statistical foundation of the Main human-context result.
 
-### 6. Figures and review package
+### 7. Figures and review package
 
-The pipeline rebuilds four figures, assembles six editable DOCX files, validates hashes/anonymity/package structure, renders all DOCX files through LibreOffice and checks first-page PDF output. Human visual approval and author-controlled portal fields remain outside automation.
+The pipeline rebuilds four figures, assembles six editable DOCX files, validates hashes, anonymity and package structure, renders all DOCX files through LibreOffice and checks first-page PDF output. Human visual approval and author-controlled portal fields remain outside automation.
 
 ## Local prerequisites
 
@@ -156,20 +176,21 @@ The orchestrator installs declared Python and R packages. The canonical workflow
 - `dependencies/apt-packages.txt`
 - `dependencies/submission-apt-packages.txt`
 
-No GitHub token is required to materialize the three exact-reproduction inputs: the locked archives are committed in the repository. Network access is therefore no longer part of the scientific input-restoration contract.
-
 ## What counts as success?
 
 A successful run writes `results/paper_pipeline/run_manifest.json` and recovers the same:
 
 - analysis population and response definitions;
-- PR #50 spatial-null direction and numerical lock;
-- PR #51 local-boundary hierarchy and claim ceilings;
-- 16-site natural calibration and human follow-up;
-- current figures and JBI review package.
+- final Broad coefficients and residual spatial ranges;
+- supported-term distance result for state and the null result for conditional intensity;
+- heterogeneous local Bombus boundary hierarchy and claim ceilings;
+- continuous pigmented isolation-population relationship and its density correction;
+- supplementary 16-event calibration;
+- current figures and JBI review package;
+- pooled *C. punctata* sensu lato scope in Supporting Information.
 
 Exact stochastic draws need not be bit-for-bit identical across platforms; the declared scientific result and numerical tolerances must agree.
 
 ## Durability status
 
-The exact-reproduction binary inputs are permanently versioned in `reproducibility/frozen_inputs/` with SHA-256 locks. GitHub Actions artifacts are no longer required for execution. A future DOI-backed mirror can add independent preservation, but it is not a prerequisite for reproducing the frozen repository state.
+Accepted artifact IDs and SHA-256 values are recorded in `paper/analysis-map.md` and `config/paper_pipeline.lock.json`. A future DOI-backed mirror can add independent preservation, but it is not a prerequisite for reproducing the frozen repository state.

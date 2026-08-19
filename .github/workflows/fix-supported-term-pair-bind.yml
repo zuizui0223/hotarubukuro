@@ -1,5 +1,6 @@
 name: Repair supported-term pair-table binding
 
+# One-shot workflow used only to commit the diagnosed column-alignment repair.
 on:
   push:
     branches:

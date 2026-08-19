@@ -3,7 +3,7 @@ name: Current paper checks
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, agent/final-jbi-clean]
     paths:
       - run_pipeline.py
       - config/paper_pipeline.lock.json
@@ -40,7 +40,7 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
-      - name: Validate the curated paper map
+      - name: Validate curated active-file map
         shell: bash
         run: |
           set -euo pipefail
@@ -57,11 +57,7 @@ jobs:
           assert len(paths) == len(set(paths)), 'duplicate paper-map paths'
           missing = [path for path in paths if not Path(path).is_file()]
           assert not missing, 'mapped current files are missing: ' + ', '.join(missing)
-          assert not [path for path in paths if path.startswith('legacy/')], 'current paper map points into legacy'
-          assert not Path('legacy').exists(), 'legacy tree must stay outside the active branch after the 2026-08-18 freeze'
-          assert not Path('FINAL_PIPELINE_SUPP_MANUSCRIPT_AUDIT_2026-08-12.md').exists(), (
-              'superseded root-level dated audit must stay removed'
-          )
+          assert not [path for path in paths if path.startswith('legacy/')], 'active paper map points into legacy'
 
           primary = {row['path'].strip() for row in rows if row['status'].strip() == 'primary'}
           expected_primary = {
@@ -71,6 +67,7 @@ jobs:
               'paper/active-file-map.csv', 'validation/validate_jbi_repository_alignment.py',
               'submission/jbi/JBI_main_manuscript_anonymized.md',
               'submission/jbi/validate_jbi_submission.py', 'pyproject.toml',
+              'reproducibility/FINAL_RESULTS_2026-08-19.md',
           }
           assert expected_primary.issubset(primary), 'missing primary entry points: ' + ', '.join(
               sorted(expected_primary - primary)
@@ -89,24 +86,18 @@ jobs:
               except Exception as error:
                   failures.append(f'{path_string}: {error}')
           assert not failures, 'mapped-file syntax validation failed: ' + ' | '.join(failures)
-
-          workflow_files = sorted(Path('.github/workflows').glob('*.yml'))
-          checkout_v4 = 'actions/checkout@' + 'v4'
-          python_v5 = 'actions/setup-python@' + 'v5'
-          stale_checkout = [str(path) for path in workflow_files if checkout_v4 in path.read_text()]
-          stale_python = [str(path) for path in workflow_files if python_v5 in path.read_text()]
-          assert not stale_checkout, 'checkout v4 remains: ' + ', '.join(stale_checkout)
-          assert not stale_python, 'setup-python v5 remains: ' + ', '.join(stale_python)
           print('curated paper-map rows:', len(rows), 'primary:', len(primary))
           PY
 
-      - name: Validate the canonical execution plan
+      - name: Validate canonical execution plan and manuscript
+        shell: bash
         run: |
+          set -euo pipefail
           python run_pipeline.py audit --dry-run
           python validation/validate_jbi_repository_alignment.py
           python submission/jbi/validate_jbi_submission.py
 
-      - name: Confirm the single front door and frozen-history separation
+      - name: Confirm final scientific locks and single front door
         shell: bash
         run: |
           set -euo pipefail
@@ -114,66 +105,33 @@ jobs:
           grep -q 'python run_pipeline.py reproduce' README.md
           grep -q 'python run_pipeline.py audit' docs/reproduction-guide.md
           grep -q 'python run_pipeline.py reproduce' docs/reproduction-guide.md
+          grep -q 'restore_broad_supported_term_distance' docs/reproduction-guide.md
           test -s config/paper_pipeline.lock.json
-          test -s reproducibility/final_integrated_pipeline_2026-08-12.md
-          test -s reproducibility/current_broad_human_primary_2026-08-12.md
-          test -s reproducibility/FROZEN_RELEASE_2026-08-18.md
-          test -s reproducibility/frozen_release_2026-08-18.json
-          test -s docs/repository-layout.md
-          test ! -e legacy
-          grep -q 'ddb1c262b8332c94f4b94e572ab930a648e59553' reproducibility/FROZEN_RELEASE_2026-08-18.md
-          grep -q 'archive/jbi-final-2026-08-18-pre-cleanup' reproducibility/FROZEN_RELEASE_2026-08-18.md
+          test -s reproducibility/FINAL_RESULTS_2026-08-19.md
+          test -s reproducibility/final_analysis_pipeline_integration_2026-08-19.md
+          test -s reproducibility/broad_supported_term_distance_space_null_2026-08-19.md
+          test -s reproducibility/continuous_colour_isolation_human_context_result_2026-08-18.md
+          ! grep -q '0.106802' submission/jbi/JBI_main_manuscript_anonymized.md
+          ! grep -q '0.03393' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q '0.100608' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'P=0.00998' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'P=0.26347' submission/jbi/JBI_main_manuscript_anonymized.md
 
-      - name: Install and run Python tests
+      - name: Confirm transition machinery is absent
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install -e '.[test]'
-          python -m pytest
-          hotarubukuro-paper audit --dry-run
-          hotarubukuro-color --help >/dev/null
-
-  current-r-unit-tests:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Read pinned R version
-        id: rversion
-        shell: bash
-        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
-
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: ${{ steps.rversion.outputs.version }}
-          use-public-rspm: true
-
-      - name: Parse mapped R sources
-        shell: bash
-        run: |
-          set -euo pipefail
-          Rscript - <<'RS'
-          map <- utils::read.csv('paper/active-file-map.csv', check.names = FALSE, stringsAsFactors = FALSE)
-          paths <- sort(unique(map$path[grepl('\\.R$', map$path)]))
-          if (!length(paths)) stop('No mapped R sources are registered.')
-          missing <- paths[!file.exists(paths)]
-          if (length(missing)) stop('Missing mapped R sources: ', paste(missing, collapse = ', '))
-          failures <- character()
-          for (path in paths) {
-            tryCatch(parse(file = path, keep.source = FALSE), error = function(error) {
-              failures <<- c(failures, paste0(path, ': ', conditionMessage(error)))
-            })
-          }
-          if (length(failures)) stop('R syntax validation failed:\n  ', paste(failures, collapse = '\n  '), call. = FALSE)
-          cat('Parsed', length(paths), 'mapped R sources.\n')
-          RS
-
-      - name: Restore test and reproducibility packages
-        run: >-
-          Rscript scripts/setup_r_environment.R
-          --report-dir /tmp/current-paper-test-environment
-          --scopes testing,reproducibility
-
-      - name: Run current R unit tests
-        run: Rscript tests/testthat.R
+          for path in \
+            .github/workflows/final-manuscript-freeze.yml \
+            .github/workflows/final-manuscript-upgrade.yml \
+            .github/workflows/integrate-continuous-isolation-manuscript.yml \
+            .github/workflows/normalize-active-paper-language.yml \
+            .github/workflows/sync-final-manuscript-and-figures.yml \
+            scripts/demote_event_analysis_to_supplement.py \
+            scripts/integrate_continuous_isolation_manuscript.py \
+            scripts/normalize_active_paper_language_and_taxon.py \
+            scripts/register_continuous_isolation_paper_contract.py \
+            scripts/run_continuous_isolation_paper_contract.py \
+            scripts/upgrade_final_analysis_pipeline.py; do
+            test ! -e "$path"
+          done

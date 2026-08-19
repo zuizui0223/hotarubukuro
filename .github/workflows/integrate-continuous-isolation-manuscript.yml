@@ -59,6 +59,7 @@ jobs:
 
           translated = Path('submission/jbi/JBI_translated_abstract_ja.md')
           text = translated.read_text(encoding='utf-8')
+          text = text.replace('有色セルでは、', '674個の有色セルでは、')
           for heading in (
               '**調査地域：**', '**対象分類群：**', '**方法：**',
               '**結果：**', '**主な結論：**',
@@ -119,6 +120,7 @@ jobs:
           git diff --check
           grep -q 'rho=0.252' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q 'P=0.0009' submission/jbi/JBI_translated_abstract_ja.md
+          grep -q '674個の有色セル' submission/jbi/JBI_translated_abstract_ja.md
           grep -q 'continuous_pigmented_cells' validation/validate_jbi_figure_bundle.R
           grep -q 'accepted_continuous_colour_isolation' config/paper_pipeline.lock.json
           ! grep -q 'Sixteen event-defined populations' submission/jbi/JBI_main_manuscript_anonymized.md

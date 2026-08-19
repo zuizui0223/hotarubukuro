@@ -1,4 +1,4 @@
-name: Integrate continuous isolation into JBI manuscript
+name: Integrate final analyses into JBI manuscript
 
 on:
   workflow_dispatch:
@@ -10,6 +10,7 @@ on:
       - scripts/register_continuous_isolation_paper_contract.py
       - scripts/run_continuous_isolation_paper_contract.py
       - scripts/demote_event_analysis_to_supplement.py
+      - scripts/upgrade_final_analysis_pipeline.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
   pull_request:
     branches: [main]
@@ -18,44 +19,45 @@ on:
       - scripts/register_continuous_isolation_paper_contract.py
       - scripts/run_continuous_isolation_paper_contract.py
       - scripts/demote_event_analysis_to_supplement.py
+      - scripts/upgrade_final_analysis_pipeline.py
       - .github/workflows/integrate-continuous-isolation-manuscript.yml
 
 permissions:
   contents: write
 
 concurrency:
-  group: continuous-isolation-paper-integration
+  group: final-analysis-paper-integration
   cancel-in-progress: true
 
 jobs:
   integrate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: agent/continuous-colour-isolation-human-context
 
-      - name: Apply deterministic manuscript and paper-contract integration
+      - name: Apply continuous-isolation and final-analysis integration
         shell: bash
         run: |
           set -euo pipefail
+
           if grep -q '^### 1.4 From broad geography to local boundaries and calibrated departures$' \
             submission/jbi/JBI_main_manuscript_anonymized.md; then
             python scripts/integrate_continuous_isolation_manuscript.py
           else
             echo "continuous-isolation manuscript prose already integrated"
           fi
+
           python scripts/run_continuous_isolation_paper_contract.py
           python scripts/demote_event_analysis_to_supplement.py
+
           python3 - <<'PY'
           import json
           import re
           from pathlib import Path
-
-          def words(text: str) -> list[str]:
-              return re.findall(r"\b[\wÀ-ž*'’-]+\b", text)
 
           map_path = Path('paper/active-file-map.csv')
           map_path.write_bytes(map_path.read_bytes().replace(b'\r\n', b'\n'))
@@ -68,8 +70,7 @@ jobs:
               '**結果：**', '**主な結論：**',
           ):
               text = text.replace('\n' + heading, '\n\n' + heading)
-          text = re.sub(r'\n{3,}', '\n\n', text)
-          translated.write_text(text, encoding='utf-8')
+          translated.write_text(re.sub(r'\n{3,}', '\n\n', text), encoding='utf-8')
 
           main_path = Path('submission/jbi/JBI_main_manuscript_anonymized.md')
           main = main_path.read_text(encoding='utf-8')
@@ -77,33 +78,33 @@ jobs:
               'Five leave-one-geographical-fold-out estimates assessed regional stability.',
               'Five leave-one-geographical-fold-out estimates assessed regional stability (Roberts et al., 2017; Valavi et al., 2019).',
           )
+          # Normalise final headings back to the deterministic upgrade script's
+          # input headings. This makes repeated workflow execution idempotent.
+          main = main.replace(
+              '### 3.3 Local boundaries revealed heterogeneous Bombus correspondence',
+              '### 3.3 Local boundaries revealed a short-range Bombus signal',
+          )
+          main = main.replace(
+              '### 4.2 Temperature organizes the state transition more strongly than conditional intensity',
+              '### 4.2 Broad modelling resolved environmental structure and exposed a second spatial layer',
+          )
+          main = main.replace(
+              '### 4.3 Boundary heterogeneity is the pollinator result',
+              '### 4.3 Local boundaries reveal where pollinator opportunity may matter',
+          )
           main_path.write_text(main, encoding='utf-8')
 
-          main_body = main.split('## 1. Introduction', 1)[1].split('## Acknowledgements', 1)[0]
-          body_n = len(words(main_body))
-          checklist_path = Path('submission/jbi/JBI_submission_checklist.md')
-          checklist = checklist_path.read_text(encoding='utf-8')
-          checklist = re.sub(
-              r'Current Introduction-through-Discussion count = \*\*[\d,]+ words\*\* by repository validator\.',
-              f'Current Introduction-through-Discussion count = **{body_n:,} words** by repository validator.',
-              checklist,
+          s3_path = Path('submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md')
+          s3 = s3_path.read_text(encoding='utf-8')
+          s3 = s3.replace(
+              '## Supported environmental-term distance versus fixed spatial continuity',
+              '## Cross-fitted space-only phenotype-divergence sensitivity',
           )
-          checklist_path.write_text(checklist, encoding='utf-8')
-
-          cover_path = Path('submission/jbi/JBI_cover_letter.md')
-          cover = '''# Cover letter draft — Journal of Biogeography
-
-Dear Senior Editors,
-
-We submit our Research Article, “From broad geography to local boundaries: biogeography of flower-colour polymorphism from hiking photographs.” Using screened YAMAP images, we built a national quantitative flower-colour dataset and resolved its geography into environmental, residual-spatial, local focal-Bombus and human-context layers. Our conceptual advance is scale-matched attribution: changing comparison units separates processes that national regression would confound. Continuous all-cell geometry shows that isolated pigmented occurrences are more population-exposed than natural maps predict, while density correction prevents overstatement of an apparent reciprocal white pattern. Positive, heterogeneous and null results generate testable physiological, reproductive and human-context hypotheses without assigning causality beyond the evidence.
-
-Sincerely,
-
-[Corresponding author]
-[Affiliation]
-[Email]
-'''
-          cover_path.write_text(cover, encoding='utf-8')
+          s3 = s3.replace(
+              '## Natural predictive maps passed to the human-context analyses',
+              '## Current 1-km natural reference passed to Main 3',
+          )
+          s3_path.write_text(s3, encoding='utf-8')
 
           lock_path = Path('config/paper_pipeline.lock.json')
           lock = json.loads(lock_path.read_text(encoding='utf-8'))
@@ -143,25 +144,68 @@ Sincerely,
               '        \'source("scripts/render_jbi_figure4_continuous_isolation.R")\',',
           )
           validator_path.write_text(validator, encoding='utf-8')
-          print(f'synchronized Main word count: {body_n}')
           PY
+
+          python scripts/upgrade_final_analysis_pipeline.py
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          def words(text: str) -> list[str]:
+              return re.findall(r"\b[\wÀ-ž*'’-]+\b", text)
+
+          main = Path('submission/jbi/JBI_main_manuscript_anonymized.md').read_text(encoding='utf-8')
+          abstract = main.split('## Abstract', 1)[1].split('**Keywords:**', 1)[0]
+          body = main.split('## 1. Introduction', 1)[1].split('## Acknowledgements', 1)[0]
+          abstract_n = len(words(abstract))
+          body_n = len(words(body))
+
+          checklist_path = Path('submission/jbi/JBI_submission_checklist.md')
+          checklist = checklist_path.read_text(encoding='utf-8')
+          checklist = re.sub(
+              r'Current Introduction-through-Discussion count = \*\*[\d,]+ words\*\* by repository validator\.',
+              f'Current Introduction-through-Discussion count = **{body_n:,} words** by repository validator.',
+              checklist,
+          )
+          checklist = re.sub(
+              r'Current abstract = \*\*\d+ words\*\* by repository validator\.',
+              f'Current abstract = **{abstract_n} words** by repository validator.',
+              checklist,
+          )
+          checklist_path.write_text(checklist, encoding='utf-8')
+          print(f'synchronised final counts: abstract={abstract_n}, Main={body_n}')
+          PY
+
+          # The contract generator can inspect this workflow but must not rewrite
+          # a workflow file from inside its own run.
           git restore -- .github/workflows/jbi-main-figures.yml
+
+          python -m py_compile scripts/upgrade_final_analysis_pipeline.py
           python -m json.tool config/paper_pipeline.lock.json >/dev/null
           git diff --check
+
+          grep -q '0.100608' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'P=0.00998' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q 'P=0.26347' submission/jbi/JBI_main_manuscript_anonymized.md
           grep -q 'rho=0.252' submission/jbi/JBI_main_manuscript_anonymized.md
-          grep -q 'P=0.0009' submission/jbi/JBI_translated_abstract_ja.md
-          grep -q '674個の有色セル' submission/jbi/JBI_translated_abstract_ja.md
+          grep -q 'P=0.0009' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q '0.100608' submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
+          grep -q 'accepted_broad_supported_term_distance' config/paper_pipeline.lock.json
+          grep -q 'restore_broad_supported_term_distance' config/paper_pipeline.lock.json
           grep -q 'continuous_pigmented_cells' validation/validate_jbi_figure_bundle.R
-          grep -q 'accepted_continuous_colour_isolation' config/paper_pipeline.lock.json
-          ! grep -q 'Sixteen event-defined populations' submission/jbi/JBI_main_manuscript_anonymized.md
+          grep -q '\*\*16\*\*' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+
+          ! grep -q '0.106802' submission/jbi/JBI_main_manuscript_anonymized.md
+          ! grep -q '0.03393' submission/jbi/JBI_main_manuscript_anonymized.md
           ! grep -q '^### 3.5 Predictive replay retained extreme populations as field targets$' submission/jbi/JBI_main_manuscript_anonymized.md
           ! grep -q '^### 4.5 Event calibration defines targets without turning them into causes$' submission/jbi/JBI_main_manuscript_anonymized.md
           ! grep -q '16 event-defined' submission/jbi/JBI_main_figure_captions.md
-          grep -q '\*\*16\*\*' submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
+
           python validation/validate_jbi_repository_alignment.py
           python submission/jbi/validate_jbi_submission.py
 
-      - name: Commit generated non-workflow paper sources and contracts
+      - name: Commit generated final manuscript and paper contract
         shell: bash
         run: |
           set -euo pipefail
@@ -177,21 +221,25 @@ Sincerely,
             submission/jbi/JBI_translated_abstract_ja.md
             submission/jbi/JBI_main_figure_captions.md
             submission/jbi/JBI_main_figure_plan.md
+            submission/jbi/JBI_background_architecture.md
             submission/jbi/JBI_cover_letter.md
             submission/jbi/JBI_submission_checklist.md
             submission/jbi/validate_jbi_submission.py
+            submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md
             submission/jbi/supporting/Appendix_S6_event_departures_human_context.md
             reproducibility/continuous_colour_isolation_manuscript_integration_2026-08-18.md
+            reproducibility/final_analysis_pipeline_integration_2026-08-19.md
             scripts/render_jbi_main_figures.R
           )
           if git diff --quiet -- "${paths[@]}"; then
-            echo "continuous-isolation paper integration already current"
+            echo "final analysis manuscript integration already current"
             exit 0
           fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "${paths[@]}"
-          git commit -m "Keep event analysis in Supporting Information only"
+          git commit -m "Align JBI manuscript with final analysis pipeline"
 
           for attempt in 1 2 3 4 5; do
             echo "push attempt ${attempt}/5"
@@ -202,5 +250,5 @@ Sincerely,
             fi
             sleep 2
           done
-          echo "failed to publish generated paper contract after five rebased attempts" >&2
+          echo "failed to publish final paper contract after five rebased attempts" >&2
           exit 1

@@ -54,6 +54,9 @@ jobs:
           import re
           from pathlib import Path
 
+          def words(text: str) -> list[str]:
+              return re.findall(r"\b[\wÀ-ž*'’-]+\b", text)
+
           map_path = Path('paper/active-file-map.csv')
           map_path.write_bytes(map_path.read_bytes().replace(b'\r\n', b'\n'))
 
@@ -75,6 +78,17 @@ jobs:
               'Five leave-one-geographical-fold-out estimates assessed regional stability (Roberts et al., 2017; Valavi et al., 2019).',
           )
           main_path.write_text(main, encoding='utf-8')
+
+          main_body = main.split('## 1. Introduction', 1)[1].split('## Acknowledgements', 1)[0]
+          body_n = len(words(main_body))
+          checklist_path = Path('submission/jbi/JBI_submission_checklist.md')
+          checklist = checklist_path.read_text(encoding='utf-8')
+          checklist = re.sub(
+              r'Current Introduction-through-Discussion count = \*\*[\d,]+ words\*\* by repository validator\.',
+              f'Current Introduction-through-Discussion count = **{body_n:,} words** by repository validator.',
+              checklist,
+          )
+          checklist_path.write_text(checklist, encoding='utf-8')
 
           lock_path = Path('config/paper_pipeline.lock.json')
           lock = json.loads(lock_path.read_text(encoding='utf-8'))
@@ -114,6 +128,7 @@ jobs:
               '        \'source("scripts/render_jbi_figure4_continuous_isolation.R")\',',
           )
           validator_path.write_text(validator, encoding='utf-8')
+          print(f'synchronized Main word count: {body_n}')
           PY
           git restore -- .github/workflows/jbi-main-figures.yml
           python -m json.tool config/paper_pipeline.lock.json >/dev/null

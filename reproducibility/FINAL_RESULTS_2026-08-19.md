@@ -98,3 +98,8 @@ The final paper treats flower-colour geography as a cross-scale assembly problem
 `incidental images -> two-part quantitative phenotype -> named environment + continuous space -> supported-term divergence check -> heterogeneous local Bombus boundaries -> continuous pigmented human-context overlay`.
 
 The manuscript must preserve the distinction between directional associations, model-informed corroboration, heterogeneous local correspondence and exploratory human context. Null and guardrail results are part of the final scientific result and must not be removed to strengthen the narrative.
+
+## Accepted artifact provenance
+
+The final supported-term fixed-space result is restored from GitHub Actions artifact `9350975649`, SHA-256 `4d5a1d28b8313cc0fb6c85484d21c6d94535ac7cc0881e83dc7ed02678854f03`. The artifact ZIP preserves its repository-relative `results/broad_supported_term_distance_space_null/` paths, so the canonical paper pipeline merges it at repository root rather than nesting the output directory a second time.
+

@@ -157,7 +157,7 @@ continuous_primary <- continuous_natural[
 add_check(
   "figure4_continuous_isolation_human_context",
   nrow(continuous_cells) == 1305L &&
-    sum(as.character(continuous_cells$colour) == "pigmented") == 674L &&
+    sum(tolower(as.character(continuous_cells$colour)) == "pigmented") == 674L &&
     nrow(continuous_primary) == 1L &&
     abs(as.numeric(continuous_primary$observed_value) - 0.285497536507115) < 1e-10 &&
     abs(as.numeric(continuous_primary$null_mean) - 0.153615552893768) < 1e-10 &&
@@ -165,7 +165,7 @@ add_check(
   if (nrow(continuous_primary)) sprintf(
     "cells=%d pigmented=%d rho=%.6f null=%.6f P=%.6f",
     nrow(continuous_cells),
-    sum(as.character(continuous_cells$colour) == "pigmented"),
+    sum(tolower(as.character(continuous_cells$colour)) == "pigmented"),
     as.numeric(continuous_primary$observed_value),
     as.numeric(continuous_primary$null_mean),
     as.numeric(continuous_primary$empirical_p)

@@ -69,7 +69,7 @@ Candidate environmental inputs comprised CHELSA v2.1 climate variables, SoilGrid
 | Coarse fragments | SoilGrids 0–5 cm | 2.449 |
 | Sand | SoilGrids 0–5 cm | 2.832 |
 | Silt | SoilGrids 0–5 cm | 2.910 |
-| Nitrogen | SoilGrids 0–5 cm | 4.815 |
+| Nitrogen | SoilGrids 0–5 cm | 5.305 |
 | Soil pH | SoilGrids 0–5 cm | 4.822 |
 | Soil organic carbon | SoilGrids 0–5 cm | 5.305 |
 | Elevation | WorldClim 2.1 | 3.458 |
@@ -167,3 +167,7 @@ Current source-build and calibration files include:
 The frozen occurrence-reference artifact is workflow run `31262211605`, artifact `9023137743`, SHA-256 `d04c561b09b652591b9b479f6e26a779bb562c7c1b5f9b14e61d5e7ca8e2794b`.
 
 The inferential ceiling remains local correspondence with an environment-derived pollinator context. Realized species presence, visit rates, flower contact, pollen transfer and reproductive fitness require direct field measurements.
+
+## Reference cited only for the species-selection audit
+
+Suzuki-Ohno, Y., Ishihama, F., Yokoyama, J., Inoue, M. N., Nakashizuka, T., & Kawata, M. (2024). Estimating bee distributions and their functional range to map important areas for protecting bee species and their functions. *Scientific Reports*, 14, 12842. https://doi.org/10.1038/s41598-024-61848-z

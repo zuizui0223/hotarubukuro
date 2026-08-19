@@ -9,6 +9,12 @@ on:
       - .github/workflows/final-manuscript-upgrade.yml
       - scripts/upgrade_final_analysis_pipeline.py
       - scripts/demote_event_analysis_to_supplement.py
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/final-manuscript-upgrade.yml
+      - scripts/upgrade_final_analysis_pipeline.py
+      - scripts/demote_event_analysis_to_supplement.py
 
 permissions:
   contents: write
@@ -77,8 +83,6 @@ jobs:
           )
           main_path.write_text(main, encoding='utf-8')
 
-          # Python's csv module defaults to CRLF. Normalise generated registry
-          # files before Git's whitespace and content checks.
           map_path = Path('paper/active-file-map.csv')
           map_path.write_bytes(map_path.read_bytes().replace(b'\r\n', b'\n'))
 

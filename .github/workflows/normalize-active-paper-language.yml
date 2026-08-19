@@ -1,0 +1,65 @@
+name: Normalize active paper language and taxon scope
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/continuous-colour-isolation-human-context
+    paths:
+      - scripts/normalize_active_paper_language_and_taxon.py
+      - submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md
+      - .github/workflows/normalize-active-paper-language.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/normalize_active_paper_language_and_taxon.py
+      - submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md
+      - .github/workflows/normalize-active-paper-language.yml
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: agent/continuous-colour-isolation-human-context
+
+      - name: Apply and verify language and taxonomic-scope locks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/normalize_active_paper_language_and_taxon.py
+          python -m py_compile scripts/normalize_active_paper_language_and_taxon.py
+          git diff --check
+
+      - name: Commit normalized active paper files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            scripts/normalize_active_paper_language_and_taxon.py \
+            scripts/upgrade_final_analysis_pipeline.py \
+            submission/jbi/JBI_main_manuscript_anonymized.md \
+            submission/jbi/JBI_background_architecture.md \
+            submission/jbi/JBI_main_figure_plan.md \
+            submission/jbi/JBI_submission_checklist.md \
+            submission/jbi/validate_jbi_submission.py \
+            submission/jbi/supporting/Appendix_S1_yamap_public_benchmark.md \
+            submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md \
+            paper/README.md \
+            paper/analysis-map.md
+          if git diff --cached --quiet; then
+            echo 'active paper language already normalized'
+            exit 0
+          fi
+          git commit -m 'Remove FST-PST analogy and lock pooled taxon scope'
+          git fetch origin agent/continuous-colour-isolation-human-context
+          git rebase origin/agent/continuous-colour-isolation-human-context
+          git push origin HEAD:agent/continuous-colour-isolation-human-context

@@ -1,6 +1,7 @@
 # Local analysis state
 .tmp/
 .paper-pipeline/
+.repro_cache/
 graphify-out/
 .Rhistory
 .RData

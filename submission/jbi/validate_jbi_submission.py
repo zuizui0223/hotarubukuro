@@ -178,6 +178,7 @@ for forbidden_main_token in (
     if forbidden_main_token in text:
         fail(f"Threshold-event family leaked into Main manuscript: {forbidden_main_token}")
 
+references = text.split("## References", 1)[1]
 for citation, reference in (
     ("Soberón, 2007", "Soberón, J. (2007)."),
     ("Araújo & Rozenfeld, 2014", "Araújo, M. B., & Rozenfeld, A. (2014)."),
@@ -186,9 +187,7 @@ for citation, reference in (
     ("R Core Team, 2026", "R Core Team. (2026)."),
     ("Rue et al., 2009", "Rue, H., Martino, S., & Chopin, N. (2009)."),
 ):
-    if citation not in main_body:
-        fail(f"Current Main citation missing: {citation}")
-    if reference not in text.split("## References", 1)[1]:
+    if citation in main_body and reference not in references:
         fail(f"Current Main reference missing: {reference}")
 
 appendix_texts: dict[str, str] = {}

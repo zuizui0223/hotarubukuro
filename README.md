@@ -1,31 +1,25 @@
 # hotarubukuro
 
-Analysis code for quantitative flower-colour and spatial-ecology workflows in *Campanula punctata*.
+Analysis code for the *Campanula punctata* flower-colour project.
 
-## Public repository scope
+This public repository is intentionally limited to reusable analysis/source-building code, tests, safe method-level provenance, and one derived analysis table needed for reproducibility.
 
-This public repository intentionally contains analysis code, reusable functions, tests, and method-level provenance only.
+## Public derived data
 
-The following are **not published in this repository**:
+- `Data_S1.csv` — derived analysis table intentionally retained so the public analysis code has a stable reproducibility input.
 
-- manuscripts, drafts, journal targeting or submission strategy;
-- title pages, cover letters, reviewer bundles, portal checklists, and journal-specific files;
-- derived supplementary datasets prepared for submission;
-- exact-reproduction binary payloads and private research data;
-- original third-party YAMAP photographs.
+Original third-party photographs, manuscript drafts, journal-submission materials, author metadata, cover letters, review bundles, and paper-level frozen binary payloads are not stored in the public repository.
 
-These materials must remain outside the public Git repository.
+## Main code areas
 
-## Repository map
+- `R/` — reusable statistical and spatial-analysis functions
+- `scripts/` — analysis entry scripts
+- `analysis_sensitivity/` — focused robustness and diagnostic analyses
+- `source_build/` — source acquisition and data-construction code
+- `config/` — analysis configuration
+- `tests/` and `validation/` — unit and consistency checks
+- `.github/workflows/` — analysis workflows
 
-- `R/` — reusable R functions.
-- `analysis_sensitivity/` — focused analysis and diagnostic entry points.
-- `scripts/` — analysis utilities and data-processing scripts.
-- `source_build/` — source acquisition and data-construction code.
-- `validation/` — analysis-level validation.
-- `tests/` — automated tests.
-- `reproducibility/` — method and analysis provenance that is safe to publish.
+## Data boundary
 
-## Data policy
-
-Do not commit private images, derived submission datasets, manuscript files, frozen binary inputs, credentials, or personally identifying metadata. Local-only and unpublished materials are excluded through `.gitignore`.
+`Data_S1.csv` is the deliberate exception to the general no-data rule because it is required as a derived input for reproducible analysis. Raw/private source material must remain outside this repository.

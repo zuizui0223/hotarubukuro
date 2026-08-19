@@ -1,41 +1,47 @@
 # hotarubukuro
 
-Analysis code for the *Campanula punctata* flower-colour project.
+Public analysis repository for the submission on geographical flower-colour polymorphism in *Campanula punctata*.
 
-This public repository is intentionally limited to reusable analysis/source-building code, tests, safe method-level provenance, and the derived analysis input required for reproducibility. Manuscript and journal-submission materials are kept outside the public repository.
+This repository now contains **one publication analysis path**. Development-only alternatives, superseded candidate detectors and one-off CI workflows are intentionally removed rather than left beside the final code.
 
-## Public reproducibility set
-
-- `Data_S1.csv` — fixed derived analysis table (1,965 records)
-- `Code_S1.py` — georeferencing/reconstruction utility retained with the public data workflow
-- `run_pipeline.py` — one-command analysis reproduction front door
-
-Validate the repository contract without running the heavy models:
+## Reproduce
 
 ```bash
 python run_pipeline.py audit
-```
-
-Rebuild the public analysis chain from `Data_S1.csv`:
-
-```bash
 python run_pipeline.py reproduce
 ```
 
-`reproduce` rebuilds the public environmental inputs and Bombus SDMs and then runs the two-part phenotype, 1-km cell context, final Broad environment+space analysis, supported-environment-distance comparison, local Bombus analysis, and continuous colour-isolation human-context analysis. Intermediate outputs and downloads are written only to ignored `results/`, `data/processed/`, and `.repro_cache/` locations.
+`audit` checks the committed derived dataset and the files required by the submission pipeline. `reproduce` rebuilds the analysis from `Data_S1.csv` plus the declared public environmental and occurrence sources. Live third-party sources can change; frozen paper claims and decision records are retained under `reproducibility/`.
 
-Because public raster and occurrence services can change over time, this command is a **source reconstruction** from a fixed derived phenotype table plus public sources, not a claim of bit-identical archival reproduction of mutable third-party services. Seeds, software declarations, source URLs and run metadata are retained so differences can be audited.
+## Final analysis path
 
-## Main code areas
+1. **Quantitative phenotype** — `Code_S1.py`, `scripts/run_phenotype_hurdle.R`
+   - pigmentation state: white versus pigmented;
+   - conditional visible intensity: analysed only among pigmented flowers.
+2. **Broad geography** — `scripts/run_broad_environment_spatial_audit.R`, `scripts/build_fixed_space_null_cache.R`, `scripts/fit_broad_supported_term_distance_space_null.R`
+   - environment + stationary SPDE;
+   - environment-aligned differentiation tested against a cross-fitted space-only expectation.
+3. **Local Bombus boundary test** — `scripts/build_bombus_occurrence_reference_support.R`, `scripts/run_bombus_local_sharp_transition.R`, `scripts/run_bombus_spatial_replication_test.R`
+   - focal local boundary analysis plus the equal-elevation/spatial guardrail.
+4. **Continuous isolation / human context** — `scripts/fit_final8_presence_null.R`, `scripts/run_continuous_colour_isolation.R`
+   - all 1-km colour cells are analysed continuously;
+   - human context is WorldPop exposure at focal, 5, 10, 25 and 50 km scales;
+   - the same isolation statistic is replayed on 10,000 natural colour maps.
 
-- `R/` — reusable statistical and spatial-analysis functions
-- `scripts/` — analysis entry scripts
-- `analysis_sensitivity/` — focused robustness and diagnostic analyses
-- `source_build/` — public-source acquisition and data-construction code
-- `config/` — analysis configuration
-- `tests/` and `validation/` — unit and consistency checks
-- `.github/workflows/` — analysis workflows
+The shared 1-km analysis table is built once by `scripts/build_analysis_cells.R`. Its frozen geometry is **1,305 cells: 674 pigmented and 631 white**.
 
-## Data boundary
+## Repository map
 
-`Data_S1.csv` is deliberately public because it is the stable derived input needed for reproducible analysis. Original third-party photographs, manuscript drafts, journal-submission materials, author metadata, cover letters, review bundles, and private paper-level binary payloads are not stored in the current public tree.
+- `R/` — reusable functions required by the final pipeline.
+- `scripts/` — publication analysis entry points.
+- `source_build/` — public raster and Bombus source reconstruction.
+- `config/` — frozen acquisition/model configuration.
+- `dependencies/` — R/system dependency records.
+- `reproducibility/` — final scientific decisions, result locks and benchmark records.
+- `tests/` — tests for modules that remain in the publication path.
+
+## Deliberately not in the submission pipeline
+
+The following are scientifically superseded and are not alternative routes to the paper results: the old hotspot/candidate-ranking pipeline, the 16-event local-departure detector, DID human-context analysis, MLIT land-cover candidate classification, coefficient-weighted Broad spatial-null variants, and development-only interaction screens.
+
+The public repository also excludes manuscript files, title-page/author metadata, submission bundles and original third-party photographs.

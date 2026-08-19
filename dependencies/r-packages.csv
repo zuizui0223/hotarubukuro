@@ -8,14 +8,15 @@ sp,cran,analysis,Legacy spatial classes required by INLA
 sf,cran,analysis,Vector geometry and coordinate transforms
 terra,cran,analysis,Raster input handling and point extraction
 units,cran,analysis,Unit handling required by sf
-mgcv,cran,analysis,Smoothers used by the phenotype and hotspot stages
+mgcv,cran,analysis,Smoothers used by the phenotype stage
 qgam,cran,analysis,Quantile additive models in the phenotype stage
 quantreg,cran,analysis,Quantile regression in the phenotype stage
 mclust,cran,analysis,Mixture classification in the phenotype stage
-ranger,cran,analysis,Random forests in the human-context stages
-FNN,cran,analysis,Nearest-neighbour search for the Bombus fingerprint
-foreign,cran,analysis,DBF reading for MLIT land-use tables
+FNN,cran,analysis,Nearest-neighbour search for Bombus source support
+foreign,cran,analysis,DBF reading for the MLIT forest-reference raster
 splancs,cran,analysis,Point-pattern helpers pulled in by the INLA stack
+mnormt,cran,analysis,Multivariate normal support reached through sn during INLA posterior sampling
+numDeriv,cran,analysis,Numerical derivatives reached through sn during INLA posterior sampling
 digest,cran,reproducibility,SHA-256 hashing for input and output manifests
 jsonlite,cran,reproducibility,Manifest and provenance serialisation
 yaml,cran,reproducibility,Raster pipeline configuration parsing
@@ -23,24 +24,10 @@ sessioninfo,cran,reproducibility,Structured session and package version recordin
 curl,cran,acquisition,HTTP transport for pinned public downloads
 httr2,cran,acquisition,HTTP transport used by rgbif
 rgbif,cran,acquisition,GBIF occurrence download for the Bombus stage
-geodata,cran,acquisition,WorldClim and reference-layer download helpers
+geodata,cran,acquisition,Reference-layer download helpers
 dplyr,cran,acquisition,Occurrence-cache assembly
 readr,cran,acquisition,Occurrence-cache assembly
 ENMeval,cran,acquisition,Bombus species distribution model selection
 maxnet,cran,acquisition,Maxent-style fitting engine used by ENMeval
 usdm,cran,acquisition,Deterministic VIF predictor screening for Bombus SDMs
 testthat,cran,testing,Unit test framework
-FNN,cran,testing,Nearest-neighbour helper required by current human-raster unit tests
-ranger,cran,testing,Random-forest helper required by current human-landscape unit tests
-knitr,cran,reporting,Report rendering
-rmarkdown,cran,reporting,Report rendering
-ggplot2,cran,figures,Publication figures
-cowplot,cran,figures,Publication figure composition
-patchwork,cran,figures,Publication multi-panel composition
-scales,cran,figures,Axis and legend transformations
-rnaturalearth,cran,figures,Base map layers for publication figures
-rnaturalearthdata,cran,figures,Offline medium-scale country geometry served to rnaturalearth::ne_countries
-ragg,cran,figures,Raster device used by ggplot2::ggsave for the 600-dpi review copies
-systemfonts,cran,figures,Font resolution required by the figure devices
-mnormt,cran,analysis,Multivariate normal support reached through sn during INLA posterior sampling
-numDeriv,cran,analysis,Numerical derivatives reached through sn during INLA posterior sampling

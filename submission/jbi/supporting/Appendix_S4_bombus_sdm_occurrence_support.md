@@ -69,7 +69,7 @@ Candidate environmental inputs comprised CHELSA v2.1 climate variables, SoilGrid
 | Coarse fragments | SoilGrids 0–5 cm | 2.449 |
 | Sand | SoilGrids 0–5 cm | 2.832 |
 | Silt | SoilGrids 0–5 cm | 2.910 |
-| Nitrogen | SoilGrids 0–5 cm | 5.305 |
+| Nitrogen | SoilGrids 0–5 cm | 4.815 |
 | Soil pH | SoilGrids 0–5 cm | 4.822 |
 | Soil organic carbon | SoilGrids 0–5 cm | 5.305 |
 | Elevation | WorldClim 2.1 | 3.458 |

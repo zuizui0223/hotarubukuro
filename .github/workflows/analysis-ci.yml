@@ -1,0 +1,77 @@
+name: submission-analysis-contract
+
+on:
+  push:
+    branches: [main, agent/submission-repository-cleanup]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Python syntax and public contract
+        run: |
+          python -m py_compile run_pipeline.py Code_S1.py source_build/extract_color.py hotarubukuro_analysis/*.py
+          python run_pipeline.py audit
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.5.1'
+          use-public-rspm: true
+
+      - name: Parse final R pipeline
+        shell: bash
+        run: |
+          Rscript - <<'RS'
+          files <- c(
+            "R/pipeline_support.R",
+            "R/environment_spatial.R",
+            "R/natural_biotic_covariates.R",
+            "R/phenotype_hurdle.R",
+            "R/analysis_cells.R",
+            "R/natural_predictive_model.R",
+            "R/continuous_colour_isolation.R",
+            "R/local_pair_graph.R",
+            "R/human_raster_features.R",
+            "scripts/build_environment_input.R",
+            "scripts/run_environment_spatial.R",
+            "scripts/run_natural_biotic_covariates.R",
+            "scripts/run_phenotype_hurdle.R",
+            "scripts/build_analysis_cells.R",
+            "scripts/build_bombus_occurrence_reference_support.R",
+            "scripts/run_bombus_local_sharp_transition.R",
+            "scripts/run_bombus_spatial_replication_test.R",
+            "scripts/build_broad_landscape_context.R",
+            "scripts/run_broad_environment_spatial_audit.R",
+            "scripts/build_fixed_space_null_cache.R",
+            "scripts/fit_broad_supported_term_distance_space_null.R",
+            "scripts/fit_final8_presence_null.R",
+            "scripts/run_continuous_colour_isolation.R"
+          )
+          stopifnot(all(file.exists(files)))
+          invisible(lapply(files, parse))
+          cat("PASS final R pipeline parse\n")
+          RS
+
+      - name: Reject superseded analysis entry points
+        shell: bash
+        run: |
+          test ! -d analysis_sensitivity
+          for f in \
+            scripts/run_multiscale_hotspots.R \
+            scripts/run_human_landscape_features.R \
+            scripts/run_local_human_context.R \
+            scripts/run_did_sensitivity.R \
+            scripts/fit_broad_spatial_inertia_environment_tracking.R; do
+            test ! -e "$f"
+          done

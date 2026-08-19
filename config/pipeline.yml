@@ -1,36 +1,46 @@
-version: 3
-
-paths:
-  source_registry: config/raster_sources.csv
-  cache_dir: data/cache/rasters
-  processed_dir: data/processed/rasters
-  download_manifest: data/processed/raster_download_manifest.csv
-  processed_manifest: data/processed/raster_manifest.csv
-  sdm_dir: sdm
-  sdm_manifest: sdm/manifest.csv
-
-grid:
-  crs: EPSG:4326
-  resolution_arcsec: 30
-  origin_x: -180
-  origin_y: -90
-  area_or_point: Area
-  extent:
-    xmin: 128
-    xmax: 143
-    ymin: 30
-    ymax: 42
-
-download:
-  retries: 3
-  timeout_seconds: 1800
-  quiet: false
-
-processing:
-  continuous_method: bilinear
-  categorical_method: near
-  extensive_count_method: sum
-  worldpop_semantics: aggregate people-per-cell with sum before optional conversion to people-per-km2
-  overwrite: false
-  compression: DEFLATE
-  tiled: true
+pipeline_version: submission-2026-08-19
+entrypoint: run_pipeline.py
+analysis_unit:
+  grid_km: 1
+  expected_cells: 1305
+  expected_pigmented_cells: 674
+  expected_white_cells: 631
+responses:
+  state: pigmented_mixture50
+  intensity: pigment_intensity_z
+stages:
+  - id: phenotype
+    script: scripts/run_phenotype_hurdle.R
+  - id: analysis_cells
+    script: scripts/build_analysis_cells.R
+  - id: broad_environment_space
+    script: scripts/run_broad_environment_spatial_audit.R
+  - id: broad_space_null
+    scripts:
+      - scripts/build_fixed_space_null_cache.R
+      - scripts/fit_broad_supported_term_distance_space_null.R
+  - id: local_bombus
+    scripts:
+      - scripts/build_bombus_occurrence_reference_support.R
+      - scripts/run_bombus_local_sharp_transition.R
+      - scripts/run_bombus_spatial_replication_test.R
+  - id: natural_maps
+    script: scripts/fit_final8_presence_null.R
+    draws: 10000
+  - id: continuous_isolation
+    script: scripts/run_continuous_colour_isolation.R
+    human_context: WorldPop
+    population_radii_km: [0, 5, 10, 25, 50]
+    natural_map_draws: 10000
+seed: 20260725
+claim_policy:
+  broad: confirmatory
+  local_bombus: scale_matched_association_not_selection_pressure
+  human_context: exploratory_association_not_provenance_or_causation
+excluded_legacy:
+  - hotspot_candidate_ranking
+  - sixteen_event_local_departure_detector
+  - did_human_context
+  - mlit_landcover_candidate_classification
+  - coefficient_weighted_broad_space_null
+  - development_only_interaction_screens

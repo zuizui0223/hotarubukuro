@@ -81,6 +81,11 @@ jobs:
               'The 5-km design produced 67 sharp pure white-pigmented transitions',
               'The 5-km design produced 67 sharp transitions between pure white and pigmented cells',
           )
+          main = main.replace('the 5/10/25-km family gave q=0.08148', 'the 5/10/25-km family gave q=0.0815')
+          main = main.replace(
+              'SDM support remains habitat opportunity, not realized visitation or selection.',
+              'SDM support remains habitat opportunity, not realized visitation or selection. This correspondence is not evidence of pollinator-mediated selection.',
+          )
           main_path.write_text(main, encoding='utf-8')
 
           map_path = Path('paper/active-file-map.csv')
@@ -131,6 +136,8 @@ jobs:
           grep -q 'P=0.00998' "$main"
           grep -q 'P=0.26347' "$main"
           grep -q '67 sharp transitions' "$main"
+          grep -q '0.0815' "$main"
+          grep -q 'not evidence of pollinator-mediated selection' "$main"
           grep -q "R 4.5.3 (R Core Team, 2026)" "$main"
           grep -q "'INLA' package version 25.10.19" "$main"
           grep -q 'rho=0.252' "$main"

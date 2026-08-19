@@ -526,7 +526,17 @@ for (response_name in names(response_registry)) {
   }
 }
 
-pair_table <- do.call(rbind, pair_rows)
+bind_rows_fill <- function(rows) {
+  columns <- unique(unlist(lapply(rows, names), use.names = FALSE))
+  aligned <- lapply(rows, function(row) {
+    missing <- setdiff(columns, names(row))
+    for (column in missing) row[[column]] <- NA_real_
+    row[columns]
+  })
+  do.call(rbind, aligned)
+}
+
+pair_table <- bind_rows_fill(pair_rows)
 stratum_table <- do.call(rbind, stratum_rows)
 heldout_table <- do.call(rbind, heldout_rows)
 

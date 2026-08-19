@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  contract:
+  python-contract:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -22,24 +22,44 @@ jobs:
       - name: Install Python test surface
         run: python -m pip install -e '.[test]'
 
-      - name: Python syntax and public contract
+      - name: Fixed-input audit, full stage graph, and tests
         run: |
           python -m py_compile run_pipeline.py Code_S1.py source_build/extract_color.py hotarubukuro_analysis/*.py
           python run_pipeline.py audit
           python run_pipeline.py reproduce --dry-run --skip-setup
           pytest
 
+      - name: Reject superseded analysis entry points
+        shell: bash
+        run: |
+          test ! -d analysis_sensitivity
+          for f in \
+            scripts/run_multiscale_hotspots.R \
+            scripts/run_human_landscape_features.R \
+            scripts/run_local_human_context.R \
+            scripts/run_did_sensitivity.R \
+            scripts/fit_broad_spatial_inertia_environment_tracking.R; do
+            test ! -e "$f"
+          done
+
+  r-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.5.1'
           use-public-rspm: true
 
-      - name: Parse final R pipeline
+      - name: Parse the complete retained R surface
         shell: bash
         run: |
           Rscript - <<'RS'
           files <- c(
             "R/pipeline_support.R",
+            "R/reproducibility.R",
+            "R/raster_sources.R",
             "R/environment_spatial.R",
             "R/natural_biotic_covariates.R",
             "R/phenotype_hurdle.R",
@@ -48,6 +68,12 @@ jobs:
             "R/continuous_colour_isolation.R",
             "R/local_pair_graph.R",
             "R/human_raster_features.R",
+            "source_build/download_rasters.R",
+            "source_build/prepare_rasters.R",
+            "source_build/fetch_bombus_occurrences.R",
+            "source_build/build_bombus_sdm_mainland.R",
+            "source_build/build_human_raster.R",
+            "scripts/setup_r_environment.R",
             "scripts/build_environment_input.R",
             "scripts/run_environment_spatial.R",
             "scripts/run_natural_biotic_covariates.R",
@@ -65,18 +91,5 @@ jobs:
           )
           stopifnot(all(file.exists(files)))
           invisible(lapply(files, parse))
-          cat("PASS final R pipeline parse\n")
+          cat("PASS complete retained R surface parse\n")
           RS
-
-      - name: Reject superseded analysis entry points
-        shell: bash
-        run: |
-          test ! -d analysis_sensitivity
-          for f in \
-            scripts/run_multiscale_hotspots.R \
-            scripts/run_human_landscape_features.R \
-            scripts/run_local_human_context.R \
-            scripts/run_did_sensitivity.R \
-            scripts/fit_broad_spatial_inertia_environment_tracking.R; do
-            test ! -e "$f"
-          done

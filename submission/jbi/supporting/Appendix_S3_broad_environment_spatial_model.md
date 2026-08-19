@@ -192,7 +192,7 @@ No posterior coefficient was used as a distance weight. The test is unsigned; ec
 
 State excess was positive in all five geographical folds and 19 of 25 fold-by-distance strata. Intensity excess was positive in 13 of 25 strata and only two of five fold means. The supported-term result is therefore response specific: the directional cool-climate state association is corroborated by held-out state divergence beyond fixed spatial continuity, whereas the combined supported conditional-intensity gradients do not produce that stronger signature.
 
-This remains model-informed corroboration rather than independent variable discovery. The spatial null represents unresolved geography, not neutral genetic divergence or drift. A positive excess does not distinguish plasticity, selection, population differentiation or omitted environmental processes and does not demonstrate local adaptation.
+This remains model-informed corroboration rather than independent variable discovery. The spatial null represents unresolved geography. A positive excess does not distinguish plasticity, selection, population differentiation or omitted environmental processes and does not demonstrate local adaptation.
 
 ## Natural predictive maps passed to the human-context analyses
 

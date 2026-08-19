@@ -11,6 +11,12 @@ The phenotype was constructed before geography, environmental predictors, Bombus
 
 This separation prevents small red-green variation among white photographs from being treated as a continuous pigment-amount scale.
 
+## Taxonomic scope: hotarubukuro and yamahotarubukuro
+
+The image analysis did not distinguish the Japanese forms commonly called ホタルブクロ (hotarubukuro) and ヤマホタルブクロ (yamahotarubukuro; *Campanula punctata* var. *hondoensis*). Their traditional morphological distinction is concentrated in calyx characters rather than the corolla-colour trait analysed here, especially the presence versus absence of appendages between the calyx lobes. Those calyx characters are not consistently visible in opportunistic flower photographs, whereas the corolla used for colour phenotyping is visible by design. We therefore treated both forms as one *C. punctata* sensu lato analytical unit rather than assigning image records from incomplete calyx views.
+
+This pooling is also consistent with preliminary unpublished genetic data from the study system, in which morphologically assigned hotarubukuro and yamahotarubukuro did not show clear genetic differentiation. Those unpublished data are not analysed or presented as a result in this paper; they are stated only as supporting rationale for not imposing a calyx-based taxonomic split on the image dataset. This analytical treatment is not a formal taxonomic revision, and voucher-based genomic work could later reassess whether the forms differ in ancestry or flower-colour geography.
+
 ## Data lineage and auditability
 
 The public derived table retains source-row, date, coordinate, observation, image-hash, colour-method and quality-control provenance while excluding local file paths, diagnostic-image paths and raw activity URLs. Coordinates are carried from the source workbook under an assumed EPSG:4326 reference and are not presented as independently re-georeferenced because no separate GPX/photo-timestamp manifest was available.

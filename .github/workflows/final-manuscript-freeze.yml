@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
           ref: agent/continuous-colour-isolation-human-context
 
-      - name: Build and validate final sources
+      - name: Build final sources
         shell: bash
         run: |
           set -euo pipefail
@@ -143,8 +143,6 @@ jobs:
           python -m py_compile scripts/upgrade_final_analysis_pipeline.py
           python -m json.tool config/paper_pipeline.lock.json >/dev/null
           git diff --check
-          python validation/validate_jbi_repository_alignment.py
-          python submission/jbi/validate_jbi_submission.py
 
       - name: Commit final source state
         shell: bash

@@ -87,6 +87,10 @@ jobs:
               'SDM support remains habitat opportunity, not realized visitation or selection.',
               'SDM support remains habitat opportunity, not realized visitation or selection. This correspondence is not evidence of pollinator-mediated selection.',
           )
+          main = main.replace(
+              'The analysis is explicitly post hoc, and even small Monte Carlo P values do not convert the pattern into provenance evidence.',
+              'The analysis is explicitly post hoc, and even small Monte Carlo P values do not establish horticultural origin or convert the pattern into provenance evidence.',
+          )
           main_path.write_text(main, encoding='utf-8')
 
           map_path = Path('paper/active-file-map.csv')
@@ -150,6 +154,7 @@ jobs:
           grep -q '67 sharp transitions' "$main"
           grep -q '0.0815' "$main"
           grep -q 'not evidence of pollinator-mediated selection' "$main"
+          grep -q 'does not establish horticultural origin' "$main"
           grep -q "R 4.5.3 (R Core Team, 2026)" "$main"
           grep -q "'INLA' package version 25.10.19" "$main"
           grep -q 'rho=0.252' "$main"

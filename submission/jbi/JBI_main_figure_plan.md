@@ -30,7 +30,7 @@ Panels:
 - (c) cross-fitted colour intensity;
 - (d) residual spatial ranges and blocked prediction.
 
-**Reveal:** state and intensity differ, and coherent spatial structure remains after measured environment.
+**Reveal:** state and intensity differ, coherent spatial structure remains, and only Temperature-supported state distance produces held-out divergence beyond fixed spatial continuity. The supported intensity terms do not.
 
 **Handoff to Figure 3:** the Broad map has not isolated a biotic mechanism. Because Bombus SDMs share environmental geography, the pollinator hypothesis must be tested at local colour boundaries.
 
@@ -47,7 +47,7 @@ Panels:
 - (c) pigmented-minus-white focal-Bombus contrast;
 - (d) scale and raw-SDM sensitivities.
 
-**Reveal:** focal-Bombus support is higher on the pigmented side on average at the finest replicated scale. Its concentration in a subset of boundaries, attenuation at 10 and 25 km and absence along the intensity axis localize the plausible contribution to short-range maintenance of pigmentation state.
+**Reveal:** a positive mean is driven by a subset of boundaries. The near-zero median, 49.3% positive pairs, family q, broader-scale attenuation, raw-support failure and intensity null make boundary heterogeneity—not a pervasive shift—the biological result.
 
 **Supporting guardrail:** the stronger-looking national overlap with montane/alpine Bombus disappears after elevation matching in Appendix S5. This is not the Main dish; it demonstrates why broad maps would confound a pollinator explanation with shared mountain environment and validates the local comparison.
 

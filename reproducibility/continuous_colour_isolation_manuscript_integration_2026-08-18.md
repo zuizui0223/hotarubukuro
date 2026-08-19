@@ -13,7 +13,7 @@ The JBI narrative now assigns the analyses distinct roles:
 Current Main structure:
 
 - structured Abstract: 271 words;
-- Introduction-through-Discussion: 4,766 words;
+- Introduction-through-Discussion: 4,793 words;
 - Results end with continuous isolation (Section 3.4);
 - Discussion synthesis follows the human-overlay section directly (Section 4.5);
 - Appendix S6 preserves the complete event definitions, numerical calibration and 16-site list for transparency and reproducibility.

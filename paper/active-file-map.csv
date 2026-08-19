@@ -101,3 +101,8 @@ reproducibility,Main3,reproducibility/continuous_colour_isolation_human_context_
 reproducibility,integration,reproducibility/continuous_colour_isolation_manuscript_integration_2026-08-18.md,provenance
 testing,R,tests/testthat/test-continuous-colour-isolation.R,component
 infrastructure,contract,scripts/register_continuous_isolation_paper_contract.py,component
+analysis,Broad,scripts/fit_broad_supported_term_distance_space_null.R,component
+workflow,Broad,.github/workflows/broad-supported-term-distance-space-null.yml,component
+reproducibility,Broad,reproducibility/broad_supported_term_distance_space_null_2026-08-19.md,provenance
+infrastructure,integration,scripts/upgrade_final_analysis_pipeline.py,component
+reproducibility,integration,reproducibility/final_analysis_pipeline_integration_2026-08-19.md,provenance

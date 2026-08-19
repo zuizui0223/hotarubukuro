@@ -165,6 +165,16 @@ for forbidden_main_token in (
     "Sixteen pigmented cells",
     "16 event-defined",
     "calibrated field targets",
+    "### 3.4 Continuous isolation revealed a pigmented human-context overlay",
+    "### 4.5 Event calibration defines targets without turning them into causes",
+):
+    if forbidden_main_token in text:
+        fail(f"Threshold-event family leaked into Main manuscript: {forbidden_main_token}")
+
+for forbidden_main_token in (
+    "Sixteen pigmented cells",
+    "16 event-defined",
+    "calibrated field targets",
     "### 3.5 Predictive replay retained extreme populations as field targets",
     "### 4.5 Event calibration defines targets without turning them into causes",
 ):

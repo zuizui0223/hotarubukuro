@@ -2,9 +2,15 @@ name: submission-analysis-contract
 
 on:
   push:
-    branches: [main, agent/submission-repository-cleanup]
+    branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      full_reproduction:
+        description: "Run the full public-source analysis reconstruction"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -47,9 +53,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Read pinned R version
+        id: r-version
+        shell: bash
+        run: echo "version=$(tr -d '\r\n' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
       - uses: r-lib/actions/setup-r@v2
         with:
-          r-version: '4.5.1'
+          r-version: ${{ steps.r-version.outputs.version }}
           use-public-rspm: true
 
       - name: Parse the complete retained R surface
@@ -93,3 +104,41 @@ jobs:
           invisible(lapply(files, parse))
           cat("PASS complete retained R surface parse\n")
           RS
+
+  full-reproduction:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.full_reproduction)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Read pinned R version
+        id: r-version
+        shell: bash
+        run: echo "version=$(tr -d '\r\n' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.r-version.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          sudo apt-get update
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs sudo apt-get install -y
+
+      - name: Run one-command public analysis reconstruction
+        run: python run_pipeline.py reproduce --no-resume
+
+      - name: Show reconstruction manifest
+        if: always()
+        shell: bash
+        run: |
+          if [ -f results/analysis_reproduction/run_manifest.json ]; then
+            cat results/analysis_reproduction/run_manifest.json
+          fi

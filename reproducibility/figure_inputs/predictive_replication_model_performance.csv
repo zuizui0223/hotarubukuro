@@ -1,3 +1,0 @@
-"model","family","n","n_observations","primary_metric","primary_value","RMSE","MAE","AUC","cell_any_pigmented_AUC","cell_majority_pigmented_AUC","coverage_95","observed_prevalence","predicted_prevalence","calibration_intercept","calibration_slope","Bernoulli_Brier_score"
-"national_environment_spde_presence","binomial",1305,1922,"mean_negative_log_predictive_mass",0.571051329750163,0.340247795720365,0.271156607700312,0.863476939802663,0.857987650895616,0.870657703744416,1,0.497398543184183,0.521274193548387,-0.149475538398791,1.15054567748234,0.150433593957807
-"national_environment_spde_intensity","gaussian",674,674,"RMSE",0.919239085885126,0.919239085885126,0.714720542485478,NA,NA,NA,0.943620178041543,NA,NA,NA,NA,NA

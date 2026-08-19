@@ -3,7 +3,7 @@ name: Current paper checks
 on:
   workflow_dispatch:
   push:
-    branches: [main, agent/final-jbi-clean]
+    branches: [main]
     paths:
       - run_pipeline.py
       - config/paper_pipeline.lock.json

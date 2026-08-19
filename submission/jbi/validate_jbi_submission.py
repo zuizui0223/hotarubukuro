@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the current JBI submission package and achievement-forward science locks."""
+"""Validate the current JBI submission package and science locks."""
 
 from __future__ import annotations
 
@@ -133,7 +133,11 @@ for relative in (
     "paper/analysis-map.md",
 ):
     active_text = (REPO_ROOT / relative).read_text(encoding="utf-8")
-    if re.search(r"(?<![A-Za-z0-9])(?:F[_–—-]?ST|P[_–—-]?ST|Q[_–—-]?ST)(?![A-Za-z0-9])", active_text, flags=re.IGNORECASE):
+    if re.search(
+        r"(?<![A-Za-z0-9])(?:F[_–—-]?ST|P[_–—-]?ST|Q[_–—-]?ST)(?![A-Za-z0-9])",
+        active_text,
+        flags=re.IGNORECASE,
+    ):
         fail(f"Active paper still contains a genetic-differentiation analogy: {relative}")
 
 require_tokens(
@@ -152,6 +156,9 @@ require_tokens(
     (
         "1,922",
         "3.81 times",
+        "0.100608",
+        "P=0.00998",
+        "P=0.26347",
         "67 sharp transitions",
         "674 pigmented",
         "rho=0.252",
@@ -160,16 +167,6 @@ require_tokens(
         "P=0.0009",
     ),
 )
-
-for forbidden_main_token in (
-    "Sixteen pigmented cells",
-    "16 event-defined",
-    "calibrated field targets",
-    "### 3.4 Continuous isolation revealed a pigmented human-context overlay",
-    "### 4.5 Event calibration defines targets without turning them into causes",
-):
-    if forbidden_main_token in text:
-        fail(f"Threshold-event family leaked into Main manuscript: {forbidden_main_token}")
 
 for forbidden_main_token in (
     "Sixteen pigmented cells",
@@ -205,7 +202,6 @@ for appendix in SUPPORTING:
         fail(f"Supporting Information file lacks an Appendix S title: {appendix.name}")
     assert_anonymous(f"Supporting Information {appendix.name}", appendix_text)
 
-
 s1 = appendix_texts["Appendix_S1_yamap_public_benchmark.md"]
 require_tokens(
     "Appendix S1 pooled taxonomic scope",
@@ -221,7 +217,20 @@ require_tokens(
 )
 
 s6 = appendix_texts["Appendix_S6_event_departures_human_context.md"]
-require_tokens("Appendix S6", s6, ("674 pigmented", "0.251980", "0.000200", "0.285498", "0.000900", "**16**", "0.27897", "0.05479"))
+require_tokens(
+    "Appendix S6",
+    s6,
+    (
+        "674 pigmented",
+        "0.251980",
+        "0.000200",
+        "0.285498",
+        "0.000900",
+        "**16**",
+        "0.27897",
+        "0.05479",
+    ),
+)
 if "The horticultural trade and ornamental plant invasions in Britain" in s6:
     fail("Appendix S6 contains the superseded alternative Dehnen-Schmutz 2007 citation")
 
@@ -231,7 +240,11 @@ figure_text = FIGURE_CAPTIONS.read_text(encoding="utf-8")
 figure_headings = re.findall(r"^## Figure ([1-4])\.", figure_text, flags=re.MULTILINE)
 if figure_headings != ["1", "2", "3", "4"]:
     fail(f"Figure captions must contain Figures 1-4 exactly once and in order: {figure_headings}")
-require_tokens("Main-figure captions", figure_text, ("1,922", "Sixty-seven", "674 pigmented", "rho=0.252", "P=0.0002", "rho=0.285", "P=0.0009"))
+require_tokens(
+    "Main-figure captions",
+    figure_text,
+    ("1,922", "Sixty-seven", "674 pigmented", "rho=0.252", "P=0.0002", "rho=0.285", "P=0.0009"),
+)
 if "16 event-defined" in figure_text or "field/provenance targets" in figure_text:
     fail("Threshold-event family leaked into Main-figure captions")
 if re.search(r"\([A-D]\)", figure_text):
@@ -272,7 +285,11 @@ for required_phrase in ("600-dpi PNG", "vector PDF", "Actions artifact"):
 if not TRANSLATED_ABSTRACT.is_file():
     fail("Missing translated abstract")
 translated = TRANSLATED_ABSTRACT.read_text(encoding="utf-8")
-require_tokens("Japanese translated abstract", translated, ("1,922", "67", "674", "0.252", "0.0002", "0.285", "0.0009"))
+require_tokens(
+    "Japanese translated abstract",
+    translated,
+    ("1,922", "67", "674", "0.252", "0.0002", "0.285", "0.0009"),
+)
 if "16地点" in translated:
     fail("Threshold-event family leaked into Japanese translated abstract")
 if "17地点" in translated:

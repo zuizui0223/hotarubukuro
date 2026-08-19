@@ -181,7 +181,8 @@ def validate_alignment(root: Path, lock_path: Path) -> dict[str, Any]:
             r"not as .*proof of horticultural origin)"
         ),
         "high-elevation overlap is not an independent mechanism": (
-            r"(?:disappeared after controlling elevation|"
+            r"(?:a visually stronger national pattern can disappear when shared elevation is controlled|"
+            r"disappeared after controlling elevation|"
             r"disappeared after elevation was matched|"
             r"relationship vanished when local endpoints were constrained to similar elevation|"
             r"contrast vanished when nearby white and pigmented endpoints were constrained to similar elevation|"

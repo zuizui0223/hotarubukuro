@@ -255,6 +255,7 @@ jobs:
             results/broad_supported_term_distance_space_null
             reproducibility/broad_supported_term_distance_environment
             reference-artifact/reference_lock.txt
+            scripts/fit_broad_supported_term_distance_space_null.R
           if-no-files-found: warn
           compression-level: 6
           retention-days: 90

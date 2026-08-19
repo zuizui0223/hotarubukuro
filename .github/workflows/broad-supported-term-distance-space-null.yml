@@ -1,0 +1,193 @@
+name: Broad supported-term environmental distance
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/broad-model-aligned-space-null
+    paths:
+      - .github/workflows/broad-supported-term-distance-space-null.yml
+      - scripts/fit_broad_supported_term_distance_space_null.R
+      - reproducibility/broad_supported_term_distance_space_null_2026-08-19.md
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/broad-supported-term-distance-space-null.yml
+      - scripts/fit_broad_supported_term_distance_space_null.R
+      - reproducibility/broad_supported_term_distance_space_null_2026-08-19.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: broad-supported-term-distance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BROAD_ARTIFACT_ID: "9022276431"
+  BROAD_ARTIFACT_SHA256: "0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240"
+  SPACE_NULL_CACHE_ARTIFACT_ID: "9317764270"
+  SPACE_NULL_CACHE_SHA256: "3062452997c0717946ddaaa938835ff3fd8bf90d7be3031b60b09c93e5cc9234"
+
+jobs:
+  reaggregate:
+    name: Supported environmental distance versus fixed spatial continuity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read pinned R version
+        id: rversion
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.rversion.outputs.version }}
+          use-public-rspm: true
+
+      - name: Restore checksum-locked inputs and cached spatial null
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf broad-reference space-null-cache /tmp/broad.zip /tmp/space-null.zip
+          mkdir -p broad-reference space-null-cache
+
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${BROAD_ARTIFACT_ID}/zip" \
+            -o /tmp/broad.zip
+          test "$(sha256sum /tmp/broad.zip | awk '{print $1}')" = "$BROAD_ARTIFACT_SHA256"
+          unzip -q /tmp/broad.zip -d broad-reference
+
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${SPACE_NULL_CACHE_ARTIFACT_ID}/zip" \
+            -o /tmp/space-null.zip
+          test "$(sha256sum /tmp/space-null.zip | awk '{print $1}')" = "$SPACE_NULL_CACHE_SHA256"
+          unzip -q /tmp/space-null.zip -d space-null-cache
+
+          cells=broad-reference/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv
+          cache=space-null-cache/results/broad_space_null_geobin_sensitivity_v23
+          test -s "$cells"
+          test -s "$cache/fixed_heldout_pair_table.csv"
+          test -s "$cache/heldout_space_null_site_draws.rds"
+
+          {
+            echo "broad_artifact_id=${BROAD_ARTIFACT_ID}"
+            echo "broad_artifact_sha256=${BROAD_ARTIFACT_SHA256}"
+            echo "space_null_cache_artifact_id=${SPACE_NULL_CACHE_ARTIFACT_ID}"
+            echo "space_null_cache_sha256=${SPACE_NULL_CACHE_SHA256}"
+          } > space-null-cache/input_locks.txt
+
+      - name: Reaggregate by final-model-supported environmental distance
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript scripts/fit_broad_supported_term_distance_space_null.R \
+            --cells=broad-reference/results/ecological_v15_multiscale_hotspots/multiscale_hotspot_cells_1km.csv \
+            --cache-dir=space-null-cache/results/broad_space_null_geobin_sensitivity_v23 \
+            --output=results/broad_supported_term_distance_space_null
+
+      - name: Validate output and numerical identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=results/broad_supported_term_distance_space_null
+          for file in \
+            primary_supported_term_distance_test.csv \
+            matched_distance_stratum_contrasts.csv \
+            heldout_pair_supported_term_distance.csv \
+            space_null_global_contrast_draws.csv \
+            analysis_metadata.csv \
+            RESULT_SUMMARY.md; do
+            test -s "$out/$file"
+          done
+
+          python3 - "$out" <<'PY'
+          import csv, math, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+
+          def rows(name):
+              with (root / name).open(newline='', encoding='utf-8') as handle:
+                  return list(csv.DictReader(handle))
+
+          primary = {row['response']: row for row in rows('primary_supported_term_distance_test.csv')}
+          assert set(primary) == {'pigmentation_state', 'conditional_intensity'}
+          expected = {
+              'pigmentation_state': {
+                  'observed_contrast': 0.1006083013,
+                  'space_null_median': 0.0484749808,
+                  'phenotype_excess_over_space_null': 0.0521333205,
+                  'posterior_predictive_p_upper': 0.0099800399,
+              },
+              'conditional_intensity': {
+                  'observed_contrast': 0.0474158738,
+                  'space_null_median': 0.0208968600,
+                  'phenotype_excess_over_space_null': 0.0265190138,
+                  'posterior_predictive_p_upper': 0.2634730539,
+              },
+          }
+          for response, targets in expected.items():
+              row = primary[response]
+              assert int(float(row['n_fold_geo_strata'])) == 25
+              for field, target in targets.items():
+                  value = float(row[field])
+                  assert math.isfinite(value)
+                  assert abs(value - target) <= 5e-7, (response, field, value, target)
+
+          strata = rows('matched_distance_stratum_contrasts.csv')
+          assert len(strata) == 50
+          assert sum(float(row['excess_over_space_null_median']) > 0 for row in strata if row['response'] == 'pigmentation_state') == 19
+          assert sum(float(row['excess_over_space_null_median']) > 0 for row in strata if row['response'] == 'conditional_intensity') == 13
+
+          draws = rows('space_null_global_contrast_draws.csv')
+          counts = {}
+          for row in draws:
+              counts[row['response']] = counts.get(row['response'], 0) + 1
+          assert counts == {'pigmentation_state': 500, 'conditional_intensity': 500}
+
+          metadata = {row['field']: row['value'] for row in rows('analysis_metadata.csv')}
+          assert metadata['pigmentation_state_environment_terms'] == 'env_Temperature_PC1'
+          assert metadata['conditional_intensity_environment_terms'].split(';') == [
+              'env_precip_PC1', 'env_TemperatureSeasonality',
+              'env_topo_PC1', 'int_thermal_variability'
+          ]
+          assert metadata['posterior_predictive_maps_reused'] == '500'
+          assert metadata['space_null_operation'].startswith('No spatial model was refitted')
+          print('validated fixed-null reaggregation')
+          PY
+
+      - name: Record session and workflow provenance
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p results/broad_supported_term_distance_space_null
+          Rscript -e 'writeLines(capture.output(sessionInfo()), "results/broad_supported_term_distance_space_null/sessionInfo.txt")'
+          {
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "operation=reaggregation_only_no_model_refit"
+            echo "broad_artifact_id=${BROAD_ARTIFACT_ID}"
+            echo "space_null_cache_artifact_id=${SPACE_NULL_CACHE_ARTIFACT_ID}"
+          } > results/broad_supported_term_distance_space_null/workflow_provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: broad-supported-term-distance-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            results/broad_supported_term_distance_space_null
+            space-null-cache/input_locks.txt
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 90

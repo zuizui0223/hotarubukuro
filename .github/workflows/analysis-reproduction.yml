@@ -76,3 +76,5 @@ jobs:
           if [ -f results/analysis_reproduction/run_manifest.json ]; then
             cat results/analysis_reproduction/run_manifest.json
           fi
+
+# This comment intentionally triggers the pull-request contract smoke test.

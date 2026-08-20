@@ -15,7 +15,7 @@ python run_pipeline.py reproduce
 
 ## Final analysis path
 
-1. **Quantitative phenotype** — `Code_S1.py`, `scripts/run_phenotype_hurdle.R`
+1. **Quantitative phenotype** — starts from `Data_S1.csv`; colour extraction is documented separately in `source_build/extract_color.py`; the two-part phenotype is built by `scripts/run_phenotype_hurdle.R`
    - pigmentation state: white versus pigmented;
    - conditional visible intensity: analysed only among pigmented flowers.
 2. **Broad geography** — `scripts/run_broad_environment_spatial_audit.R`, `scripts/build_fixed_space_null_cache.R`, `scripts/fit_broad_supported_term_distance_space_null.R`

@@ -30,8 +30,8 @@ v16_assert_columns(
 )
 
 sample_space_null <- function(train, test, response, family, mesh, trials = NULL, seed_value) {
-  train_X <- matrix(1, nrow(train), 1L, dimnames = list(NULL, "Intercept"))
-  test_X <- matrix(1, nrow(test), 1L, dimnames = list(NULL, "Intercept"))
+  train_X <- data.frame(Intercept = rep(1, nrow(train)))
+  test_X <- data.frame(Intercept = rep(1, nrow(test)))
   A_train <- INLA::inla.spde.make.A(mesh, loc = as.matrix(train[c("x_km", "y_km")]))
   A_test <- INLA::inla.spde.make.A(mesh, loc = as.matrix(test[c("x_km", "y_km")]))
   spde <- v16_make_spde(mesh, A_train)

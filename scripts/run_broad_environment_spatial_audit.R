@@ -471,7 +471,9 @@ fit_one <- function(data, response, family, terms, spatial_spec, mesh_object,
       mesh_object$mesh, loc = mesh_object$coords
     )
 
-    fixed <- data.frame(intercept = 1, stringsAsFactors = FALSE)
+    fixed <- data.frame(
+      intercept = rep(1, nrow(data)), stringsAsFactors = FALSE
+    )
     if (isTRUE(spec$include_region)) fixed$regionEast <- as.integer(data$region == "East")
     for (term in terms) fixed[[term]] <- as.numeric(data[[term]])
     if (isTRUE(spec$include_site)) {
@@ -593,7 +595,8 @@ fit_model_grid <- function(data, response, family, model_specs,
   ))
   common_data <- data[stats::complete.cases(data[common_required]), , drop = FALSE]
 
-  full_metrics <- fixed_rows <- hyper_rows <- prediction_rows <- scaling_rows <- list()
+  full_metrics <- fixed_rows <- hyper_rows <- prediction_rows <- list()
+  scaling_rows <- fold_error_rows <- list()
   for (model_id in names(model_specs)) {
     model_spec <- model_specs[[model_id]]
     prepared_full <- make_analysis_data(
@@ -630,6 +633,10 @@ fit_model_grid <- function(data, response, family, model_specs,
       )
       if (nrow(fold_fit$prediction)) {
         prediction_rows[[length(prediction_rows) + 1L]] <- fold_fit$prediction
+      } else {
+        fold_error_rows[[length(fold_error_rows) + 1L]] <- transform(
+          fold_fit$metrics, fold = fold
+        )
       }
       scaling_rows[[length(scaling_rows) + 1L]] <- transform(
         prepared_fold$scaling, model_id = model_id, fold = fold
@@ -642,7 +649,8 @@ fit_model_grid <- function(data, response, family, model_specs,
     fixed = rbind_nonempty(fixed_rows),
     hyper = rbind_nonempty(hyper_rows),
     predictions = rbind_nonempty(prediction_rows),
-    scaling = rbind_nonempty(scaling_rows)
+    scaling = rbind_nonempty(scaling_rows),
+    fold_errors = rbind_nonempty(fold_error_rows)
   )
 }
 
@@ -653,7 +661,7 @@ fit_spatial_grid <- function(data, response, family, core_spec, grid_prefix) {
   full_data <- prepared_full$data
   full_mesh <- build_mesh(full_data)
   full_barrier <- barrier_triangles_from_elevation(full_mesh$mesh, elevation_path)
-  metrics <- fixed_rows <- hyper_rows <- predictions <- list()
+  metrics <- fixed_rows <- hyper_rows <- predictions <- fold_error_rows <- list()
 
   for (spatial_spec in spatial_specs$spatial_spec) {
     model_id <- paste0(grid_prefix, "__", spatial_spec)
@@ -688,12 +696,17 @@ fit_spatial_grid <- function(data, response, family, core_spec, grid_prefix) {
       )
       if (nrow(fold_fit$prediction)) {
         predictions[[length(predictions) + 1L]] <- fold_fit$prediction
+      } else {
+        fold_error_rows[[length(fold_error_rows) + 1L]] <- transform(
+          fold_fit$metrics, fold = fold
+        )
       }
     }
   }
   list(
     full_metrics = rbind_nonempty(metrics), fixed = rbind_nonempty(fixed_rows),
     hyper = rbind_nonempty(hyper_rows), predictions = rbind_nonempty(predictions),
+    fold_errors = rbind_nonempty(fold_error_rows),
     barrier_triangles = full_barrier
   )
 }
@@ -738,6 +751,7 @@ summarize_predictions <- function(predictions, family, reference_model, bootstra
     ]
     names(candidate)[2] <- "candidate_prediction"
     joined <- merge(reference, candidate, by = "observation_id")
+    if (!nrow(joined)) next
     if (family == "binomial") {
       outcome <- joined$observed
       reference_probability <- pmin(pmax(joined$reference_prediction, 1e-10), 1 - 1e-10)
@@ -765,13 +779,32 @@ summarize_predictions <- function(predictions, family, reference_model, bootstra
   list(fold = fold, pooled = pooled, bootstrap = rbind_nonempty(bootstrap_rows))
 }
 
+empty_join_frame <- function(columns, character_columns = "model_id") {
+  frame <- data.frame(model_id = character(), stringsAsFactors = FALSE)
+  for (column in setdiff(columns, "model_id")) {
+    frame[[column]] <- if (column %in% character_columns) character() else numeric()
+  }
+  frame
+}
+
 build_decision_table <- function(full_metrics, pooled, bootstrap, reference_model) {
   if (!nrow(full_metrics)) return(data.frame())
-  table <- merge(
-    full_metrics,
-    pooled[, c("model_id", "primary_loss", "log_loss", "brier", "AUC", "RMSE", "MAE", "R2"), drop = FALSE],
-    by = "model_id", all.x = TRUE
+  pooled_columns <- c(
+    "model_id", "primary_loss", "log_loss", "brier", "AUC", "RMSE", "MAE", "R2"
   )
+  pooled <- if (nrow(pooled)) {
+    pooled[, pooled_columns, drop = FALSE]
+  } else {
+    empty_join_frame(pooled_columns)
+  }
+  if (!nrow(bootstrap)) {
+    bootstrap <- empty_join_frame(
+      c("model_id", "reference_model", "folds_improved", "folds_total",
+        "mean_gain", "lower_95", "upper_95", "probability_positive"),
+      character_columns = c("model_id", "reference_model")
+    )
+  }
+  table <- merge(full_metrics, pooled, by = "model_id", all.x = TRUE)
   table <- merge(table, bootstrap, by = "model_id", all.x = TRUE)
   reference <- table[table$model_id == reference_model, , drop = FALSE]
   if (nrow(reference) != 1L) stop("Reference model missing or duplicated: ", reference_model, call. = FALSE)
@@ -850,6 +883,7 @@ for (outcome_name in names(outcomes)) {
   write_csv_to(environmental_summary$pooled, file.path(outcome_dir, "environment_blocked_pooled_metrics.csv"))
   write_csv_to(environmental_summary$bootstrap, file.path(outcome_dir, "environment_block_bootstrap_gain.csv"))
   write_csv_to(environmental$scaling, file.path(outcome_dir, "environment_scaling.csv"))
+  write_csv_to(environmental$fold_errors, file.path(outcome_dir, "environment_fold_fit_errors.csv"))
   write_csv_to(environmental_decision, file.path(outcome_dir, "environment_model_decision_table.csv"))
 
   write_csv_to(spatial$full_metrics, file.path(outcome_dir, "spatial_full_fit_metrics.csv"))
@@ -860,6 +894,7 @@ for (outcome_name in names(outcomes)) {
   write_csv_to(spatial_summary$pooled, file.path(outcome_dir, "spatial_blocked_pooled_metrics.csv"))
   write_csv_to(spatial_summary$bootstrap, file.path(outcome_dir, "spatial_block_bootstrap_gain.csv"))
   write_csv_to(spatial_decision, file.path(outcome_dir, "spatial_model_decision_table.csv"))
+  write_csv_to(spatial$fold_errors, file.path(outcome_dir, "spatial_fold_fit_errors.csv"))
   write_csv_to(data.frame(triangle = spatial$barrier_triangles), file.path(outcome_dir, "spatial_barrier_triangles.csv"))
 
   optional_errors <- rbind_nonempty(list(
@@ -890,6 +925,12 @@ for (outcome_name in names(outcomes)) {
     required_environment_reference = specification$reference_model,
     required_spatial_reference = spatial_reference,
     optional_model_errors = if (nrow(optional_errors)) optional_errors$error else character(),
+    environment_fold_fit_errors = nrow(environmental$fold_errors),
+    spatial_fold_fit_errors = nrow(spatial$fold_errors),
+    fold_fit_errors = unique(c(
+      if (nrow(environmental$fold_errors)) environmental$fold_errors$error else character(),
+      if (nrow(spatial$fold_errors)) spatial$fold_errors$error else character()
+    )),
     frozen_natural_reference_replaced = FALSE
   )
   jsonlite::write_json(
@@ -924,3 +965,26 @@ jsonlite::write_json(
   pretty = TRUE, auto_unbox = TRUE, null = "null"
 )
 cat("Wrote broad environment/spatial audit to ", output_root, "\n", sep = "")
+
+failed_outcomes <- names(all_validations)[
+  vapply(all_validations, function(x) identical(x$status, "FAIL"), logical(1))
+]
+if (length(failed_outcomes)) {
+  reported_errors <- unique(unlist(
+    lapply(all_validations[failed_outcomes], function(x) {
+      c(x$optional_model_errors, x$fold_fit_errors)
+    }),
+    use.names = FALSE
+  ))
+  stop(
+    "Broad environment/spatial audit failed for: ",
+    paste(failed_outcomes, collapse = ", "),
+    if (length(reported_errors)) {
+      paste0(
+        "; first model errors: ",
+        paste(utils::head(reported_errors, 3L), collapse = " | ")
+      )
+    } else "",
+    call. = FALSE
+  )
+}

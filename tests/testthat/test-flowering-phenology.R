@@ -1,4 +1,5 @@
 source("R/flowering_phenology.R")
+source("R/flowering_phenology_elevation.R")
 
 testthat::test_that("cell-year-colour aggregation weights exact sites before images", {
   x <- data.frame(
@@ -56,4 +57,43 @@ testthat::test_that("human join preserves phenology and pre-existing context", {
   testthat::expect_equal(out$early_days, 7)
   testthat::expect_equal(out$relative_isolation_nn, 1.5)
   testthat::expect_equal(out$population_5km_rank, 0.9)
+})
+
+testthat::test_that("elevation joins by colour cell and year without changing pair timing", {
+  pairs <- data.frame(
+    pair_id = c("2023::p::w", "2023::p2::w2"), year = c(2023L, 2023L),
+    pigmented_cell_id = c("p", "p2"), white_cell_id = c("w", "w2"),
+    pigmented_doy = c(150, 160), white_doy = c(156, 165),
+    delta_doy = c(-6, -5), early_days = c(6, 5), distance_km = c(0, 2),
+    pigmented_n_sites = 1L, white_n_sites = 1L, stringsAsFactors = FALSE)
+  elev <- data.frame(
+    cell_id = c("p", "w", "p2", "w2"), year = rep(2023L, 4),
+    colour = c("pigmented", "white", "pigmented", "white"),
+    elevation_m = c(300, 320, 800, 600), n_elevation_sites = 1L,
+    stringsAsFactors = FALSE)
+  out <- fp_add_pair_elevation(pairs, elev)
+  testthat::expect_equal(out$delta_doy, pairs$delta_doy)
+  testthat::expect_equal(out$elevation_diff_m, c(-20, 200))
+  testthat::expect_equal(out$abs_elevation_diff_m, c(20, 200))
+})
+
+testthat::test_that("elevation guardrail applies frozen same-cell and threshold scopes", {
+  pairs <- data.frame(
+    pair_id = paste0("x", 1:4), year = rep(2023L, 4),
+    pigmented_cell_id = paste0("p", 1:4), white_cell_id = paste0("w", 1:4),
+    pigmented_doy = c(150, 151, 152, 153), white_doy = c(160, 160, 160, 160),
+    delta_doy = c(-10, -9, -8, -7), early_days = c(10, 9, 8, 7),
+    distance_km = c(0, 1, 2, 3), pigmented_n_sites = 1L, white_n_sites = 1L,
+    pigmented_elevation_m = c(100, 200, 300, 400),
+    white_elevation_m = c(100, 250, 450, 700),
+    elevation_diff_m = c(0, -50, -150, -300),
+    abs_elevation_diff_m = c(0, 50, 150, 300), stringsAsFactors = FALSE)
+  out <- fp_elevation_guardrails(pairs, permutations = 199L, seed = 2L)
+  same <- out$summary[out$summary$scope == "same_1km_cell", ]
+  within100 <- out$summary[out$summary$scope == "abs_elevation_diff_le_100m", ]
+  within250 <- out$summary[out$summary$scope == "abs_elevation_diff_le_250m", ]
+  testthat::expect_equal(same$n_unique_geometric_pairs, 1L)
+  testthat::expect_equal(within100$n_unique_geometric_pairs, 2L)
+  testthat::expect_equal(within250$n_unique_geometric_pairs, 3L)
+  testthat::expect_equal(out$correlation$n_unique_geometric_pairs, 4L)
 })

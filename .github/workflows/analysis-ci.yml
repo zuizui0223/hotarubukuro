@@ -80,6 +80,7 @@ jobs:
             "R/local_pair_graph.R",
             "R/human_raster_features.R",
             "R/flowering_phenology.R",
+            "R/flowering_phenology_elevation.R",
             "source_build/download_rasters.R",
             "source_build/prepare_rasters.R",
             "source_build/fetch_bombus_occurrences.R",

@@ -56,15 +56,28 @@ Permutation is restricted within the five pre-existing spatial folds. Holm adjus
 
 Raw same-colour distance, focal population, and 10/25/50-km population ranks are sensitivity outputs, not additional primary hypotheses.
 
+## Pre-result elevation guardrails
+
+YAMAP is enriched for mountain routes, and flowering date can covary with elevation. Therefore the following guardrails were recorded in PR #67 **before the first phenology output was inspected**. They do not replace H1–H3 and are not discovery hypotheses.
+
+For the frozen 5-km matched pair-years, repeat the H1 sign-flip summary for:
+
+1. pairs in the same 1-km cell;
+2. pairs with absolute pigmented–white elevation difference ≤100 m;
+3. pairs with absolute elevation difference ≤250 m.
+
+Also report the Spearman association between `delta_DOY` and signed elevation difference (`elevation_pigmented - elevation_white`). If the apparent H1 direction disappears under elevation restriction, the unrestricted 5-km contrast must not be interpreted as colour-state phenology.
+
 ## Interpretation
 
 - **H1 supported alone:** colour state is associated with local observation-date phenology. This does not specifically support horticultural provenance.
 - **H1 plus positive H2/H3:** phenological earliness is concentrated where pigmented geography is more human-associated and/or isolated. This is compatible with an anthropogenic-provenance hypothesis and provides an independent follow-up signal.
 - **H1 absent but H2/H3 present:** no general colour-state phenology shift, but a restricted human-context subset may differ; interpret as exploratory targeting evidence only.
 - **No directional support:** the early-flowering horticultural-provenance route is not supported by these data. The existing isolation–human result remains separable from phenology.
+- **H1 fails elevation guardrails:** treat the unrestricted date contrast as elevation-confounded rather than colour-state timing.
 
 None of these outcomes establish cultivar origin. Provenance would still require field history, herbarium/planting records, and/or genetic evidence.
 
 ## Reproducible outputs
 
-`R/flowering_phenology.R` contains the transformations and tests. `scripts/run_human_flowering_phenology.R` writes the cell-year tables, 5/10/20-km matched pairs, primary human-context correlations, leave-one-fold-out checks, and a compact `validation.txt` summary.
+`R/flowering_phenology.R` contains the primary transformations and tests. `R/flowering_phenology_elevation.R` contains the preregistered elevation guardrails. `scripts/run_human_flowering_phenology.R` writes the cell-year tables, 5/10/20-km matched pairs, elevation-restricted checks, primary human-context correlations, leave-one-fold-out checks, and a compact `validation.txt` summary.

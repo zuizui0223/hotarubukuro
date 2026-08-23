@@ -79,6 +79,7 @@ jobs:
             "R/continuous_colour_isolation.R",
             "R/local_pair_graph.R",
             "R/human_raster_features.R",
+            "R/flowering_phenology.R",
             "source_build/download_rasters.R",
             "source_build/prepare_rasters.R",
             "source_build/fetch_bombus_occurrences.R",
@@ -98,7 +99,9 @@ jobs:
             "scripts/build_fixed_space_null_cache.R",
             "scripts/fit_broad_supported_term_distance_space_null.R",
             "scripts/fit_final8_presence_null.R",
-            "scripts/run_continuous_colour_isolation.R"
+            "scripts/run_continuous_colour_isolation.R",
+            "scripts/run_human_flowering_phenology.R",
+            "tests/testthat/test-flowering-phenology.R"
           )
           stopifnot(all(file.exists(files)))
           invisible(lapply(files, parse))
@@ -134,6 +137,28 @@ jobs:
 
       - name: Run one-command public analysis reconstruction
         run: python run_pipeline.py reproduce --no-resume
+
+      - name: Test flowering phenology helpers
+        run: Rscript -e 'testthat::test_file("tests/testthat/test-flowering-phenology.R")'
+
+      - name: Run human flowering phenology diagnostic
+        run: |
+          Rscript scripts/run_human_flowering_phenology.R \
+            --phenotype results/ecological_v11_pigmentation_hurdle/analysis_data_pigmentation_hurdle.csv \
+            --isolation results/continuous_colour_isolation/isolation_cell_metrics.csv \
+            --output results/human_flowering_phenology \
+            --radii 5,10,20 \
+            --permutations 9999 \
+            --seed 20260823
+          cat results/human_flowering_phenology/validation.txt
+
+      - name: Upload flowering phenology result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: human-flowering-phenology
+          path: results/human_flowering_phenology
+          if-no-files-found: warn
 
       - name: Show reconstruction manifest
         if: always()

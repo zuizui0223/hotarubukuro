@@ -6,6 +6,7 @@
 args <- commandArgs(trailingOnly = TRUE)
 source("R/pipeline_support.R")
 source("R/flowering_phenology.R")
+source("R/flowering_phenology_elevation.R")
 arg_value <- function(name, default = NULL) hb_arg_value(args, name, default)
 
 phenotype_path <- arg_value("--phenotype",
@@ -28,7 +29,7 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 observations <- utils::read.csv(phenotype_path, check.names = FALSE, stringsAsFactors = FALSE)
 isolation <- utils::read.csv(isolation_path, check.names = FALSE, stringsAsFactors = FALSE)
 fp_require_columns(observations,
-  c("exact_site_id", "x_km", "y_km", "year", "DOY", "pigmented_mixture50"),
+  c("exact_site_id", "x_km", "y_km", "year", "DOY", "pigmented_mixture50", "elevation"),
   "phenotype observations")
 
 cell_year_colour <- fp_build_cell_year_colour(observations, cell_km = 1)
@@ -49,10 +50,12 @@ utils::write.csv(descriptive, file.path(output_dir, "national_descriptive.csv"),
 
 summary_rows <- list()
 collapsed_sets <- list()
+pair_year_sets <- list()
 for (i in seq_along(radii)) {
   radius <- radii[[i]]
   pairs <- fp_mutual_nearest_pairs(cell_year_colour, max_distance_km = radius)
   collapsed <- fp_collapse_geometric_pairs(pairs)
+  pair_year_sets[[as.character(radius)]] <- pairs
   collapsed_sets[[as.character(radius)]] <- collapsed
   summary_rows[[i]] <- fp_pair_summary(pairs, max_distance_km = radius,
     permutations = permutations, seed = seed + 100L * i)
@@ -61,6 +64,20 @@ for (i in seq_along(radii)) {
 }
 pair_summary <- do.call(rbind, summary_rows)
 utils::write.csv(pair_summary, file.path(output_dir, "matched_pair_summary.csv"), row.names = FALSE)
+
+# Elevation guardrails were frozen in PR #67 before inspecting the phenology result.
+cell_elevation <- fp_build_cell_year_colour_elevation(observations, cell_km = 1)
+primary_pair_years_elevation <- fp_add_pair_elevation(pair_year_sets[["5"]], cell_elevation)
+elevation_guardrails <- fp_elevation_guardrails(
+  primary_pair_years_elevation, permutations = permutations, seed = seed + 500L)
+utils::write.csv(cell_elevation,
+  file.path(output_dir, "phenology_cell_year_colour_elevation.csv"), row.names = FALSE)
+utils::write.csv(primary_pair_years_elevation,
+  file.path(output_dir, "matched_pair_years_5km_with_elevation.csv"), row.names = FALSE)
+utils::write.csv(elevation_guardrails$summary,
+  file.path(output_dir, "elevation_guardrail_summary.csv"), row.names = FALSE)
+utils::write.csv(elevation_guardrails$correlation,
+  file.path(output_dir, "elevation_guardrail_correlation.csv"), row.names = FALSE)
 
 # Human/isolation context is joined only after the phenotype-only 5-km pairs are fixed.
 primary_pairs <- collapsed_sets[["5"]]
@@ -84,6 +101,7 @@ primary_human <- correlations[correlations$role %in% c("primary_isolation", "pri
 validation_lines <- c(
   "PASS human flowering-phenology exploratory diagnostic",
   "Interpretation boundary: YAMAP photo DOY is an observation-date proxy, not flowering onset or provenance.",
+  "Elevation guardrails were preregistered in PR #67 before the first phenology result was inspected.",
   sprintf("phenotype rows: %d", nrow(observations)),
   sprintf("cell-year-colour rows: %d", nrow(cell_year_colour)),
   sprintf("primary 5-km unique pairs: %d", primary_summary$n_unique_geometric_pairs),
@@ -98,6 +116,23 @@ if (nrow(primary_human)) {
       primary_human$feature[[i]], primary_human$spearman_rho[[i]],
       primary_human$within_spatial_fold_permutation_p_greater[[i]], primary_human$holm_p_two_primary[[i]]))
   }
+}
+if (nrow(elevation_guardrails$summary)) {
+  for (i in seq_len(nrow(elevation_guardrails$summary))) {
+    row <- elevation_guardrails$summary[i, , drop = FALSE]
+    validation_lines <- c(validation_lines, sprintf(
+      "elevation guardrail %s: n=%d, mean delta DOY=%.4f, one-sided p=%.6g",
+      row$scope, row$n_unique_geometric_pairs,
+      row$mean_delta_doy_pigmented_minus_white,
+      row$one_sided_signflip_p_pigmented_earlier))
+  }
+}
+if (nrow(elevation_guardrails$correlation)) {
+  validation_lines <- c(validation_lines, sprintf(
+    "elevation-delta association: rho=%.4f, p=%.6g, n=%d",
+    elevation_guardrails$correlation$spearman_rho,
+    elevation_guardrails$correlation$asymptotic_p,
+    elevation_guardrails$correlation$n_unique_geometric_pairs))
 }
 writeLines(validation_lines, file.path(output_dir, "validation.txt"))
 cat(paste(validation_lines, collapse = "\n"), "\n")

@@ -40,8 +40,3 @@ The shared 1-km analysis table is built once by `scripts/build_analysis_cells.R`
 - `reproducibility/` — final scientific decisions, result locks and benchmark records.
 - `tests/` — tests for modules that remain in the publication path.
 
-## Deliberately not in the submission pipeline
-
-The following are scientifically superseded and are not alternative routes to the paper results: the old hotspot/candidate-ranking pipeline, the 16-event local-departure detector, DID human-context analysis, MLIT land-cover candidate classification, coefficient-weighted Broad spatial-null variants, and development-only interaction screens.
-
-The public repository also excludes manuscript files, title-page/author metadata, submission bundles and original third-party photographs.

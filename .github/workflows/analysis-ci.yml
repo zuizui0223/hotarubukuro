@@ -150,9 +150,7 @@ jobs:
           fi
 
   raw-zenodo-reproduction:
-    # PR #68 is the one-time end-to-end verification of the newly added raw route.
-    # Normal operation remains opt-in via workflow_dispatch.
-    if: (github.event_name == 'pull_request' && github.event.pull_request.number == 68) || (github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction)
+    if: github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Single publication analysis entry point.
 
-`audit` verifies the committed public contract. `reproduce` rebuilds the final
-submission analysis from Data_S1.csv plus declared public sources. Superseded
-exploratory pipelines are deliberately not callable from here.
+``audit`` verifies the committed public contract. ``reproduce`` rebuilds the
+final submission analysis from the canonical ``Data_S1.csv`` plus declared
+public sources by default. A verified reconstructed table can be supplied with
+``--data-s1`` so the raw Zenodo bootstrap can feed its own derived table into
+the identical downstream graph. Superseded exploratory pipelines are
+deliberately not callable from here.
 """
 
 from __future__ import annotations
@@ -30,6 +33,9 @@ MLIT_CACHE = CACHE / "mlit_l03_2021"
 GBIF_CACHE = CACHE / "bombus_gbif"
 WORLDPOP = PUBLIC_CACHE / "population_count_Japan_crop.tif"
 MANIFEST = RESULTS / "analysis_reproduction" / "run_manifest.json"
+CANONICAL_DATA_S1 = ROOT / "Data_S1.csv"
+EXPECTED_ROWS = 1965
+MINIMUM_DATA_COLUMNS = {"observation_id", "latitude", "longitude", "R", "G", "B"}
 WORLDPOP_URL = (
     "https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/2020/"
     "JPN/jpn_ppp_2020_1km_Aggregated.tif"
@@ -111,15 +117,24 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 class ReproductionError(RuntimeError):
     pass
 
 
 class Pipeline:
-    def __init__(self, dry_run: bool, resume: bool, skip_setup: bool) -> None:
+    def __init__(self, dry_run: bool, resume: bool, skip_setup: bool, data_s1: Path | None = None) -> None:
         self.dry_run = dry_run
         self.resume = resume
         self.skip_setup = skip_setup
+        self.data_s1 = (data_s1 or CANONICAL_DATA_S1).expanduser().resolve()
+        self.data_arg = _display_path(self.data_s1)
         self.records: list[dict[str, object]] = []
         self.env = os.environ.copy()
         self.env.update(THREAD_ENV)
@@ -139,17 +154,36 @@ class Pipeline:
             observed = git_blob_sha(ROOT / rel)
             if observed != expected:
                 raise ReproductionError(f"{rel} blob changed: {observed} != {expected}")
-        with (ROOT / "Data_S1.csv").open("r", encoding="utf-8-sig", newline="") as handle:
-            reader = csv.reader(handle)
-            header = next(reader)
-            rows = sum(1 for _ in reader)
-        if rows != 1965:
-            raise ReproductionError(f"Data_S1 row count changed: {rows} != 1965")
-        missing_columns = {"observation_id", "latitude", "longitude"} - set(header)
+
+        if not self.data_s1.is_file():
+            raise ReproductionError(f"analysis Data_S1 input not found: {self.data_s1}")
+        with self.data_s1.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if reader.fieldnames is None:
+                raise ReproductionError(f"analysis Data_S1 has no header: {self.data_s1}")
+            header = set(reader.fieldnames)
+            identifiers: set[str] = set()
+            rows = 0
+            for row in reader:
+                rows += 1
+                identifier = (row.get("observation_id") or "").strip()
+                if not identifier:
+                    raise ReproductionError(f"analysis Data_S1 has empty observation_id at row {rows + 1}")
+                if identifier in identifiers:
+                    raise ReproductionError(f"analysis Data_S1 has duplicate observation_id: {identifier}")
+                identifiers.add(identifier)
+        if rows != EXPECTED_ROWS:
+            raise ReproductionError(f"analysis Data_S1 row count {rows} != {EXPECTED_ROWS}")
+        missing_columns = MINIMUM_DATA_COLUMNS - header
         if missing_columns:
-            raise ReproductionError("Data_S1 missing: " + ", ".join(sorted(missing_columns)))
+            raise ReproductionError("analysis Data_S1 missing: " + ", ".join(sorted(missing_columns)))
+
         print("PASS submission reproducibility contract")
-        print(f"Data_S1 rows={rows}; blob={EXPECTED_GIT_BLOBS['Data_S1.csv']}")
+        print(f"Canonical Data_S1 blob={EXPECTED_GIT_BLOBS['Data_S1.csv']}")
+        print(
+            f"Analysis Data_S1 rows={rows}; path={self.data_arg}; sha256={sha256(self.data_s1)}; "
+            f"canonical={self.data_s1 == CANONICAL_DATA_S1.resolve()}"
+        )
 
     def run(self, name: str, command: Sequence[str], outputs: Iterable[str] = ()) -> None:
         paths = [ROOT / output for output in outputs]
@@ -244,27 +278,27 @@ class Pipeline:
             "build_bombus_sdm",
             ["Rscript", "source_build/build_bombus_sdm_mainland.R", "--config", "config/bombus_sdm.yml",
              "--occurrence-dir", str(GBIF_CACHE), "--raster-dir", "data/processed/rasters",
-             "--output-dir", "results/bombus_sdm_source_build", "--flower-data", "Data_S1.csv"],
+             "--output-dir", "results/bombus_sdm_source_build", "--flower-data", self.data_arg],
             ["results/bombus_sdm_source_build/predictions/ardens.tif",
              "results/bombus_sdm_source_build/predictions/diversus.tif"],
         )
         self.run(
             "build_forest_reference_raster",
-            ["Rscript", "source_build/build_human_raster.R", "--observation-csv", "Data_S1.csv",
+            ["Rscript", "source_build/build_human_raster.R", "--observation-csv", self.data_arg,
              "--cache-dir", str(MLIT_CACHE), "--output-dir",
              "results/public_rasters/mlit_human_forest_edge_2021"],
             ["results/public_rasters/mlit_human_forest_edge_2021/mlit_human_forest_edge_1km.tif"],
         )
         self.run(
             "build_environment_input",
-            ["Rscript", "scripts/build_environment_input.R", "--raw-colour-csv", "Data_S1.csv",
+            ["Rscript", "scripts/build_environment_input.R", "--raw-colour-csv", self.data_arg,
              "--cache-root", str(PUBLIC_CACHE), "--output-csv", "results/environment_v3/ecological_input_v2.csv"],
             ["results/environment_v3/ecological_input_v2.csv"],
         )
         self.run(
             "environment_spatial",
             ["Rscript", "scripts/run_environment_spatial.R", "--anomaly-csv",
-             "results/environment_v3/ecological_input_v2.csv", "--raw-colour-csv", "Data_S1.csv",
+             "results/environment_v3/ecological_input_v2.csv", "--raw-colour-csv", self.data_arg,
              "--bombus-dir", "results/bombus_sdm_source_build/predictions", "--H-raster", str(WORLDPOP),
              "--R-raster", "results/public_rasters/mlit_human_forest_edge_2021/mlit_human_forest_edge_1km.tif",
              "--N-raster", str(PUBLIC_CACHE / "gdd5_Japan_crop_30s.tif"), "--A-raster",
@@ -277,7 +311,7 @@ class Pipeline:
             "natural_biotic_covariates",
             ["Rscript", "scripts/run_natural_biotic_covariates.R", "--analysis-data",
              "results/ecological_v9_final_public_HRNA_50km/analysis_data.csv", "--occurrence-dir", str(GBIF_CACHE),
-             "--raw-colour-csv", "Data_S1.csv", "--output-dir", "results/ecological_v10_final_mechanism_HRNA",
+             "--raw-colour-csv", self.data_arg, "--output-dir", "results/ecological_v10_final_mechanism_HRNA",
              "--tail-bootstraps", "199"],
             ["results/ecological_v10_final_mechanism_HRNA/analysis_data_mechanism_v3.csv"],
         )
@@ -367,13 +401,17 @@ class Pipeline:
         if self.dry_run:
             return
         MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+        selected_exists = self.data_s1.is_file()
         MANIFEST.write_text(
             json.dumps(
                 {
                     "status": status,
                     "generated_utc": utc_now(),
-                    "data_s1_git_blob": git_blob_sha(ROOT / "Data_S1.csv"),
+                    "data_s1_git_blob": git_blob_sha(CANONICAL_DATA_S1),
                     "code_s1_git_blob": git_blob_sha(ROOT / "Code_S1.py"),
+                    "analysis_data_s1_path": self.data_arg,
+                    "analysis_data_s1_sha256": sha256(self.data_s1) if selected_exists else None,
+                    "analysis_data_s1_is_canonical": self.data_s1 == CANONICAL_DATA_S1.resolve(),
                     "stages": self.records,
                     "excluded_legacy": [
                         "hotspot/candidate ranking", "16-event local-departure detector",
@@ -388,19 +426,28 @@ class Pipeline:
         )
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("audit")
+    audit = sub.add_parser("audit")
+    audit.add_argument("--data-s1", type=Path, default=CANONICAL_DATA_S1,
+                       help="Analysis colour table; default is the frozen Data_S1.csv")
     reproduce = sub.add_parser("reproduce")
     reproduce.add_argument("--dry-run", action="store_true")
     reproduce.add_argument("--no-resume", action="store_true")
     reproduce.add_argument("--skip-setup", action="store_true")
-    args = parser.parse_args()
+    reproduce.add_argument("--data-s1", type=Path, default=CANONICAL_DATA_S1,
+                           help="Analysis colour table; default is the frozen Data_S1.csv")
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
     pipeline = Pipeline(
         dry_run=bool(getattr(args, "dry_run", False)),
         resume=not bool(getattr(args, "no_resume", False)),
         skip_setup=bool(getattr(args, "skip_setup", False)),
+        data_s1=getattr(args, "data_s1", CANONICAL_DATA_S1),
     )
     try:
         if args.command == "audit":

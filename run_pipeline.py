@@ -43,7 +43,9 @@ WORLDPOP_URL = (
 
 EXPECTED_GIT_BLOBS = {
     "Data_S1.csv": "74b951898814f4ed15f314061e3129d8b05823d5",
-    "Code_S1.py": "85019b8c05d7de1271b9e3279baa847f658f57ee",
+    "source_build/extract_color.py": "bf387c53c29d5f50b6a8f26facf029b0539a8e11",
+    "source_build/build_data_s1.py": "114d588891a14f5c807437c3c01df84c80949774",
+    "source_build/reproduce_from_zenodo.py": "7f77e64690fc87b3740e952e08715388e427bc29",
 }
 
 THREAD_ENV = {
@@ -81,17 +83,18 @@ RASTER_ALIASES = {
 }
 
 REQUIRED_FILES = [
-    "Data_S1.csv", "Code_S1.py", "config/pipeline.yml", "config/raster_sources.csv",
+    "Data_S1.csv", "config/pipeline.yml", "config/raster_sources.csv",
     "config/bombus_sdm.yml", "dependencies/r-packages.csv", "dependencies/r-version.txt",
     "R/pipeline_support.R", "R/environment_spatial.R", "R/natural_biotic_covariates.R",
     "R/phenotype_hurdle.R", "R/analysis_cells.R", "R/natural_predictive_model.R",
     "R/continuous_colour_isolation.R", "R/local_pair_graph.R", "R/human_raster_features.R",
-    "source_build/download_rasters.R", "source_build/prepare_rasters.R",
-    "source_build/fetch_bombus_occurrences.R", "source_build/build_bombus_sdm_mainland.R",
-    "source_build/build_human_raster.R", "scripts/build_environment_input.R",
-    "scripts/run_environment_spatial.R", "scripts/run_natural_biotic_covariates.R",
-    "scripts/run_phenotype_hurdle.R", "scripts/build_analysis_cells.R",
-    "scripts/build_bombus_occurrence_reference_support.R",
+    "source_build/extract_color.py", "source_build/build_data_s1.py",
+    "source_build/reproduce_from_zenodo.py", "source_build/download_rasters.R",
+    "source_build/prepare_rasters.R", "source_build/fetch_bombus_occurrences.R",
+    "source_build/build_bombus_sdm_mainland.R", "source_build/build_human_raster.R",
+    "scripts/build_environment_input.R", "scripts/run_environment_spatial.R",
+    "scripts/run_natural_biotic_covariates.R", "scripts/run_phenotype_hurdle.R",
+    "scripts/build_analysis_cells.R", "scripts/build_bombus_occurrence_reference_support.R",
     "scripts/run_bombus_local_sharp_transition.R",
     "scripts/run_bombus_spatial_replication_test.R", "scripts/build_broad_landscape_context.R",
     "scripts/run_broad_environment_spatial_audit.R", "scripts/build_fixed_space_null_cache.R",
@@ -408,12 +411,15 @@ class Pipeline:
                     "status": status,
                     "generated_utc": utc_now(),
                     "data_s1_git_blob": git_blob_sha(CANONICAL_DATA_S1),
-                    "code_s1_git_blob": git_blob_sha(ROOT / "Code_S1.py"),
+                    "extract_color_git_blob": git_blob_sha(ROOT / "source_build/extract_color.py"),
+                    "build_data_s1_git_blob": git_blob_sha(ROOT / "source_build/build_data_s1.py"),
+                    "raw_bootstrap_git_blob": git_blob_sha(ROOT / "source_build/reproduce_from_zenodo.py"),
                     "analysis_data_s1_path": self.data_arg,
                     "analysis_data_s1_sha256": sha256(self.data_s1) if selected_exists else None,
                     "analysis_data_s1_is_canonical": self.data_s1 == CANONICAL_DATA_S1.resolve(),
                     "stages": self.records,
                     "excluded_legacy": [
+                        "legacy/Code_S1_georeference.py (historical GPX utility)",
                         "hotspot/candidate ranking", "16-event local-departure detector",
                         "DID human context", "MLIT land-cover candidate classification",
                         "coefficient-weighted Broad space-null variants", "development-only interaction screens",

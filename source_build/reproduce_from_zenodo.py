@@ -5,12 +5,9 @@ This is the zero-to-analysis bootstrap for the public repository. It downloads
 (or accepts a local copy of) the image-bearing Supplementary Table S1 workbook,
 verifies the frozen Zenodo checksum, runs the deterministic colour extractor,
 and compares the rebuilt table with the committed ``Data_S1.csv`` by immutable
-``observation_id`` before optionally entering ``run_pipeline.py reproduce``.
-
-The downstream publication pipeline deliberately keeps its frozen Data_S1.csv
-contract. Therefore full analysis is launched only after the raw rebuild has
-passed the equivalence audit; a mismatch stops the chain rather than silently
-changing the paper input.
+``observation_id`` and every raw field that can alter the retained downstream
+analysis. Full analysis is launched only after that audit passes, and the
+rebuilt table itself is then supplied to ``run_pipeline.py reproduce``.
 """
 
 from __future__ import annotations
@@ -42,6 +39,16 @@ DEFAULT_REPORT = ROOT / "results" / "source_reconstruction" / "zenodo_rebuild_au
 REFERENCE = ROOT / "Data_S1.csv"
 EXTRACTOR = ROOT / "source_build" / "extract_color.py"
 PIPELINE = ROOT / "run_pipeline.py"
+
+CORE_NUMERIC_COLUMNS = ("R", "G", "B", "latitude", "longitude")
+DOWNSTREAM_NUMERIC_COLUMNS = (
+    "R", "G", "B", "median_R", "median_G", "median_B",
+    "latitude", "longitude", "mask_pixels", "mask_fraction_visible",
+)
+DOWNSTREAM_EXACT_COLUMNS = (
+    "date", "qc_status", "manual_review_status", "duplicate_image_sha256",
+    "possible_overexposure", "image_sha256",
+)
 
 
 class BootstrapError(RuntimeError):
@@ -103,59 +110,111 @@ def _as_float(value: str | None) -> float | None:
         return None
 
 
-def audit_rebuild(rebuilt: Path, reference: Path, tolerance: float) -> dict[str, object]:
+def _normalise_exact(value: str | None, column: str) -> str:
+    text = "" if value is None else str(value).strip()
+    if column in {"qc_status", "manual_review_status", "possible_overexposure"}:
+        return text.lower()
+    return text
+
+
+def _indexed_rows(rows: Iterable[dict[str, str]], label: str) -> dict[str, dict[str, str]]:
+    out: dict[str, dict[str, str]] = {}
+    for row in rows:
+        key = (row.get("observation_id") or "").strip()
+        if not key:
+            raise BootstrapError(f"empty observation_id in {label}")
+        if key in out:
+            raise BootstrapError(f"duplicate observation_id {key!r} in {label}")
+        out[key] = row
+    return out
+
+
+def audit_rebuild(
+    rebuilt: Path,
+    reference: Path,
+    tolerance: float,
+    *,
+    expected_rows: int = EXPECTED_ROWS,
+) -> dict[str, object]:
     rebuilt_header, rebuilt_rows = read_csv(rebuilt)
     reference_header, reference_rows = read_csv(reference)
-    required = {"observation_id", "R", "G", "B", "latitude", "longitude"}
-    missing_rebuilt = sorted(required.difference(rebuilt_header))
-    missing_reference = sorted(required.difference(reference_header))
+    core_required = {"observation_id", *CORE_NUMERIC_COLUMNS}
+    missing_rebuilt = sorted(core_required.difference(rebuilt_header))
+    missing_reference = sorted(core_required.difference(reference_header))
     if missing_rebuilt or missing_reference:
         raise BootstrapError(
             "required columns missing; rebuilt=%s reference=%s"
             % (missing_rebuilt, missing_reference)
         )
 
-    if len(rebuilt_rows) != EXPECTED_ROWS:
-        raise BootstrapError(f"rebuilt row count {len(rebuilt_rows)} != expected {EXPECTED_ROWS}")
-    if len(reference_rows) != EXPECTED_ROWS:
-        raise BootstrapError(f"reference row count {len(reference_rows)} != expected {EXPECTED_ROWS}")
+    if len(rebuilt_rows) != expected_rows:
+        raise BootstrapError(f"rebuilt row count {len(rebuilt_rows)} != expected {expected_rows}")
+    if len(reference_rows) != expected_rows:
+        raise BootstrapError(f"reference row count {len(reference_rows)} != expected {expected_rows}")
 
-    def by_id(rows: Iterable[dict[str, str]], label: str) -> dict[str, dict[str, str]]:
-        out: dict[str, dict[str, str]] = {}
-        for row in rows:
-            key = row["observation_id"].strip()
-            if not key:
-                raise BootstrapError(f"empty observation_id in {label}")
-            if key in out:
-                raise BootstrapError(f"duplicate observation_id {key!r} in {label}")
-            out[key] = row
-        return out
-
-    rebuilt_by_id = by_id(rebuilt_rows, "rebuilt table")
-    reference_by_id = by_id(reference_rows, "reference table")
+    rebuilt_by_id = _indexed_rows(rebuilt_rows, "rebuilt table")
+    reference_by_id = _indexed_rows(reference_rows, "reference table")
     missing_ids = sorted(set(reference_by_id).difference(rebuilt_by_id))
     extra_ids = sorted(set(rebuilt_by_id).difference(reference_by_id))
+    shared_ids = sorted(set(rebuilt_by_id).intersection(reference_by_id))
 
-    numeric_columns = ["R", "G", "B", "latitude", "longitude"]
-    mismatches: list[dict[str, object]] = []
-    maxima = {column: 0.0 for column in numeric_columns}
-    for observation_id in sorted(set(rebuilt_by_id).intersection(reference_by_id)):
-        left = rebuilt_by_id[observation_id]
-        right = reference_by_id[observation_id]
-        for column in numeric_columns:
-            a = _as_float(left.get(column))
-            b = _as_float(right.get(column))
-            if a is None and b is None:
-                continue
-            if a is None or b is None or not (math.isfinite(a) and math.isfinite(b)):
-                mismatches.append({"observation_id": observation_id, "column": column, "rebuilt": a, "reference": b})
-                continue
-            delta = abs(a - b)
-            maxima[column] = max(maxima[column], delta)
-            if delta > tolerance:
-                mismatches.append(
-                    {"observation_id": observation_id, "column": column, "rebuilt": a, "reference": b, "abs_delta": delta}
-                )
+    reference_numeric_contract = [column for column in DOWNSTREAM_NUMERIC_COLUMNS if column in reference_header]
+    reference_exact_contract = [column for column in DOWNSTREAM_EXACT_COLUMNS if column in reference_header]
+    missing_downstream_columns = sorted(
+        set(reference_numeric_contract + reference_exact_contract).difference(rebuilt_header)
+    )
+
+    core_mismatches: list[dict[str, object]] = []
+    downstream_numeric_mismatches: list[dict[str, object]] = []
+    downstream_exact_mismatches: list[dict[str, object]] = []
+    maxima = {column: 0.0 for column in reference_numeric_contract}
+
+    if not missing_downstream_columns:
+        for observation_id in shared_ids:
+            left = rebuilt_by_id[observation_id]
+            right = reference_by_id[observation_id]
+            for column in reference_numeric_contract:
+                a = _as_float(left.get(column))
+                b = _as_float(right.get(column))
+                if a is None and b is None:
+                    continue
+                if a is None or b is None or not (math.isfinite(a) and math.isfinite(b)):
+                    mismatch = {
+                        "observation_id": observation_id,
+                        "column": column,
+                        "rebuilt": a,
+                        "reference": b,
+                    }
+                    downstream_numeric_mismatches.append(mismatch)
+                    if column in CORE_NUMERIC_COLUMNS:
+                        core_mismatches.append(mismatch)
+                    continue
+                delta = abs(a - b)
+                maxima[column] = max(maxima[column], delta)
+                if delta > tolerance:
+                    mismatch = {
+                        "observation_id": observation_id,
+                        "column": column,
+                        "rebuilt": a,
+                        "reference": b,
+                        "abs_delta": delta,
+                    }
+                    downstream_numeric_mismatches.append(mismatch)
+                    if column in CORE_NUMERIC_COLUMNS:
+                        core_mismatches.append(mismatch)
+
+            for column in reference_exact_contract:
+                a = _normalise_exact(left.get(column), column)
+                b = _normalise_exact(right.get(column), column)
+                if a != b:
+                    downstream_exact_mismatches.append(
+                        {
+                            "observation_id": observation_id,
+                            "column": column,
+                            "rebuilt": a,
+                            "reference": b,
+                        }
+                    )
 
     qc_counts: dict[str, int] = {}
     if "qc_status" in rebuilt_header:
@@ -163,14 +222,22 @@ def audit_rebuild(rebuilt: Path, reference: Path, tolerance: float) -> dict[str,
             status = row.get("qc_status", "") or "(blank)"
             qc_counts[status] = qc_counts.get(status, 0) + 1
 
+    equivalent_core = not missing_ids and not extra_ids and not core_mismatches
+    equivalent_downstream = (
+        equivalent_core
+        and not missing_downstream_columns
+        and not downstream_numeric_mismatches
+        and not downstream_exact_mismatches
+    )
+
     return {
         "zenodo_record": ZENODO_RECORD,
         "zenodo_doi": ZENODO_DOI,
         "zenodo_filename": ZENODO_FILENAME,
         "zenodo_md5_expected": ZENODO_MD5,
-        "rebuilt_path": str(rebuilt.relative_to(ROOT)),
-        "reference_path": str(reference.relative_to(ROOT)),
-        "expected_rows": EXPECTED_ROWS,
+        "rebuilt_path": str(rebuilt.relative_to(ROOT)) if rebuilt.is_relative_to(ROOT) else str(rebuilt),
+        "reference_path": str(reference.relative_to(ROOT)) if reference.is_relative_to(ROOT) else str(reference),
+        "expected_rows": expected_rows,
         "rebuilt_rows": len(rebuilt_rows),
         "reference_rows": len(reference_rows),
         "missing_observation_ids": missing_ids[:50],
@@ -178,11 +245,19 @@ def audit_rebuild(rebuilt: Path, reference: Path, tolerance: float) -> dict[str,
         "missing_observation_id_count": len(missing_ids),
         "extra_observation_id_count": len(extra_ids),
         "numeric_tolerance": tolerance,
+        "downstream_numeric_columns_checked": reference_numeric_contract,
+        "downstream_exact_columns_checked": reference_exact_contract,
+        "missing_downstream_columns_in_rebuild": missing_downstream_columns,
         "max_abs_delta": maxima,
-        "numeric_mismatch_count": len(mismatches),
-        "numeric_mismatch_examples": mismatches[:50],
+        "core_numeric_mismatch_count": len(core_mismatches),
+        "core_numeric_mismatch_examples": core_mismatches[:50],
+        "downstream_numeric_mismatch_count": len(downstream_numeric_mismatches),
+        "downstream_numeric_mismatch_examples": downstream_numeric_mismatches[:50],
+        "downstream_exact_mismatch_count": len(downstream_exact_mismatches),
+        "downstream_exact_mismatch_examples": downstream_exact_mismatches[:50],
         "rebuilt_qc_status_counts": qc_counts,
-        "equivalent_core_input": not missing_ids and not extra_ids and not mismatches,
+        "equivalent_core_input": equivalent_core,
+        "equivalent_downstream_input": equivalent_downstream,
     }
 
 
@@ -206,16 +281,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tolerance", type=float, default=1e-9, help="Absolute numeric audit tolerance")
     parser.add_argument("--overwrite-download", action="store_true")
     parser.add_argument("--overwrite-output", action="store_true")
-    parser.add_argument("--allow-mismatch", action="store_true", help="Write report but do not fail on core mismatch")
-    parser.add_argument("--run-analysis", action="store_true", help="After equivalence audit, run run_pipeline.py reproduce")
+    parser.add_argument("--allow-mismatch", action="store_true", help="Write report but do not fail on downstream mismatch")
+    parser.add_argument("--run-analysis", action="store_true", help="After downstream-input audit, run the rebuilt table through run_pipeline.py reproduce")
     parser.add_argument("--no-resume-analysis", action="store_true", help="Pass --no-resume to downstream pipeline")
     parser.add_argument("--skip-analysis-setup", action="store_true", help="Pass --skip-setup downstream")
     parser.add_argument("--dry-run", action="store_true", help="Print extraction/downstream commands without network or execution")
     return parser
 
 
-def downstream_command(args: argparse.Namespace) -> list[str]:
-    command = [sys.executable, str(PIPELINE), "reproduce"]
+def downstream_command(args: argparse.Namespace, data_s1: Path) -> list[str]:
+    try:
+        data_arg = str(data_s1.relative_to(ROOT))
+    except ValueError:
+        data_arg = str(data_s1)
+    command = [sys.executable, str(PIPELINE), "reproduce", "--data-s1", data_arg]
     if args.no_resume_analysis:
         command.append("--no-resume")
     if args.skip_analysis_setup:
@@ -269,7 +348,7 @@ def main() -> int:
 
     if args.dry_run:
         if args.run_analysis:
-            run_command(downstream_command(args), dry_run=True)
+            run_command(downstream_command(args, output), dry_run=True)
         return 0
 
     if not output.is_file():
@@ -285,21 +364,23 @@ def main() -> int:
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps({
         "equivalent_core_input": report["equivalent_core_input"],
+        "equivalent_downstream_input": report["equivalent_downstream_input"],
         "rows": report["rebuilt_rows"],
-        "numeric_mismatch_count": report["numeric_mismatch_count"],
+        "downstream_numeric_mismatch_count": report["downstream_numeric_mismatch_count"],
+        "downstream_exact_mismatch_count": report["downstream_exact_mismatch_count"],
         "report": str(report_path),
     }, ensure_ascii=False))
 
-    if not report["equivalent_core_input"] and not args.allow_mismatch:
+    if not report["equivalent_downstream_input"] and not args.allow_mismatch:
         raise SystemExit(
-            "raw Zenodo rebuild does not match the frozen Data_S1 core input; "
+            "raw Zenodo rebuild does not match the frozen Data_S1 downstream input contract; "
             f"see {report_path} (use --allow-mismatch only for diagnosis)"
         )
 
     if args.run_analysis:
-        if not report["equivalent_core_input"]:
+        if not report["equivalent_downstream_input"]:
             raise SystemExit("refusing full analysis after a mismatched raw rebuild")
-        run_command(downstream_command(args))
+        run_command(downstream_command(args, output))
     return 0
 
 

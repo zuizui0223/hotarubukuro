@@ -35,7 +35,7 @@ jobs:
 
       - name: Fixed-input audit, raw-bootstrap graph, full stage graph, and tests
         run: |
-          python -m py_compile run_pipeline.py Code_S1.py source_build/extract_color.py source_build/reproduce_from_zenodo.py hotarubukuro_analysis/*.py
+          python -m py_compile run_pipeline.py source_build/extract_color.py source_build/build_data_s1.py source_build/reproduce_from_zenodo.py hotarubukuro_analysis/*.py
           python source_build/reproduce_from_zenodo.py --dry-run --run-analysis --skip-analysis-setup
           python run_pipeline.py audit
           python run_pipeline.py reproduce --dry-run --skip-setup
@@ -44,6 +44,8 @@ jobs:
       - name: Reject superseded analysis entry points
         shell: bash
         run: |
+          test ! -e Code_S1.py
+          test -f legacy/Code_S1_georeference.py
           test ! -d analysis_sensitivity
           for f in \
             scripts/run_multiscale_hotspots.R \

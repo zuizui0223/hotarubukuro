@@ -14,7 +14,9 @@ python source_build/reproduce_from_zenodo.py --dry-run --run-analysis
 python source_build/reproduce_from_zenodo.py --run-analysis
 ```
 
-The bootstrap downloads and checksum-verifies the Zenodo workbook, extracts each embedded photograph by its workbook cell, recomputes petal colour with `source_build/extract_color.py`, writes QC outputs, and audits the rebuilt 1,965-row table against the frozen `Data_S1.csv` by immutable `observation_id` plus core RGB/coordinate values. The downstream paper pipeline starts only after that audit passes.
+The bootstrap downloads and checksum-verifies the Zenodo workbook, extracts each embedded photograph by its workbook cell, recomputes petal colour with `source_build/extract_color.py`, and writes QC outputs. It then audits the rebuilt 1,965-row table against frozen `Data_S1.csv` by immutable `observation_id` and the raw fields that can alter the retained analysis: colour values, coordinates, date, image/QC status and mask metrics where present in the frozen input. A mismatch stops the chain.
+
+After the audit passes, the **rebuilt table itself** is supplied to `run_pipeline.py reproduce --data-s1 ...`; the downstream analysis does not switch back to the committed `Data_S1.csv`. The ordinary `run_pipeline.py reproduce` command remains unchanged and continues to use the frozen table by default.
 
 Full step-by-step instructions, checkpoints and failure interpretation are in [`docs/REPRODUCE_FROM_ZENODO.md`](docs/REPRODUCE_FROM_ZENODO.md).
 
@@ -30,6 +32,12 @@ python run_pipeline.py reproduce
 ```
 
 `audit` checks the committed derived dataset and the files required by the submission pipeline. `reproduce` rebuilds the analysis from `Data_S1.csv` plus the declared public environmental and occurrence sources. Live third-party sources can change; frozen paper claims and decision records are retained under `reproducibility/`.
+
+For an already verified alternative reconstruction, the same retained graph can be pointed at that table explicitly:
+
+```bash
+python run_pipeline.py reproduce --data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv
+```
 
 ## Final analysis path
 

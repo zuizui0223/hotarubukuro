@@ -100,13 +100,13 @@ python source_build/reproduce_from_zenodo.py --run-analysis
 
 The downstream analysis begins only if the raw rebuild passes the equivalence audit. This preserves the repository's publication contract: the existing `run_pipeline.py reproduce` path still works from the frozen `Data_S1.csv`, while the new bootstrap demonstrates that this derived input can be reconstructed from the public image-bearing source first.
 
-For an interrupted downstream reconstruction:
+The downstream `run_pipeline.py` resumes completed stages by default. To force a clean downstream rerun instead:
 
 ```bash
 python source_build/reproduce_from_zenodo.py \
   --overwrite-output \
   --run-analysis \
-  --resume-analysis
+  --no-resume-analysis
 ```
 
 ## 5. Existing faster publication-input route
@@ -119,6 +119,10 @@ python run_pipeline.py reproduce
 ```
 
 That route starts from `Data_S1.csv`; it is not the raw-image bootstrap.
+
+## GitHub Actions route
+
+The repository workflow includes a manual `raw_zenodo_reproduction` option. When selected with **Actions -> submission-analysis-contract -> Run workflow**, GitHub Actions downloads the Zenodo workbook, rebuilds the colour table, audits it, and then enters the normal full analysis path. Normal pull-request CI only dry-runs the raw bootstrap command graph so ordinary PRs do not repeatedly download the 109.7 MB workbook.
 
 ## Outputs to check
 

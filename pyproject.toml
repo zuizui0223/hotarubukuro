@@ -18,6 +18,7 @@ test = ["pytest>=8,<10"]
 
 [project.scripts]
 hotarubukuro-color = "hotarubukuro_analysis.cli:color_main"
+hotarubukuro-from-zenodo = "source_build.reproduce_from_zenodo:main"
 hotarubukuro-reproduce = "run_pipeline:main"
 
 [tool.setuptools]

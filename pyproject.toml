@@ -10,14 +10,15 @@ requires-python = ">=3.9"
 dependencies = [
   "numpy>=1.24,<3",
   "Pillow>=10,<13",
+  "openpyxl>=3.1,<4",
 ]
 
 [project.optional-dependencies]
-excel = ["openpyxl>=3.1,<4"]
 test = ["pytest>=8,<10"]
 
 [project.scripts]
 hotarubukuro-color = "hotarubukuro_analysis.cli:color_main"
+hotarubukuro-from-zenodo = "source_build.reproduce_from_zenodo:main"
 hotarubukuro-reproduce = "run_pipeline:main"
 
 [tool.setuptools]

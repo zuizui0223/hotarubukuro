@@ -11,6 +11,11 @@ on:
         required: false
         default: false
         type: boolean
+      raw_zenodo_reproduction:
+        description: "Start from the image-bearing Zenodo workbook and run through final analyses"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -28,9 +33,10 @@ jobs:
       - name: Install Python test surface
         run: python -m pip install -e '.[test]'
 
-      - name: Fixed-input audit, full stage graph, and tests
+      - name: Fixed-input audit, raw-bootstrap graph, full stage graph, and tests
         run: |
-          python -m py_compile run_pipeline.py Code_S1.py source_build/extract_color.py hotarubukuro_analysis/*.py
+          python -m py_compile run_pipeline.py Code_S1.py source_build/extract_color.py source_build/reproduce_from_zenodo.py hotarubukuro_analysis/*.py
+          python source_build/reproduce_from_zenodo.py --dry-run --run-analysis --skip-analysis-setup
           python run_pipeline.py audit
           python run_pipeline.py reproduce --dry-run --skip-setup
           pytest
@@ -136,6 +142,62 @@ jobs:
         run: python run_pipeline.py reproduce --no-resume
 
       - name: Show reconstruction manifest
+        if: always()
+        shell: bash
+        run: |
+          if [ -f results/analysis_reproduction/run_manifest.json ]; then
+            cat results/analysis_reproduction/run_manifest.json
+          fi
+
+  raw-zenodo-reproduction:
+    # The 109.7 MB image-bearing workbook makes this an intentionally opt-in
+    # verification path. The ordinary PR contract still dry-runs its full graph.
+    if: github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python package
+        run: python -m pip install -e '.[test]'
+
+      - name: Rebuild and audit Data_S1 directly from Zenodo images
+        run: python source_build/reproduce_from_zenodo.py
+
+      - name: Show raw-source audit
+        if: always()
+        shell: bash
+        run: |
+          if [ -f results/source_reconstruction/zenodo_rebuild_audit.json ]; then
+            cat results/source_reconstruction/zenodo_rebuild_audit.json
+          fi
+
+      - name: Read pinned R version
+        id: r-version
+        shell: bash
+        run: echo "version=$(tr -d '\r\n' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ steps.r-version.outputs.version }}
+          use-public-rspm: true
+
+      - name: Install declared system libraries
+        shell: bash
+        run: |
+          sudo apt-get update
+          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs sudo apt-get install -y
+
+      - name: Run downstream pipeline from the rebuilt Zenodo-derived table
+        run: >-
+          python run_pipeline.py reproduce --no-resume
+          --data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv
+
+      - name: Show downstream analysis manifest
         if: always()
         shell: bash
         run: |

@@ -8,13 +8,30 @@ This repository contains **one publication analysis path** plus a raw-data boots
 
 The raw public source is Zenodo record [`22334596`](https://zenodo.org/records/22334596), file `Supplementary_Table_S1.xlsx` (MD5 `a923616e45f10f24a5463eefd09b06dd`). It contains the image-bearing starting table.
 
+The exact zero-reproduction chain implemented in this repository is:
+
+```text
+Zenodo Supplementary_Table_S1.xlsx
+  -> source_build/extract_color.py
+  -> results/source_reconstruction/colour_extraction_from_zenodo.csv
+  -> source_build/build_data_s1.py
+  -> results/source_reconstruction/Data_S1_from_zenodo.csv
+  -> strict downstream-input equivalence audit against frozen Data_S1.csv
+  -> run_pipeline.py reproduce --data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv
+  -> final retained analyses
+```
+
+The complete chain is wrapped in one command:
+
 ```bash
 python -m pip install -e '.[test]'
 python source_build/reproduce_from_zenodo.py --dry-run --run-analysis
 python source_build/reproduce_from_zenodo.py --run-analysis
 ```
 
-The bootstrap downloads and checksum-verifies the Zenodo workbook, extracts each embedded photograph by its workbook cell, recomputes petal colour with `source_build/extract_color.py`, and writes QC outputs. It then audits the rebuilt 1,965-row table against frozen `Data_S1.csv` by immutable `observation_id` and the raw fields that can alter the retained analysis: colour values, coordinates, date, image/QC status and mask metrics where present in the frozen input. A mismatch stops the chain.
+`source_build/reproduce_from_zenodo.py` downloads and checksum-verifies the Zenodo workbook, extracts each embedded photograph through its workbook cell relationship, and recomputes petal colour with `source_build/extract_color.py`. The intermediate extraction is then converted by `source_build/build_data_s1.py` into the public analysis-table contract, including the deterministic site identifiers and provenance/QC fields required downstream.
+
+The rebuilt 1,965-row `Data_S1_from_zenodo.csv` is then audited against the frozen `Data_S1.csv` by immutable `observation_id` and the retained fields that can alter downstream analysis: RGB and median RGB, coordinates, date, image hashes, duplicate/overexposure/QC and review-status fields, mask metrics, site/grid identifiers and coordinate/source provenance fields where present in the frozen input. A mismatch stops the chain.
 
 After the audit passes, the **rebuilt table itself** is supplied to `run_pipeline.py reproduce --data-s1 ...`; the downstream analysis does not switch back to the committed `Data_S1.csv`. The ordinary `run_pipeline.py reproduce` command remains unchanged and continues to use the frozen table by default.
 

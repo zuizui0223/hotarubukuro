@@ -208,10 +208,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--overwrite-output", action="store_true")
     parser.add_argument("--allow-mismatch", action="store_true", help="Write report but do not fail on core mismatch")
     parser.add_argument("--run-analysis", action="store_true", help="After equivalence audit, run run_pipeline.py reproduce")
-    parser.add_argument("--resume-analysis", action="store_true", help="Pass --resume to downstream pipeline")
+    parser.add_argument("--no-resume-analysis", action="store_true", help="Pass --no-resume to downstream pipeline")
     parser.add_argument("--skip-analysis-setup", action="store_true", help="Pass --skip-setup downstream")
     parser.add_argument("--dry-run", action="store_true", help="Print extraction/downstream commands without network or execution")
     return parser
+
+
+def downstream_command(args: argparse.Namespace) -> list[str]:
+    command = [sys.executable, str(PIPELINE), "reproduce"]
+    if args.no_resume_analysis:
+        command.append("--no-resume")
+    if args.skip_analysis_setup:
+        command.append("--skip-setup")
+    return command
 
 
 def main() -> int:
@@ -260,12 +269,7 @@ def main() -> int:
 
     if args.dry_run:
         if args.run_analysis:
-            downstream = [sys.executable, str(PIPELINE), "reproduce"]
-            if args.resume_analysis:
-                downstream.append("--resume")
-            if args.skip_analysis_setup:
-                downstream.append("--skip-setup")
-            run_command(downstream, dry_run=True)
+            run_command(downstream_command(args), dry_run=True)
         return 0
 
     if not output.is_file():
@@ -295,12 +299,7 @@ def main() -> int:
     if args.run_analysis:
         if not report["equivalent_core_input"]:
             raise SystemExit("refusing full analysis after a mismatched raw rebuild")
-        downstream = [sys.executable, str(PIPELINE), "reproduce"]
-        if args.resume_analysis:
-            downstream.append("--resume")
-        if args.skip_analysis_setup:
-            downstream.append("--skip-setup")
-        run_command(downstream)
+        run_command(downstream_command(args))
     return 0
 
 

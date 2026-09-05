@@ -165,6 +165,17 @@ jobs:
       - name: Install Python package
         run: python -m pip install -e '.[test]'
 
+      - name: Rebuild and audit Data_S1 directly from Zenodo images
+        run: python source_build/reproduce_from_zenodo.py
+
+      - name: Show raw-source audit
+        if: always()
+        shell: bash
+        run: |
+          if [ -f results/source_reconstruction/zenodo_rebuild_audit.json ]; then
+            cat results/source_reconstruction/zenodo_rebuild_audit.json
+          fi
+
       - name: Read pinned R version
         id: r-version
         shell: bash
@@ -181,16 +192,13 @@ jobs:
           sudo apt-get update
           grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs sudo apt-get install -y
 
-      - name: Rebuild Data_S1 from Zenodo images and run the paper pipeline
-        run: python source_build/reproduce_from_zenodo.py --run-analysis
+      - name: Run the existing downstream paper pipeline after raw audit success
+        run: python run_pipeline.py reproduce
 
-      - name: Show raw-source and analysis manifests
+      - name: Show downstream analysis manifest
         if: always()
         shell: bash
         run: |
-          if [ -f results/source_reconstruction/zenodo_rebuild_audit.json ]; then
-            cat results/source_reconstruction/zenodo_rebuild_audit.json
-          fi
           if [ -f results/analysis_reproduction/run_manifest.json ]; then
             cat results/analysis_reproduction/run_manifest.json
           fi

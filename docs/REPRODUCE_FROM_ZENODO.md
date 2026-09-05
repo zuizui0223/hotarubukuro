@@ -23,12 +23,14 @@ Zenodo Supplementary_Table_S1.xlsx
   -> source_build/extract_color.py
   -> deterministic petal mask + RGB / CIELAB summaries + QC
   -> results/source_reconstruction/Data_S1_from_zenodo.csv
-  -> observation_id/RGB/coordinate equivalence audit against Data_S1.csv
-  -> run_pipeline.py reproduce
-  -> final publication analyses
+  -> downstream-input equivalence audit against frozen Data_S1.csv
+  -> run_pipeline.py reproduce --data-s1 Data_S1_from_zenodo.csv
+  -> final publication analyses driven by the rebuilt table itself
 ```
 
 The cell-to-image association is not a positional join. `source_build/extract_color.py` resolves Excel in-cell rich images directly from OOXML relationships and binds each image to its workbook cell before emitting the immutable `observation_id`.
+
+The equivalence audit is deliberately broader than an RGB check. It compares immutable observation IDs and, where present in the frozen analysis input, the raw fields that can change the retained downstream analysis: `R/G/B`, median RGB, coordinates, date, QC/review status, duplicate-image identity, overexposure state, image hash, mask pixels and visible-mask fraction. Run-specific provenance fields such as processing timestamps and QC output paths are not used as equality criteria.
 
 ## Important note about `Code_S1.py`
 
@@ -47,7 +49,7 @@ python -m pip install --upgrade pip
 python -m pip install -e '.[test]'
 ```
 
-Python `numpy` and `Pillow` are the colour-extraction dependencies. The extractor reads the image-bearing XLSX through OOXML directly; it does not depend on row-order joins.
+The standard package dependencies include `numpy`, `Pillow` and `openpyxl`; no separate Excel extra is required for the public raw route. The image-bearing XLSX is read through OOXML-aware code and is not joined to a separate table by row order.
 
 ## 2. Inspect the complete command without downloading anything
 
@@ -55,7 +57,7 @@ Python `numpy` and `Pillow` are the colour-extraction dependencies. The extracto
 python source_build/reproduce_from_zenodo.py --dry-run --run-analysis
 ```
 
-This prints the frozen Zenodo URL/checksum, the exact colour-extraction command, and the downstream `run_pipeline.py reproduce` command.
+This prints the frozen Zenodo URL/checksum, the exact colour-extraction command, and the downstream command. The downstream command includes `--data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv`, which is the key guarantee that the reconstructed table itself enters the analysis graph.
 
 ## 3. Rebuild the colour table from Zenodo
 
@@ -70,10 +72,10 @@ The script will:
 3. run the deterministic workbook image extractor;
 4. write masks/overlays/QC material under `results/source_reconstruction/qc/`;
 5. write `results/source_reconstruction/Data_S1_from_zenodo.csv`;
-6. compare the reconstructed table against the frozen `Data_S1.csv` by `observation_id` and the core numeric columns `R`, `G`, `B`, `latitude`, and `longitude`;
+6. compare the reconstructed table against frozen `Data_S1.csv` by `observation_id` and the downstream-relevant raw-input contract described above;
 7. write `results/source_reconstruction/zenodo_rebuild_audit.json`.
 
-A mismatch stops the chain. The script does **not** silently replace the publication input.
+A mismatch stops the chain. The script does **not** silently replace the committed publication input and it does not enter the final analysis on a failed audit.
 
 ### Use a workbook already downloaded manually
 
@@ -98,9 +100,19 @@ Use `--overwrite-download` only when you intentionally want to replace the local
 python source_build/reproduce_from_zenodo.py --run-analysis
 ```
 
-The downstream analysis begins only if the raw rebuild passes the equivalence audit. This preserves the repository's publication contract: the existing `run_pipeline.py reproduce` path still works from the frozen `Data_S1.csv`, while the new bootstrap demonstrates that this derived input can be reconstructed from the public image-bearing source first.
+The downstream analysis begins only if the rebuilt table passes the downstream-input equivalence audit. It is then passed directly to the retained pipeline as the active analysis input. The committed `Data_S1.csv` remains untouched and continues to serve as the frozen reference contract.
 
-The downstream `run_pipeline.py` resumes completed stages by default. To force a clean downstream rerun instead:
+Equivalent explicit two-step form:
+
+```bash
+python source_build/reproduce_from_zenodo.py
+python run_pipeline.py reproduce \
+  --data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv
+```
+
+`run_pipeline.py` still verifies that the repository's frozen `Data_S1.csv` and `Code_S1.py` blobs have not changed, even when `--data-s1` selects a verified rebuilt table. It separately validates the selected table's row count, unique observation IDs and minimum schema.
+
+The downstream pipeline resumes completed stages by default. To force a clean downstream rerun instead:
 
 ```bash
 python source_build/reproduce_from_zenodo.py \
@@ -118,11 +130,13 @@ python run_pipeline.py audit
 python run_pipeline.py reproduce
 ```
 
-That route starts from `Data_S1.csv`; it is not the raw-image bootstrap.
+That route starts from frozen `Data_S1.csv`; it is not the raw-image bootstrap. No `--data-s1` argument is required for the canonical publication-input path.
 
 ## GitHub Actions route
 
-The repository workflow includes a manual `raw_zenodo_reproduction` option. When selected with **Actions -> submission-analysis-contract -> Run workflow**, GitHub Actions downloads the Zenodo workbook, rebuilds the colour table, audits it, and then enters the normal full analysis path. Normal pull-request CI only dry-runs the raw bootstrap command graph so ordinary PRs do not repeatedly download the 109.7 MB workbook.
+The repository workflow includes a manual `raw_zenodo_reproduction` option. When selected with **Actions -> submission-analysis-contract -> Run workflow**, GitHub Actions first downloads and rebuilds the Zenodo colour table and checks the downstream-input contract. Only after that succeeds does it install the R/system analysis environment and execute `run_pipeline.py reproduce --data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv`.
+
+Normal pull-request CI only dry-runs the raw bootstrap command graph so ordinary PRs do not repeatedly download the 109.7 MB workbook.
 
 ## Outputs to check
 
@@ -132,12 +146,13 @@ After raw reconstruction, the main checkpoints are:
 - `results/source_reconstruction/zenodo_rebuild_audit.json`
 - `results/source_reconstruction/qc/`
 
-After full analysis, `run_pipeline.py` writes its normal stage outputs and `results/analysis_reproduction/run_manifest.json`.
+After full analysis, `run_pipeline.py` writes its normal stage outputs and `results/analysis_reproduction/run_manifest.json`. The manifest records `analysis_data_s1_path`, its SHA-256, and whether the active input was the canonical committed table, so a raw-origin run is auditable after completion.
 
 ## Failure interpretation
 
 - **Zenodo MD5 mismatch**: the raw file is not the frozen deposited workbook; do not continue.
 - **Workbook/image-column error**: inspect the workbook schema or supply `--sheet`, `--header-row`, `--image-column`, or `--id-column` explicitly.
 - **1965-row or observation-ID mismatch**: the reconstruction is not equivalent to the publication data contract.
-- **RGB/coordinate mismatch**: inspect `zenodo_rebuild_audit.json`; do not launch the final analysis until the cause is resolved.
-- **Downstream R/public-source error**: the raw colour reconstruction succeeded; diagnose the named stage in `run_pipeline.py` separately.
+- **Core numeric mismatch**: RGB or coordinates differ; inspect `zenodo_rebuild_audit.json` before proceeding.
+- **Downstream exact/numeric mismatch**: a date or QC-relevant field differs even if RGB is identical; do not launch the final analysis until the difference is resolved.
+- **Downstream R/public-source error after a successful raw audit**: raw image reconstruction succeeded; diagnose the named retained stage in `run_pipeline.py` separately.

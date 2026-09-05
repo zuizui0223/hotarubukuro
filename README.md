@@ -37,7 +37,11 @@ After the audit passes, the **rebuilt table itself** is supplied to `run_pipelin
 
 Full step-by-step instructions, checkpoints and failure interpretation are in [`docs/REPRODUCE_FROM_ZENODO.md`](docs/REPRODUCE_FROM_ZENODO.md).
 
-> **Code location note.** The current `Code_S1.py` is the GPX photo-time georeferencing utility. The image colour extractor used by the raw workbook route is `source_build/extract_color.py` (package command `hotarubukuro-color`). The raw bootstrap calls the actual extractor explicitly rather than silently treating `Code_S1.py` as a different program.
+> **Active vs historical code.** Image colour reconstruction is implemented by `source_build/extract_color.py` followed by `source_build/build_data_s1.py`. The historical root-level `Code_S1.py` was a GPX/photo-time georeferencing utility, not the colour extractor. It has been moved to `legacy/Code_S1_georeference.py` and is not part of the active publication path.
+
+### Why `Data_S1.csv` remains in the repository
+
+`Data_S1.csv` is retained deliberately for two roles: (1) the frozen reference contract against which a zero-from-Zenodo reconstruction is audited, and (2) the faster default starting point for `run_pipeline.py reproduce`. It is **not** the raw-data starting point for the zero-reproduction route.
 
 ## Faster reproduction from the frozen derived input
 
@@ -48,7 +52,7 @@ python run_pipeline.py audit
 python run_pipeline.py reproduce
 ```
 
-`audit` checks the committed derived dataset and the files required by the submission pipeline. `reproduce` rebuilds the analysis from `Data_S1.csv` plus the declared public environmental and occurrence sources. Live third-party sources can change; frozen paper claims and decision records are retained under `reproducibility/`.
+`audit` checks the committed derived dataset and the active source-build files required by the submission pipeline. `reproduce` rebuilds the analysis from `Data_S1.csv` plus the declared public environmental and occurrence sources. Live third-party sources can change; frozen paper claims and decision records are retained under `reproducibility/`.
 
 For an already verified alternative reconstruction, the same retained graph can be pointed at that table explicitly:
 
@@ -58,7 +62,7 @@ python run_pipeline.py reproduce --data-s1 results/source_reconstruction/Data_S1
 
 ## Final analysis path
 
-1. **Quantitative phenotype** — `source_build/extract_color.py`, `scripts/run_phenotype_hurdle.R`
+1. **Quantitative phenotype** — `source_build/extract_color.py`, `source_build/build_data_s1.py`, `scripts/run_phenotype_hurdle.R`
    - embedded photographs can be reconstructed from the Zenodo XLSX through `source_build/reproduce_from_zenodo.py`;
    - pigmentation state: white versus pigmented;
    - conditional visible intensity: analysed only among pigmented flowers.
@@ -78,8 +82,9 @@ The shared 1-km analysis table is built once by `scripts/build_analysis_cells.R`
 
 - `R/` — reusable functions required by the final pipeline.
 - `scripts/` — publication analysis entry points.
-- `source_build/` — Zenodo image reconstruction plus public raster and Bombus source reconstruction.
+- `source_build/` — active Zenodo image reconstruction plus public raster and Bombus source reconstruction.
 - `config/` — frozen acquisition/model configuration.
 - `dependencies/` — R/system dependency records.
 - `reproducibility/` — final scientific decisions, result locks and benchmark records.
 - `tests/` — tests for modules that remain in the publication path.
+- `legacy/` — provenance-only utilities retained outside the active publication path.

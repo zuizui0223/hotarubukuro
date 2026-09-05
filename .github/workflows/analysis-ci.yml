@@ -150,10 +150,9 @@ jobs:
           fi
 
   raw-zenodo-reproduction:
-    # PR #68 performs one final end-to-end proof that the rebuilt table itself,
-    # rather than the committed Data_S1.csv, can drive the retained pipeline.
-    # After that proof this condition is returned to workflow_dispatch only.
-    if: (github.event_name == 'pull_request' && github.event.pull_request.number == 68) || (github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction)
+    # The 109.7 MB image-bearing workbook makes this an intentionally opt-in
+    # verification path. The ordinary PR contract still dry-runs its full graph.
+    if: github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:

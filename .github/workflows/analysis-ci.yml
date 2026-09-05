@@ -150,7 +150,10 @@ jobs:
           fi
 
   raw-zenodo-reproduction:
-    if: github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction
+    # PR #68 performs one final end-to-end proof that the rebuilt table itself,
+    # rather than the committed Data_S1.csv, can drive the retained pipeline.
+    # After that proof this condition is returned to workflow_dispatch only.
+    if: (github.event_name == 'pull_request' && github.event.pull_request.number == 68) || (github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction)
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
@@ -190,8 +193,10 @@ jobs:
           sudo apt-get update
           grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs sudo apt-get install -y
 
-      - name: Run the existing downstream paper pipeline after raw audit success
-        run: python run_pipeline.py reproduce
+      - name: Run downstream pipeline from the rebuilt Zenodo-derived table
+        run: >-
+          python run_pipeline.py reproduce --no-resume
+          --data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv
 
       - name: Show downstream analysis manifest
         if: always()

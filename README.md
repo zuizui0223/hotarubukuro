@@ -2,7 +2,7 @@
 
 Public analysis repository for the submission on geographical flower-colour polymorphism in *Campanula punctata*.
 
-This repository has **one canonical data source and one retained publication-analysis path**. The canonical source is the public image-bearing Zenodo workbook; derived colour tables are generated locally and are not committed as analysis inputs.
+This repository has **one canonical data source and one retained publication-analysis path**. The canonical source is the public image-bearing Zenodo workbook. Derived colour tables are generated locally and are not committed as analysis inputs.
 
 ## Reproduce from zero
 
@@ -20,9 +20,11 @@ The implemented chain is:
 Zenodo Supplementary_Table_S1.xlsx
   -> source_build/extract_color.py
   -> results/source_reconstruction/colour_extraction_from_zenodo.csv
+       (rich technical extraction record)
   -> source_build/build_data_s1.py
   -> results/source_reconstruction/Data_S1_from_zenodo.csv
-  -> reproducibility/source_contract.json exact-output validation
+       (lean deterministic 38-column analysis input)
+  -> reproducibility/source_contract.json exact lean-contract validation
   -> run_pipeline.py reproduce
   -> final retained analyses
 ```
@@ -40,13 +42,26 @@ Inspect the complete command graph without downloading or running analyses:
 python source_build/reproduce_from_zenodo.py --dry-run --run-analysis
 ```
 
-`source_build/extract_color.py` resolves embedded Excel images through workbook cell/OOXML relationships, not by positional joining. `source_build/build_data_s1.py` then materializes the deterministic public table, including site/grid identifiers and QC/provenance fields.
+`source_build/extract_color.py` resolves embedded Excel images through workbook cell/OOXML relationships, not by positional joining.
 
-## Why the generated table can be checked without committing it
+### Rich extraction record versus analysis input
 
-The former derived `Data_S1.csv` is **not stored in the active repository**. Its exact LF-normalized Git blob identity is retained in [`reproducibility/source_contract.json`](reproducibility/source_contract.json), together with the Zenodo checksum, row count and QC-count invariants.
+The two generated CSVs have deliberately different roles.
 
-A raw reconstruction is allowed into the analysis only when the generated 1,965-row table matches that exact output contract. This keeps the strong historical equality check without making a derived CSV a second canonical input.
+`colour_extraction_from_zenodo.csv` is the **rich technical intermediate**. It retains candidate colour statistics, detailed extraction/QC diagnostics, legacy comparison fields and the run-time `processed_at` value. It is useful for auditing the image-processing step, but it is not the table consumed by the ecological analyses.
+
+`Data_S1_from_zenodo.csv` is the **lean deterministic analysis input**. `source_build/build_data_s1.py` projects the rich extraction to the 38 fields actually needed by the retained source-build and analysis code, derives site/grid and provenance fields, removes run-time-only metadata, normalises numeric text and sorts by `observation_id`.
+
+The frozen lean contract is:
+
+- rows: `1965`
+- Git blob: `e119137efac89cbcfd789236f3d6a3c9599575af`
+- SHA-256: `9e543b64a824aff82dbb55da1bca8843fb337a51399bfd60ad0a09c9bca3c33c`
+- automated QC: `1180 ok`, `785 manual_review_required`
+
+These values are recorded in [`reproducibility/source_contract.json`](reproducibility/source_contract.json). The historical full `Data_S1.csv` blob (`74b951898814f4ed15f314061e3129d8b05823d5`) is retained there only as provenance; the 3.6 MB CSV itself is not an active input and is not stored in the current tree.
+
+This distinction avoids treating run timestamps, legacy RGB comparisons or unused candidate diagnostics as part of the ecological-analysis contract while retaining exact reproducibility for every field that the current analysis can consume.
 
 The former root-level `Code_S1.py` was a GPX/photo-time georeferencing utility, not the colour extractor. It is not part of the active tree; Git history retains it for provenance. The active colour code is `source_build/extract_color.py`.
 
@@ -54,14 +69,14 @@ Detailed checkpoints and failure interpretation are in [`docs/REPRODUCE_FROM_ZEN
 
 ## Running the downstream pipeline separately
 
-After the canonical table has been generated and validated, the retained downstream graph can be rerun with:
+After the canonical analysis table has been generated and validated, the retained downstream graph can be rerun with:
 
 ```bash
 python run_pipeline.py audit
 python run_pipeline.py reproduce
 ```
 
-`run_pipeline.py` accepts no alternative colour-table argument. Its only analysis input is:
+`run_pipeline.py` accepts no alternative colour-table argument. Its only flower-colour analysis input is:
 
 ```text
 results/source_reconstruction/Data_S1_from_zenodo.csv

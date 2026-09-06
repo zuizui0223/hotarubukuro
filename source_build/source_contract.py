@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the deterministic public table rebuilt from the frozen Zenodo source."""
+"""Validate the deterministic analysis table rebuilt from the frozen Zenodo source."""
 
 from __future__ import annotations
 
@@ -38,32 +38,42 @@ def load_contract(path: Path = CONTRACT_PATH) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError) as error:
         raise SourceContractError(f"cannot read source contract {path}: {error}") from error
     required = {
+        "contract_version",
         "zenodo_record",
         "zenodo_doi",
         "zenodo_filename",
         "zenodo_md5",
         "expected_rows",
-        "expected_public_table_git_blob",
-        "required_public_columns",
+        "historical_full_table_git_blob",
+        "expected_analysis_table_git_blob",
+        "expected_analysis_table_sha256",
+        "analysis_columns",
         "qc_status_counts",
         "manual_review_status_counts",
     }
     missing = sorted(required.difference(contract))
     if missing:
         raise SourceContractError("source contract missing keys: " + ", ".join(missing))
+    if int(contract["contract_version"]) != 2:
+        raise SourceContractError(
+            f"unsupported source-contract version: {contract['contract_version']!r}"
+        )
+    columns = list(contract["analysis_columns"])
+    if not columns or len(columns) != len(set(columns)):
+        raise SourceContractError("analysis_columns must be a non-empty ordered unique list")
     return contract
 
 
 def _read_table(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     if not path.is_file():
         raise SourceContractError(
-            f"generated public table not found: {path}. "
+            f"generated analysis table not found: {path}. "
             "Run `python source_build/reproduce_from_zenodo.py` first."
         )
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
-            raise SourceContractError(f"generated public table has no header: {path}")
+            raise SourceContractError(f"generated analysis table has no header: {path}")
         header = [str(value).strip() for value in reader.fieldnames]
         rows = list(reader)
     return header, rows
@@ -74,7 +84,7 @@ def _count(rows: list[dict[str, str]], column: str) -> dict[str, int]:
     return dict(sorted(values.items()))
 
 
-def validate_public_table(
+def validate_analysis_table(
     path: Path,
     contract: Mapping[str, Any] | None = None,
     *,
@@ -82,29 +92,35 @@ def validate_public_table(
 ) -> dict[str, Any]:
     contract = dict(contract or load_contract())
     header, rows = _read_table(path)
-    header_set = set(header)
-    required_columns = set(contract["required_public_columns"])
-    missing_columns = sorted(required_columns.difference(header_set))
-    if missing_columns:
+    expected_columns = list(contract["analysis_columns"])
+    if header != expected_columns:
+        missing = sorted(set(expected_columns).difference(header))
+        extra = sorted(set(header).difference(expected_columns))
         raise SourceContractError(
-            "generated public table missing columns: " + ", ".join(missing_columns)
+            "generated analysis-table schema changed; "
+            f"missing={missing}, extra={extra}, order_matches={header == expected_columns}"
         )
 
     expected_rows = int(contract["expected_rows"])
     if len(rows) != expected_rows:
         raise SourceContractError(
-            f"generated public table row count {len(rows)} != {expected_rows}"
+            f"generated analysis-table row count {len(rows)} != {expected_rows}"
         )
 
-    identifiers: set[str] = set()
+    identifiers: list[str] = []
+    seen: set[str] = set()
+    numeric_core = (
+        "latitude", "longitude", "R", "G", "B", "median_R", "median_G", "median_B"
+    )
     for index, row in enumerate(rows, start=2):
         identifier = (row.get("observation_id") or "").strip()
         if not identifier:
             raise SourceContractError(f"empty observation_id at CSV row {index}")
-        if identifier in identifiers:
+        if identifier in seen:
             raise SourceContractError(f"duplicate observation_id: {identifier}")
-        identifiers.add(identifier)
-        for column in ("latitude", "longitude", "R", "G", "B"):
+        seen.add(identifier)
+        identifiers.append(identifier)
+        for column in numeric_core:
             try:
                 value = float(row.get(column, ""))
             except (TypeError, ValueError) as error:
@@ -117,10 +133,13 @@ def validate_public_table(
         longitude = float(row["longitude"])
         if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
             raise SourceContractError(f"coordinates outside geographic bounds for {identifier}")
-        for column in ("R", "G", "B"):
+        for column in ("R", "G", "B", "median_R", "median_G", "median_B"):
             value = float(row[column])
             if not 0 <= value <= 255:
                 raise SourceContractError(f"{column} outside 0--255 for {identifier}")
+
+    if identifiers != sorted(identifiers):
+        raise SourceContractError("generated analysis rows are not sorted by observation_id")
 
     qc_counts = _count(rows, "qc_status")
     review_counts = _count(rows, "manual_review_status")
@@ -136,12 +155,15 @@ def validate_public_table(
         )
 
     observed_blob = git_blob_sha(path)
-    expected_blob = str(contract["expected_public_table_git_blob"])
-    exact = observed_blob == expected_blob
+    observed_sha256 = sha256(path)
+    expected_blob = str(contract["expected_analysis_table_git_blob"])
+    expected_sha256 = str(contract["expected_analysis_table_sha256"])
+    exact = observed_blob == expected_blob and observed_sha256 == expected_sha256
     if require_exact_blob and not exact:
         raise SourceContractError(
-            "rebuilt public table does not match the frozen exact-output contract: "
-            f"{observed_blob} != {expected_blob}"
+            "rebuilt analysis table does not match the frozen lean contract: "
+            f"git_blob {observed_blob} != {expected_blob}; "
+            f"sha256 {observed_sha256} != {expected_sha256}"
         )
 
     return {
@@ -152,6 +174,8 @@ def validate_public_table(
         "manual_review_status_counts": review_counts,
         "git_blob": observed_blob,
         "expected_git_blob": expected_blob,
-        "exact_public_contract": exact,
-        "sha256": sha256(path),
+        "sha256": observed_sha256,
+        "expected_sha256": expected_sha256,
+        "exact_analysis_contract": exact,
+        "historical_full_table_git_blob": str(contract["historical_full_table_git_blob"]),
     }

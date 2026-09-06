@@ -1,0 +1,32 @@
+{
+  "contract_version": 1,
+  "canonical_source": "zenodo_image_workbook",
+  "zenodo_record": "22334596",
+  "zenodo_doi": "10.5281/zenodo.22334596",
+  "zenodo_filename": "Supplementary_Table_S1.xlsx",
+  "zenodo_md5": "a923616e45f10f24a5463eefd09b06dd",
+  "expected_rows": 1965,
+  "expected_public_table_git_blob": "74b951898814f4ed15f314061e3129d8b05823d5",
+  "required_public_columns": [
+    "observation_id",
+    "latitude",
+    "longitude",
+    "R",
+    "G",
+    "B",
+    "qc_status",
+    "manual_review_status",
+    "image_sha256",
+    "exact_site_id",
+    "grid_30s_id"
+  ],
+  "qc_status_counts": {
+    "ok": 1180,
+    "manual_review_required": 785
+  },
+  "manual_review_status_counts": {
+    "not_required_by_automated_qc": 1180,
+    "pending": 785
+  },
+  "note": "The expected Git blob identifies the LF-normalized deterministic public table formerly committed as Data_S1.csv. The CSV itself is intentionally not stored in the active repository; it must be rebuilt from the frozen Zenodo workbook."
+}

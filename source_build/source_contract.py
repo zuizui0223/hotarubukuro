@@ -177,5 +177,18 @@ def validate_analysis_table(
         "sha256": observed_sha256,
         "expected_sha256": expected_sha256,
         "exact_analysis_contract": exact,
+        # Compatibility key for the existing downstream manifest; it means the
+        # same exact lean analysis contract, not the removed historical CSV.
+        "exact_public_contract": exact,
         "historical_full_table_git_blob": str(contract["historical_full_table_git_blob"]),
     }
+
+
+def validate_public_table(
+    path: Path,
+    contract: Mapping[str, Any] | None = None,
+    *,
+    require_exact_blob: bool = True,
+) -> dict[str, Any]:
+    """Backward-compatible internal alias for pre-v2 callers."""
+    return validate_analysis_table(path, contract, require_exact_blob=require_exact_blob)

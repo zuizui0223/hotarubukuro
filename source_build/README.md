@@ -4,10 +4,12 @@ Retained builders for public inputs used by the publication pipeline.
 
 ## Canonical colour source
 
-- `reproduce_from_zenodo.py` — orchestrates the frozen Zenodo workbook -> generated public table route.
-- `extract_color.py` — resolves workbook images and extracts deterministic colour/QC measurements.
-- `build_data_s1.py` — materializes the deterministic public observation table.
-- `source_contract.py` — validates the generated table against `reproducibility/source_contract.json`.
+- `reproduce_from_zenodo.py` — orchestrates the frozen Zenodo workbook through exact lean-table validation.
+- `extract_color.py` — resolves workbook images and writes the **rich technical colour/QC extraction record**.
+- `build_data_s1.py` — projects that record to the **lean deterministic 38-column analysis table** actually consumed downstream.
+- `source_contract.py` — validates the lean table against `reproducibility/source_contract.json`.
+
+The rich extraction retains run-time/audit-only information such as `processed_at`, candidate peak diagnostics and historical RGB comparisons. The lean table omits fields unused by retained analyses, normalises numeric text and is frozen by exact Git-blob and SHA-256 identities.
 
 ## Other public-source builders
 

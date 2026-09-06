@@ -3,17 +3,13 @@ args <- commandArgs(trailingOnly = TRUE)
 file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
 script_path <- if (length(file_arg)) {
   sub("^--file=", "", file_arg[1L])
-} else "scripts/build_human_raster.R"
+} else "source_build/build_human_raster.R"
 repo_root <- normalizePath(file.path(dirname(script_path), ".."), winslash = "/", mustWork = TRUE)
 source(file.path(repo_root, "R", "pipeline_support.R"))
 arg_value <- function(flag, default = "") hb_arg_value(args, flag, default)
 hb_require_stage_packages("human_raster")
 hb_load_modules("human_raster", root = repo_root)
 
-# MLIT occasionally closes large archive transfers early. A partial non-empty ZIP
-# must never be accepted as cache, otherwise the next run fails at unzip instead
-# of retrying the acquisition. Keep this resilience at the public-source build
-# boundary so it does not alter any downstream analysis estimand.
 mlit_archive_is_valid <- function(path) {
   if (!file.exists(path) || is.na(file.info(path)$size) || file.info(path)$size <= 0) {
     return(FALSE)
@@ -74,8 +70,11 @@ download_mlit_archive <- function(primary_mesh, cache_dir, retries = 3L) {
 
 observation_csv <- arg_value(
   "--observation-csv",
-  file.path(repo_root, "Data_S1.csv")
+  file.path(repo_root, "results", "source_reconstruction", "Data_S1_from_zenodo.csv")
 )
+if (!file.exists(observation_csv)) {
+  stop("Canonical generated colour table not found: ", observation_csv, call. = FALSE)
+}
 output_dir <- arg_value(
   "--output-dir",
   file.path(repo_root, "results", "public_rasters", "mlit_human_forest_edge_2021")

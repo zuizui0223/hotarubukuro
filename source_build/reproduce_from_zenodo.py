@@ -3,11 +3,12 @@
 
 Canonical chain:
 
-Zenodo XLSX -> embedded images -> colour extraction -> public-table materialization
--> exact source-contract validation -> retained publication pipeline.
+Zenodo XLSX -> embedded images -> full colour extraction -> lean analysis-table
+materialization -> exact lean-contract validation -> retained publication pipeline.
 
-No derived CSV is committed as an input.  The generated table is accepted only
-when it matches the frozen exact-output identity in
+No derived CSV is committed as an input. The rich extraction CSV retains
+run-time and technical QC provenance; the downstream analysis table is a
+smaller deterministic projection accepted only when it matches
 ``reproducibility/source_contract.json``.
 """
 
@@ -30,7 +31,7 @@ if str(ROOT) not in sys.path:
 from source_build.source_contract import (  # noqa: E402
     SourceContractError,
     load_contract,
-    validate_public_table,
+    validate_analysis_table,
 )
 
 CONTRACT = load_contract()
@@ -105,8 +106,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workbook", type=Path, help="Use a local workbook instead of downloading Zenodo")
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE, help="Zenodo workbook cache path")
-    parser.add_argument("--extraction", type=Path, default=DEFAULT_EXTRACTION, help="Intermediate colour extraction CSV")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Generated canonical public table")
+    parser.add_argument("--extraction", type=Path, default=DEFAULT_EXTRACTION, help="Rich intermediate colour-extraction CSV")
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Generated canonical lean analysis table")
     parser.add_argument("--qc-dir", type=Path, default=DEFAULT_QC_DIR, help="Colour-extraction QC directory")
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT, help="Source-contract audit JSON")
     parser.add_argument("--sheet", help="Workbook sheet name; default is the first sheet")
@@ -115,7 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--id-column", default="observation_id")
     parser.add_argument("--overwrite-download", action="store_true")
     parser.add_argument("--overwrite-output", action="store_true")
-    parser.add_argument("--run-analysis", action="store_true", help="Run the retained analysis after exact contract validation")
+    parser.add_argument("--run-analysis", action="store_true", help="Run retained analyses after exact lean-contract validation")
     parser.add_argument("--no-resume-analysis", action="store_true", help="Pass --no-resume to the downstream pipeline")
     parser.add_argument("--skip-analysis-setup", action="store_true", help="Pass --skip-setup downstream")
     parser.add_argument("--dry-run", action="store_true", help="Print the complete command graph without network or execution")
@@ -153,7 +154,7 @@ def main() -> int:
         print(f"Canonical source: Zenodo record {ZENODO_RECORD} ({ZENODO_DOI})")
         print(f"Workbook: {ZENODO_FILENAME}")
         print(f"Expected MD5: {ZENODO_MD5}")
-        print(f"Expected generated-table Git blob: {CONTRACT['expected_public_table_git_blob']}")
+        print(f"Expected lean analysis-table Git blob: {CONTRACT['expected_analysis_table_git_blob']}")
     elif args.workbook:
         if not workbook.is_file():
             raise SystemExit(f"workbook not found: {workbook}")
@@ -193,7 +194,7 @@ def main() -> int:
     run_command(build_command, dry_run=args.dry_run)
 
     if args.dry_run:
-        print(f"Contract validation: {_display(output)} -> reproducibility/source_contract.json")
+        print(f"Lean contract validation: {_display(output)} -> reproducibility/source_contract.json")
         if args.run_analysis:
             run_command(downstream_command(args), dry_run=True)
         return 0
@@ -201,10 +202,10 @@ def main() -> int:
     if not extraction.is_file():
         raise SystemExit(f"colour extractor did not create {extraction}")
     if not output.is_file():
-        raise SystemExit(f"public-table builder did not create {output}")
+        raise SystemExit(f"analysis-table builder did not create {output}")
 
     try:
-        validation = validate_public_table(output, CONTRACT, require_exact_blob=True)
+        validation = validate_analysis_table(output, CONTRACT, require_exact_blob=True)
     except SourceContractError as error:
         raise SystemExit(str(error)) from error
 
@@ -217,14 +218,14 @@ def main() -> int:
         "zenodo_md5_observed": checksum(workbook, "md5"),
         "extraction_path": _display(extraction),
         "extraction_sha256": checksum(extraction, "sha256"),
-        "generated_table_path": _display(output),
+        "analysis_table_path": _display(output),
         "source_contract_path": "reproducibility/source_contract.json",
         "validation": validation,
     }
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps({
-        "exact_public_contract": validation["exact_public_contract"],
+        "exact_analysis_contract": validation["exact_analysis_contract"],
         "rows": validation["rows"],
         "git_blob": validation["git_blob"],
         "report": _display(report_path),

@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Materialize the public Data_S1 contract from verified colour extraction.
+"""Materialize the deterministic analysis-input table from verified colour extraction.
 
-This restores the deterministic public-table derivations used when Data_S1 was
-rebuilt in PR #4.  It is intentionally narrower than that historical analysis
-helper: the current purpose is to turn the raw image-extraction CSV into the
-same public observation contract required by the retained publication pipeline.
+The full extractor CSV intentionally remains rich: it contains candidate colour
+statistics, sensitivity diagnostics, QC notes and the run-time ``processed_at``
+field.  The downstream publication analysis does not need that entire technical
+surface.  This builder therefore emits a small, explicit schema containing only
+observation identity/provenance, the primary colour measurement, eligibility/QC
+fields and the image-quality covariates actually read downstream.
 
-No row-order join is used.  Each record keeps its immutable ``observation_id``.
-Derived site identifiers depend only on the frozen latitude/longitude values,
-and ``manual_review_status`` records the historical QC state: automated ``ok``
-rows did not require visual review, while warning rows remained ``pending``.
+No row-order join is used. Each record keeps its immutable ``observation_id``.
+The resulting table contains no run-time timestamp and normalises numeric text,
+so the same raw workbook produces a deterministic analysis input.
 """
 
 from __future__ import annotations
@@ -24,14 +25,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-EXCLUDED_PUBLIC_COLUMNS = {
-    "source_path",
-    "mask_path",
-    "overlay_path",
-    "qc_panel_path",
-    "url",
-}
-
 DERIVED_COLUMNS = [
     "source_reference_type",
     "coordinate_source",
@@ -45,14 +38,26 @@ DERIVED_COLUMNS = [
     "manual_review_status",
 ]
 
-REQUIRED_COLUMNS = {
+PUBLIC_ANALYSIS_COLUMNS = [
     "observation_id",
     "source_row",
     "photo_id",
     "image_sha256",
+    "duplicate_image_sha256",
     "date",
     "latitude",
     "longitude",
+    *DERIVED_COLUMNS,
+    "source_sheet",
+    "source_image",
+    "image_width",
+    "image_height",
+    "visible_pixels",
+    "mask_pixels",
+    "mask_fraction_visible",
+    "mask_component_count",
+    "exposure_filtered_fraction",
+    "possible_overexposure",
     "median_R",
     "median_G",
     "median_B",
@@ -62,7 +67,41 @@ REQUIRED_COLUMNS = {
     "primary_colour_method",
     "extraction_version",
     "qc_status",
+    "qc_flags",
+]
+
+NUMERIC_COLUMNS = {
+    "latitude",
+    "longitude",
+    "image_width",
+    "image_height",
+    "visible_pixels",
+    "mask_pixels",
+    "mask_fraction_visible",
+    "mask_component_count",
+    "exposure_filtered_fraction",
+    "median_R",
+    "median_G",
+    "median_B",
+    "R",
+    "G",
+    "B",
 }
+
+INTEGER_COLUMNS = {
+    "source_row",
+    "image_width",
+    "image_height",
+    "visible_pixels",
+    "mask_pixels",
+    "mask_component_count",
+}
+
+REQUIRED_EXTRACTION_COLUMNS = (
+    set(PUBLIC_ANALYSIS_COLUMNS)
+    .difference(DERIVED_COLUMNS)
+    .union({"url"})
+)
 
 
 def _normalise(value: Any) -> str:
@@ -77,6 +116,21 @@ def _finite_float(value: Any, column: str) -> float:
     if not math.isfinite(number):
         raise ValueError(f"{column} must be finite")
     return number
+
+
+def _canonical_numeric(value: Any, column: str) -> str:
+    text = _normalise(value)
+    if not text:
+        return ""
+    number = _finite_float(text, column)
+    if column in INTEGER_COLUMNS:
+        rounded = round(number)
+        if abs(number - rounded) > 1e-9:
+            raise ValueError(f"{column} must be integer-valued: {value!r}")
+        return str(int(rounded))
+    # Twelve significant digits retain far more precision than any downstream
+    # ecological estimand while removing irrelevant binary-float text jitter.
+    return format(number, ".12g")
 
 
 def _truthy(value: Any) -> bool:
@@ -121,9 +175,9 @@ def read_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
         headers = [str(value).strip() for value in reader.fieldnames]
         if len(headers) != len(set(headers)):
             raise ValueError("extraction columns must be unique")
-        missing = sorted(REQUIRED_COLUMNS.difference(headers))
+        missing = sorted(REQUIRED_EXTRACTION_COLUMNS.difference(headers))
         if missing:
-            raise ValueError("extraction is missing columns: " + ", ".join(missing))
+            raise ValueError("extraction is missing analysis-contract columns: " + ", ".join(missing))
         rows = list(reader)
     if not rows:
         raise ValueError("extraction contains no observations")
@@ -132,27 +186,12 @@ def read_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
 
 def materialize_rows(
     headers: Sequence[str], rows: Sequence[Mapping[str, Any]]
-) -> tuple[list[str], list[dict[str, Any]]]:
+) -> tuple[list[str], list[dict[str, str]]]:
+    del headers  # the public output schema is explicit, never inherited dynamically
     observation_ids: set[str] = set()
     source_rows: set[int] = set()
-    output_headers = [
-        "observation_id",
-        "source_row",
-        "photo_id",
-        "image_sha256",
-        "duplicate_image_sha256",
-        "date",
-        "latitude",
-        "longitude",
-        *DERIVED_COLUMNS,
-    ]
-    output_headers.extend(
-        column
-        for column in headers
-        if column not in EXCLUDED_PUBLIC_COLUMNS and column not in output_headers
-    )
+    output_rows: list[dict[str, str]] = []
 
-    output_rows: list[dict[str, Any]] = []
     for source in rows:
         observation_id = _normalise(source.get("observation_id"))
         if not observation_id:
@@ -161,10 +200,8 @@ def materialize_rows(
             raise ValueError(f"duplicate observation_id: {observation_id}")
         observation_ids.add(observation_id)
 
-        try:
-            source_row = int(_normalise(source.get("source_row")))
-        except ValueError as error:
-            raise ValueError("source_row must contain integers") from error
+        source_row_text = _canonical_numeric(source.get("source_row"), "source_row")
+        source_row = int(source_row_text)
         if source_row in source_rows:
             raise ValueError(f"duplicate source_row: {source_row}")
         source_rows.add(source_row)
@@ -187,18 +224,12 @@ def materialize_rows(
         qc_status = _normalise(source.get("qc_status"))
         duplicate = _truthy(source.get("duplicate_image_sha256"))
 
-        row = {
-            column: source.get(column)
-            for column in headers
-            if column not in EXCLUDED_PUBLIC_COLUMNS
-        }
+        row = {column: _normalise(source.get(column)) for column in PUBLIC_ANALYSIS_COLUMNS}
         row.update(
             observation_id=observation_id,
-            source_row=source_row,
+            source_row=source_row_text,
             image_sha256=digest,
             date=_normalise_date(source.get("date")),
-            latitude=latitude,
-            longitude=longitude,
             source_reference_type=(
                 "yamap_activity"
                 if source_reference.startswith("https://yamap.com/activities/")
@@ -206,7 +237,7 @@ def materialize_rows(
             ),
             coordinate_source="source_workbook",
             coordinate_crs_assumed="EPSG:4326",
-            coordinate_recomputed=False,
+            coordinate_recomputed="False",
             coordinate_qc_status="source_value_not_independently_recomputed",
             photo_coordinate_qc_status=(
                 "manual_review_required_duplicate_photo_at_multiple_coordinates"
@@ -220,9 +251,11 @@ def materialize_rows(
                 "not_required_by_automated_qc" if qc_status == "ok" else "pending"
             ),
         )
-        output_rows.append({column: row.get(column, "") for column in output_headers})
+        for column in NUMERIC_COLUMNS:
+            row[column] = _canonical_numeric(source.get(column), column)
+        output_rows.append({column: row.get(column, "") for column in PUBLIC_ANALYSIS_COLUMNS})
 
-    return output_headers, output_rows
+    return list(PUBLIC_ANALYSIS_COLUMNS), output_rows
 
 
 def write_csv(
@@ -269,7 +302,7 @@ def main() -> int:
         write_csv(public_headers, public_rows, output, overwrite=args.overwrite)
     except (FileExistsError, OSError, ValueError) as error:
         raise SystemExit(str(error)) from error
-    print(f"materialized Data_S1 rows={len(public_rows)} output={output}")
+    print(f"materialized analysis table rows={len(public_rows)} output={output}")
     return 0
 
 

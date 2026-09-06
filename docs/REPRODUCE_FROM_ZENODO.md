@@ -1,8 +1,8 @@
 # Reproduce from the raw Zenodo workbook
 
-This is the **only canonical data route** for the paper. The repository does not commit a derived colour CSV as an analysis input.
+This is the **only canonical data route** for the paper. The repository does not commit a derived flower-colour CSV as an analysis input.
 
-## Frozen source and exact-output contract
+## Frozen source and analysis-input contract
 
 Raw source:
 
@@ -12,7 +12,14 @@ Raw source:
 - frozen MD5: `a923616e45f10f24a5463eefd09b06dd`
 - expected observations: `1965`
 
-The generated public table is checked against [`reproducibility/source_contract.json`](../reproducibility/source_contract.json). That small contract stores the expected Git blob of the deterministic public table, plus row/schema/QC invariants. The historical derived CSV itself is not kept in the active tree.
+The deterministic downstream analysis table is checked against [`reproducibility/source_contract.json`](../reproducibility/source_contract.json).
+
+Contract v2 distinguishes the historical rich public table from the actual current analysis-input contract:
+
+- historical full `Data_S1.csv` Git blob: `74b951898814f4ed15f314061e3129d8b05823d5` — provenance only;
+- canonical lean analysis table: 38 columns, 1,965 rows;
+- lean Git blob: `e119137efac89cbcfd789236f3d6a3c9599575af`;
+- lean SHA-256: `9e543b64a824aff82dbb55da1bca8843fb337a51399bfd60ad0a09c9bca3c33c`.
 
 ## Exact chain
 
@@ -21,8 +28,10 @@ Zenodo Supplementary_Table_S1.xlsx
   -> embedded photograph bound to its workbook cell
   -> source_build/extract_color.py
   -> results/source_reconstruction/colour_extraction_from_zenodo.csv
+       rich technical extraction/QC record
   -> source_build/build_data_s1.py
   -> results/source_reconstruction/Data_S1_from_zenodo.csv
+       lean deterministic analysis input
   -> source_build/source_contract.py
   -> exact validation against reproducibility/source_contract.json
   -> run_pipeline.py reproduce
@@ -31,7 +40,9 @@ Zenodo Supplementary_Table_S1.xlsx
 
 `source_build/extract_color.py` resolves Excel in-cell rich images directly from OOXML relationships. It does not attach photographs to observations by row-order joining.
 
-`source_build/build_data_s1.py` materializes deterministic public fields, including site/grid identifiers and QC/provenance states. It writes LF line endings explicitly, so the output Git blob is platform-independent.
+The rich extraction CSV intentionally retains technical information useful for auditing the image-processing step: candidate colour methods, detailed QC/sensitivity fields, historical RGB-comparison fields and the run-time `processed_at` timestamp.
+
+`source_build/build_data_s1.py` then projects that rich record to the **38 fields actually consumed by the retained source-build and ecological analyses**. It derives site/grid and provenance fields, removes run-time-only and unused technical fields, normalises numeric text and sorts rows by `observation_id`. The analysis table is therefore deterministic even though the technical extraction record contains a run timestamp.
 
 The old root-level `Code_S1.py` was a GPX/photo-time georeferencing utility. It was never the active image-colour extractor and is retained only in Git history.
 
@@ -54,9 +65,9 @@ The Python dependencies needed for the raw workbook route include `numpy`, `Pill
 python source_build/reproduce_from_zenodo.py --dry-run --run-analysis
 ```
 
-This prints the Zenodo source/checksum, extraction command, public-table materialization command, exact-contract validation target and the downstream pipeline command. No network access or analysis is performed in dry-run mode.
+This prints the Zenodo source/checksum, rich extraction command, lean-table materialization command, exact-contract target and downstream pipeline command. No network access or analysis is performed in dry-run mode.
 
-## 3. Rebuild the canonical table
+## 3. Rebuild the canonical analysis table
 
 ```bash
 python source_build/reproduce_from_zenodo.py
@@ -66,14 +77,14 @@ The bootstrap will:
 
 1. download the Zenodo workbook to `.repro_cache/zenodo/` unless a verified copy is already cached;
 2. verify the workbook MD5;
-3. extract workbook images and colour/QC measurements;
-4. write `results/source_reconstruction/colour_extraction_from_zenodo.csv`;
-5. materialize `results/source_reconstruction/Data_S1_from_zenodo.csv`;
-6. validate row count, schema, unique observation IDs, numeric bounds and QC counts;
-7. require the generated table Git blob to equal the frozen exact-output blob in `reproducibility/source_contract.json`;
+3. extract workbook images and full colour/QC measurements;
+4. write the rich technical record `results/source_reconstruction/colour_extraction_from_zenodo.csv`;
+5. materialize the lean deterministic `results/source_reconstruction/Data_S1_from_zenodo.csv`;
+6. validate exact ordered schema, row count, unique/sorted observation IDs, numeric bounds and QC counts;
+7. require both the lean Git blob and SHA-256 to match contract v2;
 8. write `results/source_reconstruction/zenodo_rebuild_audit.json`.
 
-A failed exact contract stops the chain.
+A failed lean contract stops the chain.
 
 ### Use a workbook already downloaded
 
@@ -98,7 +109,7 @@ Use `--overwrite-download` only when intentionally replacing the cached workbook
 python source_build/reproduce_from_zenodo.py --run-analysis
 ```
 
-The analysis starts only after exact-contract validation succeeds. The generated table is then consumed at the fixed path:
+The analysis starts only after lean-contract validation succeeds. The generated table is consumed at the fixed path:
 
 ```text
 results/source_reconstruction/Data_S1_from_zenodo.csv
@@ -137,42 +148,56 @@ python run_pipeline.py audit --structure-only
 python run_pipeline.py reproduce --dry-run --skip-setup
 ```
 
+## What is and is not part of the exact contract
+
+The lean analysis contract includes the raw fields that can affect retained analyses: observation/source identity, dates and coordinates, RGB/median RGB, image hashes, duplicate/overexposure status, mask size/fraction/component metrics, exposure-filtered fraction, site/grid identifiers and coordinate/source/QC provenance.
+
+The following remain in the rich extraction intermediate but are deliberately **not** analysis-input contract fields because the retained pipeline does not consume them:
+
+- `processed_at` run timestamp;
+- `legacy_R/G/B` and differences from legacy RGB;
+- candidate/joint peak details and sensitivity-only peak diagnostics;
+- narrative `qc_note` and QC-sampling bookkeeping.
+
+This is a scope reduction, not a weaker scientific check: changing any field that the retained analysis actually reads changes the lean table hash and stops the pipeline.
+
 ## GitHub Actions
 
 Normal pull-request CI does not repeatedly download the 109.7 MB workbook. It checks the command graph, source-contract logic, Python tests, retained R surface and R unit tests.
 
-The workflow has one opt-in end-to-end job, `raw_zenodo_reproduction`. When manually enabled, it performs:
+The workflow has one opt-in end-to-end job, `raw-zenodo-reproduction`. When manually enabled, it performs:
 
 ```text
 Zenodo download
--> raw image reconstruction
--> exact generated-table contract validation
+-> rich image/colour reconstruction
+-> deterministic lean-table materialization
+-> exact lean-contract validation
 -> R/system setup
 -> run_pipeline.py reproduce --no-resume
 ```
 
-There is no separate full-reproduction job starting from a committed derived CSV.
+There is no separate full-reproduction route starting from a committed derived CSV.
 
 ## Outputs to inspect
 
 Raw reconstruction:
 
-- `results/source_reconstruction/colour_extraction_from_zenodo.csv`
-- `results/source_reconstruction/Data_S1_from_zenodo.csv`
-- `results/source_reconstruction/zenodo_rebuild_audit.json`
-- `results/source_reconstruction/qc/`
+- `results/source_reconstruction/colour_extraction_from_zenodo.csv` — rich technical record;
+- `results/source_reconstruction/Data_S1_from_zenodo.csv` — lean analysis input;
+- `results/source_reconstruction/zenodo_rebuild_audit.json`;
+- `results/source_reconstruction/qc/`.
 
 Full analysis:
 
-- normal stage outputs under `results/`
-- `results/analysis_reproduction/run_manifest.json`
+- normal stage outputs under `results/`;
+- `results/analysis_reproduction/run_manifest.json`.
 
-The downstream manifest records the canonical source, source-contract hash, generated table hash/blob and the Git blobs of the active raw-reconstruction source files.
+The downstream manifest records the canonical source, source-contract hash, generated analysis-table hash/blob and Git blobs of the active raw-reconstruction source files.
 
 ## Failure interpretation
 
 - **Zenodo MD5 mismatch** — the workbook is not the frozen deposited source; stop.
 - **Workbook/image mapping failure** — inspect workbook schema or explicit `--sheet`, `--header-row`, `--image-column`, `--id-column` values.
-- **Row/schema/QC invariant failure** — the generated public table no longer satisfies the frozen source contract.
-- **Exact Git-blob mismatch** — at least one generated byte differs from the validated historical public table; do not run downstream analyses.
-- **Downstream R/public-source failure after successful exact validation** — raw image reconstruction succeeded; diagnose the named retained pipeline stage separately.
+- **Row/schema/QC invariant failure** — the generated lean analysis table no longer satisfies the frozen source contract.
+- **Lean Git-blob/SHA mismatch** — at least one current analysis-input value differs from the frozen lean reference; do not run downstream analyses.
+- **Downstream R/public-source failure after successful lean validation** — raw image reconstruction succeeded; diagnose the named retained pipeline stage separately.

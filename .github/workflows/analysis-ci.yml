@@ -124,12 +124,11 @@ jobs:
       - name: Run retained R unit tests
         shell: bash
         run: |
-          Rscript -e 'install.packages("testthat", repos = getOption("repos"))'
+          Rscript -e 'install.packages(c("testthat", "FNN"), repos = getOption("repos"))'
           Rscript tests/testthat.R
 
   raw-zenodo-reproduction:
-    # PR #70 performs one final proof that the sole canonical source can rebuild
-    # the exact historical public-table bytes before the committed CSV is removed.
+    # PR #70 runs a one-time raw-source proof while the source contract is finalized.
     if: (github.event_name == 'pull_request' && github.event.pull_request.number == 70) || (github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction)
     runs-on: ubuntu-24.04
     timeout-minutes: 360
@@ -143,7 +142,7 @@ jobs:
       - name: Install Python package
         run: python -m pip install -e '.[test]'
 
-      - name: Rebuild and exact-contract validate the canonical table from Zenodo
+      - name: Rebuild candidate canonical table from Zenodo
         run: python source_build/reproduce_from_zenodo.py
 
       - name: Show raw-source audit
@@ -153,6 +152,99 @@ jobs:
           if [ -f results/source_reconstruction/zenodo_rebuild_audit.json ]; then
             cat results/source_reconstruction/zenodo_rebuild_audit.json
           fi
+
+      - name: Diagnose stable content against historical Data_S1
+        if: always()
+        shell: bash
+        run: |
+          test -f results/source_reconstruction/Data_S1_from_zenodo.csv
+          git fetch origin 8299c25155bb07f0acb93968a28657a5e7fe4ec2 --depth=1
+          git show FETCH_HEAD:Data_S1.csv > /tmp/historical_Data_S1.csv
+          python - <<'PY'
+          import csv
+          import hashlib
+          import io
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          volatile = {"processed_at"}
+          historical_path = Path("/tmp/historical_Data_S1.csv")
+          rebuilt_path = Path("results/source_reconstruction/Data_S1_from_zenodo.csv")
+
+          def read(path):
+              with path.open("r", encoding="utf-8-sig", newline="") as handle:
+                  reader = csv.DictReader(handle)
+                  return list(reader.fieldnames or []), list(reader)
+
+          historical_header, historical = read(historical_path)
+          rebuilt_header, rebuilt = read(rebuilt_path)
+          historical_columns = set(historical_header) - volatile
+          rebuilt_columns = set(rebuilt_header) - volatile
+          only_historical = sorted(historical_columns - rebuilt_columns)
+          only_rebuilt = sorted(rebuilt_columns - historical_columns)
+          common = sorted(historical_columns & rebuilt_columns)
+          if "observation_id" in common:
+              common.remove("observation_id")
+              common.insert(0, "observation_id")
+
+          historical_by_id = {row["observation_id"]: row for row in historical}
+          rebuilt_by_id = {row["observation_id"]: row for row in rebuilt}
+          missing_ids = sorted(set(historical_by_id) - set(rebuilt_by_id))
+          extra_ids = sorted(set(rebuilt_by_id) - set(historical_by_id))
+          shared_ids = sorted(set(historical_by_id) & set(rebuilt_by_id))
+
+          mismatch_counts = Counter()
+          examples = []
+          for observation_id in shared_ids:
+              left = historical_by_id[observation_id]
+              right = rebuilt_by_id[observation_id]
+              for column in common:
+                  if left.get(column, "") != right.get(column, ""):
+                      mismatch_counts[column] += 1
+                      if len(examples) < 20:
+                          examples.append({
+                              "observation_id": observation_id,
+                              "column": column,
+                              "historical": left.get(column, ""),
+                              "rebuilt": right.get(column, ""),
+                          })
+
+          def canonical_digest(header, rows):
+              columns = sorted(set(header) - volatile)
+              if "observation_id" in columns:
+                  columns.remove("observation_id")
+                  columns.insert(0, "observation_id")
+              output = io.StringIO(newline="")
+              writer = csv.DictWriter(output, fieldnames=columns, lineterminator="\n")
+              writer.writeheader()
+              for row in sorted(rows, key=lambda item: item.get("observation_id", "")):
+                  writer.writerow({column: row.get(column, "") for column in columns})
+              return hashlib.sha256(output.getvalue().encode("utf-8")).hexdigest()
+
+          result = {
+              "volatile_columns_excluded": sorted(volatile),
+              "historical_rows": len(historical),
+              "rebuilt_rows": len(rebuilt),
+              "columns_only_historical": only_historical,
+              "columns_only_rebuilt": only_rebuilt,
+              "missing_observation_ids": missing_ids[:20],
+              "extra_observation_ids": extra_ids[:20],
+              "mismatch_counts": dict(sorted(mismatch_counts.items())),
+              "mismatch_examples": examples,
+              "historical_stable_sha256": canonical_digest(historical_header, historical),
+              "rebuilt_stable_sha256": canonical_digest(rebuilt_header, rebuilt),
+          }
+          result["stable_content_equal"] = (
+              not only_historical
+              and not only_rebuilt
+              and not missing_ids
+              and not extra_ids
+              and not mismatch_counts
+              and result["historical_stable_sha256"] == result["rebuilt_stable_sha256"]
+          )
+          print(json.dumps(result, indent=2, ensure_ascii=False))
+          PY
 
       - name: Read pinned R version
         id: r-version

@@ -104,7 +104,7 @@ The current JBI architecture was finalized after this diagnostic was computed. P
 - raw-SDM exposure sensitivities;
 - broader details of the earlier environment+SPDE Bombus-null analysis.
 
-This placement matches `paper/analysis-map.md`, `paper/README.md`, `submission/jbi/JBI_main_figure_plan.md` and the current manuscript. It supersedes the earlier development recommendation to retain a community-turnover panel in Main.
+The current repository-level placement is governed by `reproducibility/submission_analysis_lock_2026-08-19.md`; historical manuscript-layout files are retained only in Git history. This supersedes the earlier development recommendation to retain a community-turnover panel in Main.
 
 ## Manuscript-level interpretation
 

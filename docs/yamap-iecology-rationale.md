@@ -62,7 +62,7 @@ Therefore the correct comparison is **different observation processes**, not `bi
 
 iNaturalist also has a native strength that YAMAP does not: community identification and Research Grade. This should be acknowledged explicitly. YAMAP's study-specific advantage comes from combining a different image stream with exhaustive author screening and quantitative trait extraction, not from claiming native platform identification is superior.
 
-## What author review and Data_S1 construction add
+## What author review and generated public-table construction add
 
 Author review can reduce:
 
@@ -86,7 +86,7 @@ The study therefore constructs:
 
 `hiking activity/photo -> date/GPS provenance -> exhaustive candidate review -> taxon/subject/ROI validation -> image-hash duplicate audit -> deterministic pixel summary -> RGB/CIELAB -> QC -> pigmentation state + conditional intensity`.
 
-`Data_S1` is thus a curated quantitative-trait dataset, not a direct occurrence export. Purpose-built occurrence portals could also support this transformation, but petal-level colour is not a native occurrence field and would require an additional image-screening and phenotyping workflow.
+The generated public observation table is thus a curated quantitative-trait dataset, not a direct occurrence export. It is rebuilt from the canonical Zenodo workbook and is not committed as a second source. Purpose-built occurrence portals could also support this transformation, but petal-level colour is not a native occurrence field and would require an additional image-screening and phenotyping workflow.
 
 ## Relation to quantitative flower-colour geography
 

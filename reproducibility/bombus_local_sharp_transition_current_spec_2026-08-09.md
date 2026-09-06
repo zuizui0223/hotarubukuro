@@ -113,7 +113,7 @@ Using the predefined four-dimensional environmental-PC representation:
 - `broad50km_pc1`;
 - `broad50km_pc2`;
 - `within50km_pc1`;
-- `within50km_pc2`;
+- `within50km_pc2`
 
 report median environmental distance among selected transition pairs and among all local graph edges.
 
@@ -121,9 +121,13 @@ Environment is not used to select, orient or statistically adjust pairs in Main 
 
 ## Current implementation
 
-- `R/local_pair_graph.R`
-- `scripts/run_bombus_local_sharp_transition.R`
-- `.github/workflows/bombus-local-sharp-transition.yml`
+- orchestrator: `run_pipeline.py`;
+- pair-graph functions: `R/local_pair_graph.R`;
+- focal analysis: `scripts/run_bombus_local_sharp_transition.R`;
+- spatial/elevation guardrail: `scripts/run_bombus_spatial_replication_test.R`;
+- active CI: `.github/workflows/analysis-ci.yml`.
+
+The historical one-off Bombus workflow was removed after consolidation; Git history retains its execution provenance.
 
 ## Frozen manuscript result
 

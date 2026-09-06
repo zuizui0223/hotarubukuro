@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hotarubukuro-analysis"
-version = "2.8.0"
-description = "Analysis and source-reconstruction utilities for quantitative floral-colour and spatial-ecology workflows"
+version = "2.9.0"
+description = "Zero-from-Zenodo reconstruction and retained analyses for Campanula punctata floral colour"
 requires-python = ">=3.9"
 dependencies = [
   "numpy>=1.24,<3",
@@ -17,16 +17,16 @@ dependencies = [
 test = ["pytest>=8,<10"]
 
 [project.scripts]
-hotarubukuro-color = "hotarubukuro_analysis.cli:color_main"
+hotarubukuro-color = "source_build.extract_color:main"
 hotarubukuro-from-zenodo = "source_build.reproduce_from_zenodo:main"
 hotarubukuro-reproduce = "run_pipeline:main"
 
 [tool.setuptools]
-py-modules = ["Code_S1", "run_pipeline"]
+py-modules = ["run_pipeline"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["hotarubukuro_analysis*", "source_build*"]
+include = ["source_build*"]
 namespaces = true
 
 [tool.pytest.ini_options]

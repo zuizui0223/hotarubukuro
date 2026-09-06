@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-"""Single publication analysis entry point.
+"""Single retained publication-analysis entry point.
 
-``audit`` verifies the committed public contract. ``reproduce`` rebuilds the
-final submission analysis from the canonical ``Data_S1.csv`` plus declared
-public sources by default. A verified reconstructed table can be supplied with
-``--data-s1`` so the raw Zenodo bootstrap can feed its own derived table into
-the identical downstream graph. Superseded exploratory pipelines are
-deliberately not callable from here.
+The canonical data source is the frozen image-bearing Zenodo workbook.  This
+module never selects an alternative colour table: it consumes only
+``results/source_reconstruction/Data_S1_from_zenodo.csv``, which must first be
+created and exact-contract validated by ``source_build/reproduce_from_zenodo.py``.
 """
 
 from __future__ import annotations
 
 import argparse
-import csv
 import datetime as dt
 import hashlib
 import json
@@ -26,6 +23,17 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from source_build.source_contract import (  # noqa: E402
+    SourceContractError,
+    git_blob_sha,
+    load_contract,
+    sha256,
+    validate_public_table,
+)
+
 RESULTS = ROOT / "results"
 CACHE = ROOT / ".repro_cache"
 PUBLIC_CACHE = CACHE / "public_environment"
@@ -33,20 +41,13 @@ MLIT_CACHE = CACHE / "mlit_l03_2021"
 GBIF_CACHE = CACHE / "bombus_gbif"
 WORLDPOP = PUBLIC_CACHE / "population_count_Japan_crop.tif"
 MANIFEST = RESULTS / "analysis_reproduction" / "run_manifest.json"
-CANONICAL_DATA_S1 = ROOT / "Data_S1.csv"
-EXPECTED_ROWS = 1965
-MINIMUM_DATA_COLUMNS = {"observation_id", "latitude", "longitude", "R", "G", "B"}
+CANONICAL_DATA = ROOT / "results" / "source_reconstruction" / "Data_S1_from_zenodo.csv"
+SOURCE_CONTRACT = load_contract()
+
 WORLDPOP_URL = (
     "https://data.worldpop.org/GIS/Population/Global_2000_2020_1km/2020/"
     "JPN/jpn_ppp_2020_1km_Aggregated.tif"
 )
-
-EXPECTED_GIT_BLOBS = {
-    "Data_S1.csv": "74b951898814f4ed15f314061e3129d8b05823d5",
-    "source_build/extract_color.py": "bf387c53c29d5f50b6a8f26facf029b0539a8e11",
-    "source_build/build_data_s1.py": "114d588891a14f5c807437c3c01df84c80949774",
-    "source_build/reproduce_from_zenodo.py": "7f77e64690fc87b3740e952e08715388e427bc29",
-}
 
 THREAD_ENV = {
     "HOTARUBUKURO_R_SEED": "20260725",
@@ -83,41 +84,30 @@ RASTER_ALIASES = {
 }
 
 REQUIRED_FILES = [
-    "Data_S1.csv", "config/pipeline.yml", "config/raster_sources.csv",
-    "config/bombus_sdm.yml", "dependencies/r-packages.csv", "dependencies/r-version.txt",
-    "R/pipeline_support.R", "R/environment_spatial.R", "R/natural_biotic_covariates.R",
-    "R/phenotype_hurdle.R", "R/analysis_cells.R", "R/natural_predictive_model.R",
-    "R/continuous_colour_isolation.R", "R/local_pair_graph.R", "R/human_raster_features.R",
-    "source_build/extract_color.py", "source_build/build_data_s1.py",
-    "source_build/reproduce_from_zenodo.py", "source_build/download_rasters.R",
-    "source_build/prepare_rasters.R", "source_build/fetch_bombus_occurrences.R",
-    "source_build/build_bombus_sdm_mainland.R", "source_build/build_human_raster.R",
+    "reproducibility/source_contract.json",
+    "config/pipeline.yml", "config/raster_sources.csv", "config/bombus_sdm.yml",
+    "dependencies/r-packages.csv", "dependencies/r-version.txt", "dependencies/apt-packages.txt",
+    "R/pipeline_support.R", "R/reproducibility.R", "R/raster_sources.R",
+    "R/environment_spatial.R", "R/natural_biotic_covariates.R", "R/phenotype_hurdle.R",
+    "R/analysis_cells.R", "R/natural_predictive_model.R", "R/continuous_colour_isolation.R",
+    "R/local_pair_graph.R", "R/human_raster_features.R",
+    "source_build/source_contract.py", "source_build/extract_color.py",
+    "source_build/build_data_s1.py", "source_build/reproduce_from_zenodo.py",
+    "source_build/download_rasters.R", "source_build/prepare_rasters.R",
+    "source_build/fetch_bombus_occurrences.R", "source_build/build_bombus_sdm_mainland.R",
+    "source_build/build_human_raster.R", "scripts/setup_r_environment.R",
     "scripts/build_environment_input.R", "scripts/run_environment_spatial.R",
     "scripts/run_natural_biotic_covariates.R", "scripts/run_phenotype_hurdle.R",
     "scripts/build_analysis_cells.R", "scripts/build_bombus_occurrence_reference_support.R",
-    "scripts/run_bombus_local_sharp_transition.R",
-    "scripts/run_bombus_spatial_replication_test.R", "scripts/build_broad_landscape_context.R",
-    "scripts/run_broad_environment_spatial_audit.R", "scripts/build_fixed_space_null_cache.R",
-    "scripts/fit_broad_supported_term_distance_space_null.R", "scripts/fit_final8_presence_null.R",
-    "scripts/run_continuous_colour_isolation.R",
+    "scripts/run_bombus_local_sharp_transition.R", "scripts/run_bombus_spatial_replication_test.R",
+    "scripts/build_broad_landscape_context.R", "scripts/run_broad_environment_spatial_audit.R",
+    "scripts/build_fixed_space_null_cache.R", "scripts/fit_broad_supported_term_distance_space_null.R",
+    "scripts/fit_final8_presence_null.R", "scripts/run_continuous_colour_isolation.R",
 ]
 
 
 def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-
-
-def git_blob_sha(path: Path) -> str:
-    data = path.read_bytes()
-    return hashlib.sha1(f"blob {len(data)}\0".encode() + data).hexdigest()
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(4 * 1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _display_path(path: Path) -> str:
@@ -132,11 +122,11 @@ class ReproductionError(RuntimeError):
 
 
 class Pipeline:
-    def __init__(self, dry_run: bool, resume: bool, skip_setup: bool, data_s1: Path | None = None) -> None:
+    def __init__(self, dry_run: bool, resume: bool, skip_setup: bool) -> None:
         self.dry_run = dry_run
         self.resume = resume
         self.skip_setup = skip_setup
-        self.data_s1 = (data_s1 or CANONICAL_DATA_S1).expanduser().resolve()
+        self.data_s1 = CANONICAL_DATA.resolve()
         self.data_arg = _display_path(self.data_s1)
         self.records: list[dict[str, object]] = []
         self.env = os.environ.copy()
@@ -149,44 +139,23 @@ class Pipeline:
             HOTARUBUKURO_INPUT_ROOT=str(ROOT),
         )
 
-    def audit(self) -> None:
+    def audit(self, *, structure_only: bool = False) -> dict[str, object] | None:
         missing = [path for path in REQUIRED_FILES if not (ROOT / path).is_file()]
         if missing:
             raise ReproductionError("Missing publication files: " + ", ".join(missing))
-        for rel, expected in EXPECTED_GIT_BLOBS.items():
-            observed = git_blob_sha(ROOT / rel)
-            if observed != expected:
-                raise ReproductionError(f"{rel} blob changed: {observed} != {expected}")
-
-        if not self.data_s1.is_file():
-            raise ReproductionError(f"analysis Data_S1 input not found: {self.data_s1}")
-        with self.data_s1.open("r", encoding="utf-8-sig", newline="") as handle:
-            reader = csv.DictReader(handle)
-            if reader.fieldnames is None:
-                raise ReproductionError(f"analysis Data_S1 has no header: {self.data_s1}")
-            header = set(reader.fieldnames)
-            identifiers: set[str] = set()
-            rows = 0
-            for row in reader:
-                rows += 1
-                identifier = (row.get("observation_id") or "").strip()
-                if not identifier:
-                    raise ReproductionError(f"analysis Data_S1 has empty observation_id at row {rows + 1}")
-                if identifier in identifiers:
-                    raise ReproductionError(f"analysis Data_S1 has duplicate observation_id: {identifier}")
-                identifiers.add(identifier)
-        if rows != EXPECTED_ROWS:
-            raise ReproductionError(f"analysis Data_S1 row count {rows} != {EXPECTED_ROWS}")
-        missing_columns = MINIMUM_DATA_COLUMNS - header
-        if missing_columns:
-            raise ReproductionError("analysis Data_S1 missing: " + ", ".join(sorted(missing_columns)))
-
-        print("PASS submission reproducibility contract")
-        print(f"Canonical Data_S1 blob={EXPECTED_GIT_BLOBS['Data_S1.csv']}")
+        if structure_only:
+            print("PASS publication code/source-contract structure")
+            return None
+        try:
+            validation = validate_public_table(self.data_s1, SOURCE_CONTRACT, require_exact_blob=True)
+        except SourceContractError as error:
+            raise ReproductionError(str(error)) from error
+        print("PASS canonical Zenodo-derived analysis-input contract")
         print(
-            f"Analysis Data_S1 rows={rows}; path={self.data_arg}; sha256={sha256(self.data_s1)}; "
-            f"canonical={self.data_s1 == CANONICAL_DATA_S1.resolve()}"
+            f"Analysis table rows={validation['rows']}; path={self.data_arg}; "
+            f"git_blob={validation['git_blob']}"
         )
+        return validation
 
     def run(self, name: str, command: Sequence[str], outputs: Iterable[str] = ()) -> None:
         paths = [ROOT / output for output in outputs]
@@ -254,7 +223,7 @@ class Pipeline:
         )
 
     def reproduce(self) -> None:
-        self.audit()
+        self.audit(structure_only=self.dry_run)
         CACHE.mkdir(parents=True, exist_ok=True)
         RESULTS.mkdir(parents=True, exist_ok=True)
         if not self.skip_setup:
@@ -265,10 +234,16 @@ class Pipeline:
                  "analysis,acquisition,reproducibility,testing"],
                 ["results/analysis_reproduction/environment/package_versions.csv"],
             )
-        self.run("download_public_rasters", ["Rscript", "source_build/download_rasters.R"],
-                 ["data/processed/raster_download_manifest.csv"])
-        self.run("prepare_public_rasters", ["Rscript", "source_build/prepare_rasters.R", "--no-download"],
-                 ["data/processed/raster_manifest.csv"])
+        self.run(
+            "download_public_rasters",
+            ["Rscript", "source_build/download_rasters.R"],
+            ["data/processed/raster_download_manifest.csv"],
+        )
+        self.run(
+            "prepare_public_rasters",
+            ["Rscript", "source_build/prepare_rasters.R", "--no-download"],
+            ["data/processed/raster_manifest.csv"],
+        )
         self.prepare_aliases()
         self.ensure_worldpop()
         self.run(
@@ -404,26 +379,38 @@ class Pipeline:
         if self.dry_run:
             return
         MANIFEST.parent.mkdir(parents=True, exist_ok=True)
-        selected_exists = self.data_s1.is_file()
+        data_validation = None
+        if self.data_s1.is_file():
+            try:
+                data_validation = validate_public_table(
+                    self.data_s1, SOURCE_CONTRACT, require_exact_blob=False
+                )
+            except SourceContractError:
+                data_validation = None
+        source_files = [
+            "source_build/source_contract.py",
+            "source_build/extract_color.py",
+            "source_build/build_data_s1.py",
+            "source_build/reproduce_from_zenodo.py",
+        ]
         MANIFEST.write_text(
             json.dumps(
                 {
                     "status": status,
                     "generated_utc": utc_now(),
-                    "data_s1_git_blob": git_blob_sha(CANONICAL_DATA_S1),
-                    "extract_color_git_blob": git_blob_sha(ROOT / "source_build/extract_color.py"),
-                    "build_data_s1_git_blob": git_blob_sha(ROOT / "source_build/build_data_s1.py"),
-                    "raw_bootstrap_git_blob": git_blob_sha(ROOT / "source_build/reproduce_from_zenodo.py"),
-                    "analysis_data_s1_path": self.data_arg,
-                    "analysis_data_s1_sha256": sha256(self.data_s1) if selected_exists else None,
-                    "analysis_data_s1_is_canonical": self.data_s1 == CANONICAL_DATA_S1.resolve(),
+                    "canonical_source": "zenodo_image_workbook",
+                    "source_contract": "reproducibility/source_contract.json",
+                    "source_contract_sha256": sha256(ROOT / "reproducibility/source_contract.json"),
+                    "source_code_git_blobs": {
+                        path: git_blob_sha(ROOT / path) for path in source_files
+                    },
+                    "analysis_data_path": self.data_arg,
+                    "analysis_data_sha256": data_validation["sha256"] if data_validation else None,
+                    "analysis_data_git_blob": data_validation["git_blob"] if data_validation else None,
+                    "analysis_data_exact_contract": (
+                        data_validation["exact_public_contract"] if data_validation else False
+                    ),
                     "stages": self.records,
-                    "excluded_legacy": [
-                        "legacy/Code_S1_georeference.py (historical GPX utility)",
-                        "hotspot/candidate ranking", "16-event local-departure detector",
-                        "DID human context", "MLIT land-cover candidate classification",
-                        "coefficient-weighted Broad space-null variants", "development-only interaction screens",
-                    ],
                     "error": error,
                 },
                 indent=2,
@@ -436,14 +423,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     audit = sub.add_parser("audit")
-    audit.add_argument("--data-s1", type=Path, default=CANONICAL_DATA_S1,
-                       help="Analysis colour table; default is the frozen Data_S1.csv")
+    audit.add_argument(
+        "--structure-only", action="store_true",
+        help="Check the executable repository surface without requiring generated run products",
+    )
     reproduce = sub.add_parser("reproduce")
     reproduce.add_argument("--dry-run", action="store_true")
     reproduce.add_argument("--no-resume", action="store_true")
     reproduce.add_argument("--skip-setup", action="store_true")
-    reproduce.add_argument("--data-s1", type=Path, default=CANONICAL_DATA_S1,
-                           help="Analysis colour table; default is the frozen Data_S1.csv")
     return parser
 
 
@@ -453,11 +440,10 @@ def main() -> int:
         dry_run=bool(getattr(args, "dry_run", False)),
         resume=not bool(getattr(args, "no_resume", False)),
         skip_setup=bool(getattr(args, "skip_setup", False)),
-        data_s1=getattr(args, "data_s1", CANONICAL_DATA_S1),
     )
     try:
         if args.command == "audit":
-            pipeline.audit()
+            pipeline.audit(structure_only=bool(getattr(args, "structure_only", False)))
         else:
             pipeline.reproduce()
         return 0

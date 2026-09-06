@@ -24,7 +24,13 @@ config_path <- arg_value("--config", "config/bombus_sdm.yml")
 occurrence_dir <- arg_value("--occurrence-dir", "results/bombus_occurrence_snapshot")
 raster_dir <- arg_value("--raster-dir", "data/processed/rasters")
 output_dir <- arg_value("--output-dir", "results/bombus_sdm_source_build")
-flower_data <- arg_value("--flower-data", "Data_S1.csv")
+flower_data <- arg_value(
+  "--flower-data",
+  "results/source_reconstruction/Data_S1_from_zenodo.csv"
+)
+if (!file.exists(flower_data)) {
+  stop("Canonical generated flower table not found: ", flower_data, call. = FALSE)
+}
 seed_override <- arg_value("--seed", NA_character_)
 
 cfg <- yaml::read_yaml(config_path)
@@ -185,9 +191,9 @@ for (i in seq_len(nrow(species))) {
 }
 write_csv(do.call(rbind, occurrence_manifest), file.path(output_dir, "occurrence_input_manifest.csv"))
 
-# Genus-wide target-group background.  Using all Bombus occurrence cells makes
+# Genus-wide target-group background. Using all Bombus occurrence cells makes
 # the background a proxy for where bumblebees have been recorded under the same
-# heterogeneous GBIF observation process.  It is not interpreted as absence.
+# heterogeneous GBIF observation process. It is not interpreted as absence.
 tg_path <- file.path(occurrence_dir, "bombus_target_group_gbif.csv")
 if (!file.exists(tg_path)) stop("Missing genus-wide Bombus target-group snapshot: ", tg_path, call. = FALSE)
 tg <- readr::read_csv(tg_path, show_col_types = FALSE)
@@ -215,7 +221,7 @@ if (nrow(tg_xy) < as.integer(cfg$background$minimum_n)) {
   stop("Too few genus-wide target-group cells: ", nrow(tg_xy), call. = FALSE)
 }
 
-# A single response-blind predictor screen is shared by all five species.  This
+# A single response-blind predictor screen is shared by all five species. This
 # keeps broad and alpine taxa on the same environmental feature basis rather
 # than allowing species-specific variable screens to create artificial model
 # differences.
@@ -276,9 +282,6 @@ for (i in seq_len(nrow(species))) {
   }
   occ_cells_i <- terra::cellFromXY(env_kept[[1]], as_xy(occ_i))
 
-  # Same target-group sampling universe for every species, excluding only the
-  # focal species' occupied predictor cells.  A deterministic sample is taken
-  # only when the target-group pool exceeds the configured cap.
   bg_pool <- tg_xy[!tg_xy$cell %in% occ_cells_i, c("lon", "lat", "cell"), drop = FALSE]
   bg_pool <- bg_pool[order(bg_pool$cell, bg_pool$lon, bg_pool$lat), , drop = FALSE]
   bg_seed <- stage_seed(i, 21L, sh, "target_group_background")
@@ -386,10 +389,6 @@ write_csv(metrics_table, file.path(output_dir, "bombus_sdm_manifest.csv"))
 write_csv(warning_table, file.path(output_dir, "ENMeval_warnings.csv"))
 write_csv(seed_table, file.path(output_dir, "seed_registry.csv"))
 
-# AUC is reported as a model diagnostic, not as a cross-species biological
-# weight.  With only five focal species the relationship with range breadth is
-# descriptive; it is useful for recognizing that broad environmental niches are
-# intrinsically harder to discriminate from a common background.
 auc_diag <- metrics_table[
   is.finite(metrics_table$auc_val_avg) &
     is.finite(metrics_table$occurrence_hull_km2) &
@@ -420,37 +419,35 @@ raster_inputs <- data.frame(
 )
 write_csv(raster_inputs, file.path(output_dir, "raster_input_manifest.csv"))
 
-if (file.exists(flower_data)) {
-  flowers <- readr::read_csv(flower_data, show_col_types = FALSE)
-  if (all(c("longitude", "latitude") %in% names(flowers))) {
-    points <- terra::vect(
-      data.frame(
-        longitude = as.numeric(flowers$longitude),
-        latitude = as.numeric(flowers$latitude)
-      ),
-      geom = c("longitude", "latitude"), crs = "EPSG:4326"
-    )
-    coverage <- data.frame(
-      observation_index = seq_len(nrow(flowers)),
-      stringsAsFactors = FALSE
-    )
-    for (sh in species$short) {
-      r <- terra::rast(file.path(prediction_dir, paste0(sh, ".tif")))
-      value <- terra::extract(r, points, method = "bilinear", ID = FALSE)[[1]]
-      coverage[[sh]] <- as.numeric(value)
-    }
-    coverage$all_five_finite <- stats::complete.cases(coverage[species$short])
-    write_csv(coverage, file.path(output_dir, "flower_prediction_coverage.csv"))
-    write_csv(data.frame(
-      metric = c(paste0("finite_", species$short), "all_five_finite", "flower_rows"),
-      n = c(
-        vapply(species$short, function(sh) sum(is.finite(coverage[[sh]])), integer(1)),
-        sum(coverage$all_five_finite),
-        nrow(flowers)
-      ),
-      stringsAsFactors = FALSE
-    ), file.path(output_dir, "flower_prediction_coverage_summary.csv"))
+flowers <- readr::read_csv(flower_data, show_col_types = FALSE)
+if (all(c("longitude", "latitude") %in% names(flowers))) {
+  points <- terra::vect(
+    data.frame(
+      longitude = as.numeric(flowers$longitude),
+      latitude = as.numeric(flowers$latitude)
+    ),
+    geom = c("longitude", "latitude"), crs = "EPSG:4326"
+  )
+  coverage <- data.frame(
+    observation_index = seq_len(nrow(flowers)),
+    stringsAsFactors = FALSE
+  )
+  for (sh in species$short) {
+    r <- terra::rast(file.path(prediction_dir, paste0(sh, ".tif")))
+    value <- terra::extract(r, points, method = "bilinear", ID = FALSE)[[1]]
+    coverage[[sh]] <- as.numeric(value)
   }
+  coverage$all_five_finite <- stats::complete.cases(coverage[species$short])
+  write_csv(coverage, file.path(output_dir, "flower_prediction_coverage.csv"))
+  write_csv(data.frame(
+    metric = c(paste0("finite_", species$short), "all_five_finite", "flower_rows"),
+    n = c(
+      vapply(species$short, function(sh) sum(is.finite(coverage[[sh]])), integer(1)),
+      sum(coverage$all_five_finite),
+      nrow(flowers)
+    ),
+    stringsAsFactors = FALSE
+  ), file.path(output_dir, "flower_prediction_coverage_summary.csv"))
 }
 
 all_files <- list.files(output_dir, recursive = TRUE, full.names = TRUE)

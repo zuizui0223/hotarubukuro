@@ -94,6 +94,12 @@ Pigmentation state passes both steps, with Temperature PC1 supplying the ecologi
 
 ## Implementation
 
-- script: `scripts/fit_broad_supported_term_distance_space_null.R`;
-- workflow: `.github/workflows/broad-supported-term-distance-space-null.yml`;
-- output directory: `results/broad_supported_term_distance_space_null/`.
+Current executable route:
+
+- `run_pipeline.py`;
+- `scripts/build_fixed_space_null_cache.R`;
+- `scripts/fit_broad_supported_term_distance_space_null.R`.
+
+Current output directory: `results/broad_supported_term_distance/`.
+
+The historical one-off workflow name is not an active entry point; Git history retains that execution provenance.

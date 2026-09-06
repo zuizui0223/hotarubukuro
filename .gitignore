@@ -1,26 +1,22 @@
-# Local analysis state
-.tmp/
-.paper-pipeline/
-.repro_cache/
-graphify-out/
-.Rhistory
-.RData
-.Rproj.user/
+# Python / R local state
 __pycache__/
 *.egg-info/
 build/
 dist/
-local_outputs/
-source_bombus/
-final8-artifact/
+.Rhistory
+.RData
+.Rproj.user/
 
-# Rendered reports and user-facing binaries
-*.html
-*_files/
-*.docx
-*.xlsx
+# Reproducibility caches and generated public-source rasters
+.repro_cache/
+data/cache/
+data/processed/
 
-# Private manuscript/submission materials must remain outside the public repository
+# Active run products; only the directory note is tracked
+results/*
+!results/README.md
+
+# Private manuscript/submission material is outside this public analysis repo
 paper/
 submission/
 manuscript/
@@ -28,25 +24,16 @@ manuscript/
 *cover_letter*
 *title_page*
 *submission_bundle*
+*.docx
+*.xlsx
 
-# Private/frozen paper-level payloads
-reproducibility/frozen_inputs/
+# Large generated/downloaded formats
 *.zip
-
-# Active run products. The repository tracks only README placeholders.
-results/*
-!results/README.md
-manuscript/figures/*
-
-# Large intermediate formats
 *.tif
 *.tiff
 *.rds
 *.log
 
-# Superseded local drafts retained outside the active pipeline
-ANALYSIS_REVIEW*.md
-COMMUNITY_THRESHOLD_DESIGN_V13.md
-MANUSCRIPT_STORY_V10.md
-TRANSITION_ZONE_DESIGN_V12.md
-final_v10.Rmd
+# Local rendered reports
+*.html
+*_files/

@@ -1,4 +1,4 @@
-source(file.path("R", "analysis_cells.R"))
+source(testthat::test_path("..", "..", "R", "analysis_cells.R"))
 
 testthat::test_that("rank helpers are deterministic", {
   testthat::expect_equal(ac_rank01(c(10, 20, 30)), c(0, 0.5, 1))

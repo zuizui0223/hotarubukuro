@@ -6,12 +6,6 @@ repo_root <- normalizePath(file.path(dirname(script_path), ".."), winslash = "/"
 source(file.path(repo_root, "R", "pipeline_support.R"))
 arg_value <- function(flag, default = "") hb_arg_value(args, flag, default)
 as_bool <- hb_as_bool
-# INLA is in this stage's package group because the stage can fit an INLA model,
-# but --run-inla=false means it will not. Requiring it unconditionally makes
-# every use of this script — including building the analysis table and auditing
-# the complete-case filter, neither of which touches a model — depend on a
-# third-party download host being reachable. The requirement is therefore tied
-# to what the run actually does. When --run-inla is true, nothing changes.
 fits_inla <- as_bool(arg_value("--run-inla", "true"))
 stage_packages <- unique(unlist(
   hb_package_groups[hb_stage_packages[["phenotype"]]], use.names = FALSE
@@ -21,12 +15,18 @@ hb_require_packages(stage_packages)
 hb_load_modules("phenotype", root = repo_root)
 
 anomaly_csv <- arg_value("--anomaly-csv", Sys.getenv("HOTARUBUKURO_ANOMALY_CSV"))
-raw_colour_csv <- arg_value("--raw-colour-csv", file.path(repo_root, "Data_S1.csv"))
+raw_colour_csv <- arg_value(
+  "--raw-colour-csv",
+  file.path(repo_root, "results", "source_reconstruction", "Data_S1_from_zenodo.csv")
+)
 bombus_dir <- arg_value("--bombus-dir", Sys.getenv("HOTARUBUKURO_BOMBUS_DIR"))
 output_dir <- arg_value("--output-dir", file.path(repo_root, "results", "ecological_v2"))
 
 if (!nzchar(anomaly_csv) || !file.exists(anomaly_csv)) {
   stop("Supply --anomaly-csv or HOTARUBUKURO_ANOMALY_CSV.", call. = FALSE)
+}
+if (!file.exists(raw_colour_csv)) {
+  stop("Canonical generated colour table not found: ", raw_colour_csv, call. = FALSE)
 }
 if (!nzchar(bombus_dir) || !dir.exists(bombus_dir)) {
   stop("Supply --bombus-dir or HOTARUBUKURO_BOMBUS_DIR. It must contain fresh ENMeval predictions.",

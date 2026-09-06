@@ -128,7 +128,9 @@ jobs:
           Rscript tests/testthat.R
 
   raw-zenodo-reproduction:
-    if: github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction
+    # PR #70 performs one final proof that the sole canonical source can rebuild
+    # the exact historical public-table bytes before the committed CSV is removed.
+    if: (github.event_name == 'pull_request' && github.event.pull_request.number == 70) || (github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction)
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:

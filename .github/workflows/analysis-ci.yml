@@ -184,7 +184,8 @@ jobs:
           PY
 
   raw-zenodo-reproduction:
-    if: github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction
+    # PR #70 performs the one-time raw-source proof before this returns to manual-only.
+    if: (github.event_name == 'pull_request' && github.event.pull_request.number == 70) || (github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction)
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:

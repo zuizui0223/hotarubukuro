@@ -3,14 +3,15 @@
 
 The full extractor CSV intentionally remains rich: it contains candidate colour
 statistics, sensitivity diagnostics, QC notes and the run-time ``processed_at``
-field.  The downstream publication analysis does not need that entire technical
-surface.  This builder therefore emits a small, explicit schema containing only
+field. The downstream publication analysis does not need that entire technical
+surface. This builder therefore emits a small, explicit schema containing only
 observation identity/provenance, the primary colour measurement, eligibility/QC
 fields and the image-quality covariates actually read downstream.
 
 No row-order join is used. Each record keeps its immutable ``observation_id``.
-The resulting table contains no run-time timestamp and normalises numeric text,
-so the same raw workbook produces a deterministic analysis input.
+The resulting table contains no run-time timestamp, sorts by observation ID and
+normalises numeric text, so the same raw workbook produces one deterministic
+analysis input.
 """
 
 from __future__ import annotations
@@ -118,7 +119,8 @@ def _finite_float(value: Any, column: str) -> float:
     return number
 
 
-def _canonical_numeric(value: Any, column: str) -> str:
+def canonical_numeric(value: Any, column: str) -> str:
+    """Return stable text for a numeric analysis-table value."""
     text = _normalise(value)
     if not text:
         return ""
@@ -200,7 +202,7 @@ def materialize_rows(
             raise ValueError(f"duplicate observation_id: {observation_id}")
         observation_ids.add(observation_id)
 
-        source_row_text = _canonical_numeric(source.get("source_row"), "source_row")
+        source_row_text = canonical_numeric(source.get("source_row"), "source_row")
         source_row = int(source_row_text)
         if source_row in source_rows:
             raise ValueError(f"duplicate source_row: {source_row}")
@@ -252,9 +254,10 @@ def materialize_rows(
             ),
         )
         for column in NUMERIC_COLUMNS:
-            row[column] = _canonical_numeric(source.get(column), column)
+            row[column] = canonical_numeric(source.get(column), column)
         output_rows.append({column: row.get(column, "") for column in PUBLIC_ANALYSIS_COLUMNS})
 
+    output_rows.sort(key=lambda row: row["observation_id"])
     return list(PUBLIC_ANALYSIS_COLUMNS), output_rows
 
 

@@ -26,12 +26,18 @@ occurrence_dir <- arg_value("--occurrence-dir", Sys.getenv("HOTARUBUKURO_BOMBUS_
 output_dir <- arg_value(
   "--output-dir", file.path(repo_root, "results", "ecological_v10_final_mechanism_HRNA")
 )
-raw_colour_csv <- arg_value("--raw-colour-csv", file.path(repo_root, "Data_S1.csv"))
+raw_colour_csv <- arg_value(
+  "--raw-colour-csv",
+  file.path(repo_root, "results", "source_reconstruction", "Data_S1_from_zenodo.csv")
+)
+if (!file.exists(raw_colour_csv)) {
+  stop("Canonical generated colour table not found: ", raw_colour_csv, call. = FALSE)
+}
 if (!nzchar(occurrence_dir) || !dir.exists(occurrence_dir)) {
   stop(
     "Supply --occurrence-dir or HOTARUBUKURO_BOMBUS_OCCURRENCE_DIR. ",
     "It must contain the five frozen *_gbif.csv files produced by ",
-    "scripts/fetch_bombus_occurrences.R.",
+    "source_build/fetch_bombus_occurrences.R.",
     call. = FALSE
   )
 }

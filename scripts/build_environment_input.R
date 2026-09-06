@@ -7,9 +7,13 @@ arg_value <- function(flag, default = "") hb_arg_value(args, flag, default)
 hb_require_stage_packages("environment_input")
 hb_load_modules("environment_input")
 
-raw_csv <- arg_value("--raw-colour-csv", "Data_S1.csv")
+raw_csv <- arg_value(
+  "--raw-colour-csv",
+  "results/source_reconstruction/Data_S1_from_zenodo.csv"
+)
 cache_root <- arg_value("--cache-root", Sys.getenv("HOTARUBUKURO_PUBLIC_CACHE"))
 output_csv <- arg_value("--output-csv", "results/ecological_input_v2.csv")
+if (!file.exists(raw_csv)) stop("Canonical generated colour table not found: ", raw_csv, call. = FALSE)
 if (!dir.exists(cache_root)) stop("Public environment cache not found: ", cache_root, call. = FALSE)
 
 find_one <- function(pattern) {
@@ -75,7 +79,6 @@ pca_axis <- function(data, variables, axis_name) {
     cc <- stats::complete.cases(X)
     fit <- stats::prcomp(X[cc, , drop = FALSE], center = TRUE, scale. = TRUE)
     score[cc] <- fit$x[, 1]
-    # Fix arbitrary PCA sign so the first named variable has positive loading.
     if (fit$rotation[1, 1] < 0) {
       score <- -score
       fit$rotation[, 1] <- -fit$rotation[, 1]
@@ -96,8 +99,6 @@ pca_components <- function(data, variables, axis_names) {
   }
   fit <- stats::prcomp(X[cc, , drop = FALSE], center = TRUE, scale. = TRUE)
   for (j in seq_along(axis_names)) {
-    # Fix each arbitrary component sign by making its largest absolute loading
-    # positive; this changes labels, never fitted values or model comparisons.
     anchor <- which.max(abs(fit$rotation[, j]))
     if (fit$rotation[anchor, j] < 0) {
       fit$rotation[, j] <- -fit$rotation[, j]

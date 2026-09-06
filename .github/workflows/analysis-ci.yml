@@ -6,13 +6,8 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      full_reproduction:
-        description: "Run the full public-source analysis reconstruction"
-        required: false
-        default: false
-        type: boolean
       raw_zenodo_reproduction:
-        description: "Start from the image-bearing Zenodo workbook and run through final analyses"
+        description: "Rebuild from the image-bearing Zenodo workbook and run all retained analyses"
         required: false
         default: false
         type: boolean
@@ -33,28 +28,41 @@ jobs:
       - name: Install Python test surface
         run: python -m pip install -e '.[test]'
 
-      - name: Fixed-input audit, raw-bootstrap graph, full stage graph, and tests
+      - name: Validate canonical command graph and Python contracts
         run: |
-          python -m py_compile run_pipeline.py source_build/extract_color.py source_build/build_data_s1.py source_build/reproduce_from_zenodo.py hotarubukuro_analysis/*.py
+          python -m py_compile \
+            run_pipeline.py \
+            source_build/source_contract.py \
+            source_build/extract_color.py \
+            source_build/build_data_s1.py \
+            source_build/reproduce_from_zenodo.py
           python source_build/reproduce_from_zenodo.py --dry-run --run-analysis --skip-analysis-setup
-          python run_pipeline.py audit
+          python run_pipeline.py audit --structure-only
           python run_pipeline.py reproduce --dry-run --skip-setup
           pytest
 
-      - name: Reject superseded analysis entry points
+      - name: Reject removed and alternative analysis surfaces
         shell: bash
         run: |
-          test ! -e Code_S1.py
-          test -f legacy/Code_S1_georeference.py
-          test ! -d analysis_sensitivity
-          for f in \
+          for path in \
+            Data_S1.csv \
+            Code_S1.py \
+            legacy \
+            inputs \
+            validation \
+            hotarubukuro_analysis \
+            analysis_sensitivity \
+            config/color_extraction.json \
+            source_build/audit_bombus_extraction.R \
+            source_build/canonicalize_bombus_occurrences.R \
             scripts/run_multiscale_hotspots.R \
             scripts/run_human_landscape_features.R \
             scripts/run_local_human_context.R \
             scripts/run_did_sensitivity.R \
             scripts/fit_broad_spatial_inertia_environment_tracking.R; do
-            test ! -e "$f"
+            test ! -e "$path"
           done
+          ! grep -R "Data_S1.csv" run_pipeline.py source_build scripts R pyproject.toml
 
   r-contract:
     runs-on: ubuntu-24.04
@@ -113,47 +121,13 @@ jobs:
           cat("PASS complete retained R surface parse\n")
           RS
 
-  full-reproduction:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.full_reproduction)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 360
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Read pinned R version
-        id: r-version
-        shell: bash
-        run: echo "version=$(tr -d '\r\n' < dependencies/r-version.txt)" >> "$GITHUB_OUTPUT"
-
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: ${{ steps.r-version.outputs.version }}
-          use-public-rspm: true
-
-      - name: Install declared system libraries
+      - name: Run retained R unit tests
         shell: bash
         run: |
-          sudo apt-get update
-          grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs sudo apt-get install -y
-
-      - name: Run one-command public analysis reconstruction
-        run: python run_pipeline.py reproduce --no-resume
-
-      - name: Show reconstruction manifest
-        if: always()
-        shell: bash
-        run: |
-          if [ -f results/analysis_reproduction/run_manifest.json ]; then
-            cat results/analysis_reproduction/run_manifest.json
-          fi
+          Rscript -e 'install.packages("testthat", repos = getOption("repos"))'
+          Rscript tests/testthat.R
 
   raw-zenodo-reproduction:
-    # The 109.7 MB image-bearing workbook makes this an intentionally opt-in
-    # verification path. The ordinary PR contract still dry-runs its full graph.
     if: github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction
     runs-on: ubuntu-24.04
     timeout-minutes: 360
@@ -167,7 +141,7 @@ jobs:
       - name: Install Python package
         run: python -m pip install -e '.[test]'
 
-      - name: Rebuild and audit Data_S1 directly from Zenodo images
+      - name: Rebuild and exact-contract validate the canonical table from Zenodo
         run: python source_build/reproduce_from_zenodo.py
 
       - name: Show raw-source audit
@@ -194,10 +168,8 @@ jobs:
           sudo apt-get update
           grep -vE '^\s*(#|$)' dependencies/apt-packages.txt | xargs sudo apt-get install -y
 
-      - name: Run downstream pipeline from the rebuilt Zenodo-derived table
-        run: >-
-          python run_pipeline.py reproduce --no-resume
-          --data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv
+      - name: Run the retained pipeline from the generated canonical table
+        run: python run_pipeline.py reproduce --no-resume
 
       - name: Show downstream analysis manifest
         if: always()

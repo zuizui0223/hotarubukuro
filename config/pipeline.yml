@@ -1,6 +1,16 @@
-version: 3
-pipeline_version: submission-2026-08-19
+version: 4
+pipeline_version: submission-2026-09-06-zenodo-canonical
 entrypoint: run_pipeline.py
+
+canonical_source:
+  type: zenodo_image_workbook
+  record: "22334596"
+  doi: 10.5281/zenodo.22334596
+  filename: Supplementary_Table_S1.xlsx
+  md5: a923616e45f10f24a5463eefd09b06dd
+  bootstrap: source_build/reproduce_from_zenodo.py
+  generated_table: results/source_reconstruction/Data_S1_from_zenodo.csv
+  contract: reproducibility/source_contract.json
 
 paths:
   source_registry: config/raster_sources.csv
@@ -42,10 +52,17 @@ analysis_unit:
   expected_cells: 1305
   expected_pigmented_cells: 674
   expected_white_cells: 631
+
 responses:
   state: pigmented_mixture50
   intensity: pigment_intensity_z
+
 stages:
+  - id: source_reconstruction
+    scripts:
+      - source_build/extract_color.py
+      - source_build/build_data_s1.py
+      - source_build/source_contract.py
   - id: phenotype
     script: scripts/run_phenotype_hurdle.R
   - id: analysis_cells
@@ -69,12 +86,17 @@ stages:
     human_context: WorldPop
     population_radii_km: [0, 5, 10, 25, 50]
     natural_map_draws: 10000
+
 seed: 20260725
+
 claim_policy:
   broad: confirmatory
   local_bombus: scale_matched_association_not_selection_pressure
   human_context: exploratory_association_not_provenance_or_causation
+
 excluded_legacy:
+  - committed_derived_colour_input
+  - historical_gpx_code_s1
   - hotspot_candidate_ranking
   - sixteen_event_local_departure_detector
   - did_human_context

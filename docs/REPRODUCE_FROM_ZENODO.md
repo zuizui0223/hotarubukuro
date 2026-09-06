@@ -1,49 +1,41 @@
 # Reproduce from the raw Zenodo workbook
 
-This is the public **zero-to-analysis** route for the paper. It starts from the image-bearing workbook deposited at Zenodo rather than from the already-derived `Data_S1.csv` committed in this repository.
+This is the **only canonical data route** for the paper. The repository does not commit a derived colour CSV as an analysis input.
 
-## Frozen raw source
+## Frozen source and exact-output contract
+
+Raw source:
 
 - Zenodo record: <https://zenodo.org/records/22334596>
 - DOI: `10.5281/zenodo.22334596`
-- File: `Supplementary_Table_S1.xlsx`
-- Published record size: about 109.7 MB
-- Frozen MD5: `a923616e45f10f24a5463eefd09b06dd`
-- Expected observations after reconstruction: `1965`
+- file: `Supplementary_Table_S1.xlsx`
+- frozen MD5: `a923616e45f10f24a5463eefd09b06dd`
+- expected observations: `1965`
 
-The bootstrap refuses to continue if the downloaded workbook does not match the frozen MD5.
+The generated public table is checked against [`reproducibility/source_contract.json`](../reproducibility/source_contract.json). That small contract stores the expected Git blob of the deterministic public table, plus row/schema/QC invariants. The historical derived CSV itself is not kept in the active tree.
 
-## What is reconstructed
-
-The route is:
+## Exact chain
 
 ```text
 Zenodo Supplementary_Table_S1.xlsx
-  -> embedded photo associated with its workbook row/cell
+  -> embedded photograph bound to its workbook cell
   -> source_build/extract_color.py
-  -> deterministic petal mask + RGB / CIELAB summaries + QC
   -> results/source_reconstruction/colour_extraction_from_zenodo.csv
   -> source_build/build_data_s1.py
-  -> deterministic public Data_S1 contract
   -> results/source_reconstruction/Data_S1_from_zenodo.csv
-  -> downstream-input equivalence audit against frozen Data_S1.csv
-  -> run_pipeline.py reproduce --data-s1 Data_S1_from_zenodo.csv
-  -> final publication analyses driven by the rebuilt table itself
+  -> source_build/source_contract.py
+  -> exact validation against reproducibility/source_contract.json
+  -> run_pipeline.py reproduce
+  -> retained publication analyses
 ```
 
-The cell-to-image association is not a positional join. `source_build/extract_color.py` resolves Excel in-cell rich images directly from OOXML relationships and binds each image to its workbook cell before emitting the immutable `observation_id`.
+`source_build/extract_color.py` resolves Excel in-cell rich images directly from OOXML relationships. It does not attach photographs to observations by row-order joining.
 
-`source_build/build_data_s1.py` then materializes the public analysis-table contract from that verified extraction. This stage restores deterministic site/grid identifiers and the provenance/QC fields expected by the retained analysis without using row-order joins.
+`source_build/build_data_s1.py` materializes deterministic public fields, including site/grid identifiers and QC/provenance states. It writes LF line endings explicitly, so the output Git blob is platform-independent.
 
-The equivalence audit is deliberately broader than an RGB check. It compares immutable observation IDs and, where present in the frozen analysis input, the fields that can change the retained downstream analysis: `R/G/B`, median RGB, coordinates, date, QC/review status, duplicate-image identity, overexposure state, image hash, mask pixels and visible-mask fraction, site/grid identifiers and coordinate/source provenance. Run-specific fields such as processing timestamps and QC output paths are not used as equality criteria.
+The old root-level `Code_S1.py` was a GPX/photo-time georeferencing utility. It was never the active image-colour extractor and is retained only in Git history.
 
-## Active code and historical `Code_S1.py`
-
-The active image-colour reconstruction is `source_build/extract_color.py` followed by `source_build/build_data_s1.py`.
-
-The former root-level `Code_S1.py` is a **GPX photo-time georeferencing utility**, not the image-colour extractor. It is retained only for provenance at `legacy/Code_S1_georeference.py` and is outside the active publication analysis path. Git history preserves the original root location.
-
-## 1. Clone and install Python dependencies
+## 1. Clone and install
 
 ```bash
 git clone https://github.com/zuizui0223/hotarubukuro.git
@@ -54,72 +46,74 @@ python -m pip install --upgrade pip
 python -m pip install -e '.[test]'
 ```
 
-The standard package dependencies include `numpy`, `Pillow` and `openpyxl`; no separate Excel extra is required for the public raw route. The image-bearing XLSX is read through OOXML-aware code and is not joined to a separate table by row order.
+The Python dependencies needed for the raw workbook route include `numpy`, `Pillow` and `openpyxl`.
 
-## 2. Inspect the complete command without downloading anything
+## 2. Inspect the command graph
 
 ```bash
 python source_build/reproduce_from_zenodo.py --dry-run --run-analysis
 ```
 
-This prints the frozen Zenodo URL/checksum, the exact colour-extraction and Data_S1-materialization commands, and the downstream command. The downstream command includes `--data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv`, which is the key guarantee that the reconstructed table itself enters the analysis graph.
+This prints the Zenodo source/checksum, extraction command, public-table materialization command, exact-contract validation target and the downstream pipeline command. No network access or analysis is performed in dry-run mode.
 
-## 3. Rebuild the colour table from Zenodo
+## 3. Rebuild the canonical table
 
 ```bash
 python source_build/reproduce_from_zenodo.py
 ```
 
-The script will:
+The bootstrap will:
 
-1. download the workbook to `.repro_cache/zenodo/Supplementary_Table_S1.xlsx`;
-2. verify the Zenodo MD5;
-3. run the deterministic workbook image extractor;
-4. write masks/overlays/QC material under `results/source_reconstruction/qc/`;
-5. write `results/source_reconstruction/colour_extraction_from_zenodo.csv`;
-6. run `source_build/build_data_s1.py` to materialize the public analysis-table contract;
-7. write `results/source_reconstruction/Data_S1_from_zenodo.csv`;
-8. compare the reconstructed table against frozen `Data_S1.csv` by `observation_id` and the downstream-relevant input contract described above;
-9. write `results/source_reconstruction/zenodo_rebuild_audit.json`.
+1. download the Zenodo workbook to `.repro_cache/zenodo/` unless a verified copy is already cached;
+2. verify the workbook MD5;
+3. extract workbook images and colour/QC measurements;
+4. write `results/source_reconstruction/colour_extraction_from_zenodo.csv`;
+5. materialize `results/source_reconstruction/Data_S1_from_zenodo.csv`;
+6. validate row count, schema, unique observation IDs, numeric bounds and QC counts;
+7. require the generated table Git blob to equal the frozen exact-output blob in `reproducibility/source_contract.json`;
+8. write `results/source_reconstruction/zenodo_rebuild_audit.json`.
 
-A mismatch stops the chain. The script does **not** silently replace the committed publication input and it does not enter the final analysis on a failed audit.
+A failed exact contract stops the chain.
 
-### Use a workbook already downloaded manually
+### Use a workbook already downloaded
 
 ```bash
 python source_build/reproduce_from_zenodo.py \
   --workbook /path/to/Supplementary_Table_S1.xlsx
 ```
 
-The local file is still checked against the frozen Zenodo MD5.
+The local workbook is still required to match the frozen Zenodo MD5.
 
-### Re-run extraction deliberately
+### Deliberately overwrite local generated products
 
 ```bash
 python source_build/reproduce_from_zenodo.py --overwrite-output
 ```
 
-Use `--overwrite-download` only when you intentionally want to replace the local Zenodo cache.
+Use `--overwrite-download` only when intentionally replacing the cached workbook.
 
-## 4. Go from the raw workbook all the way to the paper analyses
+## 4. Run from raw source through final analyses
 
 ```bash
 python source_build/reproduce_from_zenodo.py --run-analysis
 ```
 
-The downstream analysis begins only if the rebuilt table passes the downstream-input equivalence audit. It is then passed directly to the retained pipeline as the active analysis input. The committed `Data_S1.csv` remains untouched and continues to serve as the frozen reference contract.
+The analysis starts only after exact-contract validation succeeds. The generated table is then consumed at the fixed path:
 
-Equivalent explicit two-step form:
+```text
+results/source_reconstruction/Data_S1_from_zenodo.csv
+```
+
+There is no `--data-s1` override and no committed derived-data fallback.
+
+Equivalent two-step form:
 
 ```bash
 python source_build/reproduce_from_zenodo.py
-python run_pipeline.py reproduce \
-  --data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv
+python run_pipeline.py reproduce
 ```
 
-`run_pipeline.py` verifies the frozen `Data_S1.csv` contract and the active image-reconstruction source files (`source_build/extract_color.py` and `source_build/build_data_s1.py`). It separately validates the selected analysis table's row count, unique observation IDs and minimum schema. The archived GPX utility is not required by this audit.
-
-The downstream pipeline resumes completed stages by default. To force a clean downstream rerun instead:
+To force all downstream stages to rerun:
 
 ```bash
 python source_build/reproduce_from_zenodo.py \
@@ -128,41 +122,57 @@ python source_build/reproduce_from_zenodo.py \
   --no-resume-analysis
 ```
 
-## 5. Existing faster publication-input route
+## 5. Audit the generated input separately
 
-If you only need to reproduce the analyses from the already reconstructed colour table, the original commands remain valid:
+After reconstruction:
 
 ```bash
 python run_pipeline.py audit
-python run_pipeline.py reproduce
 ```
 
-That route starts from frozen `Data_S1.csv`; it is not the raw-image bootstrap. No `--data-s1` argument is required for the canonical publication-input path.
+Before reconstruction, CI/developers can check only the executable repository surface:
 
-`Data_S1.csv` remains committed deliberately because it is both the frozen comparison target for the zero-from-Zenodo audit and the fast default input for this route.
+```bash
+python run_pipeline.py audit --structure-only
+python run_pipeline.py reproduce --dry-run --skip-setup
+```
 
-## GitHub Actions route
+## GitHub Actions
 
-The repository workflow includes a manual `raw_zenodo_reproduction` option. When selected with **Actions -> submission-analysis-contract -> Run workflow**, GitHub Actions first downloads and rebuilds the Zenodo colour table and checks the downstream-input contract. Only after that succeeds does it install the R/system analysis environment and execute `run_pipeline.py reproduce --data-s1 results/source_reconstruction/Data_S1_from_zenodo.csv`.
+Normal pull-request CI does not repeatedly download the 109.7 MB workbook. It checks the command graph, source-contract logic, Python tests, retained R surface and R unit tests.
 
-Normal pull-request CI dry-runs the raw bootstrap command graph and compiles the active Python source-build surface so ordinary PRs do not repeatedly download the 109.7 MB workbook.
+The workflow has one opt-in end-to-end job, `raw_zenodo_reproduction`. When manually enabled, it performs:
 
-## Outputs to check
+```text
+Zenodo download
+-> raw image reconstruction
+-> exact generated-table contract validation
+-> R/system setup
+-> run_pipeline.py reproduce --no-resume
+```
 
-After raw reconstruction, the main checkpoints are:
+There is no separate full-reproduction job starting from a committed derived CSV.
+
+## Outputs to inspect
+
+Raw reconstruction:
 
 - `results/source_reconstruction/colour_extraction_from_zenodo.csv`
 - `results/source_reconstruction/Data_S1_from_zenodo.csv`
 - `results/source_reconstruction/zenodo_rebuild_audit.json`
 - `results/source_reconstruction/qc/`
 
-After full analysis, `run_pipeline.py` writes its normal stage outputs and `results/analysis_reproduction/run_manifest.json`. The manifest records `analysis_data_s1_path`, its SHA-256, whether the active input was the canonical committed table, and the Git blob identities of the frozen Data_S1 contract and active image-reconstruction source files.
+Full analysis:
+
+- normal stage outputs under `results/`
+- `results/analysis_reproduction/run_manifest.json`
+
+The downstream manifest records the canonical source, source-contract hash, generated table hash/blob and the Git blobs of the active raw-reconstruction source files.
 
 ## Failure interpretation
 
-- **Zenodo MD5 mismatch**: the raw file is not the frozen deposited workbook; do not continue.
-- **Workbook/image-column error**: inspect the workbook schema or supply `--sheet`, `--header-row`, `--image-column`, or `--id-column` explicitly.
-- **1965-row or observation-ID mismatch**: the reconstruction is not equivalent to the publication data contract.
-- **Core numeric mismatch**: RGB or coordinates differ; inspect `zenodo_rebuild_audit.json` before proceeding.
-- **Downstream exact/numeric mismatch**: a date or QC-relevant field differs even if RGB is identical; do not launch the final analysis until the difference is resolved.
-- **Downstream R/public-source error after a successful raw audit**: raw image reconstruction succeeded; diagnose the named retained stage in `run_pipeline.py` separately.
+- **Zenodo MD5 mismatch** — the workbook is not the frozen deposited source; stop.
+- **Workbook/image mapping failure** — inspect workbook schema or explicit `--sheet`, `--header-row`, `--image-column`, `--id-column` values.
+- **Row/schema/QC invariant failure** — the generated public table no longer satisfies the frozen source contract.
+- **Exact Git-blob mismatch** — at least one generated byte differs from the validated historical public table; do not run downstream analyses.
+- **Downstream R/public-source failure after successful exact validation** — raw image reconstruction succeeded; diagnose the named retained pipeline stage separately.

@@ -147,21 +147,22 @@ The audit supports a defensible residual covariance model and a stable measured-
 
 ## Reproducibility
 
-Frozen comparison input:
+Historical comparison provenance:
 
 - workflow `31258851297`;
 - artifact `9022276431`;
 - SHA-256 `0135939a9c66d087ea2fc8e2e00a6e4802927a63b400c2011d63e5b86e004240`.
 
-Executable route:
+Current executable route:
 
-- `scripts/run_broad_environment_spatial_audit.R`;
-- `analysis_sensitivity/run_broad_environment_spatial_audit_wrapper.R`;
-- `.github/workflows/broad-environment-spatial-audit.yml`.
+- `run_pipeline.py` (single orchestrator);
+- `scripts/run_broad_environment_spatial_audit.R` (Broad audit stage).
 
-Final decisions:
+The historical `analysis_sensitivity` wrapper and one-off Broad workflow were removed from the active repository surface after finalization; Git history preserves them.
 
-- `reproducibility/broad_environment_spatial_final_model_2026-08-11.md`;
+Current retained decision records:
+
+- `reproducibility/broad_environment_spatial_final_2026-08-19.md`;
 - `reproducibility/broad_environment_spatial_final_fixed_effects_2026-08-11.csv`;
 - `reproducibility/broad_environment_spatial_final_hyperparameters_2026-08-11.csv`;
-- `submission/jbi/supporting/Appendix_S3_broad_environment_spatial_model.md`.
+- `reproducibility/broad_environment_variable_evidence_registry_2026-08-11.csv`.

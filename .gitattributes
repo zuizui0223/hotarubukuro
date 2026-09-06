@@ -4,4 +4,3 @@
 *.py text eol=lf
 *.R text eol=lf
 *.yml text eol=lf
-paper/active-file-map.csv whitespace=cr-at-eol

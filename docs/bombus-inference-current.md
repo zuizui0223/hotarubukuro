@@ -19,6 +19,12 @@ Manuscript-ready paragraphs and a figure-boundary note: [Bombus constancy and lo
 
 References: [Inoue & Amano (1986)](https://doi.org/10.1111/j.1442-1984.1986.tb00018.x); [Inoue (1988)](https://doi.org/10.1111/j.1442-1984.1988.tb00178.x); [Kobayashi et al. (1997)](https://doi.org/10.1007/s004420050268); [Nagano et al. (2014)](https://doi.org/10.1002/ece3.1191); [Smithson & Macnair (1996)](https://doi.org/10.1046/j.1420-9101.1996.9050571.x); [Smithson & Macnair (1997)](https://doi.org/10.1006/bijl.1996.0104).
 
+## Executed spatial-boundary follow-up (2026-11-07)
+
+The recovered actual 1,305-cell outputs were used to test observed 5-km colour co-clustering under 10,000 regional blockwise label permutations: observed same-label edge fraction 0.80776 on 1,134 edges versus 0.75559 under 50-km block permutations (upper-tail P=0.00010). Of 67 selected sharp 5-km pairs, 66 have only one photograph on at least one side, and only seven have even one other pure same-colour cell within 5 km on *both* sides. This is evidence of **observed local spatial aggregation**, not proof of two reproductively stable monomorphic populations. The directional focal-Bombus mean also weakens in the lower half of environmental-distance pairs (n=34, +0.00259, exploratory P=0.433). Joint full-SPDE spatial-null inference and positive frequency-dependent fitness remain untested.
+
+Full definitions, provenance, and reproducible script: [executed validation](bombus_constancy_executed_probe_2026-11-07.md).
+
 ## Stable inferential labels
 
 **2 species = directional local availability hypothesis.**  

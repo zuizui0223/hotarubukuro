@@ -83,9 +83,9 @@ def calculate(cells_csv, support_csv, pairs_csv, output_dir, nperm=100000):
             'n_cells': len(rows),
             'n_images': nflowers,
             'n_pigmented_images': npig,
-            'pigmented_image_share': npig/nflowers,
-            'mean_cell_pigmented_share': float(prop[q==g].mean()),
-            'sdm_median': float(np.median(score[q==g])),
+            'pigmented_image_share': npig/nflowers if nflowers else float('nan'),
+            'mean_cell_pigmented_share': float(prop[q==g].mean()) if rows else float('nan'),
+            'sdm_median': float(np.median(score[q==g])) if rows else float('nan'),
         })
     pair_results = []
     for km in (5, 10, 25):

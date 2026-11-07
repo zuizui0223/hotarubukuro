@@ -70,6 +70,10 @@ The original reported P = 0.02716 remains **unchanged**. The small subset differ
 
 Importantly, the *positive frequency-dependence hypothesis is symmetric*: it does **not** predict positive signed `delta_occmax` toward the pigmented side. The null directional result in closer environmental pairs therefore does **not** falsify PFDS, but it does weaken the proposed independent directional SDM mechanism.
 
+## Concrete field-validation shortlist recovered from the same table
+
+Exactly **88** 1-km cells contain at least one photographed white and one photographed pigmented flower; **19** contain at least two image observations of **each** colour (five contain at least three of each). The stand-alone script exports these 19 reproducible, location-coded candidates as `mixed_colour_1km_candidate_cells.csv` for **validation of within-population coexistence**, not proof that morphs co-occur on one plant or within a reproductively interacting population. Before a flower-constancy experiment, check photograph identities, dates, distances within each cell, independent observers, taxonomy, and wild versus planted provenance.
+
 ## Inference verdict and next required evidence
 
 1. **Supported as observational description:** 5-km colour clustering beyond coarse regional colour counts, and presence of sharply discordant photographed cells.
@@ -91,6 +95,6 @@ python scripts/check_bombus_constancy_probe.py \
   --nperm 10000 --seed 20261107
 ```
 
-It produces `summary.json`, `block_permutations.csv`, `boundary_context.csv` and `bombus_subset_sensitivity.csv`. No existing pipeline estimator is altered.
+It produces `summary.json`, `block_permutations.csv`, `boundary_context.csv` , `bombus_subset_sensitivity.csv` and `mixed_colour_1km_candidate_cells.csv`. No existing pipeline estimator is altered.
 
 Citations for mechanism: Smithson & Macnair 1996 and 1997 on *Bombus terrestris* artificial-flower frequency dependence. Applicability to *C. punctata* pigmentation is an untested biological assumption. Inoue & Amano 1986, Kobayashi et al. 1997 and Nagano et al. 2014 support mainland bumblebee pollination importance, **not floral colour choice**.

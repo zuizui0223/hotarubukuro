@@ -1,6 +1,8 @@
 # Bumblebee flower constancy as a hypothesis for sharp local flower-colour boundaries
 
-**Status:** manuscript-ready ecological framing, **not a new test or positive finding**. Prepared against `main` as of 2026-11-07. Retain existing frozen 67-pair calculations, figure labels, and inferential ceilings unchanged.
+**Status:** mechanistic hypothesis accompanied by an executed observational spatial-clustering probe, **not a demonstrated frequency-dependent selection mechanism**. Retain the existing frozen 67-pair primary calculations, figures, and inferential ceilings unchanged.
+
+**Empirical follow-up (2026-11-07):** An independent reanalysis of retained 1,305-cell and 67-pair artifacts is documented in [Executed local-colour clustering and boundary probe](bombus_constancy_executed_probe_2026-11-07.md). At 5 km, 916/1,134 observed cell edges share the same binary colour (80.8% vs 75.6% from 10,000 region-block label shuffles; upper-tail P=0.00010). However, 66/67 previously selected sharp boundary pairs have only one sampled flower on at least one side, and the signed focal-Bombus mean falls to +0.00259 (exploratory P=0.433) in the more environmentally similar half of pairs. **These are actual tests of spatial arrangement and data support; they are NOT a direct test of flower constancy or frequency-dependent fitness.**
 
 ## Why the natural history makes the hypothesis worth testing
 

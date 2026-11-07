@@ -65,4 +65,4 @@ At a site where both morphs can be presented under the same environment, constru
 4. Inoue K (1988). Pattern of breeding-system change in the Izu Islands in *Campanula punctata*: bumblebee-absence hypothesis. *Plant Species Biology* 3:125–128. https://doi.org/10.1111/j.1442-1984.1988.tb00178.x
 5. Smithson A, Macnair MR (1996). Frequency-dependent selection by pollinators: mechanisms and consequences with regard to behaviour of bumblebees *Bombus terrestris*. *Journal of Evolutionary Biology* 9:571–588. https://doi.org/10.1046/j.1420-9101.1996.9050571.x
 6. Smithson A, Macnair MR (1997). Density-dependent and frequency-dependent selection by bumblebees *Bombus terrestris*. *Biological Journal of the Linnean Society* 60:401–417. https://doi.org/10.1006/bijl.1996.0104
-7. Sapir Y et al. (2021). Flower Color Evolution and the Evidence of Pollinator-Mediated Selection. *Frontiers in Plant Science* 12:617851. https://doi.org/10.3389/fpls.2021.617851
+7. Trunschke J, Lunau K, Pyke GH, Ren Z-X, Wang H (2021). Flower Color Evolution and the Evidence of Pollinator-Mediated Selection. *Frontiers in Plant Science* 12:617851. https://doi.org/10.3389/fpls.2021.617851

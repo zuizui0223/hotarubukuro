@@ -322,14 +322,9 @@ class Pipeline:
              "100000", "--seed", "20260808", "--output", "results/bombus_local_boundaries"],
             ["results/bombus_local_boundaries/sharp_transition_summary.csv"],
         )
-        self.run(
-            "bombus_spatial_guardrail",
-            ["Rscript", "scripts/run_bombus_spatial_replication_test.R", "--cells", cells, "--support", support,
-             "--radii", "5,10,25", "--background-windows", "25,50,100", "--control-counts", "10,20,50",
-             "--k", "5", "--randomisations", "100000", "--seed", "20260809", "--output",
-             "results/bombus_spatial_guardrail"],
-            ["results/bombus_spatial_guardrail/interpretation_summary.csv"],
-        )
+        # Historical Bombus spatial/elevation guardrail is not part of the
+        # current SDM-only pollinator estimand. Its source remains in Git
+        # history and as an opt-in supplementary script, not a required stage.
         self.run(
             "build_broad_landscape_context",
             ["Rscript", "scripts/build_broad_landscape_context.R", "--observations", phenotype, "--mlit-dir",

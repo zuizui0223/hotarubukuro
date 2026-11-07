@@ -159,10 +159,22 @@ def analyze(cells_path, pairs_path, output_dir, nperm=10000, seed=20261107):
     pd.DataFrame(sensitivity).to_csv(
         out / "bombus_subset_sensitivity.csv", index=False
     )
+    # Field-check candidates only: both observed states at least twice within
+    # one 1-km grid cell; these need not be the same biological population.
+    mixed = cells.loc[(cells.n_pigmented >= 2) & (cells.n_white >= 2)].copy()
+    mixed["min_colour_count"] = mixed[["n_pigmented", "n_white"]].min(axis=1)
+    mixed["observed_pigmented_fraction"] = mixed.n_pigmented / mixed.n_observations
+    mixed.sort_values(["min_colour_count", "n_observations"], ascending=False,
+                      inplace=True)
+    mixed[["exact_site_id", "longitude", "latitude", "n_observations",
+           "n_pigmented", "n_white", "min_colour_count",
+           "observed_pigmented_fraction"]].to_csv(
+               out / "mixed_colour_1km_candidate_cells.csv", index=False)
     summary = {
         "n_cells": len(cells),
         "n_observations": int(sample.sum()),
         "n_single_photo_cells": int(single.sum()),
+        "mixed_colour_1km_candidate_cells_with_two_each": len(mixed),
         "n_cells_with_both_colours_observed": int(
             ((cells.n_pigmented > 0) & (cells.n_white > 0)).sum()
         ),

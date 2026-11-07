@@ -17,10 +17,10 @@ No derived colour CSV is committed as an active input and `run_pipeline.py` acce
 | Broad geography | `scripts/run_broad_environment_spatial_audit.R` | environment + stationary SPDE; state and intensity have different supported structure |
 | Environment vs spatial continuity | `scripts/build_fixed_space_null_cache.R` → `scripts/fit_broad_supported_term_distance_space_null.R` | state divergence exceeds space-only expectation along supported environmental difference; intensity does not |
 | Local Bombus | `scripts/build_bombus_occurrence_reference_support.R` → `scripts/run_bombus_local_sharp_transition.R` | local, heterogeneous correspondence; SDM support is not visitation or selection pressure |
-| Bombus guardrail | `scripts/run_bombus_spatial_replication_test.R` | broad/high-elevation overlap is not promoted when the equal-elevation/spatial guardrail removes it |
+| SDM-only Bombus validation | `scripts/check_bombus_sdm_only.py` | independent audit of fixed focal-Bombus score versus flower colour; no abiotic predictors or environmental matching; nationally descriptive, locally heterogeneous |
 | Human context | `scripts/fit_final8_presence_null.R` → `scripts/run_continuous_colour_isolation.R` | same-colour isolation of all cells is associated with population exposure beyond natural-map expectation; exploratory, not provenance or causation |
 
-The orchestration of these stages is defined only by `run_pipeline.py`.
+The canonical stages remain defined by `run_pipeline.py`. The old environmental/elevation-matched `scripts/run_bombus_spatial_replication_test.R` is retained only for prior supplementary provenance and is no longer called by the canonical pipeline. The current Bombus analysis uses no environmental covariates; its inability to separate habitat suitability from shared environmental geography is reported in Discussion.
 
 ## Source-build clarification
 

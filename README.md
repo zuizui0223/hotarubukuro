@@ -97,8 +97,10 @@ python run_pipeline.py reproduce --dry-run --skip-setup
 2. **Broad geography** — `scripts/run_broad_environment_spatial_audit.R`, `scripts/build_fixed_space_null_cache.R`, `scripts/fit_broad_supported_term_distance_space_null.R`
    - environment + stationary SPDE;
    - environment-aligned differentiation tested against a cross-fitted space-only expectation.
-3. **Local Bombus boundary test** — `scripts/build_bombus_occurrence_reference_support.R`, `scripts/run_bombus_local_sharp_transition.R`, `scripts/run_bombus_spatial_replication_test.R`
-   - focal local boundary analysis plus the equal-elevation/spatial guardrail.
+3. **Local Bombus boundary test (SDM-only)** — `scripts/build_bombus_occurrence_reference_support.R`, `scripts/run_bombus_local_sharp_transition.R`
+   - one focal explanatory index: occurrence-referenced maximum predicted habitat support of *B. ardens* and *B. diversus*;
+   - no abiotic/environmental or spatial adjustment inside the Bombus test; inherited environmental confounding is acknowledged in Discussion;
+   - `scripts/check_bombus_sdm_only.py` independently reproduces the national descriptive correlation and existing local paired contrasts.
 4. **Continuous isolation / human context** — `scripts/fit_final8_presence_null.R`, `scripts/run_continuous_colour_isolation.R`
    - all 1-km colour cells are analysed continuously;
    - human context is WorldPop exposure at focal, 5, 10, 25 and 50 km scales;

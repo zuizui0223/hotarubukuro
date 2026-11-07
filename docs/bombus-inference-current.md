@@ -1,38 +1,55 @@
-# Current Bombus inference for the manuscript
+# Current Bombus inference for the manuscript — SDM-only scope
 
-## Stable inferential labels
+**Current rule (2026-11-07):** Use observed flower-colour state as the response and focal-*Bombus* SDM support as the **only explanatory variable** in the Bombus component. No climate, elevation, soil, radiation, other abiotic predictors, environment-distance matching, or additional environment/spatial adjustment enters this analysis. The 5/10/25-km distances define local flower-colour pair selection only; they are not predictors in the test.
 
-**2 species = directional local availability hypothesis.**  
-**5 species = supplementary community/biogeographic turnover.**
+## Why Bombus is a biologically motivated candidate
 
-The two-species label refers to *Bombus ardens* and *B. diversus*. The five-species supplementary analysis additionally includes *B. beaticola*, *B. consobrinus* and *B. honshuensis*.
+In studied mainland populations of *Campanula punctata* sensu lato, bumblebees are major recorded effective flower visitors. Experimental work on *B. diversus* demonstrates that pollen-transfer efficiency can favor corolla morphology (Kobayashi et al. 1997); Nagano et al. (2014) report changes in bumblebee pollinator assemblages with altitude. **These are evidence of bumblebee pollination and morphological selection, not proof of a preference for white versus pigmented flowers.** In some Izu Island populations, halictid bees replace bumblebees as main visitors (Inoue & Amano 1986; Inoue 1988), so the universal statement "only bumblebees pollinate this plant" is not defensible.
 
-## Main question and design
+The five taxa included in the retained SDM family are *B. ardens*, *B. diversus*, *B. beaticola*, *B. consobrinus*, and *B. honshuensis*; the field-visitor list also included *B. ussurensis*, which was excluded before flower-colour analysis. The **fixed primary focal predictor** is occurrence-referenced `max(A_ardens, A_diversus)`. The other SDMs represent supplementary community-biogeographic context, not an additional environmental correction.
 
-After the national environment+space analysis establishes the broad flower-colour template, the pollinator question changes scale. Bombus SDMs are environmentally structured, so a national flower-colour/Bombus map association alone would not identify a biotic mechanism. The Main test asks whether predicted habitat opportunity for the documented broad focal bumblebees increases from the white side to the pigmented side of abrupt nearby colour boundaries.
+## Focal species selection versus the wider effective visitor guild (audit 2026-11-07)
 
-Primary design: 1-km flower cells; up to five nearest neighbours; 5-km radius; pure observed white-pigmented transitions; greedy non-overlap; pair selection without Bombus values or transition direction; orientation only after pair selection; mean pigmented-minus-white occurrence-referenced max(*B. ardens*, *B. diversus*) support; 100,000 sign flips.
+**Decision: retain the two widespread documented focal species for the current directional Main test, but never call this an index of total bumblebee or effective-pollinator availability.** The estimand is strictly the occurrence-referenced predicted suitability of *B. ardens* and *B. diversus*. It is not the absence/presence or abundance of all *Bombus* species.
 
-Raw SDM values are not treated as abundance, visitation or pollination pressure. Occurrence-referenced support is a within-species relative habitat-support scale, not occurrence probability, abundance, visit rate, pollen transfer, pollination effectiveness or selection pressure.
+Ecological boundary: Nagano et al. (2014, *Ecology and Evolution*, DOI 10.1002/ece3.1191) observed 1,140 *Bombus* visits to *C. punctata* along a central-Japanese altitude gradient. *B. ardens* and *B. diversus* were prominent at low elevations (700–1,000 m), while *B. beaticola* almost exclusively visited the studied high-elevation flowers (1,900–2,300 m). *B. consobrinus* was exceptionally prominent at one intermediate site; *B. honshuensis* and *B. ussurensis* were also observed at low frequencies. Thus low predicted suitability for the two chosen species **does not imply no bumblebee visitors**, especially in the mountains.
 
-## Final-eight-axis environmental balance diagnostic
+**Data availability audit:** the original frozen GitHub Actions output (run `32233065078`, artifact `9358305657`) contains `bombus_occurrence_reference_support/cell_effective_bombus_support.csv` for 1,305 flower cells. Both focal two-species occurrence-referenced SDM columns have 1,305 nonmissing values, but the three auxiliary columns `beaticola_occurrence_reference`, `consobrinus_occurrence_reference`, and `honshuensis_occurrence_reference`, as well as `all5_occmax`, have **zero** nonmissing values. `occurrence_reference_calibration.csv` has **two** species rows, not five. This is the archived two-species-support artifact, **not evidence that the three other bees are absent**. The source-build code permits auxiliary models to be unavailable while requiring the focal two. Any future five-species analysis must first construct and validate all five actual predictions; replacing missing values with zeros would be scientifically incorrect.
 
-Environment is used only as a descriptive balance diagnostic, never to select, orient or weight the fixed transition pairs. In the finalized eight standardized Broad abiotic axes, median RMS distance is **0.244 versus 0.318** for selected versus all eligible local edges at 5 km. The same ordering holds at 10 km (0.337 vs 0.429) and 25 km (0.435 vs 0.531).
+Keep the current two-species Main analysis unchanged, with the limitation in Discussion; do **not** describe `max(A_ardens,A_diversus)` as overall `Bombus availability`, `pollinator absence`, or the environmental source of floral pigmentation. The geographically variable visitor guild, including high-elevation *B. beaticola*, remains an explicit limitation of taxon coverage. It does not by itself justify selecting additional species after observing the colour results.
 
-Audit evidence: workflow `31538548679`, artifact `9119773035`, SHA-256 `51fc846d2f3d815d8bbf3c0b95647eabeb0acf731f1e6dd164c11a0dfe1b896f`.
+## What is tested
 
-## Main result and claim ceiling
+**H1 — directional SDM correspondence (tested).** In pre-selected sharp neighbouring 1-km white/pigmented colour-cell contrasts, is the focal two-species support higher on the pigmented side? The 5-km primary analysis selects observed pure transitions without using any Bombus SDM score or sign, applies greedy non-overlap, then computes `SDM_pigmented - SDM_white`. The inferential statistic is its mean, assessed with 100,000 directional sign flips. This is a comparison of **relative predicted habitat suitability**, not abundance, presence, visitation, attractiveness, effective pollen transfer or selection pressure. Ten- and 25-km windows and raw-cloglog values retain the pre-existing interpretation checks.
 
-Primary 5-km pure-transition result: 67 pairs; median separation 2.0 km; mean contrast +0.0359; median -0.00277; 49.3% positive; one-sided P=0.0272; BH q across 5/10/25-km pure tests=0.0815. Raw-cloglog support does not reproduce the result (P=0.267), and the mean attenuates strongly at 10 and 25 km.
+**H2 — positive frequency-dependent pollination via flower constancy (not tested by SDM).** Bumblebee colour learning, sequential within-colour visits, and the higher reproductive success of the *locally common* morph could maintain locally different colour states. This hypothesis does **not** require the pigmented side to have higher SDM values. Testing H2 requires local morph frequencies, individual-bee visit sequences and per-flower pollen-transfer/reproductive success; the current photographs and habitat suitability surfaces do not measure those quantities.
 
-The manuscript therefore describes **weak, highly local, magnitude-driven consistency** with the directional local availability hypothesis. It is not evidence of pollinator-mediated selection. No persuasive Bombus relationship is retained for conditional intensity among already pigmented flowers; if the weak local signal is biological, it is more consistent with maintenance/loss of a pigment state than progressive darkening.
+## Executed independent SDM-only reanalysis (2026-11-07)
 
-## Five-species and montane guardrails
+Public frozen cell, SDM and preselected-pair tables were downloaded and re-analysed without environmental predictors. The independent script is `scripts/check_bombus_sdm_only.py` and its evidence record is [SDM-only executed results](bombus_sdm_only_validation_2026-11-07.md).
 
-Five-species Hellinger turnover is supplementary because it is unsigned. Under occurrence-referenced matching, matched excess is +0.0330 at 5 km (P=0.0628), +0.0327 at 10 km (P=0.0142) and +0.0411 at 25 km (P=0.00010). These associations locate colour boundaries within pollinator-biogeographic transition zones but cannot determine which side should be pigmented and do not strengthen the signed Main result into a causal mechanism.
+- Nationwide exploratory descriptive association, 1,305 1-km cells (1,922 photographed flowers): Spearman rho of *observed cell pigmented share* against focal occurrence-referenced SDM = **-0.3056**; raw-cloglog alternative = **-0.3001**. These are spatially structured associations, **not** causal estimates or spatially independent P-values.
+- Fixed 5-km sharp transition result: **67** pairs; occurrence-referenced mean pigmented-minus-white SDM = **+0.03590**, median **-0.00277**, **33/67** in the hypothesised direction; original fixed one-sided `P=0.02716`, three-distance `BH q=0.08148`. The raw-cloglog 5-km exposure is not supported (`P=0.26715`).
+- The occurrence-referenced mean declines at 10 km (**+0.00840**, fixed `P=0.32454`, 109 pairs) and 25 km (**+0.00292**, fixed `P=0.43575`, 171 pairs).
+- **66/67** selected sharp 5-km pairs have only one image on at least one endpoint. The pairs are observed photo-colour contrasts, **not** demonstrations that two reproductively stable monomorphic populations meet.
+- A nationally negative descriptive association and a weakly positive *mean* at a subset of local transitions are compatible with differences in comparison unit and geographical structure. They must not be called a proven ecological sign reversal or a pollinator effect.
 
-Montane/alpine national overlap is a negative guardrail. Among near-equal-elevation transitions (<=50 m), mean montane contrasts are near zero or negative and all one-sided P values are >=0.755. The appropriate interpretation is shared elevational geography rather than an additional pollinator mechanism.
+The original final calculation and recorded P/q values are unchanged; independent sign-flip recalculation uses another random-number implementation and therefore yields slightly different Monte Carlo values.
 
-## Causal ceiling and next tests
+## Interpretation boundary — put environment confounding in Discussion, not in the model
 
-All Bombus surfaces are environment-based SDM predictions. The study does not measure realized visitation, abundance, flower choice, pollen deposition, seed set or fitness. Direct tests require species-resolved visitation, floral contact, pollen transfer, fitness, visible/UV spectra, receptor-based contrasts and local abiotic measurements.
+The focal SDMs were generated **from environmental predictors**. Therefore any SDM–colour association could reflect shared environmental and geographic gradients rather than pollinator-mediated selection. **This analysis intentionally does not separate those effects and does not claim to do so.** Nearby cells also need not have identical microhabitats or population histories. No independent selection inference, and no support for frequency dependence, follows from the SDM-only association.
+
+For manuscript English, a concise, technically accurate statement is:
+
+> We related flower-colour state to predicted habitat suitability for the two documented widespread bumblebee visitors without adding environmental covariates to the pollinator analysis. Because these suitability surfaces were themselves derived from environmental variables, the observed associations cannot distinguish pollinator effects from shared environmental geography. Bumblebee flower constancy remains a plausible mechanism for local colour-state reinforcement, but our data do not measure frequency-dependent pollination or fitness.
+
+## Reproducibility and manuscript placement
+
+- Main: primary local 5-km SDM-only contrast with mean, median, number positive, original P/q, and explicit limitations.
+- Supporting: 10/25-km scale and raw-SDM checks; supplementary five-species community context. Historical environmental-balance or elevation-matching diagnostics are **not used to establish an independent Bombus effect**.
+- Separate broad analysis may contain environmental predictors, but **those predictors are never carried into this Bombus test**.
+
+Manuscript-ready paragraphs: [Bumblebee constancy and flower-colour boundaries](bombus-constancy-frequency-dependence.md).
+
+References: Inoue & Amano (1986); Inoue (1988); Kobayashi et al. (1997); Nagano et al. (2014); Smithson & Macnair (1996, 1997). The last two support flower-constancy hypotheses from other systems, not empirical constancy in this species.

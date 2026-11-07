@@ -1,5 +1,24 @@
 # Current Bombus inference for the manuscript
 
+## Biological leverage and a separate flower-constancy hypothesis
+
+The value of `Campanula punctata` as a study system is not that a two-species SDM necessarily explains pigmentation. In studied mainland populations, bumblebees are the predominant recorded pollinators; experimental work has demonstrated that `B. diversus` pollination can favor a wider corolla through more efficient pollen transfer (Kobayashi et al. 1997), and pollinator species/size varies geographically with corolla size (Nagano et al. 2014). **Those studies test floral morphology and pollination, not colour preference.** On several Izu Islands halictid bees replace bumblebees as predominant pollinators; the broad statement "only bumblebees pollinate this species" is therefore incorrect (Inoue & Amano 1986; Inoue 1988).
+
+Two **distinct, noninterchangeable mechanisms** follow:
+
+- **H1: directional habitat-support correspondence (already analysed).** At sharp, nearby white/pigmented transitions, predicted relative habitat support for the broadly distributed documented visitors `B. ardens` and `B. diversus` might be higher on the pigmented side. This is the fixed, weak, scale- and calibration-sensitive 67-pair Main result described below; it does not measure total functional pollinator availability.
+- **H2: positive frequency-dependent selection through bumblebee flower constancy (not tested).** If foraging bumblebees learn and repeatedly visit locally common, distinguishable flower-colour morphs, the rare morph may receive lower *per-flower* effective pollen transfer. With sufficient relative fitness consequences, locally common states could become more common, potentially resulting in nearby predominantly white and predominantly pigmented patches even under similar broad abiotic conditions. Unlike H1, **H2 is symmetric**: it could favor whichever colour is locally common, not inherently the pigmented morph. Bumblebee common-colour preference and same-colour sequential visits have been experimentally demonstrated in other systems (Smithson & Macnair 1996; Smithson & Macnair 1997), but **not measured for white/pigmented `C. punctata` in this dataset**.
+
+Existing 5-km pairs were selected by observed sharp colour transitions, without an environmental caliper. Their broadly similar measured environments are a **descriptive balance diagnostic**, not proof of abiotic equivalence. Abrupt colour boundaries are *compatible* with H2 but do not distinguish it from fine-scale habitat differences, population genetic structure, founding effects, restricted dispersal or human translocation. The absence of within-site white/pigmented co-occurrence in the sampling stream does not estimate local morph-frequency-dependent fitness; a 1-km "pure" observed cell is not proof of monomorphism in the underlying population.
+
+**Inferential rule:** Do not reinterpret the 67-pair SDM sign-flip P as a test of flower constancy, frequency dependence, preference, assortative mating or fitness. This is a *mechanistic hypothesis suggested by boundary geometry*, not a new positive statistical result. It complements, rather than rescues, the weak H1 result.
+
+**Decisive next test:** At naturally mixed sites, where available, or in local white/pigmented reciprocal arrays, estimate morph-specific per-flower visitation and effective pollen deposition across predefined local morph frequencies; track same-colour sequential visits after accounting for offered flower frequencies, and measure seed set/outcrossing. Record bee identity, floral abundance, reward, UV/visible reflectance, microclimate and population genetic context. Positive frequency dependence requires a frequency-dependent **per-flower reproductive advantage**, not merely more total visits to the numerically common colour.
+
+Manuscript-ready paragraphs and a figure-boundary note: [Bombus constancy and local pigmentation boundaries](bombus-constancy-frequency-dependence.md).
+
+References: [Inoue & Amano (1986)](https://doi.org/10.1111/j.1442-1984.1986.tb00018.x); [Inoue (1988)](https://doi.org/10.1111/j.1442-1984.1988.tb00178.x); [Kobayashi et al. (1997)](https://doi.org/10.1007/s004420050268); [Nagano et al. (2014)](https://doi.org/10.1002/ece3.1191); [Smithson & Macnair (1996)](https://doi.org/10.1046/j.1420-9101.1996.9050571.x); [Smithson & Macnair (1997)](https://doi.org/10.1006/bijl.1996.0104).
+
 ## Stable inferential labels
 
 **2 species = directional local availability hypothesis.**  

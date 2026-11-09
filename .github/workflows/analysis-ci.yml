@@ -180,3 +180,13 @@ jobs:
           if [ -f results/analysis_reproduction/run_manifest.json ]; then
             cat results/analysis_reproduction/run_manifest.json
           fi
+
+      - name: Preserve regional estimates, figure and reproduction audits
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regional-replay
+          path: |
+            results/regional_bombus/
+            results/analysis_reproduction/run_manifest.json
+            results/source_reconstruction/zenodo_rebuild_audit.json

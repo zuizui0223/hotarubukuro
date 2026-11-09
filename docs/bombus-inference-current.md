@@ -33,6 +33,12 @@ Five-species Hellinger turnover is supplementary because it is unsigned. Under o
 
 Montane/alpine national overlap is a negative guardrail. Among near-equal-elevation transitions (<=50 m), mean montane contrasts are near zero or negative and all one-sided P values are >=0.755. The appropriate interpretation is shared elevational geography rather than an additional pollinator mechanism.
 
+## Exploratory regional morph-frequency analysis
+
+In central Honshu (875 photographs in 583 cells), the odds of a photographed flower being pigmented increased with the mean national suitability rank across five species (OR 1.63 per 0.1 increase, 95% CI 1.10–2.42). The elevation-adjusted estimate was 1.29 (0.48–3.46). With elevation and space accounted for and the two group means fitted together, the corresponding ORs were 1.66 (1.09–2.53) for the two widespread species and 0.55 (0.27–1.15) for the three montane species.
+
+When the widespread species were entered jointly as species-specific predictors, retaining the montane mean, elevation and spatial adjustment, higher predicted habitat suitability for *B. diversus* was associated with a higher recorded frequency of pigmented flowers (OR 1.29, 95% CI 1.04–1.59). The estimate for *B. ardens* was 1.11 (0.73–1.69). The direct slope contrast was inconclusive (ratio of odds ratios 1.16, 0.81–1.65). This geographic association is consistent with the predicted direction. Testing selection on flower colour requires evidence that visitation changes the relative reproductive success of the morphs.
+
 ## Causal ceiling and next tests
 
 All Bombus surfaces are environment-based SDM predictions. The study does not measure realized visitation, abundance, flower choice, pollen deposition, seed set or fitness. Direct tests require species-resolved visitation, floral contact, pollen transfer, fitness, visible/UV spectra, receptor-based contrasts and local abiotic measurements.

@@ -106,6 +106,7 @@ jobs:
             "scripts/run_natural_biotic_covariates.R",
             "scripts/run_phenotype_hurdle.R",
             "scripts/build_analysis_cells.R",
+            "scripts/run_regional_bombus.R",
             "scripts/build_bombus_occurrence_reference_support.R",
             "scripts/run_bombus_local_sharp_transition.R",
             "scripts/run_bombus_spatial_replication_test.R",

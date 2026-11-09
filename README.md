@@ -97,8 +97,9 @@ python run_pipeline.py reproduce --dry-run --skip-setup
 2. **Broad geography** — `scripts/run_broad_environment_spatial_audit.R`, `scripts/build_fixed_space_null_cache.R`, `scripts/fit_broad_supported_term_distance_space_null.R`
    - environment + stationary SPDE;
    - environment-aligned differentiation tested against a cross-fitted space-only expectation.
-3. **Local Bombus boundary test** — `scripts/build_bombus_occurrence_reference_support.R`, `scripts/run_bombus_local_sharp_transition.R`, `scripts/run_bombus_spatial_replication_test.R`
-   - focal local boundary analysis plus the equal-elevation/spatial guardrail.
+3. **Bumblebee habitat and pigmentation frequency** — [regional models and reproduction instructions](docs/bombus-inference-current.md).
+   - Five-species mean, elevation-adjusted widespread and montane groups, individual widespread species, and direct coefficient contrasts in central Honshu.
+   - The pre-specified local boundary test and elevation-matched comparisons provide complementary evidence.
 4. **Continuous isolation / human context** — `scripts/fit_final8_presence_null.R`, `scripts/run_continuous_colour_isolation.R`
    - all 1-km colour cells are analysed continuously;
    - human context is WorldPop exposure at focal, 5, 10, 25 and 50 km scales;

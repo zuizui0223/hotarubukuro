@@ -84,7 +84,7 @@ RASTER_ALIASES = {
 }
 
 REQUIRED_FILES = [
-    "reproducibility/source_contract.json",
+    "reproducibility/source_contract.json", "config/central_honshu_cells.txt", "scripts/run_regional_bombus.R",
     "config/pipeline.yml", "config/raster_sources.csv", "config/bombus_sdm.yml",
     "dependencies/r-packages.csv", "dependencies/r-version.txt", "dependencies/apt-packages.txt",
     "R/pipeline_support.R", "R/reproducibility.R", "R/raster_sources.R",
@@ -307,6 +307,12 @@ class Pipeline:
             ["Rscript", "scripts/build_analysis_cells.R", "--input", phenotype,
              "--environment-cache", str(PUBLIC_CACHE), "--output", "results/analysis_cells"],
             [cells, "results/analysis_cells/analysis_cell_contract.csv"],
+        )
+        self.run(
+            "regional_bombus_morph_frequency",
+            ["Rscript", "scripts/run_regional_bombus.R", phenotype, cells,
+             "results/regional_bombus/effects.csv"],
+            ["results/regional_bombus/effects.csv", "results/regional_bombus/regional_bombus.png"],
         )
         support = "results/bombus_occurrence_reference_support/cell_effective_bombus_support.csv"
         self.run(

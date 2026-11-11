@@ -19,6 +19,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import zipfile
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -38,7 +39,12 @@ RESULTS = ROOT / "results"
 CACHE = ROOT / ".repro_cache"
 PUBLIC_CACHE = CACHE / "public_environment"
 MLIT_CACHE = CACHE / "mlit_l03_2021"
-GBIF_CACHE = CACHE / "bombus_gbif"
+PUBLICATION_INPUTS = CACHE / "publication_inputs"
+GBIF_CACHE = PUBLICATION_INPUTS / "results/bombus_occurrence_snapshot"
+SDM = PUBLICATION_INPUTS / "results/bombus_sdm_rebuild_A"
+ENV_TABLE = PUBLICATION_INPUTS / "results/environment_v3/ecological_input_v2.csv"
+SPATIAL_ARCHIVE = ROOT / "dependencies/figure3_spatial_inputs.zip"
+SPATIAL_SHA256 = "4f87f284641bcbeb1a012cd449cd5eb78bf3e1dfbadfd0c580e84ae40f7ad104"
 WORLDPOP = PUBLIC_CACHE / "population_count_Japan_crop.tif"
 MANIFEST = RESULTS / "analysis_reproduction" / "run_manifest.json"
 CANONICAL_DATA = ROOT / "results" / "source_reconstruction" / "Data_S1_from_zenodo.csv"
@@ -84,6 +90,7 @@ RASTER_ALIASES = {
 }
 
 REQUIRED_FILES = [
+    "dependencies/figure3_spatial_inputs.zip", "scripts/build_figure3_inputs.R",
     "reproducibility/source_contract.json", "config/central_honshu_cells.txt", "scripts/run_regional_bombus.R",
     "config/pipeline.yml", "config/raster_sources.csv", "config/bombus_sdm.yml",
     "dependencies/r-packages.csv", "dependencies/r-version.txt", "dependencies/apt-packages.txt",
@@ -222,8 +229,40 @@ class Pipeline:
             encoding="utf-8",
         )
 
+    def restore_spatial_inputs(self) -> None:
+        if self.dry_run:
+            return
+        if sha256(SPATIAL_ARCHIVE) != SPATIAL_SHA256:
+            raise ReproductionError("Publication spatial-input archive hash mismatch")
+        with zipfile.ZipFile(SPATIAL_ARCHIVE) as archive:
+            archive.extractall(PUBLICATION_INPUTS)
+
+    def figure3(self) -> None:
+        self.audit(structure_only=self.dry_run)
+        self.restore_spatial_inputs()
+        self.run(
+            "figure3_from_canonical_table",
+            ["Rscript", "scripts/build_figure3_inputs.R", self.data_arg, str(ENV_TABLE),
+             str(SDM / "predictions"), "results/figure3_inputs"],
+            ["results/figure3_inputs/observations.csv", "results/figure3_inputs/cells.csv"],
+        )
+        self.regional_bombus("results/figure3_inputs/observations.csv", "results/figure3_inputs/cells.csv")
+
+    def regional_bombus(self, phenotype: str, cells: str) -> None:
+        self.run(
+            "regional_bombus_morph_frequency",
+            ["Rscript", "scripts/run_regional_bombus.R", phenotype, cells,
+             "results/regional_bombus/effects.csv"],
+            ["results/regional_bombus/effects.csv", "results/regional_bombus/regional_bombus.png"],
+        )
+
     def reproduce(self) -> None:
         self.audit(structure_only=self.dry_run)
+        # A previous checkout may have produced apparently complete stages with
+        # live SDMs or the old duplicate policy. Only resume a matching run.
+        if self.resume and not self.dry_run:
+            prior = json.loads(MANIFEST.read_text()) if MANIFEST.is_file() else {}
+            self.resume = prior.get("status") == "SUCCESS" and prior.get("spatial_inputs_sha256") == SPATIAL_SHA256
         CACHE.mkdir(parents=True, exist_ok=True)
         RESULTS.mkdir(parents=True, exist_ok=True)
         if not self.skip_setup:
@@ -246,20 +285,7 @@ class Pipeline:
         )
         self.prepare_aliases()
         self.ensure_worldpop()
-        self.run(
-            "fetch_bombus_occurrences",
-            ["Rscript", "source_build/fetch_bombus_occurrences.R", "--output-dir", str(GBIF_CACHE),
-             "--refresh", "false"],
-            [str((GBIF_CACHE / "ardens_gbif.csv").relative_to(ROOT))],
-        )
-        self.run(
-            "build_bombus_sdm",
-            ["Rscript", "source_build/build_bombus_sdm_mainland.R", "--config", "config/bombus_sdm.yml",
-             "--occurrence-dir", str(GBIF_CACHE), "--raster-dir", "data/processed/rasters",
-             "--output-dir", "results/bombus_sdm_source_build", "--flower-data", self.data_arg],
-            ["results/bombus_sdm_source_build/predictions/ardens.tif",
-             "results/bombus_sdm_source_build/predictions/diversus.tif"],
-        )
+        self.restore_spatial_inputs()
         self.run(
             "build_forest_reference_raster",
             ["Rscript", "source_build/build_human_raster.R", "--observation-csv", self.data_arg,
@@ -268,16 +294,10 @@ class Pipeline:
             ["results/public_rasters/mlit_human_forest_edge_2021/mlit_human_forest_edge_1km.tif"],
         )
         self.run(
-            "build_environment_input",
-            ["Rscript", "scripts/build_environment_input.R", "--raw-colour-csv", self.data_arg,
-             "--cache-root", str(PUBLIC_CACHE), "--output-csv", "results/environment_v3/ecological_input_v2.csv"],
-            ["results/environment_v3/ecological_input_v2.csv"],
-        )
-        self.run(
             "environment_spatial",
             ["Rscript", "scripts/run_environment_spatial.R", "--anomaly-csv",
-             "results/environment_v3/ecological_input_v2.csv", "--raw-colour-csv", self.data_arg,
-             "--bombus-dir", "results/bombus_sdm_source_build/predictions", "--H-raster", str(WORLDPOP),
+             str(ENV_TABLE), "--raw-colour-csv", self.data_arg,
+             "--bombus-dir", str(SDM / "predictions"), "--H-raster", str(WORLDPOP),
              "--R-raster", "results/public_rasters/mlit_human_forest_edge_2021/mlit_human_forest_edge_1km.tif",
              "--N-raster", str(PUBLIC_CACHE / "gdd5_Japan_crop_30s.tif"), "--A-raster",
              "results/public_rasters/mlit_human_forest_edge_2021/mlit_major_road_distance_1km.tif",
@@ -308,17 +328,12 @@ class Pipeline:
              "--environment-cache", str(PUBLIC_CACHE), "--output", "results/analysis_cells"],
             [cells, "results/analysis_cells/analysis_cell_contract.csv"],
         )
-        self.run(
-            "regional_bombus_morph_frequency",
-            ["Rscript", "scripts/run_regional_bombus.R", phenotype, cells,
-             "results/regional_bombus/effects.csv"],
-            ["results/regional_bombus/effects.csv", "results/regional_bombus/regional_bombus.png"],
-        )
+        self.regional_bombus(phenotype, cells)
         support = "results/bombus_occurrence_reference_support/cell_effective_bombus_support.csv"
         self.run(
             "bombus_occurrence_reference_support",
             ["Rscript", "scripts/build_bombus_occurrence_reference_support.R", "--cells", cells,
-             "--sdm-root", "results/bombus_sdm_source_build", "--output", "results/bombus_occurrence_reference_support"],
+             "--sdm-root", str(SDM), "--output", "results/bombus_occurrence_reference_support"],
             [support],
         )
         self.run(
@@ -404,6 +419,7 @@ class Pipeline:
                 {
                     "status": status,
                     "generated_utc": utc_now(),
+                    "spatial_inputs_sha256": SPATIAL_SHA256,
                     "canonical_source": "zenodo_image_workbook",
                     "source_contract": "reproducibility/source_contract.json",
                     "source_contract_sha256": sha256(ROOT / "reproducibility/source_contract.json"),
@@ -428,6 +444,7 @@ class Pipeline:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("figure3", help="Fit Figure 3 from the validated Zenodo table and publication spatial inputs")
     audit = sub.add_parser("audit")
     audit.add_argument(
         "--structure-only", action="store_true",
@@ -444,12 +461,14 @@ def main() -> int:
     args = build_parser().parse_args()
     pipeline = Pipeline(
         dry_run=bool(getattr(args, "dry_run", False)),
-        resume=not bool(getattr(args, "no_resume", False)),
+        resume=args.command != "figure3" and not bool(getattr(args, "no_resume", False)),
         skip_setup=bool(getattr(args, "skip_setup", False)),
     )
     try:
         if args.command == "audit":
             pipeline.audit(structure_only=bool(getattr(args, "structure_only", False)))
+        elif args.command == "figure3":
+            pipeline.figure3()
         else:
             pipeline.reproduce()
         return 0

@@ -107,9 +107,18 @@ audit_colour_qc <- function(raw, author_review_confirmed = TRUE) {
   } else rep(TRUE, nrow(raw))
   author_region_review_confirmed <- rep(isTRUE(author_review_confirmed), nrow(raw))
 
-  no_duplicate <- if ("duplicate_image_sha256" %in% names(raw)) {
-    !as_flag(raw$duplicate_image_sha256)
-  } else rep(TRUE, nrow(raw))
+  # The source flag identifies every member of a repeated image group.
+  # The publication analysis retained its first row in numeric workbook order.
+  if (all(c("image_sha256", "source_row") %in% names(raw))) {
+    order_index <- order(as.numeric(raw$source_row), seq_len(nrow(raw)))
+    hashes <- as.character(raw$image_sha256[order_index])
+    no_duplicate <- rep(TRUE, nrow(raw))
+    no_duplicate[order_index] <- is.na(hashes) | !nzchar(hashes) | !duplicated(hashes)
+  } else {
+    no_duplicate <- if ("duplicate_image_sha256" %in% names(raw)) {
+      !as_flag(raw$duplicate_image_sha256)
+    } else rep(TRUE, nrow(raw))
+  }
 
   no_overexposure <- if ("possible_overexposure" %in% names(raw)) {
     !as_flag(raw$possible_overexposure)

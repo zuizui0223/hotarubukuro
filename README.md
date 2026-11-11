@@ -67,6 +67,17 @@ The former root-level `Code_S1.py` was a GPX/photo-time georeferencing utility, 
 
 Detailed checkpoints and failure interpretation are in [`docs/REPRODUCE_FROM_ZENODO.md`](docs/REPRODUCE_FROM_ZENODO.md).
 
+## Reproduce Figure 3 from the workbook
+
+Install the Python package as above and R packages `sf`, `terra`, `mgcv` and `mclust`. From the repository root:
+
+```sh
+python source_build/reproduce_from_zenodo.py
+python run_pipeline.py figure3
+```
+
+The second command validates the exact reconstructed flower table, extracts suitability from the five archived publication rasters, refits the pigmentation mixture and regional models, and writes `results/regional_bombus/effects.csv` and `regional_bombus.png`. The full pipeline uses the same publication spatial inputs. See [input provenance and the November replay comparison](docs/bombus-inference-current.md).
+
 ## Running the downstream pipeline separately
 
 After the canonical analysis table has been generated and validated, the retained downstream graph can be rerun with:

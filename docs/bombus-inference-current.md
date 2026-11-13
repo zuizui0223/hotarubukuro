@@ -1,5 +1,19 @@
 # Bumblebee habitat and photographed flower morphs
 
+## Independent SDM-only widespread-versus-montane reanalysis (2026-11-13)
+
+[Exact cohort, effect sizes and regional-shuffle uncertainty](bombus-sdm-only-widespread-montane-2026-11-13.md).
+
+Using the **same national five-species SDM ranks and same fixed 583-cell/875-photo central-Honshu footprint** as the adjusted regional model, a new binomial model with **only two SDM group indices** gives: widespread-two OR **0.758** (50-km-block robust 95% CI 0.566–1.015) and montane-three OR **1.089** (0.896–1.323). Nationally (1,305 cells/1,922 photographs), widespread-two OR **0.657** (0.544–0.793), montane-three OR **1.041** (0.937–1.156). These do **not** reproduce the adjusted central-Honshu positive coefficient (OR 1.659); the sign differs when environmental/spatial adjustments are removed. The central group difference is **not convincingly beyond a 50-km regional-label null** (10,000 within-block shuffles, two-sided centered P≈0.111); the result also depends on block width. Do not call this an independent selective effect or a confirmation of floral colour preference.
+
+The five original SDM ranks are the sole explanatory variables in this additional calculation; location enters only as block structure for uncertainty and permutation. The original environment-adjusted regional regression is retained separately for provenance, not silently replaced.
+
+## New SDM-only five-species local co-transition test (2026-11-13)
+
+**Primary 5-km result is not supported.** A five-species occurrence-referenced SDM profile was available for all 1,305 flower cells in the validated 2026-11-11 reproduction artifact. The independently executed SDM-only comparison of local predicted guild-profile turnover against photographed pigmentation difference yielded **Spearman rho −0.0134 across 1,134 cell pairs**, with upper-tail `P=0.3934` in 10,000 within-50-km-block colour-label randomisations. Restricting to the 107 pairs with at least two photographs at each endpoint gives rho −0.0806. The 10-km scale gave a very small positive rho (+0.0114; nominal P=0.0099), but 25 km did not replicate, and the 10-km P was sensitive to permutation-block positioning. Therefore the predeclared strict-local promotion criterion **fails**: no new significant independent Bombus mechanism is asserted.
+
+This is a **separate SDM-only analysis**, unlike the environment/spatially adjusted central-Honshu GAM below. For this new test the only explanatory data are the five predicted Bombus suitability scores; geographic coordinates define the pair graph and permutation units, not environmental covariates. Since the SDMs themselves inherit climate/terrain variation, any co-structure would not establish pollinator selection; flower constancy remains unmeasured. Full source identity, code and outputs: [five-species SDM-only results](bombus-five-sdm-only-results-2026-11-13.md).
+
 ## Exploratory regional morph-frequency analysis
 
 In central Honshu (875 photographs in 583 cells), the odds of a photographed flower being pigmented increased with the mean national suitability rank across five species (OR 1.63 per 0.1 increase, 95% CI 1.10–2.42). The elevation-adjusted estimate was 1.29 (0.48–3.46). With elevation and space accounted for and the two group means fitted together, the corresponding ORs were 1.66 (1.09–2.53) for the two widespread species and 0.55 (0.27–1.15) for the three montane species.

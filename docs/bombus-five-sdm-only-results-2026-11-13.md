@@ -59,6 +59,41 @@ The planned leave-one-species-out direction check gives **5-km rho from −0.048
 
 Only **107/1,134** pairs within 5 km have >=2 images at both endpoints. Among those, the five-species rho is negative (−0.08057). A 1-km cell with only one observed colour is not necessarily a single-morph biological population. Cells and pairs may share samples; permutation is a diagnostic of spatial co-structure, not an independent-population experiment.
 
+## Previous five-species positive results retained as distinct evidence
+
+**Do not erase or merge these existing results with the new primary null finding.** The same 2026-11-11 archived workflow artifact `13831541196` includes independently inspectable files `regional_bombus/effects.csv` and `bombus_spatial_guardrail/community_spatial_match_summary.csv`:
+
+### A. Central Honshu: SDM rank and photographed pigmentation (different regional, adjusted estimand)
+
+The `scripts/run_regional_bombus.R` model uses 875 photographs across 583 cells, with environmental covariates, year, seasonal/coordinate smooths, and cell random intercepts. Results are odds ratios per **0.1 increase in national suitability rank**, *not* relative visitation rates:
+
+| Model / contrast | OR (95% CI) | P |
+|---|---|---:|
+| All-five mean (model includes environment and space) | **1.6326 (1.1003–2.4224)** | **0.01490** |
+| All-five mean with elevation smooth | 1.2912 (0.4821–3.4582) | 0.61118 |
+| Widespread two-species mean in groups model | **1.6594 (1.0904–2.5253)** | **0.01808** |
+| Montane three-species mean in groups model | 0.5541 (0.2660–1.1541) | 0.11475 |
+| Montane minus widespread coefficient, OR ratio | **0.3339 (0.1382–0.8067)** | **0.01480** |
+| `B. diversus` in joint species model | **1.2877 (1.0421–1.5912)** | **0.01920** |
+| `B. ardens` in joint species model | 1.1125 (0.7325–1.6897) | 0.61710 |
+| Diversus versus ardens slope contrast (OR ratio) | 1.1575 (0.8099–1.6541) | 0.42211 |
+
+The **positive widespread-two-species association and negative-point-estimate montane-three-species association are different** in that adjusted regional model, but the inference is conditional on its covariate specification and selected geographic footprint. It is **not an SDM-only model** and cannot directly satisfy the user's requested one-source predictor design. The `all-five + elevation` result loses precision and does not support a general five-species association.
+
+### B. Selected flower-colour boundaries versus locally matched control edges (different sampling and null)
+
+From the archive's `bombus_spatial_guardrail/community_spatial_match_summary.csv`, comparing **selected sharp colour boundaries** with **nearby non-transition edges matched on distance and elevation**, rather than correlating colour distance and bee distance across *all* edges:
+
+| Local radius | n selected boundaries | Mean excess five-species Hellinger turnover | One-sided matched-background P |
+|---|---:|---:|---:|
+| 5 km | 55 | +0.03303 | 0.06283 |
+| 10 km | 102 | +0.03268 | **0.01423** |
+| 25 km | 165 | +0.04107 | **0.00010** |
+
+This is an ecologically interesting *boundary-enrichment* pattern, especially at 10 and 25 km, but **does not establish a direction of colour change, and it uses geographic/elevation matching**. For the current user-directed SDM-only analysis, it remains a historical result to compare conceptually, not a replacement for the 5-km all-edge predeclared primary null. The matched test and the all-edge Spearman test can legitimately differ: selected discontinuities and their matched controls are not the full edge population; the Hellinger/absolute-colour statistic plus null selection differ.
+
+**Decision:** Three independent descriptions now exist: (1) adjusted regional five-species suitability association, (2) selected-boundary enrichment under spatial/elevation matching, and (3) SDM-only continuous all-edge turnover correlation. They cannot be treated as replicate tests of one causal hypothesis. Manuscript claims must label their specific estimands and avoid promoting a non-robust, post-selected sensitivity to the main mechanism.
+
 ## What this means for the paper
 
 The five-species test is of **predicted SDM suitability-profile turnover**, NOT observed guild turnover, visitation pressure, flower-choice behaviour, reproductive fitness, or flower constancy. Occurrence-referenced species suitability scores are normalised to compare relative prediction profiles but cannot be assumed proportional to the five species' true visitation frequencies.

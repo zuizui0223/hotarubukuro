@@ -20,13 +20,13 @@ The older 2-species source output was missing all three montane taxa and could n
 
 ## Real five-species data recovered and verified
 
-The completed public [GitHub Actions run #42953552095](https://github.com/zuizui0223/hotarubukuro/actions/runs/42953552095) uploaded **artifact 13831541196** (\`manuscript-replay\`). The relevant, directly checked paths are:
+The completed public [GitHub Actions run #42953552095](https://github.com/zuizui0223/hotarubukuro/actions/runs/42953552095) uploaded **artifact 13831541196** (`manuscript-replay`). The relevant, directly checked paths are:
 
-- \`analysis_cells/analysis_cells_1km.csv\` (1,305 cells; 1,922 retained photographs; 956 pigmented photographs)
-- \`bombus_occurrence_reference_support/cell_effective_bombus_support.csv\` (five occurrence-referenced columns, each finite for **1,305/1,305** cell IDs)
-- \`bombus_occurrence_reference_support/occurrence_reference_calibration.csv\` (five species and their actual occurrence calibration records).
+- `analysis_cells/analysis_cells_1km.csv` (1,305 cells; 1,922 retained photographs; 956 pigmented photographs)
+- `bombus_occurrence_reference_support/cell_effective_bombus_support.csv` (five occurrence-referenced columns, each finite for **1,305/1,305** cell IDs)
+- `bombus_occurrence_reference_support/occurrence_reference_calibration.csv` (five species and their actual occurrence calibration records).
 
-The same archive contains \`analysis_reproduction/run_manifest.json\` with \`status=SUCCESS\`, a frozen spatial-input SHA-256 \`4f87f284641bcbeb1a012cd449cd5eb78bf3e1dfbadfd0c580e84ae40f7ad104\`, and the Zenodo-derived canonical analysis-table SHA-256 \`9e543b64a824aff82dbb55da1bca8843fb337a51399bfd60ad0a09c9bca3c33c\`. The five surfaces were reconstructed through the source-build; **no missing SDM values were imputed**. The full five species are now available and therefore the previous 3-species-missing blocker is resolved for this specific archive.
+The same archive contains `analysis_reproduction/run_manifest.json` with `status=SUCCESS`, a frozen spatial-input SHA-256 `4f87f284641bcbeb1a012cd449cd5eb78bf3e1dfbadfd0c580e84ae40f7ad104`, and the Zenodo-derived canonical analysis-table SHA-256 `9e543b64a824aff82dbb55da1bca8843fb337a51399bfd60ad0a09c9bca3c33c`. The five surfaces were reconstructed through the source-build; **no missing SDM values were imputed**. The full five species are now available and therefore the previous 3-species-missing blocker is resolved for this specific archive.
 
 ## Executed primary and secondary-window results
 
@@ -73,14 +73,14 @@ The November 2026 main-branch regional Figure 3 models include several abiotic c
 
 ## Reproduce the full-guild test
 
-After \`python run_pipeline.py reproduce\` has produced the five-species score table and 1-km flower cells, install optional support \`pip install -e '.[guild]'\` and run:
+After `python run_pipeline.py reproduce` has produced the five-species score table and 1-km flower cells, install optional support `pip install -e '.[guild]'` and run:
 
-\`\`\`bash
+```bash
 python scripts/run_bombus_five_sdm_turnover.py \
   --cells results/analysis_cells/analysis_cells_1km.csv \
   --sdm results/bombus_occurrence_reference_support/cell_effective_bombus_support.csv \
   --out results/bombus_five_sdm_turnover \
   --radii 5,10,25 --block-km 50 --nperm 10000
-\`\`\`
+```
 
-The same five-species test was independently executed from the frozen 2026-11-11 GitHub Actions output in this analysis. The local result package supplied in the associated ChatGPT conversation contains the minimal, non-abiotic cell and score inputs, executable source, fixed results, diagnostics and SHA manifest; this sandbox path is an interactive-conversation artifact, not a repository-relative link.
+The same five-species test was independently executed from the frozen 2026-11-11 GitHub Actions output in this analysis. The companion data package generated during this analysis contains minimal colour-count and SDM-only inputs, executable source, fixed outputs, sensitivity checks and SHA-256 manifests; no abiotic predictors are included in its minimal analysis tables.

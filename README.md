@@ -67,6 +67,14 @@ The former root-level `Code_S1.py` was a GPX/photo-time georeferencing utility, 
 
 Detailed checkpoints and failure interpretation are in [`docs/REPRODUCE_FROM_ZENODO.md`](docs/REPRODUCE_FROM_ZENODO.md).
 
+## Verified complete raw-data replay (audited 2026-11-16)
+
+A full Zenodo image-workbook-to-results workflow succeeded on 2026-11-11: [Actions run #42953552095](https://github.com/zuizui0223/hotarubukuro/actions/runs/42953552095), [198-file artifact #13831541196](https://github.com/zuizui0223/hotarubukuro/actions/runs/42953552095/artifacts/13831541196). Its branch differed from the then-current `main` only by the workflow step that archives result files; there were **no analysis/source-build code differences**. The raw workbook hash and generated 1,965-row/38-column colour analysis table matched the frozen contracts exactly, and **all 18 downstream pipeline stages** reported SUCCESS.
+
+The [three-part result audit](reproducibility/full_raw_three_part_replay_2026-11-16.md) lists the reproduced Part 1 (state/intensity and spatial null), Part 2 (five-species Bombus regional and local/boundary results) and Part 3 (human isolation and natural-map null) outputs, including small numerical differences from older model-based result summaries. Scientific interpretation and code/version provenance are separate from numerical identity: **exact raw-source reconstruction does not imply bit-for-bit identity for every model statistic**.
+
+Normal GitHub Actions CI runs contract/unit/dry-run checks only; the full reconstruction is opt-in with the `raw_zenodo_reproduction` workflow-dispatch input. Successful opt-in runs on `main` now also archive the summary outputs as a `manuscript-replay` artifact. The newer exploratory SDM-only Bombus checks in [PR #72](https://github.com/zuizui0223/hotarubukuro/pull/72) are not part of `main`.
+
 ## Reproduce Figure 3 from the workbook
 
 Install the Python package as above and R packages `sf`, `terra`, `mgcv` and `mclust`. From the repository root:

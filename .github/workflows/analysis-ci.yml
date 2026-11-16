@@ -180,3 +180,16 @@ jobs:
           if [ -f results/analysis_reproduction/run_manifest.json ]; then
             cat results/analysis_reproduction/run_manifest.json
           fi
+
+      - name: Preserve manuscript audit outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manuscript-replay
+          path: |
+            results/**/*.csv
+            results/**/*.json
+            results/**/*.txt
+            results/**/*.png
+            results/**/*.pdf
+            !results/source_reconstruction/qc/**

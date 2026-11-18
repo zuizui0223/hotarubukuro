@@ -75,16 +75,36 @@ The [three-part result audit](reproducibility/full_raw_three_part_replay_2026-11
 
 Normal GitHub Actions CI runs contract/unit/dry-run checks only; the full reconstruction is opt-in with the `raw_zenodo_reproduction` workflow-dispatch input. Successful opt-in runs on `main` now also archive the summary outputs as a `manuscript-replay` artifact. The newer exploratory SDM-only Bombus checks in [PR #72](https://github.com/zuizui0223/hotarubukuro/pull/72) are not part of `main`.
 
-## Reproduce Figure 3 from the workbook
+## Reproduce manuscript Figure 3 (five-species assemblage turnover)
 
-Install the Python package as above and R packages `sf`, `terra`, `mgcv` and `mclust`. From the repository root:
+The canonical new **manuscript Figure 3** shows the 5/10/25-km five-species
+occurrence-referenced Hellinger turnover at photographed colour-state transitions.
+It is generated from the *same outputs* as the main manuscript's spatial-match test:
 
-```sh
-python source_build/reproduce_from_zenodo.py
-python run_pipeline.py figure3
+```bash
+python -m pip install -e '.[test,figure]'
+python source_build/reproduce_from_zenodo.py --run-analysis
+python scripts/plot_bombus_assemblage_figure3.py
 ```
 
-The second command validates the exact reconstructed flower table, extracts suitability from the five archived publication rasters, refits the pigmentation mixture and regional models, and writes `results/regional_bombus/effects.csv` and `regional_bombus.png`. The full pipeline uses the same publication spatial inputs. See [input provenance and the November replay comparison](docs/bombus-inference-current.md).
+Output: `results/figures/Figure3_assemblage.png`. The figure script only reads
+`results/bombus_spatial_guardrail/community_spatial_match_summary.csv`,
+`.../community_spatial_match_transition_detail.csv` and
+`results/analysis_cells/analysis_cells_1km.csv`. It does not refit models or
+modify any p-values. Optional `basemap` provides the coastline background;
+without it the map uses a plain background but all scientific data are identical.
+
+For an exact archived replay without rerunning the whole analysis, download
+[run 42953552095, manuscript-replay artifact 13831541196](https://github.com/zuizui0223/hotarubukuro/actions/runs/42953552095/artifacts/13831541196)
+and run `python scripts/plot_bombus_assemblage_figure3.py --artifact manuscript-replay.zip`.
+For the frozen 50-km background/20-controls specification, this reproduces
+55/102/165 transitions and BH q values 0.062829/0.021345/0.000300.
+
+**Legacy:** `python run_pipeline.py figure3` still generates the old
+central-Honshu *regional Bombus regression* diagnostic figure, **not** the
+manuscript's new assemblage-turnover Figure 3. Its command name is retained
+for backward compatibility. The main manuscript's directional 67-pair result
+is Supporting Figure S5.1.
 
 ## Running the downstream pipeline separately
 

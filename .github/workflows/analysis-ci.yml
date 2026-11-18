@@ -131,7 +131,8 @@ jobs:
 
   raw-zenodo-reproduction:
     # The image-bearing workbook is 109.7 MB, so full zero-to-analysis proof is opt-in.
-    if: github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction
+    # One-off full-replay trigger on a specially tagged push; ordinary pushes remain contract-only.
+    if: (github.event_name == 'workflow_dispatch' && inputs.raw_zenodo_reproduction) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[full-replay]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
